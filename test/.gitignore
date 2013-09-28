@@ -1,0 +1,6 @@
+run-01-create_gateway_transaction
+run-02-create_block
+run-02-generate
+run-03-check_block
+run-04-create_normal_transaction
+run-05-create_proof
