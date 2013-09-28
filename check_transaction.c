@@ -157,7 +157,7 @@ check_from_gateway(struct state *state,
 	if (!accept_gateway(state, &t->gateway_key))
 		return false;
 
-	for (i = 0; i < le32_to_cpu(t->num_outputs); i++)
+	for (i = 0; i < le16_to_cpu(t->num_outputs); i++)
 		if (le32_to_cpu(t->output[i].send_amount) > MAX_SATOSHI)
 			return false;
 
@@ -171,12 +171,12 @@ static void pubkey_to_addr(const struct protocol_pubkey *key,
 	RIPEMD160(key->key, sizeof(key->key), addr->addr);
 }
 
-bool find_output(union protocol_transaction *trans, u32 output_num,
+bool find_output(union protocol_transaction *trans, u16 output_num,
 		 struct protocol_address *addr, u32 *amount)
 {
 	switch (trans->hdr.type) {
 	case TRANSACTION_FROM_GATEWAY:
-		if (output_num > le32_to_cpu(trans->gateway.num_outputs))
+		if (output_num > le16_to_cpu(trans->gateway.num_outputs))
 			return false;
 		*addr = trans->gateway.output[output_num].output_addr;
 		*amount = le32_to_cpu(trans->gateway.output[output_num]
@@ -246,7 +246,7 @@ static bool check_chain(struct state *state,
 		pubkey_to_addr(&t->normal.input_key, &my_addr);
 
 		/* Consume that many chains. */
-		for (i = 0; i < le32_to_cpu(t->normal.num_inputs); i++) {
+		for (i = 0; i < le16_to_cpu(t->normal.num_inputs); i++) {
 			u32 amount;
 			struct protocol_address addr;
 			struct protocol_double_sha sha;
@@ -261,7 +261,7 @@ static bool check_chain(struct state *state,
 				return false;
 
 			if (!find_output(**trans,
-					 le32_to_cpu(t->normal.input[i].output),
+					 le16_to_cpu(t->normal.input[i].output),
 					 &addr, &amount))
 				return false;
 

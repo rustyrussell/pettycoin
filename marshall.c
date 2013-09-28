@@ -109,10 +109,10 @@ union protocol_transaction *unmarshall_transaction(void *buffer, size_t size)
 		if (size < sizeof(t->normal))
 			return NULL;
 		if (mul_overflows(sizeof(t->normal.input[0]),
-				  le32_to_cpu(t->normal.num_inputs)))
+				  le16_to_cpu(t->normal.num_inputs)))
 			return NULL;
 		i = sizeof(t->normal.input[0])
-			* le32_to_cpu(t->normal.num_inputs);
+			* le16_to_cpu(t->normal.num_inputs);
 
 		if (add_overflows(sizeof(t->normal), i))
 			return NULL;
@@ -124,10 +124,10 @@ union protocol_transaction *unmarshall_transaction(void *buffer, size_t size)
 			return NULL;
 		
 		if (mul_overflows(sizeof(t->gateway.output[0]),
-				  le32_to_cpu(t->gateway.num_outputs)))
+				  le16_to_cpu(t->gateway.num_outputs)))
 			return NULL;
 		i = sizeof(t->gateway.output[0])
-			* le32_to_cpu(t->gateway.num_outputs);
+			* le16_to_cpu(t->gateway.num_outputs);
 
 		if (add_overflows(sizeof(t->gateway), i))
 			return NULL;
@@ -165,10 +165,10 @@ size_t marshall_transaction_len(const union protocol_transaction *t)
 	switch (t->hdr.type) {
 	case TRANSACTION_NORMAL:
 		return varsize(struct protocol_transaction_normal,
-			       input, le32_to_cpu(t->normal.num_inputs));
+			       input, le16_to_cpu(t->normal.num_inputs));
 	case TRANSACTION_FROM_GATEWAY:
 		return varsize(struct protocol_transaction_gateway,
-			       output, le32_to_cpu(t->gateway.num_outputs));
+			       output, le16_to_cpu(t->gateway.num_outputs));
 	}
 	abort();
 }

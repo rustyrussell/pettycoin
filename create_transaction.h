@@ -17,7 +17,7 @@ create_normal_transaction(struct state *state,
 			  const struct protocol_address *pay_to,
 			  u32 send_amount,
 			  u32 change_amount,
-			  u32 num_inputs,
+			  u16 num_inputs,
 			  const struct protocol_input inputs[],
 			  EC_KEY *private_key);
 #endif /* PETTYCOIN_CREATE_TRANSACTION_H */

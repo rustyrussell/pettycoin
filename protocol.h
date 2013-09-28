@@ -98,7 +98,7 @@ struct protocol_input {
 	struct protocol_double_sha input;
 	/* This identifies the output.
 	 * For normal transactions, 0 == send_amount, 1 = change */
-	le32 output;
+	le16 output;
 };
 
 /* Core of a transaction */
@@ -115,7 +115,7 @@ struct protocol_transaction_normal {
 	/* Amount to return to input_key. */
 	le32 change_amount;
 	/* Number of inputs to spend. */
-	le32 num_inputs;
+	le16 num_inputs;
 	/* ECDSA of double SHA256 of above, and inputs[] below. */
 	struct protocol_signature signature;
 	/* The inputs */
@@ -137,7 +137,7 @@ struct protocol_transaction_gateway {
 	/* Key of the gateway crediting the funds. */
 	struct protocol_pubkey gateway_key;
 	/* Number of outputs we're sending. */
-	le32 num_outputs;
+	le16 num_outputs;
 	/* ECDSA of double SHA256 of above, and outputs[] below. */
 	struct protocol_signature signature;
 	struct protocol_gateway_payment output[ /* num_outputs */ ];

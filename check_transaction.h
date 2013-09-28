@@ -15,7 +15,7 @@ bool check_transaction(struct state *state,
 		       struct protocol_proof *proof);
 
 /* Find the output_num'th output in trans */
-bool find_output(union protocol_transaction *trans, u32 output_num,
+bool find_output(union protocol_transaction *trans, u16 output_num,
 		 struct protocol_address *addr, u32 *amount);
 
 union protocol_transaction *unmarshall_transaction(void *buffer, size_t size);

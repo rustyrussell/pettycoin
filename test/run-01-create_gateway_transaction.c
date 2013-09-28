@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
 	assert(t->gateway.features == 0);
 	assert(memcmp(&t->gateway.gateway_key, helper_gateway_public_key(),
 		      sizeof(t->gateway.gateway_key)) == 0);
-	assert(le32_to_cpu(t->gateway.num_outputs) == 1);
+	assert(le16_to_cpu(t->gateway.num_outputs) == 1);
 	assert(le32_to_cpu(t->gateway.output[0].send_amount) == 1000);
 	assert(memcmp(&t->gateway.output[0].output_addr,
 		      helper_addr(0),
@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
 	assert(t->gateway.features == 0);
 	assert(memcmp(&t->gateway.gateway_key, helper_gateway_public_key(),
 		      sizeof(t->gateway.gateway_key)) == 0);
-	assert(le32_to_cpu(t->gateway.num_outputs) == 2);
+	assert(le16_to_cpu(t->gateway.num_outputs) == 2);
 	assert(le32_to_cpu(t->gateway.output[0].send_amount) == 1000);
 	assert(memcmp(&t->gateway.output[0].output_addr,
 		      helper_addr(0),
@@ -87,10 +87,10 @@ int main(int argc, char *argv[])
 	assert(!check_transaction(s, trans, NULL));
 	t->gateway.type--;
 
-	t->gateway.num_outputs = cpu_to_le32(le32_to_cpu(t->gateway.num_outputs)
+	t->gateway.num_outputs = cpu_to_le16(le16_to_cpu(t->gateway.num_outputs)
 					     - 1);
 	assert(!check_transaction(s, trans, NULL));
-	t->gateway.num_outputs = cpu_to_le32(le32_to_cpu(t->gateway.num_outputs)
+	t->gateway.num_outputs = cpu_to_le16(le16_to_cpu(t->gateway.num_outputs)
 					     + 1);
 
 	t->gateway.output[0].send_amount ^= cpu_to_le32(1);

@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
 	assert(add_transaction(w2, t));
 
 	for (i = 0; !solve_block(w2); i++);
-	assert(i == 61232);
+	assert(i == 45149);
 
 	hash_block(&w2->hdr, w2->merkles, w2->prev_merkles, &w2->tailer,
 		   &hash2);

@@ -16,7 +16,7 @@ static u64 get_amount(const union protocol_transaction *t)
 		u32 i;
 		u64 total = 0;
 
-		for (i = 0; i < le32_to_cpu(t->gateway.num_outputs); i++)
+		for (i = 0; i < le16_to_cpu(t->gateway.num_outputs); i++)
 			total += le32_to_cpu(t->gateway.output[i].send_amount);
 		return total;
 	}

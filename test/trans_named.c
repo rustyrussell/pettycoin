@@ -31,7 +31,7 @@ struct named_trans {
 };
 
 static union protocol_transaction *find_name(const char *name,
-					     unsigned int *output_num,
+					     u16 *output_num,
 					     u32 *amount)
 {
 	size_t len = strcspn(name, "-");
@@ -56,7 +56,7 @@ static union protocol_transaction *find_name(const char *name,
 		} else {
 			assert(i->t->hdr.type == TRANSACTION_FROM_GATEWAY);
 			num = atoi(name + len + 1);
-			assert(num < i->t->gateway.num_outputs);
+			assert(num < le16_to_cpu(i->t->gateway.num_outputs));
 			amt = le32_to_cpu(i->t->gateway.output[num].send_amount);
 		}
 		if (i->used & (1 << num))
@@ -111,7 +111,7 @@ named_trans(struct state *s, const char *tname,
 	i = total = 0;
 	while ((name = va_arg(ap, const char *)) != NULL) {
 		union protocol_transaction *input;
-		unsigned int output;
+		u16 output;
 		unsigned int amt;
 
 		input = find_name(name, &output, &amt);
@@ -121,7 +121,7 @@ named_trans(struct state *s, const char *tname,
 		if (i >= ARRAY_SIZE(inputs))
 			errx(1, "Too many inputs");
 		hash_transaction(input, NULL, 0, &inputs[i].input);
-		inputs[i].output = cpu_to_le32(output);
+		inputs[i].output = cpu_to_le16(output);
 		total += amt;
 		i++;
 	}
