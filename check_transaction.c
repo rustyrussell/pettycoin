@@ -4,6 +4,7 @@
 #include "hash_transaction.h"
 #include "overflows.h"
 #include "protocol.h"
+#include "addr.h"
 #include "shadouble.h"
 #include "state.h"
 #include "version.h"
@@ -13,7 +14,6 @@
 #include <openssl/bn.h>
 #include <openssl/ecdsa.h>
 #include <openssl/obj_mac.h>
-#include <openssl/ripemd.h>
 
 /* Check signature. */
 static bool check_trans_sign(const struct protocol_double_sha *sha,
@@ -163,12 +163,6 @@ check_from_gateway(struct state *state,
 
 	hash_transaction((const union protocol_transaction *)t, NULL, 0, &sha);
 	return check_trans_sign(&sha, &t->gateway_key, &t->signature);
-}
-
-static void pubkey_to_addr(const struct protocol_pubkey *key,
-			   struct protocol_address *addr)
-{
-	RIPEMD160(key->key, sizeof(key->key), addr->addr);
 }
 
 bool find_output(union protocol_transaction *trans, u16 output_num,
