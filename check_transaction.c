@@ -144,12 +144,22 @@ check_normal(struct state *state, const struct protocol_transaction_normal *t)
 	return check_trans_sign(&sha, &t->input_key, &t->signature);
 }
 
+static u32 shard_of(const struct protocol_address *addr)
+{
+	u32 shard;
+
+	memcpy(&shard, addr->addr, sizeof(shard));
+	shard &= (1 << PROTOCOL_SHARD_BITS) - 1;
+	return shard;
+}
+
 static bool
 check_from_gateway(struct state *state,
 		   const struct protocol_transaction_gateway *t)
 {
 	struct protocol_double_sha sha;
 	u32 i;
+	u32 the_shard;
 
 	if (!version_ok(t->version))
 		return false;
@@ -157,9 +167,16 @@ check_from_gateway(struct state *state,
 	if (!accept_gateway(state, &t->gateway_key))
 		return false;
 
-	for (i = 0; i < le16_to_cpu(t->num_outputs); i++)
+	/* Each output must be in the same shard. */
+	for (i = 0; i < le16_to_cpu(t->num_outputs); i++) {
+		if (i == 0)
+			the_shard = shard_of(&t->output[i].output_addr);
+		else if (shard_of(&t->output[i].output_addr) != the_shard)
+			return false;
+
 		if (le32_to_cpu(t->output[i].send_amount) > MAX_SATOSHI)
 			return false;
+	}
 
 	hash_transaction((const union protocol_transaction *)t, NULL, 0, &sha);
 	return check_trans_sign(&sha, &t->gateway_key, &t->signature);
