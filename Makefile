@@ -36,6 +36,9 @@ clean:
 	$(RM) pettycoin generate mkgenesis sizes *.o
 	$(MAKE) -C test clean
 
+TAGS:
+	etags *.[ch]
+
 distclean: clean
 
 ccan-asort.o: $(CCANDIR)/ccan/asort/asort.c
