@@ -12,6 +12,7 @@
 #include "../difficulty.c"
 #include "../transaction_cmp.c"
 #include "../state.c"
+#include "../marshall.c"
 #include <ccan/tal/tal.h>
 #include <ccan/list/list.h>
 #include "trans_named.c"
