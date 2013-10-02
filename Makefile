@@ -4,8 +4,9 @@ MKGENESIS_OBJS := mkgenesis.o shadouble.o marshall.o hash_block.o
 SIZES_OBJS := sizes.o
 CCAN_OBJS := ccan-asort.o ccan-breakpoint.o ccan-tal.o ccan-tal-path.o ccan-tal-str.o ccan-take.o ccan-list.o ccan-str.o ccan-opt-helpers.o ccan-opt.o ccan-opt-parse.o ccan-opt-usage.o ccan-read_write_all.o ccan-htable.o
 CCANDIR=../ccan/
-#CFLAGS = -O3 -flto -ggdb -I $(CCANDIR) -Wall
-CFLAGS = -ggdb -I $(CCANDIR) -Wall -Wmissing-prototypes
+VERSION:=$(shell git describe --dirty --always 2>/dev/null || echo Unknown)
+#CFLAGS = -O3 -flto -ggdb -I $(CCANDIR) -Wall -DVERSION=\"$(VERSION)\"
+CFLAGS = -ggdb -I $(CCANDIR) -Wall -Wmissing-prototypes -DVERSION=\"$(VERSION)\"
 LDFLAGS = -O3 -flto
 LDLIBS := -lcrypto
 
