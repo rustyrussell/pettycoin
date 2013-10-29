@@ -14,6 +14,7 @@
 #include <ccan/isaac/isaac.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/cast/cast.h>
 #include <openssl/rand.h>
 #include <openssl/err.h>
 #include <sys/types.h>
@@ -101,12 +102,13 @@ static int new_peer_cache(le64 *randbytes)
 	return fd;
 }
 
-static bool peer_hash_find(const struct peer_cache *pc,
-			   const struct protocol_net_address *addr)
+static struct peer_hash_entry *
+peer_hash_entry(const struct peer_cache *pc,
+		const struct protocol_net_address *addr)
 {
 	u32 h = hash64((u8 *)addr, sizeof(*addr), pc->file.randbytes);
 
-	return memcmp(addr, &pc->file.h[h].addr, sizeof(*addr)) == 0;
+	return cast_const(struct peer_hash_entry *, &pc->file.h[h]);
 }
 
 static bool is_zero_addr(const struct protocol_net_address *addr)
@@ -129,7 +131,7 @@ static bool check_peer_cache(const struct peer_cache *pc)
 			continue;
 		if (pc->file.h[i].last_used > time)
 			return false;
-		if (!peer_hash_find(pc, &pc->file.h[i].addr))
+		if (peer_hash_entry(pc, &pc->file.h[i].addr) != &pc->file.h[i])
 			return false;
 	}
 	return true;
@@ -204,29 +206,43 @@ static bool read_peer_cache(struct state *state)
 	return num;
 }
 
+static void update_on_disk(struct peer_cache *pc,
+			   const struct peer_hash_entry *e)
+{
+	lseek(pc->fd, (char *)e - (char *)&pc->file, SEEK_SET);
+	if (write(pc->fd, e, sizeof(*e)) != sizeof(*e))
+		warn("Trouble writing peer_cache");
+}
+
 static void peer_cache_add(struct state *state, 
 			   const struct protocol_net_address *addr,
 			   u32 last_used)
 {
-	struct peer_cache *pc = state->peer_cache;
-	u32 h = hash64((u8 *)&addr, sizeof(addr), pc->file.randbytes);
+	struct peer_hash_entry *e = peer_hash_entry(state->peer_cache, addr);
 
-	if (memcmp(&pc->file.h[h].addr, addr, sizeof(*addr)) == 0) {
+	if (memcmp(&e->addr, addr, sizeof(*addr)) == 0) {
 		/* Don't go backwards (eg. if peer hands us known address. */
-		if (last_used < pc->file.h[h].last_used)
+		if (last_used < e->last_used)
 			return;
 	} else {
 		/* 50% chance of replacing different entry. */
-		if (!is_zero_addr(&pc->file.h[h].addr)
-		    && isaac_next_uint(&isaac, 2))
+		if (!is_zero_addr(&e->addr) && isaac_next_uint(&isaac, 2))
 			return;
 	}
-	pc->file.h[h].addr = *addr;
-	pc->file.h[h].last_used = last_used;
-	lseek(pc->fd, offsetof(struct peer_cache_file, h[h]), SEEK_SET);
-	if (write(pc->fd, &pc->file.h[h], sizeof(pc->file.h[h]))
-	    != sizeof(pc->file.h[h]))
-		warn("Trouble writing pc cache");
+	e->addr = *addr;
+	e->last_used = last_used;
+	update_on_disk(state->peer_cache, e);
+}
+
+static void peer_cache_del(struct state *state,
+			   const struct protocol_net_address *addr)
+{
+	struct peer_hash_entry *e = peer_hash_entry(state->peer_cache, addr);
+
+	if (memcmp(&e->addr, addr, sizeof(*addr)) == 0) {
+		memset(e, 0, sizeof(*e));
+		update_on_disk(state->peer_cache, e);
+	}
 }
 
 static struct io_plan digest_peer_addrs(struct io_conn *conn,
@@ -312,6 +328,7 @@ void fill_peers(struct state *state)
 static struct io_plan welcome_received(struct io_conn *conn, struct peer *peer)
 {
 	tal_steal(peer, peer->welcome);
+	peer->state->num_peers_connected++;
 
 	printf("Welcome received on %p!\n", peer);
 
@@ -330,6 +347,14 @@ static void destroy_peer(struct peer *peer)
 {
 	peer->state->num_peers--;
 	fill_peers(peer->state);
+
+	if (peer->welcome)
+		peer->state->num_peers_connected--;
+	else {
+		/* Only delete from cache if we have *some* networking. */
+		if (peer->state->num_peers_connected)
+			peer_cache_del(peer->state, &peer->you);
+	}
 }
 
 static struct io_plan setup_welcome(struct io_conn *unused, struct peer *peer)

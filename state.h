@@ -22,6 +22,7 @@ struct state {
 
 	/* Number of current peers (some may be connecting) */
 	size_t num_peers;
+	size_t num_peers_connected;
 
 	/* Set if we're allowed to get more. */
 	bool refill_peers;

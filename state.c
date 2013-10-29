@@ -13,6 +13,7 @@ struct state *new_state(bool test_net)
 	list_head_init(&s->blocks);
 	thash_init(&s->thash);
 	s->num_peers = 0;
+	s->num_peers_connected = 0;
 	s->peer_addrs = tal_arr(s, struct protocol_net_address, 0);
 	s->refill_peers = true;
 	s->peer_cache = NULL;
