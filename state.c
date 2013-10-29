@@ -15,6 +15,7 @@ struct state *new_state(bool test_net)
 	s->num_peers = 0;
 	s->peer_addrs = tal_arr(s, struct protocol_net_address, 0);
 	s->refill_peers = true;
+	s->peer_cache = NULL;
 
 	/* Set up genesis block */
 	BN_init(&genesis.total_work);

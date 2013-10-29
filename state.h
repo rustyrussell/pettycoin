@@ -28,6 +28,9 @@ struct state {
 
 	/* Tal array of peers we want to connect to. */
 	struct protocol_net_address *peer_addrs;
+
+	/* Peer cache */
+	struct peer_cache *peer_cache;
 };
 
 struct state *new_state(bool test_net);

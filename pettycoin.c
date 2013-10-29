@@ -3,11 +3,13 @@
 #include <ccan/opt/opt.h>
 #include <ccan/tal/tal.h>
 #include <ccan/tal/str/str.h>
+#include <ccan/tal/path/path.h>
 #include <ccan/err/err.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/io/io.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <netdb.h>
 #include <errno.h>
 #include "protocol.h"
@@ -123,9 +125,19 @@ static char *add_connect(const char *arg, struct state *state)
 	return NULL;
 }
 
+static char *make_pettycoin_dir(const tal_t *ctx)
+{
+	const char *env = getenv("HOME");
+	if (!env)
+		errx(1, "$HOME is not set");
+
+	return path_join(ctx, env, ".pettycoin");
+}
+
 int main(int argc, char *argv[])
 {
 	struct state *state = new_state(true);
+	char *pettycoin_dir = make_pettycoin_dir(state);
 
 	err_set_progname(argv[0]);
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
@@ -142,6 +154,11 @@ int main(int argc, char *argv[])
 	if (argc != 1)
 		errx(1, "no arguments accepted");
 
+	/* Move to pettycoin dir, to save ourselves the hassle of path manip. */
+	if (chdir(pettycoin_dir) != 0 && mkdir(pettycoin_dir, 0700) != 0)
+		err(1, "Could not make directory %s", pettycoin_dir);
+
+	init_peer_cache(state);
 	fill_peers(state);
 	make_listeners(state);
 
