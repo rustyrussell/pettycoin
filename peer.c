@@ -116,8 +116,69 @@ void fill_peers(struct state *state)
 	}
 }
 
+static struct protocol_req_err *protocol_req_err(struct peer *peer,
+						 enum protocol_error e)
+{
+	struct protocol_req_err *pkt = tal(peer, struct protocol_req_err);
+
+	pkt->len = cpu_to_le32(sizeof(*pkt) - sizeof(pkt->len));
+	pkt->type = cpu_to_le32(PROTOCOL_REQ_ERR);
+	pkt->error = cpu_to_le32(e);
+
+	return pkt;
+}
+
+static struct protocol_resp_err *protocol_resp_err(struct peer *peer,
+						   enum protocol_error e)
+{
+	struct protocol_resp_err *pkt = tal(peer, struct protocol_resp_err);
+
+	pkt->len = cpu_to_le32(sizeof(*pkt) - sizeof(pkt->len));
+	pkt->type = cpu_to_le32(PROTOCOL_RESP_ERR);
+	pkt->error = cpu_to_le32(e);
+
+	return pkt;
+}
+
+static struct io_plan check_welcome_ack(struct io_conn *conn,
+					struct peer *peer)
+{
+	struct protocol_resp_err *wresp = peer->incoming;
+	void *errpkt;
+
+	if (wresp->len != cpu_to_le32(sizeof(*wresp) - sizeof(wresp->len))) {
+		errpkt = protocol_resp_err(peer, PROTOCOL_INVALID_LEN);
+		goto fail;
+	}
+
+	if (wresp->type != cpu_to_le32(PROTOCOL_RESP_ERR)) {
+		errpkt = protocol_resp_err(peer, PROTOCOL_UNKNOWN_COMMAND);
+		goto fail;
+	}
+
+	/* It doesn't like us. */
+	if (wresp->error != cpu_to_le32(PROTOCOL_ERROR_NONE)) {
+		peer_cache_del(peer->state, &peer->you, true);
+		return io_close();
+	}
+
+	/* FIXME: do something. */
+	return io_close();
+
+fail:
+	return io_write_packet(peer, errpkt, io_close_cb); 
+}
+
+static struct io_plan receive_welcome_ack(struct io_conn *conn,
+					  struct peer *peer)
+{
+	return io_read_packet(&peer->incoming, check_welcome_ack, peer);
+}
+
 static struct io_plan welcome_received(struct io_conn *conn, struct peer *peer)
 {
+	struct protocol_req_err *resp;
+
 	tal_steal(peer, peer->welcome);
 	peer->state->num_peers_connected++;
 
@@ -127,15 +188,19 @@ static struct io_plan welcome_received(struct io_conn *conn, struct peer *peer)
 		return io_close();
 	}
 
-	if (!check_welcome(peer->welcome))
-		return io_close();
+	resp = protocol_req_err(peer, check_welcome(peer->welcome));
+	if (resp->error != cpu_to_le32(PROTOCOL_ERROR_NONE))
+		return io_write_packet(peer, resp, io_close_cb);
 
 	printf("Welcome received on %p (%llu)!\n", peer, peer->welcome->random);
 
-	/* Update time for this peer. */
+	/* Replace port with see with port they want us to connect to. */
+	peer->you.port = peer->welcome->listen_port;
+
+	/* Create/update time for this peer. */
 	peer_cache_update(peer->state, &peer->you, time_to_sec(time_now()));
 
-	return io_close();
+	return io_write_packet(peer, resp, receive_welcome_ack);
 }
 
 static struct io_plan welcome_sent(struct io_conn *conn, struct peer *peer)
@@ -160,8 +225,9 @@ static void destroy_peer(struct peer *peer)
 
 static struct io_plan setup_welcome(struct io_conn *unused, struct peer *peer)
 {
-	peer->outgoing = make_welcome(peer, peer->state, &peer->you);
-	return io_write_packet(peer->outgoing, welcome_sent, peer);
+	return io_write_packet(peer,
+			       make_welcome(peer, peer->state, &peer->you),
+			       welcome_sent);
 }
 
 void new_peer(struct state *state, int fd, const struct protocol_net_address *a)
@@ -171,6 +237,8 @@ void new_peer(struct state *state, int fd, const struct protocol_net_address *a)
 	list_add(&state->peers, &peer->list);
 	peer->state = state;
 	peer->welcome = NULL;
+	peer->outgoing = NULL;
+	peer->incoming = NULL;
 
 	/* If a, we need to connect to there. */
 	if (a) {

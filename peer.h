@@ -13,8 +13,11 @@ struct peer {
 	/* Connection to the peer. */
 	struct io_conn *conn;
 
-	/* Packet to free after sending. */
-	void *outgoing;
+	/* Packet we are sending (freed after sending). */
+	const void *outgoing;
+
+	/* Packet we have received. */
+	void *incoming;
 
 	/* The other end's address. */
 	struct protocol_net_address you;

@@ -1,5 +1,6 @@
 #include "packet.h"
 #include "protocol_net.h"
+#include "peer.h"
 #include <ccan/tal/tal.h>
 #include <string.h>
 #include <errno.h>
@@ -76,15 +77,19 @@ struct io_plan io_read_packet_(void *ppkt,
 	return plan;
 }
 
-struct io_plan io_write_packet_(const void *pkt,
-				struct io_plan (*cb)(struct io_conn *, void *),
-				void *arg)
+/* Frees pkt on next write! */
+struct io_plan io_write_packet_(struct peer *peer, const void *pkt,
+				struct io_plan (*next)(struct io_conn *,
+						       void *))
 {
 	le32 len;
+
+	tal_free(peer->outgoing);
+	peer->outgoing = pkt;
 
 	/* Packet header contains 32-bit little-endian length of the rest */
 	memcpy(&len, pkt, sizeof(len));
 	assert(le32_to_cpu(len) <= PROTOCOL_MAX_PACKET_LEN);
 
-	return io_write(pkt, sizeof(len) + le32_to_cpu(len), cb, arg);
+	return io_write(pkt, sizeof(len) + le32_to_cpu(len), next, peer);
 }

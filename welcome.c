@@ -1,5 +1,4 @@
 #include "welcome.h"
-#include "protocol_net.h"
 #include "state.h"
 #include "version.h"
 
@@ -29,17 +28,16 @@ static size_t popcount(const u8 *bits, size_t num)
 	return n;
 }
 
-bool check_welcome(const struct protocol_req_welcome *w)
+enum protocol_error check_welcome(const struct protocol_req_welcome *w)
 {
 	if (le32_to_cpu(w->len) < (sizeof(*w) - sizeof(w->len)))
-		return false;
+		return PROTOCOL_INVALID_LEN;
 	if (w->type != cpu_to_le32(PROTOCOL_REQ_WELCOME))
-		return false;
+		return PROTOCOL_UNKNOWN_COMMAND;
 	if (w->version != cpu_to_le32(current_version()))
-		return false;
-	if (w->listen_port == 0)
-		return false;
+		return PROTOCOL_ERROR_HIGH_VERSION;
 	if (popcount(w->interests, sizeof(w->interests)) < 2)
-		return false;
-	return true;
+		return PROTOCOL_ERROR_NO_INTEREST;
+
+	return PROTOCOL_ERROR_NONE;
 }

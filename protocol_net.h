@@ -28,18 +28,18 @@ enum protocol_req_type {
 };
 
 /* High bit indicates a response packet. */
-enum protocol_response_type {
-	PROTOCOL_RESPONSE_WELCOME = 0x80000000,
-	PROTOCOL_RESPONSE_ERR, /* Unused. */
-	PROTOCOL_RESPONSE_BLOCKSTART,
-	PROTOCOL_RESPONSE_TRANSACTION_NUMS,
-	PROTOCOL_RESPONSE_BATCH,
-	PROTOCOL_RESPONSE_TRANNSACTION,
-	PROTOCOL_RESPONSE_NEW_BLOCK,
-	PROTOCOL_RESPONSE_NEW_TRANSACTION,
+enum protocol_resp_type {
+	PROTOCOL_RESP_WELCOME = 0x80000000,
+	PROTOCOL_RESP_ERR,
+	PROTOCOL_RESP_BLOCKSTART,
+	PROTOCOL_RESP_TRANSACTION_NUMS,
+	PROTOCOL_RESP_BATCH,
+	PROTOCOL_RESP_TRANNSACTION,
+	PROTOCOL_RESP_NEW_BLOCK,
+	PROTOCOL_RESP_NEW_TRANSACTION,
 
 	/* >= this is invalid. */
-	PROTOCOL_RESPONSE_MAX
+	PROTOCOL_RESP_MAX
 };
 
 enum protocol_error {
@@ -52,6 +52,7 @@ enum protocol_error {
 	PROTOCOL_ERROR_HIGH_VERSION, /* version is unknown. */
 	PROTOCOL_ERROR_LOW_VERSION, /* version is old. */
 	PROTOCOL_ERROR_NO_INTEREST, /* not enough interest bits. */
+
 	/* protocol_req_blockstart/protocol_req_batchnums/protocol_req_batch: */
 	PROTOCOL_ERROR_UNKNOWN_BLOCK, /* I don't know that block? */
 	/* protocol_req_batchnums/protocol_req_batch: */
@@ -85,23 +86,17 @@ struct protocol_req_welcome {
 	u8 interests[(1 << PROTOCOL_SHARD_BITS) / 8];
 };
 
-struct protocol_response_welcome {
-	le32 len; /* sizeof(struct protocol_response_welcome) */
-	le32 type; /* PROTOCOL_RESPONSE_WELCOME */
-	le32 error; /* Expect PROTOCOL_ERROR_NONE. */
-	/* Freeform software version. */
-	char moniker[32];
-	/* Address we see you at. */
-	struct protocol_net_address you;
-	/* We are interested in certain addresses, based on their
-	 * lower bits bits.  We must be interested in more than 1. */
-	le32 interests[(1 << PROTOCOL_SHARD_BITS) / 32];
-};
-
-/* Usually followed by a hangup, since communication has failed. */
+/* Usually followed by a hangup if error, since communication has failed. */
 struct protocol_req_err {
 	le32 len; /* sizeof(struct protocol_req_welcome) */
 	le32 type; /* PROTOCOL_REQ_ERR */
+	le32 error;
+};
+
+/* Usually followed by a hangup if error, since communication has failed. */
+struct protocol_resp_err {
+	le32 len; /* sizeof(struct protocol_req_welcome) */
+	le32 type; /* PROTOCOL_RESP_ERR */
 	le32 error;
 };
 
@@ -113,9 +108,9 @@ struct protocol_req_getblocks {
 	struct protocol_double_sha block[ /* num */ ];
 };
 
-struct protocol_response_getblocks {
-	le32 len; /* sizeof(struct protocol_response_welcome) */
-	le32 type; /* PROTOCOL_RESPONSE_GETBLOCKS */
+struct protocol_resp_getblocks {
+	le32 len; /* sizeof(struct protocol_resp_welcome) */
+	le32 type; /* PROTOCOL_RESP_GETBLOCKS */
 	le32 error; /* Expect PROTOCOL_ERROR_NONE. */
 	/* Common block we share. */
 	struct protocol_double_sha common;
@@ -132,9 +127,9 @@ struct protocol_req_batch_nums {
 };
 
 /* Here's some transaction nums for you. */
-struct protocol_response_transaction_nums {
-	le32 len; /* sizeof(struct protocol_response_welcome) */
-	le32 type; /* PROTOCOL_RESPONSE_TRANSACTION_NUMS */
+struct protocol_resp_transaction_nums {
+	le32 len; /* sizeof(struct protocol_resp_welcome) */
+	le32 type; /* PROTOCOL_RESP_TRANSACTION_NUMS */
 	le32 error; /* Expect PROTOCOL_ERROR_NONE. */
 	le32 num_transactions; /* Number of individual transactions. */
 	le32 idx[ /* num_transactions */ ];
@@ -151,9 +146,9 @@ struct protocol_req_batch {
 };
 
 /* Here's a batch for you. */
-struct protocol_response_batch {
-	le32 len; /* sizeof(struct protocol_response_batch + ...) */
-	le32 type; /* PROTOCOL_RESPONSE_WELCOME */
+struct protocol_resp_batch {
+	le32 len; /* sizeof(struct protocol_resp_batch + ...) */
+	le32 type; /* PROTOCOL_RESP_WELCOME */
 	le32 error; /* Expect PROTOCOL_ERROR_NONE. */
 	le32 num; /* Number of transactions in batch. */
 
@@ -173,9 +168,9 @@ struct protocol_req_transaction {
 };
 
 /* Here's a transaction for you. */
-struct protocol_response_transaction {
-	le32 len; /* sizeof(struct protocol_response_batch + ...) */
-	le32 type; /* PROTOCOL_RESPONSE_WELCOME */
+struct protocol_resp_transaction {
+	le32 len; /* sizeof(struct protocol_resp_batch + ...) */
+	le32 type; /* PROTOCOL_RESP_WELCOME */
 	le32 error; /* Expect PROTOCOL_ERROR_NONE. */
 
 	/* This is the tree of double shas which proves it. */
@@ -196,9 +191,9 @@ struct protocol_req_new_block {
 	/* ... */
 };
 
-struct protocol_response_new_block {
-	le32 len; /* sizeof(struct protocol_response_new_block) */
-	le32 type; /* PROTOCOL_RESPONSE_NEW_BLOCK */
+struct protocol_resp_new_block {
+	le32 len; /* sizeof(struct protocol_resp_new_block) */
+	le32 type; /* PROTOCOL_RESP_NEW_BLOCK */
 	le32 error; /* Expect PROTOCOL_ERROR_NONE. */
 };
 
@@ -212,9 +207,9 @@ struct protocol_req_new_transaction {
 	/* ... */
 };
 
-struct protocol_response_new_transaction {
-	le32 len; /* sizeof(struct protocol_response_new_transaction) */
-	le32 type; /* PROTOCOL_RESPONSE_NEW_TRANSACTION */
+struct protocol_resp_new_transaction {
+	le32 len; /* sizeof(struct protocol_resp_new_transaction) */
+	le32 type; /* PROTOCOL_RESP_NEW_TRANSACTION */
 	le32 error; /* Expect PROTOCOL_ERROR_NONE. */
 };
 
