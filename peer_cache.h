@@ -10,8 +10,10 @@ void fill_peers(struct state *state);
 void init_peer_cache(struct state *state);
 
 void peer_cache_add(struct state *state, 
-		    const struct protocol_net_address *addr,
-		    u32 last_used);
+		    const struct protocol_net_address *addr);
+void peer_cache_update(struct state *state, 
+		       const struct protocol_net_address *addr,
+		       u32 last_used);
 struct protocol_net_address *read_peer_cache(struct state *state);
 void peer_cache_del(struct state *state,
 		    const struct protocol_net_address *addr,

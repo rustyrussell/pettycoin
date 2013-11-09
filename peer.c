@@ -35,7 +35,7 @@ static struct io_plan digest_peer_addrs(struct io_conn *conn,
 	addr = (void *)(len + 1);
 
 	for (i = 0; i < num; i++)
-		peer_cache_add(lookup->state, &addr[i], 0);
+		peer_cache_add(lookup->state, &addr[i]);
 
 	/* We can now get more from cache. */
 	fill_peers(lookup->state);
@@ -130,7 +130,7 @@ static struct io_plan welcome_received(struct io_conn *conn, struct peer *peer)
 	printf("Welcome received on %p (%llu)!\n", peer, peer->welcome->random);
 
 	/* Update time for this peer. */
-	peer_cache_add(peer->state, &peer->you, time_to_sec(time_now()));
+	peer_cache_update(peer->state, &peer->you, time_to_sec(time_now()));
 
 	return io_close();
 }

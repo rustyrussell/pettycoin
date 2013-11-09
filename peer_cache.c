@@ -184,23 +184,38 @@ static void update_on_disk(struct peer_cache *pc,
 		warn("Trouble writing peer_cache");
 }
 
-void peer_cache_add(struct state *state, 
-		    const struct protocol_net_address *addr,
-		    u32 last_used)
+void peer_cache_update(struct state *state, 
+		       const struct protocol_net_address *addr,
+		       u32 last_used)
 {
 	struct peer_hash_entry *e = peer_hash_entry(state->peer_cache, addr);
 
-	if (memcmp(&e->addr, addr, sizeof(*addr)) == 0) {
-		/* Don't go backwards (eg. if peer hands us known address. */
-		if (last_used < e->last_used)
-			return;
-	} else {
-		/* 50% chance of replacing different entry. */
-		if (!is_zero_addr(&e->addr) && isaac64_next_uint(isaac64, 2))
-			return;
-	}
-	e->addr = *addr;
+	/* Don't update if not in cache. */
+	if (memcmp(&e->addr, addr, sizeof(*addr)) != 0)
+		return;
+
+	/* Don't go backwards (eg. if peer hands us known address. */
+	if (last_used < e->last_used)
+		return;
+
 	e->last_used = last_used;
+	update_on_disk(state->peer_cache, e);
+}
+
+void peer_cache_add(struct state *state, 
+		    const struct protocol_net_address *addr)
+{
+	struct peer_hash_entry *e = peer_hash_entry(state->peer_cache, addr);
+
+	if (memcmp(&e->addr, addr, sizeof(*addr)) == 0)
+		return;
+
+	/* 50% chance of replacing different entry. */
+	if (!is_zero_addr(&e->addr) && isaac64_next_uint(isaac64, 2))
+		return;
+
+	e->addr = *addr;
+	e->last_used = 0;
 	update_on_disk(state->peer_cache, e);
 }
 
