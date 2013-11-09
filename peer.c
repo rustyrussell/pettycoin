@@ -127,6 +127,9 @@ static struct io_plan welcome_received(struct io_conn *conn, struct peer *peer)
 		return io_close();
 	}
 
+	if (!check_welcome(peer->welcome))
+		return io_close();
+
 	printf("Welcome received on %p (%llu)!\n", peer, peer->welcome->random);
 
 	/* Update time for this peer. */
