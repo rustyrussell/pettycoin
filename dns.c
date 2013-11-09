@@ -101,10 +101,10 @@ static struct io_plan start_connecting(struct io_conn *conn, struct dns_info *d)
 	return io_close();
 }
 
-bool dns_resolve_and_connect(struct state *state,
-			     const char *name, const char *port,
-			     struct io_plan (*init)(struct io_conn *,
-						    struct state *))
+tal_t *dns_resolve_and_connect(struct state *state,
+			       const char *name, const char *port,
+			       struct io_plan (*init)(struct io_conn *,
+						      struct state *))
 {
 	int pfds[2];
 	struct dns_info *d = tal(NULL, struct dns_info);
@@ -116,13 +116,13 @@ bool dns_resolve_and_connect(struct state *state,
 	/* First fork child to get addresses. */
 	if (pipe(pfds) != 0) {
 		warn("Creating pipes");
-		return false;
+		return NULL;
 	}
 
 	switch (fork()) {
 	case -1:
 		warn("Forking for dns lookup");
-		return false;
+		return NULL;
 	case 0:
 		close(pfds[0]);
 		lookup_and_write(pfds[1], name, port);
@@ -133,5 +133,5 @@ bool dns_resolve_and_connect(struct state *state,
 	conn = io_new_conn(pfds[0],
 			   io_read_packet(&d->pkt, start_connecting, d));
 	tal_steal(conn, d);
-	return true;
+	return d;
 }

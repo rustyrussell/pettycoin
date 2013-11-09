@@ -5,265 +5,41 @@
 #include "dns.h"
 #include "netaddr.h"
 #include "welcome.h"
+#include "peer_cache.h"
 #include <ccan/io/io.h>
-#include <ccan/err/err.h>
+#include <ccan/time/time.h>
 #include <ccan/tal/tal.h>
 #include <ccan/tal/path/path.h>
-#include <ccan/hash/hash.h>
+#include <ccan/err/err.h>
 #include <ccan/build_assert/build_assert.h>
-#include <ccan/isaac/isaac.h>
-#include <ccan/noerr/noerr.h>
-#include <ccan/array_size/array_size.h>
-#include <ccan/cast/cast.h>
-#include <openssl/rand.h>
-#include <openssl/err.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <stdio.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
 
 #define MIN_PEERS 16
-
-static struct isaac_ctx isaac;
 
 struct peer_lookup {
 	struct state *state;
 	void *pkt;
 };
 
-/* We don't need more than 2,000 peer addresses. */
-#define PEER_HASH_BITS 12
-struct peer_hash_entry {
-	struct protocol_net_address addr;
-	u32 last_used;
-};
-
-struct peer_cache_file {
-	le64 randbytes;
-	struct peer_hash_entry h[1 << PEER_HASH_BITS];
-};
-
-struct peer_cache {
-	int fd;
-	struct peer_cache_file file;
-};
-
-static bool get_lock(int fd)
-{
-	struct flock fl;
-	int ret;
-
-	fl.l_type = F_WRLCK;
-	fl.l_whence = SEEK_SET;
-	fl.l_start = 0;
-	fl.l_len = 0;
-
-	/* Note: non-blocking! */
-	do {
-		ret = fcntl(fd, F_SETLK, &fl);
-	} while (ret == -1 && errno == EINTR);
-
-	return ret == 0;
-}
-
-/* Create (and lock) peer_cache. */
-static int new_peer_cache(le64 *randbytes)
-{
-	int fd;
-
-	/* O_EXCL prevents race. */
-	fd = open("peer_cache", O_RDWR|O_CREAT|O_EXCL, 0600);
-	if (fd < 0)
-		err(1, "Could not create peer_cache");
-
-	if (!get_lock(fd))
-		err(1, "Someone else using peer_cache during creation");
-
-	if (RAND_bytes((unsigned char *)randbytes, sizeof(*randbytes)) != 1) {
-		unlink_noerr("peer_cache");
-		errx(1, "Could not seed peer_cache: %s",
-		     ERR_error_string(ERR_get_error(), NULL));
-	}
-
-	if (write(fd, randbytes, sizeof(*randbytes)) != sizeof(*randbytes)) {
-		unlink_noerr("peer_cache");
-		err(1, "Writing seed to peer_cache");
-	}
-	if (ftruncate(fd, sizeof(struct peer_cache_file)) != 0) {
-		unlink_noerr("peer_cache");
-		err(1, "Extending peer_cache");
-	}
-	if (lseek(fd, SEEK_SET, 0) != 0) {
-		unlink_noerr("peer_cache");
-		err(1, "Seeking to beginning of peer_cache");
-	}
-	return fd;
-}
-
-static struct peer_hash_entry *
-peer_hash_entry(const struct peer_cache *pc,
-		const struct protocol_net_address *addr)
-{
-	u32 h = hash64((u8 *)addr, sizeof(*addr), pc->file.randbytes);
-
-	return cast_const(struct peer_hash_entry *, &pc->file.h[h]);
-}
-
-static bool is_zero_addr(const struct protocol_net_address *addr)
-{
-	unsigned int i;
-
-	for (i = 0; i < ARRAY_SIZE(addr->addr); i++)
-		if (addr->addr[i])
-			return false;
-	return true;
-}
-
-static bool check_peer_cache(const struct peer_cache *pc)
-{
-	unsigned int i;
-	u32 time = time_to_sec(time_now());
-
-	for (i = 0; i < ARRAY_SIZE(pc->file.h); i++) {
-		if (is_zero_addr(&pc->file.h[i].addr))
-			continue;
-		if (pc->file.h[i].last_used > time)
-			return false;
-		if (peer_hash_entry(pc, &pc->file.h[i].addr) != &pc->file.h[i])
-			return false;
-	}
-	return true;
-}
-
-void init_peer_cache(struct state *state)
-{
-	unsigned char seedbuf[sizeof(u64)];
-	struct peer_cache *pc;
-
-	state->peer_cache = pc = tal(state, struct peer_cache);
-
-	pc->fd = open("peer_cache", O_RDWR);
-	if (pc->fd < 0) {
-		pc->fd = new_peer_cache(&pc->file.randbytes);
-		memset(pc->file.h, 0, sizeof(pc->file.h));
-	} else {
-		if (!get_lock(pc->fd))
-			err(1, "Someone else using peer_cache");
-
-		if (read(pc->fd, &pc->file, sizeof(pc->file))!=sizeof(pc->file)
-		    || !check_peer_cache(pc)) {
-			warnx("Corrupt peer_cache: resetting");
-			close(pc->fd);
-			unlink("peer_cache");
-			pc->fd = new_peer_cache(&pc->file.randbytes);
-		}
-	}
-
-	/* PRNG */
-	if (RAND_bytes(seedbuf, sizeof(seedbuf)) != 1)
-		errx(1, "Could not seed PRNG: %s",
-		     ERR_error_string(ERR_get_error(), NULL));
-
-	isaac_init(&isaac, seedbuf, sizeof(seedbuf));
-}
-
-static void shuffle(struct protocol_net_address *addrs, unsigned num)
-{
-	int i;
-
-	for (i = num - 1; i > 0; i--) {
-		struct protocol_net_address tmp;
-		int r = isaac_next_uint(&isaac, i);
-		tmp = addrs[r];
-		addrs[r] = addrs[i];
-		addrs[i] = tmp;
-	}
-}
-
-static bool read_peer_cache(struct state *state)
-{
-	struct peer_cache *pc = state->peer_cache;
-	struct protocol_net_address addrs[MIN_PEERS];
-	u32 start, i, num = 0;
-
-	BUILD_ASSERT(sizeof(start) * CHAR_BIT >= PEER_HASH_BITS);
-
-	/* Start at a psuedo-random point. */
-	i = start = isaac_next_uint(&isaac, ARRAY_SIZE(pc->file.h));
-
-	while (num < ARRAY_SIZE(addrs)) {
-		if (!is_zero_addr(&pc->file.h[i].addr))
-			addrs[num++] = pc->file.h[i].addr;
-		i = (i+1) % ARRAY_SIZE(pc->file.h);
-		if (i == start)
-			break;
-	}
-
-	/* Don't expose too much about our hash table. */
-	shuffle(addrs, num);
-	return num;
-}
-
-static void update_on_disk(struct peer_cache *pc,
-			   const struct peer_hash_entry *e)
-{
-	lseek(pc->fd, (char *)e - (char *)&pc->file, SEEK_SET);
-	if (write(pc->fd, e, sizeof(*e)) != sizeof(*e))
-		warn("Trouble writing peer_cache");
-}
-
-static void peer_cache_add(struct state *state, 
-			   const struct protocol_net_address *addr,
-			   u32 last_used)
-{
-	struct peer_hash_entry *e = peer_hash_entry(state->peer_cache, addr);
-
-	if (memcmp(&e->addr, addr, sizeof(*addr)) == 0) {
-		/* Don't go backwards (eg. if peer hands us known address. */
-		if (last_used < e->last_used)
-			return;
-	} else {
-		/* 50% chance of replacing different entry. */
-		if (!is_zero_addr(&e->addr) && isaac_next_uint(&isaac, 2))
-			return;
-	}
-	e->addr = *addr;
-	e->last_used = last_used;
-	update_on_disk(state->peer_cache, e);
-}
-
-static void peer_cache_del(struct state *state,
-			   const struct protocol_net_address *addr)
-{
-	struct peer_hash_entry *e = peer_hash_entry(state->peer_cache, addr);
-
-	if (memcmp(&e->addr, addr, sizeof(*addr)) == 0) {
-		memset(e, 0, sizeof(*e));
-		update_on_disk(state->peer_cache, e);
-	}
-}
-
 static struct io_plan digest_peer_addrs(struct io_conn *conn,
 					struct peer_lookup *lookup)
 {
 	le32 *len = lookup->pkt;
-	u32 num, num_new, i;
+	u32 num, i;
 	struct protocol_net_address *addr;
 
-	num_new = le32_to_cpu(*len) / sizeof(*addr);
+	num = le32_to_cpu(*len) / sizeof(*addr);
 	/* Addresses are after header. */
 	addr = (void *)(len + 1);
 
-	for (i = 0; i < num_new; i++)
-	peer_cache_add(lookup->state, &addr[i], 0);
+	for (i = 0; i < num; i++)
+		peer_cache_add(lookup->state, &addr[i], 0);
 
-	/* Append these addresses. */
-	num = tal_count(lookup->state->peer_addrs);
+	/* We can now get more from cache. */
+	fill_peers(lookup->state);
 
-	tal_resize(&lookup->state->peer_addrs, num + num_new);
-	memcpy(lookup->state->peer_addrs, addr, num_new * sizeof(*addr));
 	return io_close();
 }
 
@@ -276,23 +52,43 @@ static struct io_plan read_seed_peers(struct io_conn *conn,
 	return io_read_packet(&lookup->pkt, digest_peer_addrs, lookup);
 }
 
-static bool lookup_peers(struct state *state)
+/* This gets called when the connection closes, fail or success. */
+static void unset_peer_seeding(struct state **statep)
 {
-	/* If we get some from cache, great. */
-	if (read_peer_cache(state))
-		return true;
+	(*statep)->peer_seeding = false;
+	fill_peers(*statep);
+}
 
-	if (!dns_resolve_and_connect(state, "peers.pettycoin.org", "9000",
-				     read_seed_peers)) {
-		warn("Could not connect to peers.pettycoin.org");
-	} else {
-		/* Don't retry while we're waiting... */
-		state->refill_peers = false;
-		/* FIXME: on failure, re-set that. */
+static void seed_peers(struct state *state)
+{
+	const char *server = "peers.pettycoin.org";
+	tal_t *connector;
+
+	/* Don't grab more if we're already doing that. */
+	if (state->peer_seeding)
+		return;
+
+	if (state->peer_seed_count++ > 2) {
+		if (state->developer_test)
+			return;
+
+		errx(1, "Failed to connect to any peers, or peer server");
 	}
 
-	/* We don't have any (yet) */
-	return false;
+	if (state->developer_test)
+		server = "localhost";
+
+	connector = dns_resolve_and_connect(state, server, "9000",
+					    read_seed_peers);
+	if (!connector)
+		warn("Could not connect to %s", server);
+	else {
+		/* Temporary allocation, to get destructor called. */
+		struct state **statep = tal(connector, struct state *);
+		state->peer_seeding = true;
+		(*statep) = state;
+		tal_add_destructor(statep, unset_peer_seeding);
+	}
 }
 
 void fill_peers(struct state *state)
@@ -301,27 +97,22 @@ void fill_peers(struct state *state)
 		return;
 
 	while (state->num_peers < MIN_PEERS) {
-		const struct protocol_net_address *a;
+		struct protocol_net_address *a;
 		int fd;
-		size_t num;
 
-		/* Need more peer addresses? */
-		if (tal_count(state->peer_addrs) == 0) {
-			if (!lookup_peers(state))
-				return;
+		a = read_peer_cache(state);
+		if (!a) {
+			seed_peers(state);
+			break;
 		}
-
-		a = &state->peer_addrs[0];
 		fd = socket_for_addr(a);
 
 		/* Maybe we don't speak IPv4/IPv6? */
-		if (fd != -1)
+		if (fd == -1)
+			peer_cache_del(state, a, true);
+		else {
 			new_peer(state, fd, a);
-
-		num = tal_count(state->peer_addrs);
-		memmove(state->peer_addrs, state->peer_addrs + 1,
-			(num - 1) * sizeof(state->peer_addrs[0]));
-		tal_resize(&state->peer_addrs, num - 1);
+		}
 	}
 }
 
@@ -330,7 +121,13 @@ static struct io_plan welcome_received(struct io_conn *conn, struct peer *peer)
 	tal_steal(peer, peer->welcome);
 	peer->state->num_peers_connected++;
 
-	printf("Welcome received on %p!\n", peer);
+	/* Are we talking to ourselves? */
+	if (peer->welcome->random == peer->state->random_welcome) {
+		peer_cache_del(peer->state, &peer->you, true);
+		return io_close();
+	}
+
+	printf("Welcome received on %p (%llu)!\n", peer, peer->welcome->random);
 
 	/* Update time for this peer. */
 	peer_cache_add(peer->state, &peer->you, time_to_sec(time_now()));
@@ -345,21 +142,21 @@ static struct io_plan welcome_sent(struct io_conn *conn, struct peer *peer)
 
 static void destroy_peer(struct peer *peer)
 {
+	list_del_from(&peer->state->peers, &peer->list);
+	if (peer->welcome) {
+		peer->state->num_peers_connected--;
+	} else {
+		/* Only delete from disk cache if we have *some* networking. */
+		peer_cache_del(peer->state, &peer->you,
+			       peer->state->num_peers_connected != 0);
+	}
+
 	peer->state->num_peers--;
 	fill_peers(peer->state);
-
-	if (peer->welcome)
-		peer->state->num_peers_connected--;
-	else {
-		/* Only delete from cache if we have *some* networking. */
-		if (peer->state->num_peers_connected)
-			peer_cache_del(peer->state, &peer->you);
-	}
 }
 
 static struct io_plan setup_welcome(struct io_conn *unused, struct peer *peer)
 {
-	/* Update connect time. */
 	peer->outgoing = make_welcome(peer, peer->state, &peer->you);
 	return io_write_packet(peer->outgoing, welcome_sent, peer);
 }
@@ -368,7 +165,9 @@ void new_peer(struct state *state, int fd, const struct protocol_net_address *a)
 {
 	struct peer *peer = tal(state, struct peer);
 
+	list_add(&state->peers, &peer->list);
 	peer->state = state;
+	peer->welcome = NULL;
 
 	/* If a, we need to connect to there. */
 	if (a) {

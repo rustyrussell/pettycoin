@@ -11,6 +11,9 @@ struct state {
 	/* Are we on testnet? */
 	bool test_net;
 
+	/* Developer test mode. */
+	bool developer_test;
+
 	/* Port number we're listening on. */
 	be16 listen_port;
 
@@ -23,12 +26,15 @@ struct state {
 	/* Number of current peers (some may be connecting) */
 	size_t num_peers;
 	size_t num_peers_connected;
+	struct list_head peers;
+	u64 random_welcome;
 
 	/* Set if we're allowed to get more. */
 	bool refill_peers;
 
-	/* Tal array of peers we want to connect to. */
-	struct protocol_net_address *peer_addrs;
+	/* Set if we're looking up more seeds. */
+	bool peer_seeding;
+	unsigned int peer_seed_count;
 
 	/* Peer cache */
 	struct peer_cache *peer_cache;

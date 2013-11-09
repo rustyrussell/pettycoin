@@ -10,14 +10,17 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/fcntl.h>
 #include <netdb.h>
 #include <errno.h>
 #include "protocol.h"
 #include "protocol_net.h"
 #include "welcome.h"
 #include "peer.h"
+#include "peer_cache.h"
 #include "state.h"
 #include "netaddr.h"
+#include "pseudorand.h"
 
 /* Tal wrappers for opt and io. */
 static void *opt_allocfn(size_t size)
@@ -102,6 +105,22 @@ static void make_listeners(struct state *state)
 
 	if (fd1 < 0 && fd2 < 0)
 		err(1, "Could not bind to a network address");
+
+	if (state->developer_test) {
+		int fd;
+		struct protocol_net_address a
+			= { { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff,
+			      0x7f, 0, 0, 1 } };
+
+		a.port = state->listen_port;
+
+		fd = open("../../addresses", O_WRONLY|O_APPEND, 0600);
+		if (fd < 0)
+			err(1, "Opening ../../addresses");
+		write(fd, &a, sizeof(a));
+		printf("%u: listening to port %u\n", getpid(), a.port);
+		close(fd);
+	}
 }
 
 static char *add_connect(const char *arg, struct state *state)
@@ -136,8 +155,13 @@ static char *make_pettycoin_dir(const tal_t *ctx)
 
 int main(int argc, char *argv[])
 {
-	struct state *state = new_state(true);
-	char *pettycoin_dir = make_pettycoin_dir(state);
+	char *pettycoin_dir;
+	struct state *state;
+
+	pseudorand_init();
+
+	state = new_state(true);
+	pettycoin_dir = make_pettycoin_dir(state);
 
 	err_set_progname(argv[0]);
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
@@ -145,6 +169,9 @@ int main(int argc, char *argv[])
 
 	opt_register_arg("--connect", add_connect, NULL, state,
 			 "Node to connect to (can be specified multiple times)");
+	opt_register_noarg("--developer-test",
+			   opt_set_bool, &state->developer_test,
+			   "Developer test mode: connects to localhost");
 	opt_register_noarg("-h|--help", opt_usage_and_exit,
 			   "\nPettycoin client program.", "Show this usage");
 	opt_register_noarg("-V|--version", opt_version_and_exit,
@@ -155,12 +182,16 @@ int main(int argc, char *argv[])
 		errx(1, "no arguments accepted");
 
 	/* Move to pettycoin dir, to save ourselves the hassle of path manip. */
-	if (chdir(pettycoin_dir) != 0 && mkdir(pettycoin_dir, 0700) != 0)
-		err(1, "Could not make directory %s", pettycoin_dir);
+	if (chdir(pettycoin_dir) != 0) {
+		if (mkdir(pettycoin_dir, 0700) != 0)
+			err(1, "Could not make directory %s", pettycoin_dir);
+		if (chdir(pettycoin_dir) != 0)
+			err(1, "Could not change directory %s", pettycoin_dir);
+	}
 
 	init_peer_cache(state);
-	fill_peers(state);
 	make_listeners(state);
+	fill_peers(state);
 
 	io_loop();
 

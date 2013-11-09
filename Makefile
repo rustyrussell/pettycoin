@@ -1,8 +1,8 @@
-PETTYCOIN_OBJS := block.o check_block.o check_transaction.o difficulty.o shadouble.o timestamp.o gateways.o hash_transaction.o pettycoin.o merkle_transactions.o create_transaction.o transaction_cmp.o genesis.o marshall.o hash_block.o prev_merkles.o create_proof.o state.o packet.o dns.o netaddr.o peer.o welcome.o
+PETTYCOIN_OBJS := block.o check_block.o check_transaction.o difficulty.o shadouble.o timestamp.o gateways.o hash_transaction.o pettycoin.o merkle_transactions.o create_transaction.o transaction_cmp.o genesis.o marshall.o hash_block.o prev_merkles.o create_proof.o state.o packet.o dns.o netaddr.o peer.o peer_cache.o pseudorand.o welcome.o
 GENERATE_OBJS := generate.o merkle_transactions.o hash_transaction.o transaction_cmp.o shadouble.o difficulty.o marshall.o
 MKGENESIS_OBJS := mkgenesis.o shadouble.o marshall.o hash_block.o
 SIZES_OBJS := sizes.o
-CCAN_OBJS := ccan-asort.o ccan-breakpoint.o ccan-tal.o ccan-tal-path.o ccan-tal-str.o ccan-take.o ccan-list.o ccan-str.o ccan-opt-helpers.o ccan-opt.o ccan-opt-parse.o ccan-opt-usage.o ccan-read_write_all.o ccan-htable.o ccan-io-io.o ccan-io-poll.o ccan-timer.o ccan-time.o ccan-noerr.o ccan-hash.o ccan-isaac.o
+CCAN_OBJS := ccan-asort.o ccan-breakpoint.o ccan-tal.o ccan-tal-path.o ccan-tal-str.o ccan-take.o ccan-list.o ccan-str.o ccan-opt-helpers.o ccan-opt.o ccan-opt-parse.o ccan-opt-usage.o ccan-read_write_all.o ccan-htable.o ccan-io-io.o ccan-io-poll.o ccan-timer.o ccan-time.o ccan-noerr.o ccan-hash.o ccan-isaac64.o
 CCANDIR=../ccan/
 VERSION:=$(shell git describe --dirty --always 2>/dev/null || echo Unknown)
 #CFLAGS = -O3 -flto -ggdb -I $(CCANDIR) -Wall -DVERSION=\"$(VERSION)\"
@@ -82,6 +82,6 @@ ccan-noerr.o: $(CCANDIR)/ccan/noerr/noerr.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-hash.o: $(CCANDIR)/ccan/hash/hash.c
 	$(CC) $(CFLAGS) -c -o $@ $<
-ccan-isaac.o: $(CCANDIR)/ccan/isaac/isaac.c
+ccan-isaac64.o: $(CCANDIR)/ccan/isaac/isaac64.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
