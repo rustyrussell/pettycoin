@@ -6,6 +6,7 @@
 #include "netaddr.h"
 #include "welcome.h"
 #include "peer_cache.h"
+#include "block.h"
 #include <ccan/io/io.h>
 #include <ccan/time/time.h>
 #include <ccan/tal/tal.h>
@@ -140,6 +141,22 @@ static struct protocol_resp_err *protocol_resp_err(struct peer *peer,
 	return pkt;
 }
 
+static struct block *find_mutual_block(struct state *state,
+				       struct protocol_double_sha *block,
+				       u32 num_blocks)
+{
+	int i;
+
+	for (i = num_blocks - 1; i >= 0; i++) {
+		struct block *b = block_find_any(state, &block[i]);
+		if (b && block_in_main(b))
+			return b;
+	}
+
+	/* This should not happen, since we checked for mutual genesis block! */
+	abort();
+}
+
 static struct io_plan check_welcome_ack(struct io_conn *conn,
 					struct peer *peer)
 {
@@ -147,12 +164,12 @@ static struct io_plan check_welcome_ack(struct io_conn *conn,
 	void *errpkt;
 
 	if (wresp->len != cpu_to_le32(sizeof(*wresp) - sizeof(wresp->len))) {
-		errpkt = protocol_resp_err(peer, PROTOCOL_INVALID_LEN);
+		errpkt = protocol_req_err(peer, PROTOCOL_INVALID_LEN);
 		goto fail;
 	}
 
 	if (wresp->type != cpu_to_le32(PROTOCOL_RESP_ERR)) {
-		errpkt = protocol_resp_err(peer, PROTOCOL_UNKNOWN_COMMAND);
+		errpkt = protocol_req_err(peer, PROTOCOL_UNKNOWN_COMMAND);
 		goto fail;
 	}
 
@@ -161,6 +178,12 @@ static struct io_plan check_welcome_ack(struct io_conn *conn,
 		peer_cache_del(peer->state, &peer->you, true);
 		return io_close();
 	}
+
+	/* Where do we disagree on main chain? */
+	peer->mutual = find_mutual_block(peer->state, peer->welcome->block,
+					 le32_to_cpu(peer->welcome->num_blocks));
+
+	printf("Found mutual block %u\n", peer->mutual->blocknum);
 
 	/* FIXME: do something. */
 	return io_close();
@@ -178,17 +201,18 @@ static struct io_plan receive_welcome_ack(struct io_conn *conn,
 static struct io_plan welcome_received(struct io_conn *conn, struct peer *peer)
 {
 	struct protocol_req_err *resp;
+	struct state *state = peer->state;
 
 	tal_steal(peer, peer->welcome);
 	peer->state->num_peers_connected++;
 
 	/* Are we talking to ourselves? */
-	if (peer->welcome->random == peer->state->random_welcome) {
-		peer_cache_del(peer->state, &peer->you, true);
+	if (peer->welcome->random == state->random_welcome) {
+		peer_cache_del(state, &peer->you, true);
 		return io_close();
 	}
 
-	resp = protocol_req_err(peer, check_welcome(peer->welcome));
+	resp = protocol_resp_err(peer, check_welcome(state, peer->welcome));
 	if (resp->error != cpu_to_le32(PROTOCOL_ERROR_NONE))
 		return io_write_packet(peer, resp, io_close_cb);
 
@@ -198,7 +222,7 @@ static struct io_plan welcome_received(struct io_conn *conn, struct peer *peer)
 	peer->you.port = peer->welcome->listen_port;
 
 	/* Create/update time for this peer. */
-	peer_cache_update(peer->state, &peer->you, time_to_sec(time_now()));
+	peer_cache_update(state, &peer->you, time_to_sec(time_now()));
 
 	return io_write_packet(peer, resp, receive_welcome_ack);
 }

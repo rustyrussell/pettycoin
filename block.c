@@ -17,6 +17,12 @@ struct block *block_find(struct block *start, const u8 lower_sha[4])
 	return b;
 }
 
+bool block_in_main(const struct block *block)
+{
+	/* Linked list only joins main chain. */
+	return block->list.next != NULL;
+}
+
 struct block *block_find_any(struct state *state,
 			     const struct protocol_double_sha *sha)
 {

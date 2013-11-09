@@ -52,6 +52,7 @@ enum protocol_error {
 	PROTOCOL_ERROR_HIGH_VERSION, /* version is unknown. */
 	PROTOCOL_ERROR_LOW_VERSION, /* version is old. */
 	PROTOCOL_ERROR_NO_INTEREST, /* not enough interest bits. */
+	PROTOCOL_ERROR_WRONG_GENESIS, /* disagree over genesis block. */
 
 	/* protocol_req_blockstart/protocol_req_batchnums/protocol_req_batch: */
 	PROTOCOL_ERROR_UNKNOWN_BLOCK, /* I don't know that block? */
@@ -75,6 +76,7 @@ struct protocol_req_welcome {
 	le32 version; /* Protocol version, currently 1. */
 	/* Freeform software version. */
 	char moniker[32];
+	le32 num_blocks;
 	/* Self-detection */
 	le64 random;
 	/* Address we see you at. */
@@ -84,6 +86,8 @@ struct protocol_req_welcome {
 	/* We are interested in certain addresses, based on their
 	 * lower bits.  We must be interested in more than 1. */
 	u8 interests[(1 << PROTOCOL_SHARD_BITS) / 8];
+	/* As per bitcoin: last 10 blocks, then power of 2 back. */
+	struct protocol_double_sha block[ /* num_blocks */ ];
 };
 
 /* Usually followed by a hangup if error, since communication has failed. */
@@ -98,24 +102,6 @@ struct protocol_resp_err {
 	le32 len; /* sizeof(struct protocol_req_welcome) */
 	le32 type; /* PROTOCOL_RESP_ERR */
 	le32 error;
-};
-
-/* As per bitcoin: last 10 blocks, then power of 2 back. */
-struct protocol_req_getblocks {
-	le32 len; /* sizeof(struct protocol_req_blockstart) + num*sizeof(block)*/
-	le32 type; /* PROTOCOL_REQ_GETBLOCKS */
-	le32 num;
-	struct protocol_double_sha block[ /* num */ ];
-};
-
-struct protocol_resp_getblocks {
-	le32 len; /* sizeof(struct protocol_resp_welcome) */
-	le32 type; /* PROTOCOL_RESP_GETBLOCKS */
-	le32 error; /* Expect PROTOCOL_ERROR_NONE. */
-	/* Common block we share. */
-	struct protocol_double_sha common;
-	/* How many past that. */
-	le32 extras; 
 };
 
 /* Which transactions are interesting to me? */

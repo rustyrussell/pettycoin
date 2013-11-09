@@ -24,6 +24,9 @@ struct peer {
 
 	/* We keep this. */
 	struct protocol_req_welcome *welcome;
+
+	/* Last block it knows about. */
+	struct block *mutual;
 };
 
 void new_peer(struct state *state, int fd, const struct protocol_net_address *a);

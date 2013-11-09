@@ -51,6 +51,9 @@ struct block *block_find_any(struct state *state,
 bool batch_full(const struct block *block,
 		const struct transaction_batch *batch);
 
+/* Is this block in the main chain? */
+bool block_in_main(const struct block *block);
+
 static inline size_t batch_index(u32 trans_num)
 {
 	return trans_num >> PETTYCOIN_BATCH_ORDER;
