@@ -1,10 +1,13 @@
 #include <ccan/tal/tal.h>
 #include <ccan/err/err.h>
 #include <openssl/bn.h>
+#include <unistd.h>
 #include "state.h"
 #include "genesis.h"
 #include "protocol_net.h"
 #include "pseudorand.h"
+#include "log.h"
+#include "peer.h"
 
 struct state *new_state(bool test_net)
 {
@@ -22,7 +25,8 @@ struct state *new_state(bool test_net)
 	s->peer_cache = NULL;
 	s->random_welcome = isaac64_next_uint64(isaac64);
 	s->peer_seed_count = 0;
-	printf("My welcome is %llu\n", s->random_welcome);
+	s->log_level = LOG_BROKEN;
+	s->log = new_log(s, "", s->log_level, STATE_LOG_MAX);
 
 	/* Set up genesis block */
 	BN_init(&genesis.total_work);
@@ -33,3 +37,23 @@ struct state *new_state(bool test_net)
 	list_add_tail(&s->blocks, &genesis.list);
 	return s;
 }
+
+void fatal(struct state *state, const char *fmt, ...)
+{
+	va_list ap;
+	struct peer *peer;
+
+	fprintf(stderr, "FATAL dumping logs:\n");
+
+	va_start(ap, fmt);
+	logv(state->log, LOG_BROKEN, fmt, ap);
+	va_end(ap);
+
+	/* Dump our log, then the peers. */
+	log_to_file(STDERR_FILENO, state->log);
+	list_for_each(&state->peers, peer, list)
+		log_to_file(STDERR_FILENO, peer->log);
+
+	exit(1);
+}
+	

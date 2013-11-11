@@ -4,7 +4,9 @@
 #include <ccan/list/list.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/endian/endian.h>
+#include <ccan/compiler/compiler.h>
 #include "thash.h"
+#include "log.h"
 
 /* Our local state. */
 struct state {
@@ -38,8 +40,15 @@ struct state {
 
 	/* Peer cache */
 	struct peer_cache *peer_cache;
+
+	/* log */
+	struct log *log;
+	/* level at which we print. */
+	enum log_level log_level;
 };
 
 struct state *new_state(bool test_net);
+
+void NORETURN fatal(struct state *state, const char *fmt, ...);
 
 #endif /* PETTYCOIN_STATE_H */

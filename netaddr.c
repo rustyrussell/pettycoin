@@ -3,6 +3,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <errno.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
@@ -118,5 +119,6 @@ bool get_fd_addr(int fd, struct protocol_net_address *addr)
 		return true;
 	}
 
+	errno = EINVAL;
 	return false;
 }

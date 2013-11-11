@@ -92,14 +92,14 @@ struct protocol_req_welcome {
 
 /* Usually followed by a hangup if error, since communication has failed. */
 struct protocol_req_err {
-	le32 len; /* sizeof(struct protocol_req_welcome) */
+	le32 len; /* sizeof(struct protocol_req_err) */
 	le32 type; /* PROTOCOL_REQ_ERR */
 	le32 error;
 };
 
 /* Usually followed by a hangup if error, since communication has failed. */
 struct protocol_resp_err {
-	le32 len; /* sizeof(struct protocol_req_welcome) */
+	le32 len; /* sizeof(struct protocol_resp_err) */
 	le32 type; /* PROTOCOL_RESP_ERR */
 	le32 error;
 };

@@ -23,6 +23,8 @@ struct log_entry {
 struct log {
 	size_t mem_used;
 	size_t max_mem;
+	const char *prefix;
+	enum log_level print;
 
 	struct list_head log;
 };
@@ -51,15 +53,18 @@ static void prune_log(struct log *log)
 	}
 
 	assert(!skipped);
-	log_dbg(log, "Log pruned %zu entries (mem %zu -> %zu)",
-		deleted, old_mem, log->mem_used);
+	log_debug(log, "Log pruned %zu entries (mem %zu -> %zu)",
+		  deleted, old_mem, log->mem_used);
 }
 
-struct log *new_log(const tal_t *ctx, size_t max_mem)
+struct log *new_log(const tal_t *ctx, const char *prefix,
+		    enum log_level printlevel, size_t max_mem)
 {
 	struct log *log = tal(ctx, struct log);
 	log->mem_used = 0;
 	log->max_mem = max_mem;
+	log->prefix = tal_strdup(log, prefix);
+	log->print = printlevel;
 	list_head_init(&log->log);
 
 	return log;
@@ -74,8 +79,7 @@ static void add_entry(struct log *log, struct log_entry *l)
 		prune_log(log);
 }
 
-static void do_log(struct log *log, enum log_level level, const char *fmt,
-		   va_list ap)
+void logv(struct log *log, enum log_level level, const char *fmt, va_list ap)
 {
 	struct log_entry *l = tal(log, struct log_entry);
 
@@ -83,6 +87,9 @@ static void do_log(struct log *log, enum log_level level, const char *fmt,
 	l->level = level;
 	l->skipped = 0;
 	l->log = tal_vfmt(l, fmt, ap);
+
+	if (level >= log->print)
+		printf("%s %s\n", log->prefix, l->log);
 
 	add_entry(log, l);
 }
@@ -97,6 +104,9 @@ static void do_log_add(struct log *log, const char *fmt, va_list ap)
 
 	tal_append_vfmt(&l->log, fmt, ap);
 	add_entry(log, l);
+
+	if (l->level >= log->print)
+		printf("\t%s\n", l->log);
 }
 
 void log_(struct log *log, enum log_level level, const char *fmt, ...)
@@ -104,7 +114,7 @@ void log_(struct log *log, enum log_level level, const char *fmt, ...)
 	va_list ap;
 
 	va_start(ap, fmt);
-	do_log(log, level, fmt, ap);
+	logv(log, level, fmt, ap);
 	va_end(ap);
 }
 
@@ -148,14 +158,15 @@ void log_add_struct_(struct log *log, const char *structname, const void *ptr)
 		abort();
 }
 
-void log_to_file(int fd, const char *prefix, const struct log *log)
+void log_to_file(int fd, const struct log *log)
 {
 	const struct log_entry *i;
 	char buf[100];
 	struct timespec prev;
 	time_t start;
+	const char *prefix;
 
-	write_all(fd, prefix, strlen(prefix));
+	write_all(fd, log->prefix, strlen(log->prefix));
 
 	i = list_top(&log->log, const struct log_entry, list);
 	if (!i) {
@@ -168,17 +179,22 @@ void log_to_file(int fd, const char *prefix, const struct log *log)
 	prev.tv_nsec = 0;
 	start = prev.tv_sec;
 	sprintf(buf, " %zu bytes, %s", log->mem_used, ctime(&start));
-
 	write_all(fd, buf, strlen(buf));
+
+	/* ctime includes \n... WTF? */
+	prefix = "";
 
 	list_for_each(&log->log, i, list) {
 		struct timespec diff;
+
 		if (i->skipped) {
-			sprintf(buf, "\n... %u skipped...", i->skipped);
+			sprintf(buf, "%s... %u skipped...", prefix, i->skipped);
 			write_all(fd, buf, strlen(buf));
+			prefix = "\n";
 		}
 		diff = time_sub(i->time, prev);
-		sprintf(buf, "\n+%lu.%09u %s: ",
+		sprintf(buf, "%s+%lu.%09u %s: ",
+			prefix,
 			(unsigned long)diff.tv_sec, (unsigned)diff.tv_nsec,
 			i->level == LOG_DBG ? "DEBUG"
 			: i->level == LOG_INFORM ? "INFO"
@@ -187,6 +203,7 @@ void log_to_file(int fd, const char *prefix, const struct log *log)
 			: "**INVALID**");
 		write_all(fd, buf, strlen(buf));
 		write_all(fd, i->log, strlen(i->log));
+		prefix = "\n";
 	}
 	write_all(fd, "\n\n", strlen("\n\n"));
 }			

@@ -17,6 +17,7 @@
 #include "protocol_net.h"
 #include "welcome.h"
 #include "peer.h"
+#include "log.h"
 #include "peer_cache.h"
 #include "state.h"
 #include "netaddr.h"
@@ -51,16 +52,23 @@ static void incoming(int fd, struct state *state)
 	new_peer(state, fd, NULL);
 }
 
-static int make_listen_fd(int domain, void *addr, socklen_t len)
+static int make_listen_fd(struct state *state, int domain, void *addr, socklen_t len)
 {
 	int fd = socket(domain, SOCK_STREAM, 0);
-	if (fd < 0)
+	if (fd < 0) {
+		log_debug(state->log, "Failed to create %u socket: %s",
+			  domain, strerror(errno));
 		return -1;
+	}
 
 	if (!addr || bind(fd, addr, len) == 0) {
 		if (listen(fd, 5) == 0)
 			return fd;
-	}
+		log_unusual(state->log, "Failed to listen on %u socket: %s",
+			    domain, strerror(errno));
+	} else
+		log_debug(state->log, "Failed to bind on %u socket: %s",
+			  domain, strerror(errno));
 
 	close_noerr(fd);
 	return -1;
@@ -77,34 +85,42 @@ static void make_listeners(struct state *state)
 	addr.sin_port = 0;
 
 	/* IPv6, since on Linux that (usually) binds to IPv4 too. */
-	fd1 = make_listen_fd(AF_INET6, NULL, 0);
+	fd1 = make_listen_fd(state, AF_INET6, NULL, 0);
 	if (fd1 >= 0) {
 		struct sockaddr_in6 in6;
 
 		len = sizeof(in6);
-		if (getsockname(fd1, (void *)&in6, &len) != 0)
+		if (getsockname(fd1, (void *)&in6, &len) != 0) {
+			log_unusual(state->log, "Failed get IPv6 sockname: %s",
+				    strerror(errno));
 			close_noerr(fd1);
-		else {
+		} else {
 			state->listen_port = addr.sin_port = in6.sin6_port;
+			log_info(state->log, "Creating IPv6 listener on port %u",
+				 be16_to_cpu(state->listen_port));
 			io_new_listener(fd1, incoming, state);
 		}
 	}
 
 	/* Just in case, aim for the same port... */
-	fd2 = make_listen_fd(AF_INET,
+	fd2 = make_listen_fd(state, AF_INET,
 			     addr.sin_port ? &addr : NULL, sizeof(addr));
 	if (fd2 >= 0) {
 		len = sizeof(addr);
-		if (getsockname(fd2, (void *)&addr, &len) != 0)
+		if (getsockname(fd2, (void *)&addr, &len) != 0) {
+			log_unusual(state->log, "Failed get IPv4 sockname: %s",
+				    strerror(errno));
 			close_noerr(fd2);
-		else {
+		} else {
 			state->listen_port = addr.sin_port;
+			log_info(state->log, "Creating IPv4 listener on port %u",
+				 be16_to_cpu(state->listen_port));
 			io_new_listener(fd2, incoming, state);
 		}
 	}
 
 	if (fd1 < 0 && fd2 < 0)
-		err(1, "Could not bind to a network address");
+		fatal(state, "Could not bind to a network address");
 
 	if (state->developer_test) {
 		int fd;
@@ -118,7 +134,6 @@ static void make_listeners(struct state *state)
 		if (fd < 0)
 			err(1, "Opening ../../addresses");
 		write(fd, &a, sizeof(a));
-		printf("%u: listening to port %u\n", getpid(), a.port);
 		close(fd);
 	}
 }
@@ -139,18 +154,38 @@ static char *add_connect(const char *arg, struct state *state)
 		return tal_fmt(NULL, "error looking up %s:%s: %s",
 			       node, service, strerror(errno));
 
+	log_info(state->log, "--connect to %s:%s disables refill", node, service);
+
 	/* Specifying --connect implies use only them. */
 	state->refill_peers = false;
 	return NULL;
 }
 
-static char *make_pettycoin_dir(const tal_t *ctx)
+static char *set_log_level(const char *arg, enum log_level *log_level)
 {
+	if (streq(arg, "debug"))
+		*log_level = LOG_DBG;
+	else if (streq(arg, "info"))
+		*log_level = LOG_INFORM;
+	else if (streq(arg, "unusual"))
+		*log_level = LOG_UNUSUAL;
+	else if (streq(arg, "broken"))
+		*log_level = LOG_BROKEN;
+	else
+		return tal_fmt(NULL, "unknown log level");
+	return NULL;
+}
+
+static char *make_pettycoin_dir(struct state *state)
+{
+	char *path;
 	const char *env = getenv("HOME");
 	if (!env)
 		errx(1, "$HOME is not set");
 
-	return path_join(ctx, env, ".pettycoin");
+	path = path_join(state, env, ".pettycoin");
+	log_debug(state->log, "Pettycoin home dir is '%s'", path);
+	return path;
 }
 
 int main(int argc, char *argv[])
@@ -159,14 +194,15 @@ int main(int argc, char *argv[])
 	struct state *state;
 
 	pseudorand_init();
-
 	state = new_state(true);
-	pettycoin_dir = make_pettycoin_dir(state);
 
 	err_set_progname(argv[0]);
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
 	io_set_alloc(io_allocfn, tal_reallocfn, tal_freefn);
 
+	opt_register_early_arg("--log-level", set_log_level, NULL,
+			       &state->log_level,
+			       "log level (debug, info, unusual, broken)");
 	opt_register_arg("--connect", add_connect, NULL, state,
 			 "Node to connect to (can be specified multiple times)");
 	opt_register_noarg("--developer-test",
@@ -177,16 +213,25 @@ int main(int argc, char *argv[])
 	opt_register_noarg("-V|--version", opt_version_and_exit,
 			   VERSION, "Show version and exit");
 
+	/* Parse --log-level first. */
+	opt_early_parse(argc, argv, opt_log_stderr_exit);
+
+	pettycoin_dir = make_pettycoin_dir(state);
 	opt_parse(&argc, argv, opt_log_stderr_exit);
 	if (argc != 1)
 		errx(1, "no arguments accepted");
 
 	/* Move to pettycoin dir, to save ourselves the hassle of path manip. */
 	if (chdir(pettycoin_dir) != 0) {
+		log_unusual(state->log, "Creating pettycoin dir %s"
+			    " (because chdir gave %s)",
+			    pettycoin_dir, strerror(errno));
 		if (mkdir(pettycoin_dir, 0700) != 0)
-			err(1, "Could not make directory %s", pettycoin_dir);
+			fatal(state, "Could not make directory %s: %s",
+			      pettycoin_dir, strerror(errno));
 		if (chdir(pettycoin_dir) != 0)
-			err(1, "Could not change directory %s", pettycoin_dir);
+			fatal(state, "Could not change directory %s: %s",
+			      pettycoin_dir, strerror(errno));
 	}
 
 	init_peer_cache(state);
