@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
 	trans[0] = t;
 	assert(check_transaction(s, trans, NULL));
 
-	/* Two payments. */
+	/* Two payments (must be same shard!) */
 	payment = tal_arr(s, struct protocol_gateway_payment, 2);
 	payment[0].send_amount = cpu_to_le32(1000);
 	payment[0].output_addr = *helper_addr(0);

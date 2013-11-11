@@ -146,11 +146,10 @@ check_normal(struct state *state, const struct protocol_transaction_normal *t)
 
 static u32 shard_of(const struct protocol_address *addr)
 {
-	u32 shard;
+	be32 shard;
 
 	memcpy(&shard, addr->addr, sizeof(shard));
-	shard &= (1 << PROTOCOL_SHARD_BITS) - 1;
-	return shard;
+	return be32_to_cpu(shard) & ((1 << PROTOCOL_SHARD_BITS) - 1);
 }
 
 static bool

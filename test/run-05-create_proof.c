@@ -12,6 +12,7 @@
 #include "../difficulty.c"
 #include "../transaction_cmp.c"
 #include "../state.c"
+#include "../pseudorand.c"
 #include "../marshall.c"
 #include <ccan/tal/tal.h>
 #include <ccan/list/list.h>
@@ -48,6 +49,7 @@ int main(int argc, char *argv[])
 	struct protocol_proof *proof;
 	union protocol_transaction *t, **transarr;
 
+	pseudorand_init();
 	s = new_state(true);
 
 	/* Gateway payment to addresses 0, 1 and 2 */

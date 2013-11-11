@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
 	w = new_working_block(s, 0x1effffff, NULL, 0, &prev, helper_addr(0));
 
 	for (i = 0; !solve_block(w); i++);
-	assert(i == 36256);
+	assert(i == 104624);
 
 	hash_block(&w->hdr, w->merkles, w->prev_merkles, &w->tailer, &hash);
 	assert(beats_target(&hash, 0x1effffff));
@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
 	assert(add_transaction(w2, t));
 
 	for (i = 0; !solve_block(w2); i++);
-	assert(i == 45149);
+	assert(i == 15318);
 
 	hash_block(&w2->hdr, w2->merkles, w2->prev_merkles, &w2->tailer,
 		   &hash2);

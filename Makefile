@@ -2,6 +2,7 @@ PETTYCOIN_OBJS := block.o check_block.o check_transaction.o difficulty.o shadoub
 GENERATE_OBJS := generate.o merkle_transactions.o hash_transaction.o transaction_cmp.o shadouble.o difficulty.o marshall.o
 MKGENESIS_OBJS := mkgenesis.o shadouble.o marshall.o hash_block.o
 SIZES_OBJS := sizes.o
+MKPRIV_OBJS := mkpriv.o
 CCAN_OBJS := ccan-asort.o ccan-breakpoint.o ccan-tal.o ccan-tal-path.o ccan-tal-str.o ccan-take.o ccan-list.o ccan-str.o ccan-opt-helpers.o ccan-opt.o ccan-opt-parse.o ccan-opt-usage.o ccan-read_write_all.o ccan-htable.o ccan-io-io.o ccan-io-poll.o ccan-timer.o ccan-time.o ccan-noerr.o ccan-hash.o ccan-isaac64.o
 CCANDIR=../ccan/
 VERSION:=$(shell git describe --dirty --always 2>/dev/null || echo Unknown)
@@ -13,7 +14,10 @@ LDLIBS := -lcrypto
 # We set this low for convenient testing.
 INITIAL_DIFFICULTY=0x1effffff
 
-all: generate mkgenesis pettycoin sizes
+all: generate mkgenesis pettycoin sizes mkpriv
+
+mkpriv: $(MKPRIV_OBJS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(MKPRIV_OBJS) $(LDLIBS)
 
 generate: $(GENERATE_OBJS) $(CCAN_OBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(GENERATE_OBJS) $(CCAN_OBJS) $(LDLIBS)
