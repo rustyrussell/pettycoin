@@ -14,6 +14,7 @@
 #include "../state.c"
 #include "../pseudorand.c"
 #include "../marshall.c"
+#include "../log.c"
 #include <ccan/tal/tal.h>
 #include <ccan/list/list.h>
 #include "trans_named.c"

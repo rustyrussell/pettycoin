@@ -16,23 +16,23 @@ int main(void)
 	struct protocol_double_sha dsha;
 	struct protocol_net_address netaddr;
 	int fds[2];
-	const char expect1[] = "PREFIX 334 bytes, Sun Nov 10 16:57:35 2013\n\n"
+	const char expect1[] = "PREFIX 334 bytes, Sun Nov 10 16:57:35 2013\n"
 		"+0.000000500 DEBUG: This is a debug message!\n"
 		"+0.000000501 INFO: This is an info message!\n"
 		"+0.000000502 UNUSUAL: This is an unusual message!\n"
 		"+0.000000503 BROKEN: This is a broken message!the sha is ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff and the address is: ::ffff:127.0.0.1:65000\n\n";
-	const char expect2[] = "PREFIX 103 bytes, Sun Nov 10 16:57:35 2013\n\n"
+	const char expect2[] = "PREFIX 103 bytes, Sun Nov 10 16:57:35 2013\n"
 		"... 4 skipped...\n"
 		"+0.000000504 DEBUG: Overflow!\n"
 		"+0.000000504 DEBUG: Log pruned 4 entries (mem 372 -> 38)\n\n";
 	char *p;
 	int status;
-	struct log *log = new_log(NULL, sizeof(struct log_entry) * 4 + 25 + 25 + 28 + 144);
+	struct log *log = new_log(NULL, "PREFIX", LOG_BROKEN+1, sizeof(struct log_entry) * 4 + 25 + 25 + 28 + 144);
 
 	my_time.tv_sec = 1384064855;
 	my_time.tv_nsec = 500;
 
-	log_dbg(log, "This is a debug %s!", "message");
+	log_debug(log, "This is a debug %s!", "message");
 	my_time.tv_nsec++;
 	log_info(log, "This is an info %s!", "message");
 	my_time.tv_nsec++;
@@ -62,7 +62,7 @@ int main(void)
 		err(1, "forking");
 	case 0:
 		close(fds[0]);
-		log_to_file(fds[1], "PREFIX", log);
+		log_to_file(fds[1], log);
 		exit(0);
 	}
 
@@ -81,7 +81,7 @@ int main(void)
 	assert(WIFEXITED(status) && WEXITSTATUS(status) == 0);
 
 	/* This cleans us out! */
-	log_dbg(log, "Overflow!");
+	log_debug(log, "Overflow!");
 	
 	/* Make child write log, be sure it's correct. */
 	pipe(fds);
@@ -90,7 +90,7 @@ int main(void)
 		err(1, "forking");
 	case 0:
 		close(fds[0]);
-		log_to_file(fds[1], "PREFIX", log);
+		log_to_file(fds[1], log);
 		exit(0);
 	}
 
