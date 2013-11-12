@@ -37,10 +37,18 @@ static int do_read_packet(int fd, struct io_plan *plan)
 
 		memcpy(&len, len_start, sizeof(le32));
 
+		/* Too big for protocol. */ 
 		if (le32_to_cpu(len) > PROTOCOL_MAX_PACKET_LEN) {
 			errno = ENOSPC;
 			return -1;
 		}
+
+		/* To small to hold type field. */
+		if (le32_to_cpu(len) < sizeof(le32)) {
+			errno = EINVAL;
+			return -1;
+		}
+
 		*pkt = tal_arr(NULL, char, sizeof(le32) + le32_to_cpu(len));
 		*(le32 *)*pkt = len;
 
