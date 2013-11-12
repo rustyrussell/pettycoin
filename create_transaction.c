@@ -3,6 +3,7 @@
 #include "hash_transaction.h"
 #include "merkle_transactions.h"
 #include "version.h"
+#include "talv.h"
 #include <ccan/tal/tal.h>
 #include <ccan/array_size/array_size.h>
 #include <openssl/ecdsa.h>
@@ -14,21 +15,22 @@ alloc_transaction(const tal_t *ctx,
 		  u16 num)
 {
 	union protocol_transaction *t;
-	u32 len;
 
 	switch (type) {
 	case TRANSACTION_NORMAL:
-		len = sizeof(t->normal) + sizeof(t->normal.input[0]) * num;
+		t = to_union(union protocol_transaction, normal,
+			     talv(ctx, struct protocol_transaction_normal,
+				  input[num]));
 		break;
 	case TRANSACTION_FROM_GATEWAY:
-		len = sizeof(t->gateway) + sizeof(t->gateway.output[0]) * num;
+		t = to_union(union protocol_transaction, gateway,
+			     talv(ctx, struct protocol_transaction_gateway,
+				  output[num]));
 		break;
 	default:
 		abort();
 	}
 
-	t = tal_alloc_(ctx, len, false,
-		       TAL_LABEL(union protocol_transaction, ""));
 	t->hdr.version = current_version();
 	t->hdr.type = type;
 	t->hdr.features = 0;

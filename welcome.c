@@ -2,12 +2,7 @@
 #include "state.h"
 #include "version.h"
 #include "block.h"
-
-#define TALV_LABEL(type, lastelem)		\
-	stringify(type) " " stringify(lastelem)
-#define talv(ctx, type, lastelem)					\
-	((type *)tal_alloc_((ctx), offsetof(type, lastelem),		\
-			    false, TALV_LABEL(type, lastelem)))
+#include "talv.h"
 
 static size_t welcome_iter(const struct state *state,
 			   struct protocol_double_sha *block_arr)
