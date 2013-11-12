@@ -18,6 +18,7 @@
 #include "shadouble.h"
 #include "marshall.h"
 #include "hash_block.h"
+#include "talv.h"
 
 struct worker {
 	int transactions_to_worker;
@@ -42,10 +43,9 @@ static struct protocol_block_header *solve(const tal_t *ctx,
 	unsigned int i, maxfd = 0;
 	fd_set set;
 	tal_t *children = tal(ctx, char);
-	void *ret;
+	struct protocol_req_new_block *ret;
 	struct protocol_double_sha *merkles;
 	u8 *prev_merkles;
-	u32 len;
 	struct protocol_block_header *hdr;
 
 	FD_ZERO(&set);
@@ -102,12 +102,15 @@ static struct protocol_block_header *solve(const tal_t *ctx,
 	select(maxfd+1, &set, NULL, NULL, NULL);
 	for (i = 0; i < maxfd+1; i++) {
 		if (FD_ISSET(i, &set)) {
+			le32 len;
 			if (read(i, &len, sizeof(len)) != sizeof(len)) {
 				tal_free(ctx);
 				err(1, "reading from child");
 			}
-			ret = tal_arr(ctx, char, len);
-			if (!read_all(i, ret, len)) {
+			ret = talv(ctx, struct protocol_req_new_block,
+				   block[len - sizeof(le32)]);
+			ret->len = len;
+			if (!read_all(i, &ret->type, le32_to_cpu(len))) {
 				tal_free(ctx);
 				err(1, "reading transaction from child");
 			}
@@ -119,7 +122,7 @@ static struct protocol_block_header *solve(const tal_t *ctx,
 	tal_free(children);
 
 	/* merkles and prev_merkles will be empty. */
-	hdr = unmarshall_block(ret, len, &merkles, &prev_merkles, tailer);
+	hdr = unmarshall_block(ret, &merkles, &prev_merkles, tailer);
 
 	return hdr;
 }

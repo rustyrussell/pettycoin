@@ -1,19 +1,23 @@
 #include <ccan/endian/endian.h>
 #include "marshall.h"
-#include "protocol.h"
+#include "protocol_net.h"
 #include "overflows.h"
 #include "merkle_transactions.h"
 #include "version.h"
+#include "talv.h"
 #include <assert.h>
 
 struct protocol_block_header *
-unmarshall_block(void *buffer, size_t size,
+unmarshall_block(struct protocol_req_new_block *buffer,
 		 struct protocol_double_sha **merkles,
 		 u8 **prev_merkles,
 		 struct protocol_block_tailer **tailer)
 {
-	struct protocol_block_header *hdr = buffer;
-	size_t len, merkle_len;
+	struct protocol_block_header *hdr = (void *)&buffer->block;
+	size_t size = le32_to_cpu(buffer->len), len, merkle_len;
+
+	assert(buffer->type == cpu_to_le32(PROTOCOL_REQ_NEW_BLOCK));
+	size -= sizeof(le32);
 
 	if (size < sizeof(*hdr))
 		return NULL;
@@ -64,31 +68,33 @@ unmarshall_block(void *buffer, size_t size,
 	return hdr;
 }
 
-void *marshall_block(const tal_t *ctx,
-		     const struct protocol_block_header *hdr,
-		     const struct protocol_double_sha *merkles,
-		     const u8 *prev_merkles,
-		     const struct protocol_block_tailer *tailer,
-		     size_t *len)
+struct protocol_req_new_block *
+marshall_block(const tal_t *ctx,
+	       const struct protocol_block_header *hdr,
+	       const struct protocol_double_sha *merkles,
+	       const u8 *prev_merkles,
+	       const struct protocol_block_tailer *tailer)
 {
-	char *ret;
-	size_t merkle_len, prev_merkle_len;
+	struct protocol_req_new_block *ret;
+	size_t len, merkle_len, prev_merkle_len;
 
 	merkle_len = sizeof(*merkles)
 		* num_merkles(le32_to_cpu(hdr->num_transactions));
 	prev_merkle_len = sizeof(*prev_merkles)
 		* le32_to_cpu(hdr->num_prev_merkles);
 
-	*len = sizeof(*hdr) + merkle_len + prev_merkle_len + sizeof(*tailer);
-	ret = tal_arr(ctx, char, *len);
-	if (!ret)
-		return NULL;
+	len = sizeof(*hdr) + merkle_len + prev_merkle_len + sizeof(*tailer);
+	ret = talv(ctx, struct protocol_req_new_block, block[len]);
 
-	memcpy(ret, hdr, sizeof(*hdr));
-	memcpy(ret + sizeof(*hdr), merkles, merkle_len);
-	memcpy(ret + sizeof(*hdr) + merkle_len, prev_merkles, prev_merkle_len);
-	memcpy(ret + sizeof(*hdr) + merkle_len + prev_merkle_len, tailer,
-	       sizeof(*tailer));
+	ret->len = cpu_to_le32(len + sizeof(ret->type));
+	ret->type = cpu_to_le32(PROTOCOL_REQ_NEW_BLOCK);
+
+	memcpy(ret->block, hdr, sizeof(*hdr));
+	memcpy(ret->block + sizeof(*hdr), merkles, merkle_len);
+	memcpy(ret->block + sizeof(*hdr) + merkle_len,
+	       prev_merkles, prev_merkle_len);
+	memcpy(ret->block + sizeof(*hdr) + merkle_len + prev_merkle_len,
+	       tailer, sizeof(*tailer));
 	return ret;
 }
 

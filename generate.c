@@ -320,13 +320,10 @@ static bool from_hex(const char *str, u8 *buf, size_t bufsize)
 static void write_block(int fd, const struct working_block *w)
 {
 	u32 len, i;
-	void *buf;
+	struct protocol_req_new_block *b;
 
-	buf = marshall_block(w, &w->hdr, w->merkles, w->prev_merkles,
-			       &w->tailer, &len);
-
-	write_all(fd, &len, sizeof(len));
-	write_all(fd, buf, len);
+	b = marshall_block(w, &w->hdr, w->merkles, w->prev_merkles, &w->tailer);
+	write_all(fd, b, sizeof(b->len) + le32_to_cpu(b->len));
 
 	/* Now write out the transactions, in order. */
 	for (i = 0; i < le32_to_cpu(w->hdr.num_transactions); i++) {
