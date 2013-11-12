@@ -97,16 +97,17 @@ void logv(struct log *log, enum log_level level, const char *fmt, va_list ap)
 static void do_log_add(struct log *log, const char *fmt, va_list ap)
 {
 	struct log_entry *l = list_tail(&log->log, struct log_entry, list);
+	size_t oldlen = strlen(l->log);
 
 	/* Remove from list, so it doesn't get pruned. */
-	log->mem_used -= sizeof(*l) + strlen(l->log) + 1;
+	log->mem_used -= sizeof(*l) + oldlen + 1;
 	list_del_from(&log->log, &l->list);
 
 	tal_append_vfmt(&l->log, fmt, ap);
 	add_entry(log, l);
 
 	if (l->level >= log->print)
-		printf("\t%s\n", l->log);
+		printf("\t%s\n", l->log + oldlen);
 }
 
 void log_(struct log *log, enum log_level level, const char *fmt, ...)
