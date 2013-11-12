@@ -2,6 +2,7 @@
 #define PETTYCOIN_PACKET_H
 #include <ccan/io/io.h>
 
+/* All packets are "le32 len, type" then len bytes. */
 struct peer;
 
 /* Takes any pointer to pointer, fills it in. */

@@ -22,7 +22,7 @@ static void lookup_and_write(int fd, const char *name, const char *port)
 {
 	struct addrinfo *addr, *i;
 	struct protocol_net_address *addresses;
-	le32 len;
+	le32 len, type;
 
 	if (getaddrinfo(name, port, NULL, &addr) != 0)
 		return;
@@ -44,7 +44,10 @@ static void lookup_and_write(int fd, const char *name, const char *port)
 		return;
 	if (write(fd, &len, sizeof(len)) != sizeof(len))
 		return;
-	write(fd, addresses, len);
+	type = 0;
+	if (write(fd, &type, sizeof(type)) != sizeof(type))
+		return;
+	write(fd, addresses, le32_to_cpu(len));
 	tal_free(addresses);
 }
 
@@ -93,8 +96,8 @@ static struct io_plan start_connecting(struct io_conn *conn, struct dns_info *d)
 	/* Take ownership of packet, so it's freed with d. */
 	tal_steal(d, d->pkt);
 	d->num_addresses = le32_to_cpu(*len) / sizeof(d->addresses[0]);
-	/* Addresses are after header. */
-	d->addresses = (void *)(len + 1);
+	/* Addresses are after len & type. */
+	d->addresses = (void *)(len + 2);
 
 	assert(d->num_addresses);
 	try_connect_one(d);

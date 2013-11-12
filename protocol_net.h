@@ -71,7 +71,7 @@ struct protocol_net_address {
 }  __attribute__((aligned(2)));
 
 struct protocol_req_welcome {
-	le32 len; /* sizeof(struct protocol_req_welcome) - sizeof(len) */
+	le32 len; /* sizeof(struct protocol_req_welcome) - sizeof(le32)*2 */
 	le32 type; /* PROTOCOL_REQ_WELCOME */
 	le32 version; /* Protocol version, currently 1. */
 	/* Freeform software version. */
@@ -92,21 +92,21 @@ struct protocol_req_welcome {
 
 /* Usually followed by a hangup if error, since communication has failed. */
 struct protocol_req_err {
-	le32 len; /* sizeof(struct protocol_req_err) - sizeof(len) */
+	le32 len; /* sizeof(error) */
 	le32 type; /* PROTOCOL_REQ_ERR */
 	le32 error;
 };
 
 /* Usually followed by a hangup if error, since communication has failed. */
 struct protocol_resp_err {
-	le32 len; /* sizeof(struct protocol_resp_err) - sizeof(len) */
+	le32 len; /* sizeof(error) */
 	le32 type; /* PROTOCOL_RESP_ERR */
 	le32 error;
 };
 
 /* I have a new block for you! */
 struct protocol_req_new_block {
-	le32 len; /* sizeof(struct protocol_req_new_block + ...) - sizeof(len) */
+	le32 len; /* sizeof(block) */
 	le32 type; /* PROTOCOL_REQ_NEW_BLOCK */
 
 	/* Marshalled block. */

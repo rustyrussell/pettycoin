@@ -17,7 +17,6 @@ unmarshall_block(struct protocol_req_new_block *buffer,
 	size_t size = le32_to_cpu(buffer->len), len, merkle_len;
 
 	assert(buffer->type == cpu_to_le32(PROTOCOL_REQ_NEW_BLOCK));
-	size -= sizeof(le32);
 
 	if (size < sizeof(*hdr))
 		return NULL;
@@ -86,7 +85,7 @@ marshall_block(const tal_t *ctx,
 	len = sizeof(*hdr) + merkle_len + prev_merkle_len + sizeof(*tailer);
 	ret = talv(ctx, struct protocol_req_new_block, block[len]);
 
-	ret->len = cpu_to_le32(len + sizeof(ret->type));
+	ret->len = cpu_to_le32(len);
 	ret->type = cpu_to_le32(PROTOCOL_REQ_NEW_BLOCK);
 
 	memcpy(ret->block, hdr, sizeof(*hdr));

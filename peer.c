@@ -36,8 +36,8 @@ static struct io_plan digest_peer_addrs(struct io_conn *conn,
 	struct protocol_net_address *addr;
 
 	num = le32_to_cpu(*len) / sizeof(*addr);
-	/* Addresses are after header. */
-	addr = (void *)(len + 1);
+	/* Addresses are after header (which includes unused type field). */
+	addr = (void *)(len + 2);
 
 	log_debug(lookup->state->log,
 		  "seed server supplied %u peers in %u bytes",
@@ -144,7 +144,8 @@ static struct protocol_req_err *protocol_req_err(struct peer *peer,
 {
 	struct protocol_req_err *pkt = tal(peer, struct protocol_req_err);
 
-	pkt->len = cpu_to_le32(sizeof(*pkt) - sizeof(pkt->len));
+	pkt->len = cpu_to_le32(sizeof(*pkt)
+			       - sizeof(pkt->len) - sizeof(pkt->type));
 	pkt->type = cpu_to_le32(PROTOCOL_REQ_ERR);
 	pkt->error = cpu_to_le32(e);
 
@@ -156,7 +157,8 @@ static struct protocol_resp_err *protocol_resp_err(struct peer *peer,
 {
 	struct protocol_resp_err *pkt = tal(peer, struct protocol_resp_err);
 
-	pkt->len = cpu_to_le32(sizeof(*pkt) - sizeof(pkt->len));
+	pkt->len = cpu_to_le32(sizeof(*pkt)
+			       - sizeof(pkt->len) - sizeof(pkt->type));
 	pkt->type = cpu_to_le32(PROTOCOL_RESP_ERR);
 	pkt->error = cpu_to_le32(e);
 
@@ -197,7 +199,7 @@ static struct io_plan check_welcome_ack(struct io_conn *conn,
 	struct protocol_resp_err *wresp = peer->incoming;
 	void *errpkt;
 
-	if (wresp->len != cpu_to_le32(sizeof(*wresp) - sizeof(wresp->len))) {
+	if (wresp->len != cpu_to_le32(sizeof(*wresp) - sizeof(le32) * 2)) {
 		log_unusual(peer->log, "Bad welcome ack len %u",
 			    le32_to_cpu(wresp->len));
 		errpkt = protocol_req_err(peer, PROTOCOL_INVALID_LEN);

@@ -14,8 +14,11 @@ rm -rf home-* addresses
 touch addresses
 ./serve_addresses &
 
+# Only debug for first one.
+flags="--log-level=debug"
 for i in `seq $1`; do
     mkdir home-$i
-    HOME=home-$i ../../pettycoin --developer-test &
+    HOME=home-$i ../../pettycoin --developer-test $flags &
+    flags=""
 done
 trap "" EXIT
