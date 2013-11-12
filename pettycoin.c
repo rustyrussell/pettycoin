@@ -161,7 +161,7 @@ static char *add_connect(const char *arg, struct state *state)
 	return NULL;
 }
 
-static char *set_log_level(const char *arg, enum log_level *log_level)
+static char *arg_log_level(const char *arg, enum log_level *log_level)
 {
 	if (streq(arg, "debug"))
 		*log_level = LOG_DBG;
@@ -200,7 +200,7 @@ int main(int argc, char *argv[])
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
 	io_set_alloc(io_allocfn, tal_reallocfn, tal_freefn);
 
-	opt_register_early_arg("--log-level", set_log_level, NULL,
+	opt_register_early_arg("--log-level", arg_log_level, NULL,
 			       &state->log_level,
 			       "log level (debug, info, unusual, broken)");
 	opt_register_arg("--connect", add_connect, NULL, state,
@@ -215,6 +215,7 @@ int main(int argc, char *argv[])
 
 	/* Parse --log-level first. */
 	opt_early_parse(argc, argv, opt_log_stderr_exit);
+	set_log_level(state->log, state->log_level);
 
 	pettycoin_dir = make_pettycoin_dir(state);
 	opt_parse(&argc, argv, opt_log_stderr_exit);

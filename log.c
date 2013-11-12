@@ -70,6 +70,11 @@ struct log *new_log(const tal_t *ctx, const char *prefix,
 	return log;
 }
 
+void set_log_level(struct log *log, enum log_level level)
+{
+	log->print = level;
+}
+
 static void add_entry(struct log *log, struct log_entry *l)
 {
 	log->mem_used += sizeof(*l) + strlen(l->log) + 1;

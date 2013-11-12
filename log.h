@@ -39,5 +39,6 @@ void logv(struct log *log, enum log_level level, const char *fmt, va_list ap);
 
 void log_add_struct_(struct log *log, const char *structname, const void *ptr);
 
+void set_log_level(struct log *log, enum log_level level);
 void log_to_file(int fd, const struct log *log);
-#endif /* PETTYCOIN_PEER_H */
+#endif /* PETTYCOIN_LOG_H */
