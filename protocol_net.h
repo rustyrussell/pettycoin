@@ -47,12 +47,17 @@ enum protocol_error {
 	/* General errors: */
 	PROTOCOL_UNKNOWN_COMMAND,
 	PROTOCOL_INVALID_LEN,
-	/* protocol_req_welcome/protocol_response_welcome: */
+	/* protocol_req_welcome: */
 
 	PROTOCOL_ERROR_HIGH_VERSION, /* version is unknown. */
 	PROTOCOL_ERROR_LOW_VERSION, /* version is old. */
 	PROTOCOL_ERROR_NO_INTEREST, /* not enough interest bits. */
 	PROTOCOL_ERROR_WRONG_GENESIS, /* disagree over genesis block. */
+
+	/* protocol_req_new_block: */
+	PROTOCOL_ERROR_BLOCK_HIGH_VERSION, /* block version unknown. */
+	PROTOCOL_ERROR_BLOCK_LOW_VERSION, /* block version is old. */
+
 
 	/* protocol_req_blockstart/protocol_req_batchnums/protocol_req_batch: */
 	PROTOCOL_ERROR_UNKNOWN_BLOCK, /* I don't know that block? */

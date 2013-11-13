@@ -7,26 +7,23 @@
 #include "talv.h"
 #include <assert.h>
 
-struct protocol_block_header *
-unmarshall_block(struct protocol_req_new_block *buffer,
+enum protocol_error
+unmarshall_block(size_t size, const struct protocol_block_header *hdr,
 		 struct protocol_double_sha **merkles,
 		 u8 **prev_merkles,
 		 struct protocol_block_tailer **tailer)
 {
-	struct protocol_block_header *hdr = (void *)&buffer->block;
-	size_t size = le32_to_cpu(buffer->len), len, merkle_len;
-
-	assert(buffer->type == cpu_to_le32(PROTOCOL_REQ_NEW_BLOCK));
+	size_t len, merkle_len;
 
 	if (size < sizeof(*hdr))
-		return NULL;
+		return PROTOCOL_INVALID_LEN;
 
 	if (!version_ok(hdr->version))
-		return NULL;
+		return PROTOCOL_ERROR_BLOCK_HIGH_VERSION;
 
 	if (add_overflows(le32_to_cpu(hdr->num_transactions),
 			  (1<<PETTYCOIN_BATCH_ORDER)-1))
-		return NULL;
+		return PROTOCOL_INVALID_LEN;
 
 	len = sizeof(*hdr);
 
@@ -37,18 +34,18 @@ unmarshall_block(struct protocol_req_new_block *buffer,
 
 	/* This can't actually happen, due to shift, but be thorough. */
 	if (mul_overflows(merkle_len, sizeof(struct protocol_double_sha)))
-		return NULL;
+		return PROTOCOL_INVALID_LEN;
 	merkle_len *= sizeof(struct protocol_double_sha);
 
 	if (add_overflows(len, merkle_len))
-		return NULL;
+		return PROTOCOL_INVALID_LEN;
 
 	len += merkle_len;
 
 	/* Next comes prev_merkles. */
 	*prev_merkles = (u8 *)hdr + len;
 	if (add_overflows(len, le32_to_cpu(hdr->num_prev_merkles)))
-		return NULL;
+		return PROTOCOL_INVALID_LEN;
 	len += le32_to_cpu(hdr->num_prev_merkles);
 
 	/* Finally comes tailer. */
@@ -56,15 +53,15 @@ unmarshall_block(struct protocol_req_new_block *buffer,
 		(*prev_merkles + le32_to_cpu(hdr->num_prev_merkles));
 
 	if (add_overflows(len, sizeof(**tailer)))
-		return NULL;
+		return PROTOCOL_INVALID_LEN;
 
 	len += sizeof(**tailer);
 
 	/* Size must be exactly right. */
 	if (size != len)
-		return NULL;
+		return PROTOCOL_INVALID_LEN;
 
-	return hdr;
+	return PROTOCOL_ERROR_NONE;
 }
 
 struct protocol_req_new_block *

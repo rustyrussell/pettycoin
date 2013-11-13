@@ -121,8 +121,10 @@ static struct protocol_block_header *solve(const tal_t *ctx,
 	/* Kill off children. */
 	tal_free(children);
 
+	hdr = (struct protocol_block_header *)&ret->block;
 	/* merkles and prev_merkles will be empty. */
-	hdr = unmarshall_block(ret, &merkles, &prev_merkles, tailer);
+	unmarshall_block(le32_to_cpu(ret->len), hdr,
+			 &merkles, &prev_merkles, tailer);
 
 	return hdr;
 }
