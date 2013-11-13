@@ -65,13 +65,19 @@ enum protocol_error {
 	PROTOCOL_ERROR_MAX
 };
 
+/* Every packet starts with these two. */
+struct protocol_net_hdr {
+	le32 len; /* size after header */
+	le32 type; /* PROTOCOL_REQ_* or PROTOCOL_RESP_* */
+};
+
 struct protocol_net_address {
 	u8 addr[16];
 	be16 port;
 }  __attribute__((aligned(2)));
 
 struct protocol_req_welcome {
-	le32 len; /* sizeof(struct protocol_req_welcome) - sizeof(le32)*2 */
+	le32 len; /* sizeof(struct protocol_req_welcome) - sizeof(hdr) */
 	le32 type; /* PROTOCOL_REQ_WELCOME */
 	le32 version; /* Protocol version, currently 1. */
 	/* Freeform software version. */
