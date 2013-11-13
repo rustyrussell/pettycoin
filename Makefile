@@ -31,8 +31,8 @@ pettycoin: $(PETTYCOIN_OBJS) $(CCAN_OBJS)
 sizes: $(SIZES_OBJS) $(CCAN_OBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(SIZES_OBJS) $(CCAN_OBJS) $(LDLIBS)
 
-genesis.c: mkgenesis generate
-	./mkgenesis 4 $(INITIAL_DIFFICULTY) "Some NYT Head" > $@
+genesis.c:
+	$(MAKE) mkgenesis generate && ./mkgenesis 4 $(INITIAL_DIFFICULTY) "Some NYT Head" > $@
 
 check:
 	$(MAKE) -C test check
