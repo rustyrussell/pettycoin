@@ -9,9 +9,9 @@
 
 enum protocol_error
 unmarshall_block(size_t size, const struct protocol_block_header *hdr,
-		 struct protocol_double_sha **merkles,
-		 u8 **prev_merkles,
-		 struct protocol_block_tailer **tailer)
+		 const struct protocol_double_sha **merkles,
+		 const u8 **prev_merkles,
+		 const struct protocol_block_tailer **tailer)
 {
 	size_t len, merkle_len;
 

@@ -34,19 +34,20 @@ static void destroy_worker(struct worker *w)
 	waitpid(w->child, NULL, 0);
 }
 
-static struct protocol_block_header *solve(const tal_t *ctx,
-					   unsigned int threads,
-					   const char *difficulty,
-					   char *nonce,
-					   struct protocol_block_tailer **tailer)
+static const struct protocol_block_header *
+solve(const tal_t *ctx,
+      unsigned int threads,
+      const char *difficulty,
+      char *nonce,
+      const struct protocol_block_tailer **tailer)
 {
 	unsigned int i, maxfd = 0;
 	fd_set set;
 	tal_t *children = tal(ctx, char);
 	struct protocol_req_new_block *ret;
-	struct protocol_double_sha *merkles;
-	u8 *prev_merkles;
-	struct protocol_block_header *hdr;
+	const struct protocol_double_sha *merkles;
+	const u8 *prev_merkles;
+	const struct protocol_block_header *hdr;
 
 	FD_ZERO(&set);
 
@@ -145,7 +146,7 @@ int main(int argc, char *argv[])
 	SHA256_CTX shactx;
 	tal_t *ctx = tal(NULL, char);
 	const struct protocol_block_header *hdr;
-	struct protocol_block_tailer *tailer;
+	const struct protocol_block_tailer *tailer;
 	struct protocol_double_sha sha;
 	char nonce[sizeof(hdr->nonce2) + 1];
 

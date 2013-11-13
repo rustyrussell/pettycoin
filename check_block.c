@@ -2,6 +2,7 @@
 #include "version.h"
 #include "overflows.h"
 #include "protocol.h"
+#include "protocol_net.h"
 #include "block.h"
 #include "state.h"
 #include "timestamp.h"
@@ -20,21 +21,28 @@
 
 /* Returns NULL if bad.  Not sufficient by itself: see check_batch_valid and
  * check_block_prev_merkles! */
-struct block *check_block_header(struct state *state,
-				 const struct protocol_block_header *hdr,
-				 const struct protocol_double_sha *merkles,
-				 const u8 *prev_merkles,
-				 const struct protocol_block_tailer *tailer)
+enum protocol_error
+check_block_header(struct state *state,
+		   const struct protocol_block_header *hdr,
+		   const struct protocol_double_sha *merkles,
+		   const u8 *prev_merkles,
+		   const struct protocol_block_tailer *tailer,
+		   struct block **blockp)
 {
-	struct block *block = tal(state, struct block), *next;
+	struct block *block = (*blockp) = tal(state, struct block), *next;
+	enum protocol_error e;
 
-	if (!version_ok(hdr->version))
+	if (!version_ok(hdr->version)) {
+		e = PROTOCOL_ERROR_BLOCK_HIGH_VERSION;
 		goto fail;
+	}
 
 	/* Don't just search on main chain! */
 	block->prev = block_find_any(state, &hdr->prev_block);
-	if (!block->prev)
+	if (!block->prev) {
+		e = PROTOCOL_ERROR_UNKNOWN_PREV;
 		goto fail;
+	}
 
 	/* We come after our predecessor, obviously. */
 	block->blocknum = block->prev->blocknum + 1;
@@ -52,40 +60,50 @@ struct block *check_block_header(struct state *state,
 	}
 
 	/* Can't go backwards, can't be more than 2 hours in future. */
-	if (!check_timestamp(state, le32_to_cpu(tailer->timestamp), block->prev))
+	if (!check_timestamp(state, le32_to_cpu(tailer->timestamp),block->prev)){
+		e = PROTOCOL_ERROR_BAD_TIMESTAMP;
 		goto fail;
+	}
 
 	/* Must have right number of hashes for previous blocks. */
-	if (le32_to_cpu(hdr->num_prev_merkles) != num_prev_merkles(block->prev))
+	if (le32_to_cpu(hdr->num_prev_merkles) != num_prev_merkles(block->prev)){
+		e = PROTOCOL_ERROR_BAD_PREV_MERKLES;
 		goto fail;
+	}
 
 	/* Based on previous blocks, how difficult should this be? */
-	if (le32_to_cpu(tailer->difficulty) != get_difficulty(state, block))
+	if (le32_to_cpu(tailer->difficulty) != get_difficulty(state, block)) {
+		e = PROTOCOL_ERROR_BAD_DIFFICULTY;
 		goto fail;
+	}
 
 	/* Get SHA: should have enough leading zeroes to beat target. */
 	hash_block(hdr, merkles, prev_merkles, tailer, &block->sha);
 
-	if (!beats_target(&block->sha, le32_to_cpu(tailer->difficulty)))
+	if (!beats_target(&block->sha, le32_to_cpu(tailer->difficulty))) {
+		e = PROTOCOL_ERROR_INSUFFICIENT_WORK;
 		goto fail;
+	}
 
 	total_work_done(le32_to_cpu(tailer->difficulty),
 			&block->prev->total_work,
 			&block->total_work);
 
+	/* FIXME: promote off chain to main chain if total work greater! */
+
 	block->batch = tal_arrz(block, struct transaction_batch *,
 				num_merkles(le32_to_cpu(hdr->num_transactions)));
 
-	/* Take ownership of the parts. */
-	block->hdr = tal_steal(block, hdr);
-	block->merkles = tal_steal(block, merkles);
-	block->prev_merkles = tal_steal(block, prev_merkles);
-	block->tailer = tal_steal(block, tailer);
+	block->hdr = hdr;
+	block->merkles = merkles;
+	block->prev_merkles = prev_merkles;
+	block->tailer = tailer;
 
-	return block;
+	return PROTOCOL_ERROR_NONE;
 
 fail:
-	return tal_free(block);
+	*blockp = tal_free(block);
+	return e;
 }
 
 bool check_batch_valid(struct state *state,

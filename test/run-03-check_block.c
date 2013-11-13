@@ -57,10 +57,9 @@ int main(int argc, char *argv[])
 	union protocol_transaction *t;
 	struct protocol_gateway_payment payment;
 	struct block *b, *b2;
-	struct protocol_block_header *header;
-	struct protocol_block_tailer *tailer;
 	struct transaction_batch *batch;
 	u8 *prev_merkles;
+	enum protocol_error e;
 
 	/* Sew our genesis block into state. */
 	list_head_init(&s->blocks);
@@ -79,12 +78,9 @@ int main(int argc, char *argv[])
 	assert(add_transaction(w, t));
 	for (i = 0; !solve_block(w); i++);
 
-	/* check_block_header expects to steal these! */
-	header = tal(w, struct protocol_block_header);
-	tailer = tal(w, struct protocol_block_tailer);
-	*header = w->hdr;
-	*tailer = w->tailer;
-	b = check_block_header(s, header, w->merkles, w->prev_merkles, tailer);
+	e = check_block_header(s, &w->hdr, w->merkles, w->prev_merkles,
+			       &w->tailer, &b);
+	assert(e == PROTOCOL_ERROR_NONE);
 	assert(b);
 
 	/* This is a NOOP, so should succeed. */
@@ -115,12 +111,9 @@ int main(int argc, char *argv[])
 			      &b->sha, helper_addr(1));
 	for (i = 0; !solve_block(w); i++);
 
-	/* check_block_header expects to steal these! */
-	header = tal(w, struct protocol_block_header);
-	tailer = tal(w, struct protocol_block_tailer);
-	*header = w->hdr;
-	*tailer = w->tailer;
-	b2 = check_block_header(s, header, w->merkles, w->prev_merkles, tailer);
+	e = check_block_header(s, &w->hdr, w->merkles, w->prev_merkles,
+			       &w->tailer, &b2);
+	assert(e == PROTOCOL_ERROR_NONE);
 	assert(b2);
 
 	/* This should be correct. */

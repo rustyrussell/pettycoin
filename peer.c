@@ -8,6 +8,8 @@
 #include "peer_cache.h"
 #include "block.h"
 #include "log.h"
+#include "marshall.h"
+#include "check_block.h"
 #include <ccan/io/io.h>
 #include <ccan/time/time.h>
 #include <ccan/tal/tal.h>
@@ -166,12 +168,10 @@ static struct protocol_resp_err *protocol_resp_err(struct peer *peer,
 }
 
 static struct block *find_mutual_block(struct peer *peer,
-				       struct protocol_double_sha *block,
+				       const struct protocol_double_sha *block,
 				       u32 num_blocks)
 {
 	int i;
-
-	log_debug(peer->log, "Peer sent %u blocks", num_blocks);
 
 	for (i = num_blocks - 1; i >= 0; i++) {
 		struct block *b = block_find_any(peer->state, &block[i]);
@@ -189,8 +189,185 @@ static struct block *find_mutual_block(struct peer *peer,
 			log_add(peer->log, "not found ");
 	}
 
-	/* This should not happen, since we checked for mutual genesis block! */
-	abort();
+	return NULL;
+}
+
+static struct io_plan plan_output(struct io_conn *conn, struct peer *peer);
+
+static struct io_plan block_sent(struct io_conn *conn, struct peer *peer)
+{
+	peer->curr_out_req = PROTOCOL_REQ_NEW_BLOCK;
+	return plan_output(conn, peer);
+}
+
+static struct protocol_req_new_block *block_pkt(tal_t *ctx, struct block *b)
+{
+	return marshall_block(ctx,
+			      b->hdr, b->merkles, b->prev_merkles, b->tailer);
+}
+
+static struct io_plan response_sent(struct io_conn *conn, struct peer *peer)
+{
+	/* We sent a response, now we're ready for another request. */
+	peer->response = NULL;
+	peer->curr_in_req = PROTOCOL_REQ_NONE;
+	return plan_output(conn, peer);
+}
+
+static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
+{
+	struct block *next;
+
+	/* There was an error?  Send that then close. */
+	if (peer->error_pkt)
+		return io_write_packet(peer, peer->error_pkt, io_close_cb);
+
+	/* First, response to their queries. */
+	if (peer->response)
+		return io_write_packet(peer, peer->response, response_sent);
+
+	/* Second, do we have any blocks to send? */
+	next = list_next(&peer->state->blocks, peer->mutual, list);
+	if (next)
+		return io_write_packet(peer, block_pkt(peer, next), block_sent);
+
+	/* FIXME: Now, send any transactions they don't know about. */
+
+	/* Otherwise, we're idle. */
+	peer->output_idle = true;
+	return io_idle();
+}
+
+/* Returns an error packet if there was trouble. */
+static struct protocol_resp_err *
+receive_block(struct peer *peer, u32 len,
+	      const struct protocol_block_header *hdr)
+{
+	struct block *new, *final;
+	enum protocol_error e;
+	const struct protocol_double_sha *merkles;
+	const u8 *prev_merkles;
+	const struct protocol_block_tailer *tailer;
+	struct protocol_resp_new_block *r;
+
+	e = unmarshall_block(len, hdr, &merkles, &prev_merkles, &tailer);
+	if (e != PROTOCOL_ERROR_NONE)
+		goto fail;
+
+	e = check_block_header(peer->state, hdr, merkles, prev_merkles,
+			       tailer, &new);
+	if (e != PROTOCOL_ERROR_NONE)
+		goto fail;
+
+	/* Reply, tell them we're all good... */
+	r = tal(peer, struct protocol_resp_new_block);
+	r->len = cpu_to_le32(sizeof(*r) - (sizeof(struct protocol_net_hdr)));
+	r->type = cpu_to_le32(PROTOCOL_RESP_NEW_BLOCK);
+	final = list_tail(&peer->state->blocks, struct block, list);
+	r->final = final->sha;
+
+	assert(!peer->response);
+	peer->response = r;
+	return NULL;
+
+fail:
+	return protocol_resp_err(peer, e);
+}
+
+/* Packet arrives. */
+static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
+{
+	const struct protocol_net_hdr *hdr = peer->incoming;
+	const void *body = hdr + 2;
+	struct block *mutual;
+	u32 len, type;
+
+	len = le32_to_cpu(hdr->len);
+	type = le32_to_cpu(hdr->type);
+
+	/* Requests must be one-at-a-time. */
+	if (type < PROTOCOL_REQ_MAX  && peer->curr_in_req != PROTOCOL_REQ_NONE) {
+		log_unusual(peer->log,
+			    "Peer placed request %u while %u still pending",
+			    type, peer->curr_in_req);
+		return io_close();
+	}
+
+	switch (type) {
+	case PROTOCOL_REQ_NEW_BLOCK:
+		log_debug(peer->log, "Received PROTOCOL_REQ_NEW_BLOCK");
+		if (peer->curr_in_req != PROTOCOL_REQ_NONE)
+			goto unexpected_req;
+		peer->curr_in_req = PROTOCOL_REQ_NEW_BLOCK;
+		peer->error_pkt = receive_block(peer, len, body);
+		if (peer->error_pkt)
+			goto send_error;
+			
+		break;
+
+	case PROTOCOL_RESP_NEW_BLOCK:
+		log_debug(peer->log, "Received PROTOCOL_RESP_NEW_BLOCK");
+		if (len != sizeof(struct protocol_resp_new_block) - sizeof(*hdr))
+			goto bad_resp_length;
+		if (peer->curr_out_req != PROTOCOL_REQ_NEW_BLOCK)
+			goto unexpected_resp;
+
+		/* If we know the block they know, update it. */
+		mutual = find_mutual_block(peer, body, 1);
+		if (mutual)
+			peer->mutual = mutual;
+		peer->curr_out_req = PROTOCOL_REQ_NONE;
+		break;
+
+	case PROTOCOL_REQ_ERR:
+		log_unusual(peer->log, "Received PROTOCOL_REQ_ERR %u",
+			    cpu_to_le32(((struct protocol_req_err*)hdr)->error));
+		return io_close();
+
+	case PROTOCOL_RESP_ERR:
+		log_unusual(peer->log, "Received PROTOCOL_RESP_ERR %u",
+			    cpu_to_le32(((struct protocol_resp_err *)hdr)
+					->error));
+		return io_close();
+
+	default:
+		log_unusual(peer->log, "Unexpected packet %u", type);
+		return io_close();
+	}
+
+	/* Wake output if necessary. */
+	if (peer->output_idle) {
+		peer->output_idle = false;
+		io_wake(peer->w, plan_output(peer->w, peer));
+	}
+	/* We're done processing packet, free for next one. */
+	peer->incoming = tal_free(peer->incoming);
+
+	return io_read_packet(&peer->incoming, pkt_in, peer);
+
+unexpected_req:
+	log_unusual(peer->log, "Peer sent req %u after unacknowledged %u",
+		    type, peer->curr_in_req);
+	peer->error_pkt = protocol_resp_err(peer, PROTOCOL_SHOULD_BE_WAITING);
+	goto send_error;
+
+unexpected_resp:
+	log_unusual(peer->log, "Peer responded with %u after we sent %u",
+		    type, peer->curr_out_req);
+	peer->error_pkt = protocol_req_err(peer, PROTOCOL_INVALID_RESPONSE);
+	goto send_error;
+
+bad_resp_length:
+	log_unusual(peer->log, "Peer sent %u with bad length %u", type, len);
+	peer->error_pkt = protocol_req_err(peer, PROTOCOL_INVALID_LEN);
+	goto send_error;
+
+send_error:
+	if (peer->output_idle) {
+		peer->output_idle = false;
+		io_wake(peer->w, plan_output(peer->w, peer));
+	}
+	return io_idle();
 }
 
 static struct io_plan check_welcome_ack(struct io_conn *conn,
@@ -198,6 +375,8 @@ static struct io_plan check_welcome_ack(struct io_conn *conn,
 {
 	struct protocol_resp_err *wresp = peer->incoming;
 	void *errpkt;
+
+	assert(conn == peer->w);
 
 	if (wresp->len != cpu_to_le32(sizeof(*wresp) - sizeof(le32) * 2)) {
 		log_unusual(peer->log, "Bad welcome ack len %u",
@@ -222,12 +401,18 @@ static struct io_plan check_welcome_ack(struct io_conn *conn,
 	}
 
 	/* Where do we disagree on main chain? */
+	log_debug(peer->log, "Peer sent %u blocks",
+		  le32_to_cpu(peer->welcome->num_blocks));
 	peer->mutual = find_mutual_block(peer, peer->welcome->block,
 					 le32_to_cpu(peer->welcome->num_blocks));
 
 	log_debug(peer->log, "Peer has mutual block %u", peer->mutual->blocknum);
 
-	fatal(peer->state, "FIXME: do something now!");
+	/* Time to go duplex on this connection. */
+	peer->r = io_duplex(peer->w,
+			    io_read_packet(&peer->incoming, pkt_in, peer));
+
+	return plan_output(conn, peer);
 
 fail:
 	return io_write_packet(peer, errpkt, io_close_cb); 
@@ -316,9 +501,11 @@ void new_peer(struct state *state, int fd, const struct protocol_net_address *a)
 
 	list_add(&state->peers, &peer->list);
 	peer->state = state;
+	peer->error_pkt = NULL;
 	peer->welcome = NULL;
 	peer->outgoing = NULL;
 	peer->incoming = NULL;
+	peer->curr_in_req = peer->curr_out_req = PROTOCOL_REQ_NONE;
 
 	/* If a, we need to connect to there. */
 	if (a) {
@@ -332,8 +519,8 @@ void new_peer(struct state *state, int fd, const struct protocol_net_address *a)
 			       &peer->you);
 
 		ai = mk_addrinfo(peer, a);
-		peer->conn = io_new_conn(fd, io_connect(fd, ai, setup_welcome,
-							peer));
+		peer->w = io_new_conn(fd,
+				      io_connect(fd, ai, setup_welcome, peer));
 		tal_free(ai);
 	} else {
 		if (!get_fd_addr(fd, &peer->you)) {
@@ -344,7 +531,7 @@ void new_peer(struct state *state, int fd, const struct protocol_net_address *a)
 			close(fd);
 			return;
 		}
-		peer->conn = io_new_conn(fd, setup_welcome(NULL, peer));
+		peer->w = io_new_conn(fd, setup_welcome(NULL, peer));
 		log_debug(state->log, "Peer %p (%u) connected from ",
 			  peer, state->num_peers);
 		log_add_struct(state->log, struct protocol_net_address,
@@ -360,7 +547,7 @@ void new_peer(struct state *state, int fd, const struct protocol_net_address *a)
 	tal_add_destructor(peer, destroy_peer);
 
 	/* Conn owns us: we vanish when it does. */
-	tal_steal(peer->conn, peer);
+	tal_steal(peer->w, peer);
 }
 
 static struct io_plan setup_peer(struct io_conn *conn, struct state *state)

@@ -6,20 +6,20 @@
 
 /* Request-response protocol for pettycoin. */
 enum protocol_req_type {
+	/* Invalid. */
+	PROTOCOL_REQ_NONE,
 	/* Hi, my version is, and my hobbies are... */
 	PROTOCOL_REQ_WELCOME,
 	/* Your last response didn't make sense. */
 	PROTOCOL_REQ_ERR,
-	/* Do you have any blocks past this? */
-	PROTOCOL_REQ_GETBLOCKS,
+	/* I have a new block! */
+	PROTOCOL_REQ_NEW_BLOCK,
 	/* Tell me about this block. */
 	PROTOCOL_REQ_TRANSACTION_NUMS,
 	/* Tell me about this batch in a block. */
 	PROTOCOL_REQ_BATCH,
 	/* Tell me about this transaction in a block. */
 	PROTOCOL_REQ_TRANSACTION,
-	/* I have a new block! */
-	PROTOCOL_REQ_NEW_BLOCK,
 	/* I have a new transaction */
 	PROTOCOL_REQ_NEW_TRANSACTION,
 
@@ -29,13 +29,15 @@ enum protocol_req_type {
 
 /* High bit indicates a response packet. */
 enum protocol_resp_type {
-	PROTOCOL_RESP_WELCOME = 0x80000000,
+	/* Invalid. */
+	PROTOCOL_RESP_NONE = 0x80000000,
+	PROTOCOL_RESP_WELCOME,
 	PROTOCOL_RESP_ERR,
+	PROTOCOL_RESP_NEW_BLOCK,
 	PROTOCOL_RESP_BLOCKSTART,
 	PROTOCOL_RESP_TRANSACTION_NUMS,
 	PROTOCOL_RESP_BATCH,
 	PROTOCOL_RESP_TRANNSACTION,
-	PROTOCOL_RESP_NEW_BLOCK,
 	PROTOCOL_RESP_NEW_TRANSACTION,
 
 	/* >= this is invalid. */
@@ -47,8 +49,10 @@ enum protocol_error {
 	/* General errors: */
 	PROTOCOL_UNKNOWN_COMMAND,
 	PROTOCOL_INVALID_LEN,
-	/* protocol_req_welcome: */
+	PROTOCOL_SHOULD_BE_WAITING,
+	PROTOCOL_INVALID_RESPONSE,
 
+	/* protocol_req_welcome: */
 	PROTOCOL_ERROR_HIGH_VERSION, /* version is unknown. */
 	PROTOCOL_ERROR_LOW_VERSION, /* version is old. */
 	PROTOCOL_ERROR_NO_INTEREST, /* not enough interest bits. */
@@ -57,7 +61,11 @@ enum protocol_error {
 	/* protocol_req_new_block: */
 	PROTOCOL_ERROR_BLOCK_HIGH_VERSION, /* block version unknown. */
 	PROTOCOL_ERROR_BLOCK_LOW_VERSION, /* block version is old. */
-
+	PROTOCOL_ERROR_UNKNOWN_PREV, /* I don't know previous block. */
+	PROTOCOL_ERROR_BAD_TIMESTAMP, /* Too far in future or past. */
+	PROTOCOL_ERROR_BAD_PREV_MERKLES, /* Wrong number of prev_merkles. */
+	PROTOCOL_ERROR_BAD_DIFFICULTY, /* Wrong difficulty calculation. */
+	PROTOCOL_ERROR_INSUFFICIENT_WORK, /* Didn't meet difficulty. */
 
 	/* protocol_req_blockstart/protocol_req_batchnums/protocol_req_batch: */
 	PROTOCOL_ERROR_UNKNOWN_BLOCK, /* I don't know that block? */
@@ -124,6 +132,14 @@ struct protocol_req_new_block {
 	char block[];
 };
 
+struct protocol_resp_new_block {
+	le32 len; /* sizeof(final) */
+	le32 type; /* PROTOCOL_RESP_NEW_BLOCK */
+
+	/* last block we know. */
+	struct protocol_double_sha final;
+};
+
 /* Which transactions are interesting to me? */
 struct protocol_req_batch_nums {
 	le32 len; /* sizeof(struct protocol_req_batchnums) */
@@ -185,12 +201,6 @@ struct protocol_resp_transaction {
 	/* Marshalled transaction. */
 	union protocol_transaction trans;
 	/* ... */
-};
-
-struct protocol_resp_new_block {
-	le32 len; /* sizeof(struct protocol_resp_new_block) */
-	le32 type; /* PROTOCOL_RESP_NEW_BLOCK */
-	le32 error; /* Expect PROTOCOL_ERROR_NONE. */
 };
 
 /* I have a new transaction for you! */

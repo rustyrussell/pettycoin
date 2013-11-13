@@ -6,9 +6,9 @@
 /* Does version and simple sanity checks. */
 enum protocol_error
 unmarshall_block(size_t size, const struct protocol_block_header *hdr,
-		 struct protocol_double_sha **merkles,
-		 u8 **prev_merkles,
-		 struct protocol_block_tailer **tailer);
+		 const struct protocol_double_sha **merkles,
+		 const u8 **prev_merkles,
+		 const struct protocol_block_tailer **tailer);
 
 /* Marhsall block for wire transfer. */
 struct protocol_req_new_block *

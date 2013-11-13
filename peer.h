@@ -11,14 +11,26 @@ struct peer {
 	struct state *state;
 
 	/* Connection to the peer. */
-	struct io_conn *conn;
+	struct io_conn *w, *r;
+
+	/* The error message to send (then close) */
+	const void *error_pkt;
 
 	/* Packet we are sending (freed after sending). */
 	const void *outgoing;
 
-	/* Packet we have received. */
+	/* Pending response to their last request. */
+	const void *response;
+
+	/* Packet we have just received. */
 	void *incoming;
 
+	/* Outstanding request, if any. */
+	enum protocol_req_type curr_in_req, curr_out_req;
+
+	/* Are we outputting anything? */
+	bool output_idle;
+	
 	/* The other end's address. */
 	struct protocol_net_address you;
 
