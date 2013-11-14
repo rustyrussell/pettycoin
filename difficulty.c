@@ -18,11 +18,6 @@ static const struct block *go_back(const struct block *b, u32 num)
 	return b;
 }
 
-static const struct block *genesis_block(struct state *state)
-{
-	return list_top(&state->main_chain, struct block, list);
-}
-
 /* Based on bitcoin's difficulty calculation, with two differences:
  * 1) We don't have a sign bit in the mantissa.
  * 2) We don't have an out-by-one error in the difficulty timing calculation.
@@ -33,7 +28,7 @@ static const struct block *genesis_block(struct state *state)
  *
  * The hash must be lower than this value to win.
  */
-u32 get_difficulty(struct state *state, const struct block *block)
+u32 get_difficulty(struct state *state, const struct block *prev)
 {
 	s64 actual_time;
 	BIGNUM target_base, target;
@@ -50,19 +45,16 @@ u32 get_difficulty(struct state *state, const struct block *block)
 	const u64 ideal_time = 600 * (interval - 1);
 #endif
 
-	/* Genesis block difficulty is axiomatic, not calculated. */
-	assert(block->blocknum != 0);
-
-	prev_difficulty = le32_to_cpu(block->prev->tailer->difficulty);
+	prev_difficulty = le32_to_cpu(prev->tailer->difficulty);
 
 	/* Same as last block? */
-	if (block->blocknum % interval)
+	if ((prev->blocknum + 1) % interval)
 		return prev_difficulty;
 
 	/* We measure from start of interval, not end of last interval!
 	 * This avoids special casing the first interval. */
-	actual_time = (s64)le32_to_cpu(block->prev->tailer->timestamp)
-		- (s64)le32_to_cpu(go_back(block, interval)->tailer->timestamp);
+	actual_time = (s64)le32_to_cpu(prev->tailer->timestamp)
+		- (s64)le32_to_cpu(go_back(prev, interval-1)->tailer->timestamp);
 
 	/* Don't change by more than a factor of 4. */
 	if (actual_time < ideal_time / 4)

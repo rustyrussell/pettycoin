@@ -1,6 +1,7 @@
 #ifndef PETTYCOIN_BLOCK_H
 #define PETTYCOIN_BLOCK_H
 #include "protocol.h"
+#include "state.h"
 #include <stdbool.h>
 #include <ccan/list/list.h>
 #include <openssl/bn.h>
@@ -56,6 +57,11 @@ bool batch_full(const struct block *block,
 
 /* Is this block in the main chain? */
 bool block_in_main(const struct block *block);
+
+static inline const struct block *genesis_block(const struct state *state)
+{
+	return list_top(&state->main_chain, struct block, list);
+}
 
 /* Add this new block into the state structure. */
 void block_add(struct state *state, struct block *b);

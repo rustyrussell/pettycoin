@@ -8,7 +8,7 @@ struct state;
 struct block;
 struct protocol_double_sha;
 
-u32 get_difficulty(struct state *state, const struct block *block);
+u32 get_difficulty(struct state *state, const struct block *prev);
 bool beats_target(const struct protocol_double_sha *sha, u32 difficulty);
 
 void total_work_done(u32 difficulty, const BIGNUM *prev, BIGNUM *work);

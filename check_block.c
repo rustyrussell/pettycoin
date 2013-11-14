@@ -60,7 +60,8 @@ check_block_header(struct state *state,
 	}
 
 	/* Based on previous blocks, how difficult should this be? */
-	if (le32_to_cpu(tailer->difficulty) != get_difficulty(state, block)) {
+	if (le32_to_cpu(tailer->difficulty)
+	    != get_difficulty(state, block->prev)) {
 		e = PROTOCOL_ERROR_BAD_DIFFICULTY;
 		goto fail;
 	}
