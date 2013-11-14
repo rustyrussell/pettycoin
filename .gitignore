@@ -1,4 +1,5 @@
 *.o
+*.d
 *~
 generate
 mkgenesis

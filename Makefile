@@ -89,3 +89,4 @@ ccan-hash.o: $(CCANDIR)/ccan/hash/hash.c
 ccan-isaac64.o: $(CCANDIR)/ccan/isaac/isaac64.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
+-include *.d

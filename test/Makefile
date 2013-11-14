@@ -41,3 +41,5 @@ ccan-time.o: $(CCANDIR)/ccan/time/time.c
 
 clean:
 	rm -f $(BINS) *.o
+
+-include *.d
