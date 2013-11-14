@@ -378,6 +378,22 @@ send_error:
 	return io_idle();
 }
 
+static void close_writer(struct io_conn *conn, struct peer *peer)
+{
+	assert(peer->w == conn);
+	peer->w = NULL;
+	if (peer->r)
+		io_close_other(peer->r);
+}
+
+static void close_reader(struct io_conn *conn, struct peer *peer)
+{
+	assert(peer->r == conn);
+	peer->r = NULL;
+	if (peer->w)
+		io_close_other(peer->w);
+}
+
 static struct io_plan check_welcome_ack(struct io_conn *conn,
 					struct peer *peer)
 {
@@ -419,6 +435,10 @@ static struct io_plan check_welcome_ack(struct io_conn *conn,
 	/* Time to go duplex on this connection. */
 	peer->r = io_duplex(peer->w,
 			    io_read_packet(&peer->incoming, pkt_in, peer));
+
+	/* If one dies, kill both. */
+	io_set_finish(peer->r, close_writer, peer);
+	io_set_finish(peer->w, close_reader, peer);
 
 	return plan_output(conn, peer);
 

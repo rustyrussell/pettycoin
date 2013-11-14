@@ -10,7 +10,7 @@ unmarshall_block(size_t size, const struct protocol_block_header *hdr,
 		 const u8 **prev_merkles,
 		 const struct protocol_block_tailer **tailer);
 
-/* Marhsall block for wire transfer. */
+/* Marshall block for wire transfer. */
 struct protocol_req_new_block *
 marshall_block(const tal_t *ctx,
 	       const struct protocol_block_header *hdr,
