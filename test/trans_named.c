@@ -204,7 +204,7 @@ static struct block *block_with_names(struct state *s)
 	struct protocol_double_sha *merkles;
 	u8 *prev_merkles;
 	struct protocol_block_tailer *tailer;
-	struct block *block, *prev = list_tail(&s->blocks, struct block, list);
+	struct block *block, *prev = list_tail(&s->main_chain, struct block, list);
 	struct named_trans *n;
 	struct transaction_batch *batch;
 	struct protocol_double_sha sha;

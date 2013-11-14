@@ -19,8 +19,11 @@ struct state {
 	/* Port number we're listening on. */
 	be16 listen_port;
 
-	/* This is the main chain, in increasing blocknum order. */
-	struct list_head blocks;
+	/* Blocks in main chain, in increasing depth order. */
+	struct list_head main_chain;
+
+	/* Non-main-chain blocks, unordered. */
+	struct list_head off_main;
 
 	/* All transactions in main chain */
 	struct thash thash;

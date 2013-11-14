@@ -29,7 +29,7 @@ check_block_header(struct state *state,
 		   const struct protocol_block_tailer *tailer,
 		   struct block **blockp)
 {
-	struct block *block = (*blockp) = tal(state, struct block), *next;
+	struct block *block = (*blockp) = tal(state, struct block);
 	enum protocol_error e;
 
 	if (!version_ok(hdr->version)) {
@@ -46,18 +46,6 @@ check_block_header(struct state *state,
 
 	/* We come after our predecessor, obviously. */
 	block->blocknum = block->prev->blocknum + 1;
-
-	/* If we're the only descendent, put us in main chain. */
-	next = list_next(&state->blocks, block->prev, list);
-	if (!next) {
-		list_add_tail(&state->blocks, &block->list);
-		block->peers = block;
-	} else {
-		/* Sew into ring of peers. */
-		block->peers = next->peers;
-		next->peers = block;
-		block->list.next = block->list.prev = NULL;
-	}
 
 	/* Can't go backwards, can't be more than 2 hours in future. */
 	if (!check_timestamp(state, le32_to_cpu(tailer->timestamp),block->prev)){
@@ -89,8 +77,6 @@ check_block_header(struct state *state,
 			&block->prev->total_work,
 			&block->total_work);
 
-	/* FIXME: promote off chain to main chain if total work greater! */
-
 	block->batch = tal_arrz(block, struct transaction_batch *,
 				num_merkles(le32_to_cpu(hdr->num_transactions)));
 
@@ -99,6 +85,7 @@ check_block_header(struct state *state,
 	block->prev_merkles = prev_merkles;
 	block->tailer = tailer;
 
+	block_add(state, block);
 	return PROTOCOL_ERROR_NONE;
 
 fail:

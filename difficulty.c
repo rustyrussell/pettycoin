@@ -20,8 +20,7 @@ static const struct block *go_back(const struct block *b, u32 num)
 
 static const struct block *genesis_block(struct state *state)
 {
-	/* First block in list is genesis block. */
-	return list_top(&state->blocks, struct block, list);
+	return list_top(&state->main_chain, struct block, list);
 }
 
 /* Based on bitcoin's difficulty calculation, with two differences:

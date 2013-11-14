@@ -46,6 +46,7 @@ static struct protocol_block_tailer genesis_tlr = {
 static struct block genesis = {
 	.hdr = &genesis_hdr,
 	.tailer = &genesis_tlr,
+	.main_chain = true,
 	.sha = { { 0x79, 0xee, 0xfb, 0x0d, 0x2e, 0x57, 0xe8, 0x2d, 0x0a, 0x5a, 0xb0, 0x6c, 0x96, 0x95, 0x8b, 0x0f, 0x56, 0xed, 0x7f, 0x9f, 0x57, 0xd2, 0x72, 0x98, 0xb6, 0x0d, 0xb7, 0xe4, 0xa7, 0x58, 0x00, 0x00  }}
 };
 
@@ -63,8 +64,12 @@ int main(int argc, char *argv[])
 	enum protocol_error e;
 
 	/* Sew our genesis block into state. */
-	list_head_init(&s->blocks);
-	list_add(&s->blocks, &genesis.list);
+	list_head_init(&s->main_chain);
+	list_add(&s->main_chain, &genesis.list);
+
+	/* Other minimal setup for state. */
+	list_head_init(&s->off_main);
+	list_head_init(&s->peers);
 
 	/* Generate a new block, with a transaction in it. */
 	fake_time = le32_to_cpu(genesis_tlr.timestamp) + 1;

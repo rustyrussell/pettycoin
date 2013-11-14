@@ -103,7 +103,7 @@ static bool check_merkle(struct state *state,
 	proof_merkles_to(t, proof, &merkle);
 
 	/* We could have multiple candidate blocks. */
-	b = list_tail(&state->blocks, struct block, list);
+	b = list_tail(&state->main_chain, struct block, list);
 	for (b = block_find(b, proof->blocksig);
 	     b;
 	     b = block_find(b->prev, proof->blocksig)) {

@@ -10,7 +10,7 @@ static size_t welcome_iter(const struct state *state,
 	struct block *b, *last;
 	unsigned int n, step;
 
-	last = b = list_tail(&state->blocks, struct block, list);
+	last = b = list_tail(&state->main_chain, struct block, list);
 
 	if (block_arr)
 		block_arr[0] = b->sha;
@@ -24,7 +24,7 @@ static size_t welcome_iter(const struct state *state,
 			step *= 2;
 
 		for (i = 0; i < step; i++) {
-			b = list_prev(&state->blocks, b, list);
+			b = list_prev(&state->main_chain, b, list);
 			if (!b)
 				goto out;
 		}
@@ -37,7 +37,7 @@ static size_t welcome_iter(const struct state *state,
 
 out:
 	/* Always include the genesis block. */
-	b = list_top(&state->blocks, struct block, list);
+	b = list_top(&state->main_chain, struct block, list);
 	if (last != b) {
 		if (block_arr)
 			block_arr[n] = b->sha;
@@ -95,7 +95,7 @@ enum protocol_error check_welcome(const struct state *state,
 				  const struct protocol_req_welcome *w)
 {
 	size_t len = le32_to_cpu(w->len);
-	struct block *genesis = list_top(&state->blocks, struct block, list);
+	struct block *genesis = list_top(&state->main_chain, struct block, list);
 
 	if (len < sizeof(*w) - sizeof(w->len))
 		return PROTOCOL_INVALID_LEN;

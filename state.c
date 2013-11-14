@@ -15,7 +15,8 @@ struct state *new_state(bool test_net)
 
 	s->test_net = test_net;
 	s->developer_test = false;
-	list_head_init(&s->blocks);
+	list_head_init(&s->main_chain);
+	list_head_init(&s->off_main);
 	thash_init(&s->thash);
 	s->num_peers = 0;
 	s->num_peers_connected = 0;
@@ -32,9 +33,9 @@ struct state *new_state(bool test_net)
 	BN_init(&genesis.total_work);
 	if (!BN_zero(&genesis.total_work))
 		errx(1, "Failed to initialize genesis block");
-	genesis.peers = &genesis;
+	genesis.main_chain = true;
 
-	list_add_tail(&s->blocks, &genesis.list);
+	list_add_tail(&s->main_chain, &genesis.list);
 	return s;
 }
 

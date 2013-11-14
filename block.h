@@ -15,18 +15,21 @@ struct transaction_batch {
 };
 
 struct block {
-	/* Chained into state.blocks if in main chain, NULL otherwise. */
+	/* As per state->main_chain or state->off_main. */
 	struct list_node list;
+
+	/* 0 == genesis block. */
+	unsigned int blocknum;
+
+	/* Am I on the main chain? */
+	bool main_chain;
 
 	/* Total work to get to this block. */
 	BIGNUM total_work;
 
-	/* 0 == genesis block. */
-	unsigned int blocknum;
-	/* Ring of peers: have same blocknum. */
-	struct block *peers;
-	/* Our parent. */
+	/* Our parent (in previous generation). */
 	struct block *prev;
+
 	/* The block itself: */
 	const struct protocol_block_header *hdr;
 	const struct protocol_double_sha *merkles;
@@ -54,6 +57,9 @@ bool batch_full(const struct block *block,
 /* Is this block in the main chain? */
 bool block_in_main(const struct block *block);
 
+/* Add this new block into the state structure. */
+void block_add(struct state *state, struct block *b);
+
 static inline size_t batch_index(u32 trans_num)
 {
 	return trans_num >> PETTYCOIN_BATCH_ORDER;
@@ -62,8 +68,5 @@ static inline size_t batch_index(u32 trans_num)
 /* Get this numbered transaction inside block. */
 union protocol_transaction *block_get_trans(const struct block *block,
 					    u32 trans_num);
-
-/* Add this (verified OK) block to the state. */
-void add_block(struct state *state, struct block *block);
 
 #endif /* PETTYCOIN_BLOCK_H */

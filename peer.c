@@ -168,27 +168,36 @@ static struct protocol_resp_err *protocol_resp_err(struct peer *peer,
 }
 
 static struct block *find_mutual_block(struct peer *peer,
-				       const struct protocol_double_sha *block,
-				       u32 num_blocks)
+				       const struct protocol_double_sha *block)
+{
+	struct block *b = block_find_any(peer->state, block);
+
+	log_debug(peer->log, "Seeking mutual block ");
+	log_add_struct(peer->log, struct protocol_double_sha, block);
+
+	if (b) {
+		if (block_in_main(b)) {
+			log_add(peer->log, " found in main chain");
+			return b;
+		}
+		log_add(peer->log, "found off main chain.");
+	} else
+		log_add(peer->log, "not found.");
+
+	return NULL;
+}
+
+static struct block *mutual_block_search(struct peer *peer,
+					 const struct protocol_double_sha *block,
+					 u32 num_blocks)
 {
 	int i;
 
 	for (i = num_blocks - 1; i >= 0; i++) {
-		struct block *b = block_find_any(peer->state, &block[i]);
-
-		log_debug(peer->log, "block[%i] ", i);
-		log_add_struct(peer->log, struct protocol_double_sha, &block[i]);
-
-		if (b) {
-			if (block_in_main(b)) {
-				log_add(peer->log, " found in main chain");
-				return b;
-			}
-			log_add(peer->log, "found off main chain: ");
-		} else
-			log_add(peer->log, "not found ");
+		struct block *b = find_mutual_block(peer, &block[i]);
+		if (b)
+			return b;
 	}
-
 	return NULL;
 }
 
@@ -227,7 +236,7 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 		return io_write_packet(peer, peer->response, response_sent);
 
 	/* Second, do we have any blocks to send? */
-	next = list_next(&peer->state->blocks, peer->mutual, list);
+	next = list_next(&peer->state->main_chain, peer->mutual, list);
 	if (next)
 		return io_write_packet(peer, block_pkt(peer, next), block_sent);
 
@@ -243,7 +252,7 @@ static struct protocol_resp_err *
 receive_block(struct peer *peer, u32 len,
 	      const struct protocol_block_header *hdr)
 {
-	struct block *new, *final;
+	struct block *new;
 	enum protocol_error e;
 	const struct protocol_double_sha *merkles;
 	const u8 *prev_merkles;
@@ -263,8 +272,7 @@ receive_block(struct peer *peer, u32 len,
 	r = tal(peer, struct protocol_resp_new_block);
 	r->len = cpu_to_le32(sizeof(*r) - (sizeof(struct protocol_net_hdr)));
 	r->type = cpu_to_le32(PROTOCOL_RESP_NEW_BLOCK);
-	final = list_tail(&peer->state->blocks, struct block, list);
-	r->final = final->sha;
+	r->final = list_tail(&peer->state->main_chain, struct block, list)->sha;
 
 	assert(!peer->response);
 	peer->response = r;
@@ -313,7 +321,7 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 			goto unexpected_resp;
 
 		/* If we know the block they know, update it. */
-		mutual = find_mutual_block(peer, body, 1);
+		mutual = find_mutual_block(peer, body);
 		if (mutual)
 			peer->mutual = mutual;
 		peer->curr_out_req = PROTOCOL_REQ_NONE;
@@ -403,8 +411,8 @@ static struct io_plan check_welcome_ack(struct io_conn *conn,
 	/* Where do we disagree on main chain? */
 	log_debug(peer->log, "Peer sent %u blocks",
 		  le32_to_cpu(peer->welcome->num_blocks));
-	peer->mutual = find_mutual_block(peer, peer->welcome->block,
-					 le32_to_cpu(peer->welcome->num_blocks));
+	peer->mutual = mutual_block_search(peer, peer->welcome->block,
+					   le32_to_cpu(peer->welcome->num_blocks));
 
 	log_debug(peer->log, "Peer has mutual block %u", peer->mutual->blocknum);
 
@@ -492,8 +500,6 @@ static struct io_plan setup_welcome(struct io_conn *unused, struct peer *peer)
 			       welcome_sent);
 }
 
-
-
 void new_peer(struct state *state, int fd, const struct protocol_net_address *a)
 {
 	struct peer *peer = tal(state, struct peer);
@@ -505,6 +511,7 @@ void new_peer(struct state *state, int fd, const struct protocol_net_address *a)
 	peer->welcome = NULL;
 	peer->outgoing = NULL;
 	peer->incoming = NULL;
+	peer->mutual = NULL;
 	peer->curr_in_req = peer->curr_out_req = PROTOCOL_REQ_NONE;
 
 	/* If a, we need to connect to there. */
