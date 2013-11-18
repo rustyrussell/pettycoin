@@ -16,9 +16,14 @@ touch addresses
 
 # Only debug for first one.
 flags="--log-level=debug"
-for i in `seq $1`; do
+#flags="--log-level=info"
+
+for i in `seq 2 $1`; do
     mkdir home-$i
-    HOME=home-$i ../../pettycoin --developer-test $flags &
-    flags=""
+    HOME=home-$i ../../pettycoin --developer-test --generate=../../../../generate &
 done
 trap "" EXIT
+
+i=1
+mkdir home-$i
+HOME=home-$i valgrind --db-attach=yes ../../pettycoin --developer-test --generate=../../../../generate $flags

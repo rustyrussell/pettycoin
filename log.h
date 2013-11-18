@@ -9,6 +9,9 @@
 /* 16 MB logging for core. */
 #define STATE_LOG_MAX 16777216
 
+/* 16 MB logging for generator(s). */
+#define GEN_LOG_MAX 16777216
+
 enum log_level {
 	/* Gory details which are mainly good for debugging. */
 	LOG_DBG,

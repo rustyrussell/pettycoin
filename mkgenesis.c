@@ -92,6 +92,8 @@ solve(const tal_t *ctx,
 		}
 		close(outfd[1]);
 		close(infd[0]);
+		/* Write "go" byte. */
+		write(infd[1], "", 1);
 		w->transactions_to_worker = infd[1];
 		w->result_from_worker = outfd[0];
 		tal_add_destructor(w, destroy_worker);
@@ -103,15 +105,16 @@ solve(const tal_t *ctx,
 	select(maxfd+1, &set, NULL, NULL, NULL);
 	for (i = 0; i < maxfd+1; i++) {
 		if (FD_ISSET(i, &set)) {
-			le32 len;
-			if (read(i, &len, sizeof(len)) != sizeof(len)) {
+			struct protocol_net_hdr hdr;
+
+			if (read(i, &hdr, sizeof(hdr)) != sizeof(hdr)) {
 				tal_free(ctx);
 				err(1, "reading from child");
 			}
 			ret = talv(ctx, struct protocol_req_new_block,
-				   block[len - sizeof(le32)]);
-			ret->len = len;
-			if (!read_all(i, &ret->type, le32_to_cpu(len))) {
+				   block[le32_to_cpu(hdr.len)]);
+			memcpy(ret, &hdr, sizeof(hdr));
+			if (!read_all(i, ret->block, le32_to_cpu(hdr.len))) {
 				tal_free(ctx);
 				err(1, "reading transaction from child");
 			}
@@ -124,8 +127,9 @@ solve(const tal_t *ctx,
 
 	hdr = (struct protocol_block_header *)&ret->block;
 	/* merkles and prev_merkles will be empty. */
-	unmarshall_block(le32_to_cpu(ret->len), hdr,
-			 &merkles, &prev_merkles, tailer);
+	unmarshall_block(NULL,
+			 le32_to_cpu(ret->len)-sizeof(struct protocol_net_hdr),
+			 hdr, &merkles, &prev_merkles, tailer);
 
 	return hdr;
 }

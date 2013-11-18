@@ -22,7 +22,7 @@ static void lookup_and_write(int fd, const char *name, const char *port)
 {
 	struct addrinfo *addr, *i;
 	struct protocol_net_address *addresses;
-	le32 len, type;
+	struct protocol_net_hdr hdr;
 
 	if (getaddrinfo(name, port, NULL, &addr) != 0)
 		return;
@@ -39,15 +39,16 @@ static void lookup_and_write(int fd, const char *name, const char *port)
 		addresses[n] = a;
 	}
 
-	len = cpu_to_le32(tal_count(addresses) * sizeof(addresses[0]));
-	if (!len)
+	if (!tal_count(addresses))
 		return;
-	if (write(fd, &len, sizeof(len)) != sizeof(len))
+
+	hdr.len = cpu_to_le32(tal_count(addresses) * sizeof(addresses[0])
+			      + sizeof(hdr));
+	hdr.type = 0;
+
+	if (write(fd, &hdr, sizeof(hdr)) != sizeof(hdr))
 		return;
-	type = 0;
-	if (write(fd, &type, sizeof(type)) != sizeof(type))
-		return;
-	write(fd, addresses, le32_to_cpu(len));
+	write(fd, addresses, le32_to_cpu(hdr.len) - sizeof(hdr));
 	tal_free(addresses);
 }
 

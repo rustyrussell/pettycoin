@@ -250,6 +250,7 @@ static struct block *block_with_names(struct state *s)
 	} while (!beats_target(&sha, le32_to_cpu(tailer->difficulty)));
 
 	check_block_header(s, hdr, merkles, prev_merkles, tailer, &block);
+	block_add(s, block);
 
 	if (!put_batch_in_block(s, block, batch))
 		abort();

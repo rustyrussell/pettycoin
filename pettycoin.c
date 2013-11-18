@@ -22,6 +22,7 @@
 #include "state.h"
 #include "netaddr.h"
 #include "pseudorand.h"
+#include "generating.h"
 
 /* Tal wrappers for opt and io. */
 static void *opt_allocfn(size_t size)
@@ -205,6 +206,8 @@ int main(int argc, char *argv[])
 			       "log level (debug, info, unusual, broken)");
 	opt_register_arg("--connect", add_connect, NULL, state,
 			 "Node to connect to (can be specified multiple times)");
+	opt_register_arg("--generate", opt_set_charp, opt_show_charp,
+			 &state->generate, "Binary to try to generate a block");
 	opt_register_noarg("--developer-test",
 			   opt_set_bool, &state->developer_test,
 			   "Developer test mode: connects to localhost");
@@ -238,6 +241,7 @@ int main(int argc, char *argv[])
 	init_peer_cache(state);
 	make_listeners(state);
 	fill_peers(state);
+	start_generating(state);
 
 	io_loop();
 

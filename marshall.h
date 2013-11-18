@@ -3,9 +3,12 @@
 #include <ccan/tal/tal.h>
 #include "protocol_net.h"
 
+struct log;
+
 /* Does version and simple sanity checks. */
 enum protocol_error
-unmarshall_block(size_t size, const struct protocol_block_header *hdr,
+unmarshall_block(struct log *log,
+		 size_t size, const struct protocol_block_header *hdr,
 		 const struct protocol_double_sha **merkles,
 		 const u8 **prev_merkles,
 		 const struct protocol_block_tailer **tailer);

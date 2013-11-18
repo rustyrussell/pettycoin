@@ -323,7 +323,7 @@ static void write_block(int fd, const struct working_block *w)
 	struct protocol_req_new_block *b;
 
 	b = marshall_block(w, &w->hdr, w->merkles, w->prev_merkles, &w->tailer);
-	write_all(fd, b, sizeof(b->len) + le32_to_cpu(b->len));
+	write_all(fd, b, le32_to_cpu(b->len));
 
 	/* Now write out the transactions, in order. */
 	for (i = 0; i < le32_to_cpu(w->hdr.num_transactions); i++) {
@@ -362,12 +362,12 @@ int main(int argc, char *argv[])
 		errx(1, "Invalid previous hash");
 
 	num_prev_merkles = strtoul(argv[4], NULL, 0);
-	prev_merkles = tal_arr(ctx, u8, num_prev_merkles);
+	prev_merkles = tal_arr(ctx, u8, num_prev_merkles + 1);
 
-	/* Read in prev merkles */
-	if (!read_all(STDIN_FILENO, prev_merkles, num_prev_merkles))
-		err(1, "Reading %u previous merkles from stdin",
-		    num_prev_merkles);
+	/* Read in prev merkles, plus "go" byte.  If we are to
+	 * terminate immediately, this might be 0 bytes. */
+	if (!read_all_or_none(STDIN_FILENO, prev_merkles, num_prev_merkles + 1))
+		exit(0);
 
 	w = new_working_block(ctx, difficulty, prev_merkles, num_prev_merkles,
 			      &prev_hash, &reward_address);

@@ -66,8 +66,7 @@ struct protocol_req_welcome *make_welcome(const tal_t *ctx,
 	size_t num_blocks = num_welcome_blocks(state);
 
 	w = talv(ctx, struct protocol_req_welcome, block[num_blocks]);
-	w->len = cpu_to_le32(sizeof(*w) + sizeof(w->block[0]) * num_blocks
-			     - sizeof(w->len));
+	w->len = cpu_to_le32(sizeof(*w) + sizeof(w->block[0]) * num_blocks);
 	w->type = cpu_to_le32(PROTOCOL_REQ_WELCOME);
 	w->num_blocks = num_blocks;
 	w->version = cpu_to_le32(current_version());
@@ -95,9 +94,9 @@ enum protocol_error check_welcome(const struct state *state,
 				  const struct protocol_req_welcome *w)
 {
 	size_t len = le32_to_cpu(w->len);
-	struct block *genesis = genesis_block(state);
+	const struct block *genesis = genesis_block(state);
 
-	if (len < sizeof(*w) - sizeof(w->len))
+	if (len < sizeof(*w))
 		return PROTOCOL_INVALID_LEN;
 	if (w->type != cpu_to_le32(PROTOCOL_REQ_WELCOME))
 		return PROTOCOL_UNKNOWN_COMMAND;
@@ -109,12 +108,13 @@ enum protocol_error check_welcome(const struct state *state,
 	/* At least one block. */
 	if (w->num_blocks < 1)
 		return PROTOCOL_INVALID_LEN;
-	len -= sizeof(*w) - sizeof(w->len);
+	len -= sizeof(*w);
 	if (len != le32_to_cpu(w->num_blocks) * sizeof(w->block[0]))
 		return PROTOCOL_INVALID_LEN;
 
 	/* We must agree on genesis block. */
-	if (memcmp(&w->block[0], &genesis->sha, sizeof(genesis->sha)) != 0)
+	if (memcmp(&w->block[w->num_blocks - 1],
+		   &genesis->sha, sizeof(genesis->sha)) != 0) 
 		return PROTOCOL_ERROR_WRONG_GENESIS;
 
 	return PROTOCOL_ERROR_NONE;

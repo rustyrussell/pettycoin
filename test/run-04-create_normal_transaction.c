@@ -30,6 +30,8 @@ static time_t my_time(time_t *p)
 #include "../block.c"
 #include "../timestamp.c"
 #include "../prev_merkles.c"
+#include "../pseudorand.c"
+#include "../log.c"
 
 /* Here's a genesis block we created earlier */
 static struct protocol_block_header genesis_hdr = {
@@ -49,6 +51,14 @@ static struct block genesis = {
 	.main_chain = true,
 	.sha = { { 0x79, 0xee, 0xfb, 0x0d, 0x2e, 0x57, 0xe8, 0x2d, 0x0a, 0x5a, 0xb0, 0x6c, 0x96, 0x95, 0x8b, 0x0f, 0x56, 0xed, 0x7f, 0x9f, 0x57, 0xd2, 0x72, 0x98, 0xb6, 0x0d, 0xb7, 0xe4, 0xa7, 0x58, 0x00, 0x00  }}
 };
+
+void restart_generating(struct state *state)
+{
+}
+
+void update_peers_mutual(struct state *state)
+{
+}
 
 int main(int argc, char *argv[])
 {
@@ -70,6 +80,7 @@ int main(int argc, char *argv[])
 	/* Other minimal setup for state. */
 	list_head_init(&s->off_main);
 	list_head_init(&s->peers);
+	s->log = new_log(s, "", LOG_BROKEN, 100000);
 
 	/* Generate a new block, with a transaction in it. */
 	fake_time = le32_to_cpu(genesis_tlr.timestamp) + 1;
@@ -88,6 +99,7 @@ int main(int argc, char *argv[])
 			       &w->tailer, &b);
 	assert(e == PROTOCOL_ERROR_NONE);
 	assert(b);
+	block_add(s, b);
 
 	/* This is a NOOP, so should succeed. */
 	assert(check_block_prev_merkles(s, b));
@@ -132,6 +144,7 @@ int main(int argc, char *argv[])
 			       &w2->tailer, &b2);
 	assert(e == PROTOCOL_ERROR_NONE);
 	assert(b2);
+	block_add(s, b2);
 
 	/* This should be correct. */
 	assert(check_block_prev_merkles(s, b2));

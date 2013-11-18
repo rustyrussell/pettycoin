@@ -54,6 +54,14 @@ struct block genesis = {
 	.sha = { { 0x79, 0xee, 0xfb, 0x0d, 0x2e, 0x57, 0xe8, 0x2d, 0x0a, 0x5a, 0xb0, 0x6c, 0x96, 0x95, 0x8b, 0x0f, 0x56, 0xed, 0x7f, 0x9f, 0x57, 0xd2, 0x72, 0x98, 0xb6, 0x0d, 0xb7, 0xe4, 0xa7, 0x58, 0x00, 0x00  }}
 };
 
+void restart_generating(struct state *state)
+{
+}
+
+void update_peers_mutual(struct state *state)
+{
+}
+
 int main(int argc, char *argv[])
 {
 	struct state *s;
@@ -78,6 +86,7 @@ int main(int argc, char *argv[])
 				       &w->tailer, &b[i]);
 		assert(e == PROTOCOL_ERROR_NONE);
 		assert(b[i]);
+		block_add(s, b[i]);
 		assert(block_in_main(b[i]));
 		prev_sha = &b[i]->sha;
 	}
@@ -93,6 +102,7 @@ int main(int argc, char *argv[])
 				       &w->tailer, &b_alt[i]);
 		assert(e == PROTOCOL_ERROR_NONE);
 		assert(b_alt[i]);
+		block_add(s, b_alt[i]);
 		assert(!block_in_main(b_alt[i]));
 		prev_sha = &b_alt[i]->sha;
 	}
@@ -105,6 +115,7 @@ int main(int argc, char *argv[])
 			       &w->tailer, &b_alt[2]);
 	assert(e == PROTOCOL_ERROR_NONE);
 	assert(b_alt[2]);
+	block_add(s, b_alt[2]);
 
 	assert(block_in_main(b_alt[2]));
 	assert(block_in_main(b_alt[1]));
@@ -122,6 +133,7 @@ int main(int argc, char *argv[])
 			       &w->tailer, &b[3]);
 	assert(e == PROTOCOL_ERROR_NONE);
 	assert(b[3]);
+	block_add(s, b[3]);
 	assert(!block_in_main(b[3]));
 
 	prev_sha = &b[3]->sha;
@@ -132,6 +144,7 @@ int main(int argc, char *argv[])
 			       &w->tailer, &b[4]);
 	assert(e == PROTOCOL_ERROR_NONE);
 	assert(b[4]);
+	block_add(s, b[4]);
 
 	assert(!block_in_main(b_alt[2]));
 	assert(!block_in_main(b_alt[1]));

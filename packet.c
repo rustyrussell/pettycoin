@@ -42,8 +42,12 @@ static int do_read_packet(int fd, struct io_plan *plan)
 			errno = ENOSPC;
 			return -1;
 		}
+		if (le32_to_cpu(len) < sizeof(struct protocol_net_hdr)) {
+			errno = EINVAL;
+			return -1;
+		}
 
-		*pkt = tal_arr(NULL, char, sizeof(le32)*2 + le32_to_cpu(len));
+		*pkt = tal_arr(NULL, char, le32_to_cpu(len));
 		*(le32 *)*pkt = len;
 
 		/* Store offset in plan.u2.s */
@@ -51,7 +55,7 @@ static int do_read_packet(int fd, struct io_plan *plan)
 	}
 
 	/* Read length from packet header. */
-	max = sizeof(le32) * 2 + le32_to_cpu(*(le32 *)*pkt);
+	max = le32_to_cpu(*(le32 *)*pkt);
 
 	ret = read(fd, *pkt + plan->u2.s, max - plan->u2.s);
 	if (ret <= 0)
@@ -89,10 +93,10 @@ struct io_plan io_write_packet_(struct peer *peer, const void *pkt,
 	tal_free(peer->outgoing);
 	peer->outgoing = pkt;
 
-	/* Packet header contains 32-bit little-endian length of the rest */
+	/* Packet header contains 32-bit little-endian length */
 	memcpy(&len, pkt, sizeof(len));
+	assert(le32_to_cpu(len) >= sizeof(struct protocol_net_hdr));
 	assert(le32_to_cpu(len) <= PROTOCOL_MAX_PACKET_LEN);
 
-	return io_write(pkt, sizeof(len) + sizeof(le32) + le32_to_cpu(len),
-			next, peer);
+	return io_write(pkt, le32_to_cpu(len), next, peer);
 }

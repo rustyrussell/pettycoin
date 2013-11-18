@@ -31,7 +31,7 @@ static void send_addresses(int fd, void *unused)
 
 	len = sizeof(le32)*2 + st.st_size;
 	contents = malloc(len);
-	contents[0] = cpu_to_le32(st.st_size);
+	contents[0] = cpu_to_le32(len);
 	contents[1] = 0;
 	if (!read_all(addrfd, contents + 2, st.st_size))
 		err(1, "Reading %u bytes", (unsigned)st.st_size);

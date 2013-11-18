@@ -26,6 +26,7 @@ static time_t my_time(time_t *p)
 #include "../marshall.c"
 #include "../hash_transaction.c"
 #include "../create_transaction.c"
+#include "../minimal_log.c"
 
 int main(int argc, char *argv[])
 {

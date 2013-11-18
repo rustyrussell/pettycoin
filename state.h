@@ -44,6 +44,10 @@ struct state {
 	/* Peer cache */
 	struct peer_cache *peer_cache;
 
+	/* Generation of new blocks. */
+	char *generate;
+	struct generator *gen;
+
 	/* log */
 	struct log *log;
 	/* level at which we print. */

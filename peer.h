@@ -28,9 +28,6 @@ struct peer {
 	/* Outstanding request, if any. */
 	enum protocol_req_type curr_in_req, curr_out_req;
 
-	/* Are we outputting anything? */
-	bool output_idle;
-	
 	/* The other end's address. */
 	struct protocol_net_address you;
 
@@ -46,4 +43,6 @@ struct peer {
 
 void new_peer(struct state *state, int fd, const struct protocol_net_address *a);
 bool new_peer_by_addr(struct state *state, const char *node, const char *port);
+
+void update_peers_mutual(struct state *state);
 #endif /* PETTYCOIN_PEER_H */

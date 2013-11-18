@@ -28,6 +28,7 @@ struct state *new_state(bool test_net)
 	s->peer_seed_count = 0;
 	s->log_level = LOG_BROKEN;
 	s->log = new_log(s, "", s->log_level, STATE_LOG_MAX);
+	s->generate = "pettycoin-generate";
 
 	/* Set up genesis block */
 	BN_init(&genesis.total_work);

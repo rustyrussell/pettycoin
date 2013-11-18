@@ -86,7 +86,6 @@ check_block_header(struct state *state,
 	block->prev_merkles = prev_merkles;
 	block->tailer = tailer;
 
-	block_add(state, block);
 	return PROTOCOL_ERROR_NONE;
 
 fail:

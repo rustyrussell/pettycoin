@@ -3,11 +3,41 @@
 #include "protocol.h"
 #include "state.h"
 #include "peer.h"
+#include "generating.h"
+#include "log.h"
 #include <string.h>
 
 bool block_in_main(const struct block *block)
 {
 	return block->main_chain;
+}
+
+static void check_chains(const struct state *state)
+{
+	const struct block *i, *prev;
+
+	list_check(&state->main_chain, "bad main chain");
+	list_check(&state->off_main, "bad off_main chain");
+
+	prev = NULL;
+	list_for_each(&state->main_chain, i, list) {
+		assert(i->main_chain);
+		assert(i->prev == prev);
+		if (prev) {
+			assert(i->blocknum == prev->blocknum + 1);
+			assert(memcmp(&i->hdr->prev_block, &prev->sha,
+				      sizeof(prev->sha)) == 0);
+		} else
+			assert(i->blocknum == 0);
+		prev = i;
+	}
+
+	list_for_each(&state->off_main, i, list) {
+		assert(!i->main_chain);
+		assert(i->blocknum == i->prev->blocknum + 1);
+		assert(memcmp(&i->hdr->prev_block, &i->prev->sha,
+			      sizeof(i->prev->sha)) == 0);
+	}
 }
 
 struct block *block_find(struct block *start, const u8 lower_sha[4])
@@ -23,26 +53,17 @@ struct block *block_find(struct block *start, const u8 lower_sha[4])
 	return b;
 }
 
-static void update_peers_mutual(struct state *state)
-{
-	struct peer *p;
-
-	list_for_each(&state->peers, p, list) {
-		/* Not set up yet?  OK. */
-		if (!p->mutual)
-			continue;
-
-		/* Move back to a mutual block we agree on. */
-		while (!block_in_main(p->mutual))
-			p->mutual = p->mutual->prev;
-	}
-}		
-
 /* In normal operation, this is a convolud way of adding b to the main chain */
 static void promote_to_main(struct state *state, struct block *b)
 {
 	struct block *i, *common;
 	struct list_head to_main = LIST_HEAD_INIT(to_main);
+
+	log_debug(state->log, "Promoting block %u ", b->blocknum);
+	log_add_struct(state->log, struct protocol_double_sha, &b->sha);
+	log_add(state->log, "to main chain");
+
+	check_chains(state);
 
 	/* Find where we meet main chain, moving onto the to_main list. */
 	for (i = b; !block_in_main(i); i = i->prev) {
@@ -54,6 +75,9 @@ static void promote_to_main(struct state *state, struct block *b)
 
 	/* This is where we meet the (old) main chain. */
 	common = i;
+
+	log_debug(state->log, "Common block %u ", common->blocknum);
+	log_add_struct(state->log, struct protocol_double_sha, &common->sha);
 
 	/* Remove everything beyond that from the main chain. */
 	for (i = list_tail(&state->main_chain, struct block, list);
@@ -68,13 +92,18 @@ static void promote_to_main(struct state *state, struct block *b)
 	/* Append blocks which are now on the main chain. */
 	list_append_list(&state->main_chain, &to_main);
 
-	/* We may need to revise what we consider mutual blocks with peers. */
- 	update_peers_mutual(state);
+	check_chains(state);
+
+	/* Start generating on the new end. */
+	restart_generating(state);
 }
 
 void block_add(struct state *state, struct block *block)
 {
 	struct block *tail = list_tail(&state->main_chain, struct block, list);
+
+	log_debug(state->log, "Adding block %u ", block->blocknum);
+	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
 
 	/* First we add to off_main. */
 	block->main_chain = false;

@@ -31,8 +31,11 @@ bool check_timestamp(struct state *state, u32 timestamp,
 
 	/* Must be after median. */
 	asort(times, i, cmp_times, NULL);
-	if (i && timestamp <= times[i / 2])
+	if (i && timestamp <= times[i / 2]) {
+		log_unusual(state->log, "Timestamp %u is <= times[%i] (%u)",
+			    timestamp, i / 2, times[i/2]);
 		return false;
+	}
 
 	/* FIXME: Use network time? */
 	return timestamp < time(NULL) + 2 * 60 * 60;
