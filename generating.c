@@ -10,6 +10,7 @@
 #include "prev_merkles.h"
 #include "packet.h"
 #include "peer.h"
+#include "blockfile.h"
 #include <ccan/io/io.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -115,7 +116,10 @@ static struct io_plan got_solution(struct io_conn *conn, struct generator *gen)
 	log_info(gen->log,
 		 "Solution received from generator for block %u",
 		 new->blocknum);
-	block_add(gen->state, new);
+	if (block_add(gen->state, new))
+		restart_generating(gen->state);
+
+	save_block(gen->state, new);
 
 	/* We may need to revise what we consider mutual blocks with peers. */
  	update_peers_mutual(gen->state);

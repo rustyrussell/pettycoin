@@ -93,12 +93,9 @@ static void promote_to_main(struct state *state, struct block *b)
 	list_append_list(&state->main_chain, &to_main);
 
 	check_chains(state);
-
-	/* Start generating on the new end. */
-	restart_generating(state);
 }
 
-void block_add(struct state *state, struct block *block)
+bool block_add(struct state *state, struct block *block)
 {
 	struct block *tail = list_tail(&state->main_chain, struct block, list);
 
@@ -112,8 +109,12 @@ void block_add(struct state *state, struct block *block)
 	/* If this has more work than main chain, move to main chain. */
 	/* FIXME: if equal, do coinflip as per
 	 * http://arxiv.org/pdf/1311.0243v2.pdf ? */
-	if (BN_cmp(&block->total_work, &tail->total_work) > 0)
+	if (BN_cmp(&block->total_work, &tail->total_work) > 0) {
 		promote_to_main(state, block);
+		return true;
+	}
+	check_chains(state);
+	return false;
 }
 
 /* FIXME: get rid of off_chain, use hash table. */

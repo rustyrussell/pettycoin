@@ -23,6 +23,7 @@
 #include "netaddr.h"
 #include "pseudorand.h"
 #include "generating.h"
+#include "blockfile.h"
 
 /* Tal wrappers for opt and io. */
 static void *opt_allocfn(size_t size)
@@ -238,6 +239,7 @@ int main(int argc, char *argv[])
 			      pettycoin_dir, strerror(errno));
 	}
 
+	load_blocks(state);
 	init_peer_cache(state);
 	make_listeners(state);
 	fill_peers(state);

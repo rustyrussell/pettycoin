@@ -52,6 +52,10 @@ struct state {
 	struct log *log;
 	/* level at which we print. */
 	enum log_level log_level;
+
+	/* blocks.list */
+	int blockfd;
+
 };
 
 struct state *new_state(bool test_net);

@@ -10,6 +10,8 @@
 #include "log.h"
 #include "marshall.h"
 #include "check_block.h"
+#include "generating.h"
+#include "blockfile.h"
 #include <ccan/io/io.h>
 #include <ccan/time/time.h>
 #include <ccan/tal/tal.h>
@@ -192,7 +194,7 @@ static struct block *mutual_block_search(struct peer *peer,
 {
 	int i;
 
-	for (i = num_blocks - 1; i >= 0; i++) {
+	for (i = 0; i < num_blocks; i++) {
 		struct block *b = find_mutual_block(peer, &block[i]);
 		if (b)
 			return b;
@@ -317,7 +319,10 @@ receive_block(struct peer *peer, u32 len,
 			  new->blocknum);
 		tal_free(new);
 	} else {
-		block_add(peer->state, new);
+		if (block_add(peer->state, new))
+			restart_generating(peer->state);
+
+		save_block(peer->state, new);
 		/* Update mutual block if this was in main chain. */
 		if (new->main_chain) {
 			peer->mutual = new;
