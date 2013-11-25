@@ -69,11 +69,11 @@ int main(int argc, char *argv[])
 	payment.send_amount = cpu_to_le32(1000);
 	payment.output_addr = *helper_addr(0);
 	t = create_gateway_transaction(s, helper_gateway_public_key(),
-				       1, &payment, helper_gateway_key());
+				       1, 0, &payment, helper_gateway_key());
 	assert(add_transaction(w2, t));
 
 	for (i = 0; !solve_block(w2); i++);
-	assert(i == 15318);
+	assert(i == 15024);
 
 	hash_block(&w2->hdr, w2->merkles, w2->prev_merkles, &w2->tailer,
 		   &hash2);

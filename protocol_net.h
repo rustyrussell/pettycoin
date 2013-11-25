@@ -20,6 +20,8 @@ enum protocol_req_type {
 	PROTOCOL_REQ_BATCH,
 	/* Tell me about this transaction in a block. */
 	PROTOCOL_REQ_TRANSACTION,
+	/* I have a new gateway transaction */
+	PROTOCOL_REQ_NEW_GATEWAY_TRANSACTION,
 	/* I have a new transaction */
 	PROTOCOL_REQ_NEW_TRANSACTION,
 

@@ -26,4 +26,4 @@ trap "" EXIT
 
 i=1
 mkdir home-$i
-HOME=home-$i valgrind --db-attach=yes ../../pettycoin --developer-test --generate=../../../../generate $flags
+HOME=home-$i valgrind --db-attach=yes --child-silent-after-fork=yes ../../pettycoin --developer-test --generate=../../../../generate $flags

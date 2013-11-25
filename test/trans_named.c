@@ -160,7 +160,7 @@ named_gateway(struct state *s, const char *tname, u32 amount, ...)
 	}
 
 	t = create_gateway_transaction(s, helper_gateway_public_key(),
-				       i, payments, helper_gateway_key());
+				       i, 0, payments, helper_gateway_key());
 
 	add_name(s, tname, t);
 	va_end(ap);

@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
 	payment[0].send_amount = cpu_to_le32(1000);
 	payment[0].output_addr = *helper_addr(0);
 	t = create_gateway_transaction(s, helper_gateway_public_key(),
-				       1, payment, helper_gateway_key());
+				       1, 10, payment, helper_gateway_key());
 	assert(t);
 	assert(t->gateway.version == current_version());
 	assert(version_ok(t->gateway.version));
@@ -37,6 +37,8 @@ int main(int argc, char *argv[])
 	assert(memcmp(&t->gateway.gateway_key, helper_gateway_public_key(),
 		      sizeof(t->gateway.gateway_key)) == 0);
 	assert(le16_to_cpu(t->gateway.num_outputs) == 1);
+	assert(le32_to_cpu(t->gateway.reward) == 10);
+	assert(le16_to_cpu(t->gateway.unused) == 0);
 	assert(le32_to_cpu(t->gateway.output[0].send_amount) == 1000);
 	assert(memcmp(&t->gateway.output[0].output_addr,
 		      helper_addr(0),
@@ -53,11 +55,13 @@ int main(int argc, char *argv[])
 	payment[1].send_amount = cpu_to_le32(2000);
 	payment[1].output_addr = *helper_addr(1);
 	t = create_gateway_transaction(s, helper_gateway_public_key(),
-				       2, payment, helper_gateway_key());
+				       2, 11, payment, helper_gateway_key());
 	assert(t);
 	assert(t->gateway.version == current_version());
 	assert(version_ok(t->gateway.version));
 	assert(t->gateway.features == 0);
+	assert(le32_to_cpu(t->gateway.reward) == 11);
+	assert(le16_to_cpu(t->gateway.unused) == 0);
 	assert(memcmp(&t->gateway.gateway_key, helper_gateway_public_key(),
 		      sizeof(t->gateway.gateway_key)) == 0);
 	assert(le16_to_cpu(t->gateway.num_outputs) == 2);
@@ -114,7 +118,7 @@ int main(int argc, char *argv[])
 
 	/* Try signing it with non-gateway key. */
 	trans[0] = create_gateway_transaction(s, helper_public_key(0),
-					      2, payment,
+					      2, 12, payment,
 					      helper_private_key(0));
 	assert(!check_transaction(s, trans, NULL));
 

@@ -81,7 +81,8 @@ static bool pack_signature(struct protocol_signature *signature,
 union protocol_transaction *
 create_gateway_transaction(struct state *state,
 			   const struct protocol_pubkey *gateway_key,
-			   u32 num_payments,
+			   u16 num_payments,
+			   u32 reward,
 			   struct protocol_gateway_payment *payment,
 			   EC_KEY *private_key)
 {
@@ -94,6 +95,8 @@ create_gateway_transaction(struct state *state,
 
 	t->gateway_key = *gateway_key;
 	t->num_outputs = cpu_to_le16(num_payments);
+	t->unused = 0;
+	t->reward = cpu_to_le32(reward);
 	memcpy(t->output, payment, sizeof(t->output[0]) * num_payments);
 
 	hash_transaction(ut, NULL, 0, &sha);

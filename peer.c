@@ -405,7 +405,11 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 
 	default:
 		log_unusual(peer->log, "Unexpected packet %u", type);
-		return io_close();
+		if (type >= PROTOCOL_RESP_NONE)
+			return io_close();
+
+		peer->error_pkt = protocol_resp_err(peer,
+						    PROTOCOL_UNKNOWN_COMMAND);
 	}
 
 	/* Wake output if necessary. */
