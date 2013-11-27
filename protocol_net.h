@@ -14,14 +14,14 @@ enum protocol_req_type {
 	PROTOCOL_REQ_ERR,
 	/* I have a new block! */
 	PROTOCOL_REQ_NEW_BLOCK,
+	/* I have a new gateway transaction */
+	PROTOCOL_REQ_NEW_GATEWAY_TRANSACTION,
 	/* Tell me about this block. */
 	PROTOCOL_REQ_TRANSACTION_NUMS,
 	/* Tell me about this batch in a block. */
 	PROTOCOL_REQ_BATCH,
 	/* Tell me about this transaction in a block. */
 	PROTOCOL_REQ_TRANSACTION,
-	/* I have a new gateway transaction */
-	PROTOCOL_REQ_NEW_GATEWAY_TRANSACTION,
 	/* I have a new transaction */
 	PROTOCOL_REQ_NEW_TRANSACTION,
 
@@ -36,6 +36,7 @@ enum protocol_resp_type {
 	PROTOCOL_RESP_WELCOME,
 	PROTOCOL_RESP_ERR,
 	PROTOCOL_RESP_NEW_BLOCK,
+	PROTOCOL_RESP_NEW_GATEWAY_TRANSACTION,
 	PROTOCOL_RESP_BLOCKSTART,
 	PROTOCOL_RESP_TRANSACTION_NUMS,
 	PROTOCOL_RESP_BATCH,
@@ -68,6 +69,15 @@ enum protocol_error {
 	PROTOCOL_ERROR_BAD_PREV_MERKLES, /* Wrong number of prev_merkles. */
 	PROTOCOL_ERROR_BAD_DIFFICULTY, /* Wrong difficulty calculation. */
 	PROTOCOL_ERROR_INSUFFICIENT_WORK, /* Didn't meet difficulty. */
+
+	/* protocol_req_new_gateway_transaction: */
+	PROTOCOL_ERROR_TRANS_HIGH_VERSION, /* transaction version unknown */
+	PROTOCOL_ERROR_TRANS_LOW_VERSION, /* transaction version old */
+	PROTOCOL_ERROR_TRANS_UNKNOWN, /* unknown transaction type */
+	PROTOCOL_ERROR_TRANS_BAD_GATEWAY, /* unknown gateway */
+	PROTOCOL_ERROR_TRANS_CROSS_SHARDS, /* to different shards. */
+	PROTOCOL_ERROR_TOO_LARGE, /* too many satoshi in one transaction. */
+	PROTOCOL_ERROR_TRANS_BADSIG, /* invalid signature */
 
 	/* protocol_req_blockstart/protocol_req_batchnums/protocol_req_batch: */
 	PROTOCOL_ERROR_UNKNOWN_BLOCK, /* I don't know that block? */
@@ -142,6 +152,22 @@ struct protocol_resp_new_block {
 	struct protocol_double_sha final;
 };
 
+/* I have a new transaction from gateway! */
+struct protocol_req_new_gateway_transaction {
+	le32 len; /* ... */
+	le32 type; /* PROTOCOL_REQ_NEW_GATEWAY_TRANSACTION */
+
+	/* Marshalled transaction. */
+	struct protocol_transaction_gateway trans;
+	/* ... */
+};
+
+struct protocol_resp_new_gateway_transaction {
+	le32 len; /* sizeof(struct protocol_resp_new_gateway_transaction) */
+	le32 type; /* PROTOCOL_RESP_NEW_GATEWAY_TRANSACTION */
+	le32 error; /* Expect PROTOCOL_ERROR_NONE. */
+};
+
 /* Which transactions are interesting to me? */
 struct protocol_req_batch_nums {
 	le32 len; /* sizeof(struct protocol_req_batchnums) */
@@ -203,22 +229,6 @@ struct protocol_resp_transaction {
 	/* Marshalled transaction. */
 	union protocol_transaction trans;
 	/* ... */
-};
-
-/* I have a new transaction for you! */
-struct protocol_req_new_transaction {
-	le32 len; /* ... */
-	le32 type; /* PROTOCOL_REQ_NEW_TRANSACTION */
-
-	/* Marshalled transaction. */
-	union protocol_transaction trans;
-	/* ... */
-};
-
-struct protocol_resp_new_transaction {
-	le32 len; /* sizeof(struct protocol_resp_new_transaction) */
-	le32 type; /* PROTOCOL_RESP_NEW_TRANSACTION */
-	le32 error; /* Expect PROTOCOL_ERROR_NONE. */
 };
 
 /* IPv4 addresses are represented as per rfc4291#section-2.5.5.2 */

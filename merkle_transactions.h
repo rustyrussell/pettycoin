@@ -9,6 +9,11 @@ void merkle_transactions(const void *prefix, size_t prefix_len,
 			 size_t num_trans,
 			 struct protocol_double_sha *merkle);
 
+/* For generator, which already has them as hashes. */
+void merkle_transaction_hashes(const struct protocol_double_sha **hashes,
+			       size_t num_hashes,
+			       struct protocol_double_sha *merkle);
+
 /* Given this number of transactions, how many merkle hashes/batches? */
 static inline size_t num_merkles(u64 num_transactions)
 {

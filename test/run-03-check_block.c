@@ -71,6 +71,7 @@ int main(int argc, char *argv[])
 	struct transaction_batch *batch;
 	u8 *prev_merkles;
 	enum protocol_error e;
+	struct update update;
 
 	/* Sew our genesis block into state. */
 	list_head_init(&s->main_chain);
@@ -91,7 +92,11 @@ int main(int argc, char *argv[])
 	payment.output_addr = *helper_addr(0);
 	t = create_gateway_transaction(s, helper_gateway_public_key(),
 				       1, 0, &payment, helper_gateway_key());
-	assert(add_transaction(w, t));
+	update.trans_idx = 0;
+	update.features = 0;
+	update.cookie = t;
+	hash_transaction(t, NULL, 0, &update.hash);
+	assert(add_transaction(w, &update));
 	for (i = 0; !solve_block(w); i++);
 
 	e = check_block_header(s, &w->hdr, w->merkles, w->prev_merkles,

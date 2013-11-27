@@ -37,6 +37,7 @@ int main(int argc, char *argv[])
 	struct protocol_double_sha hash, hash2;
 	union protocol_transaction *t;
 	struct protocol_gateway_payment payment;
+	struct update update;
 
 	/* This creates a new genesis block. */
 	fake_time = 1378605752;
@@ -70,7 +71,11 @@ int main(int argc, char *argv[])
 	payment.output_addr = *helper_addr(0);
 	t = create_gateway_transaction(s, helper_gateway_public_key(),
 				       1, 0, &payment, helper_gateway_key());
-	assert(add_transaction(w2, t));
+	update.trans_idx = 0;
+	update.features = 0;
+	update.cookie = t;
+	hash_transaction(t, NULL, 0, &update.hash);
+	assert(add_transaction(w2, &update));
 
 	for (i = 0; !solve_block(w2); i++);
 	assert(i == 15024);

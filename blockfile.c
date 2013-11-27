@@ -7,13 +7,22 @@
 #include "packet.h"
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
+#include <ccan/read_write_all/read_write_all.h>
 #include <stdbool.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
 
-static bool get_block(struct state *state, struct protocol_net_hdr *pkt)
+struct block_transaction {
+	le32 len;
+	le32 type; /* == PROTOCOL_REQ_NEW_GATEWAY_TRANSACTION */
+	struct protocol_double_sha block;
+	le32 num;
+	/* Followed by union protocol_transaction trans */
+};
+
+static bool load_block(struct state *state, struct protocol_net_hdr *pkt)
 {
 	struct block *new;
 	enum protocol_error e;
@@ -33,6 +42,35 @@ static bool get_block(struct state *state, struct protocol_net_hdr *pkt)
 		return false;
 
 	block_add(state, new);
+	return true;
+}
+
+static bool load_transaction(struct state *state, struct protocol_net_hdr *pkt)
+{
+	struct block_transaction *hdr = (void *)pkt;
+	struct transaction_batch *batch;
+	union protocol_transaction *t;
+	struct block *block;
+	u32 num;
+
+	if (le32_to_cpu(hdr->len) < sizeof(*hdr))
+		return false;
+
+	block = block_find_any(state, &hdr->block);
+	if (!block)
+		return false;
+
+	num = le32_to_cpu(hdr->num);
+	if (num >= block->hdr->num_transactions)
+		return false;
+
+	t = (void *)(hdr + 1);
+	if (unmarshall_transaction(t, le32_to_cpu(hdr->len) - sizeof(*hdr))
+	    != PROTOCOL_ERROR_NONE)
+		return false;
+
+	batch = block->batch[batch_index(num)];
+	batch->t[num % (1 << PETTYCOIN_BATCH_ORDER)] = t;
 	return true;
 }
 
@@ -65,9 +103,16 @@ void load_blocks(struct state *state)
 
 		switch (le32_to_cpu(pkt->type)) {
 		case PROTOCOL_REQ_NEW_BLOCK:
-			if (!get_block(state, pkt)) {
+			if (!load_block(state, pkt)) {
 				log_unusual(state->log,
 					    "blockfile partial block");
+				goto truncate;
+			}
+			break;
+		case PROTOCOL_REQ_NEW_GATEWAY_TRANSACTION:
+			if (!load_transaction(state, pkt)) {
+				log_unusual(state->log,
+					    "blockfile partial transaction");
 				goto truncate;
 			}
 			break;
@@ -96,8 +141,30 @@ void save_block(struct state *state, struct block *new)
 			     new->hdr, new->merkles, new->prev_merkles,
 			     new->tailer);
 	len = le32_to_cpu(blk->len);
-	if (write(state->blockfd, blk, len) != len)
-		errx(1, "short write to blockfile");
+	if (!write_all(state->blockfd, blk, len))
+		err(1, "writing block to blockfile");
 
 	tal_free(blk);
+}
+
+void save_transaction(struct state *state, struct block *b, u32 i)
+{
+	union protocol_transaction *t = block_get_trans(b, i);
+	size_t len;
+	struct block_transaction hdr;
+
+	assert(t);
+
+	len = marshall_transaction_len(t);
+	hdr.len = cpu_to_le32(sizeof(hdr) + len);
+	if (t->hdr.type == TRANSACTION_FROM_GATEWAY)
+		hdr.type = PROTOCOL_REQ_NEW_GATEWAY_TRANSACTION;
+	else
+		abort();
+	hdr.block = b->sha;
+	hdr.num = cpu_to_le32(i);
+
+	if (!write_all(state->blockfd, &hdr, sizeof(hdr))
+	    || !write_all(state->blockfd, t, len))
+		err(1, "writing transaction to blockfile");
 }

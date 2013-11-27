@@ -23,6 +23,7 @@
 #include "transaction_cmp.h"
 #include "difficulty.h"
 #include "marshall.h"
+#include "generate.h"
 #include <assert.h>
 
 static volatile bool input = true;
@@ -52,7 +53,7 @@ struct working_block {
 	struct protocol_double_sha *merkles;
 	u8 *prev_merkles;
 	struct protocol_block_tailer tailer;
-	union protocol_transaction **transactions;
+	struct protocol_double_sha **trans_hashes;
 	struct protocol_double_sha hash_of_merkles;
 	struct protocol_double_sha hash_of_prev_merkles;
 
@@ -65,6 +66,7 @@ static void merkle_hash_transactions(struct working_block *w)
 {
 	u32 i, num_trans, num_merk;
 	SHA256_CTX ctx;
+	const struct protocol_double_sha **hashes;
 
 	num_trans = le32_to_cpu(w->hdr.num_transactions);
 	num_merk = num_merkles(num_trans);
@@ -75,12 +77,13 @@ static void merkle_hash_transactions(struct working_block *w)
 	/* Create merkle hashes for each batch of transactions, and also
 	 * hash together those merkles. */
 	SHA256_Init(&ctx);
-	
+
+	/* Introducing const here requires cast. */
+	hashes = (const struct protocol_double_sha **)w->trans_hashes;
 	for (i = 0; i < num_merk; i++) {
-		merkle_transactions(NULL, 0,
-				    w->transactions + (i<<PETTYCOIN_BATCH_ORDER),
-				    (1 << PETTYCOIN_BATCH_ORDER),
-				    &w->merkles[i]);
+		merkle_transaction_hashes(hashes + (i<<PETTYCOIN_BATCH_ORDER),
+					  (1 << PETTYCOIN_BATCH_ORDER),
+					  &w->merkles[i]);
 		SHA256_Update(&ctx, &w->merkles[i], sizeof(w->merkles[i]));
 	}
 	SHA256_Double_Final(&ctx, &w->hash_of_merkles);
@@ -114,9 +117,9 @@ new_working_block(const tal_t *ctx,
 
 	memset(w->feature_counts, 0, sizeof(w->feature_counts));
 
-	w->transactions = tal_arr(w, union protocol_transaction *, 0);
+	w->trans_hashes = tal_arr(w, struct protocol_double_sha *, 0);
 	w->merkles = tal_arr(w, struct protocol_double_sha, num_merkles(0));
-	if (!w->transactions || !w->merkles)
+	if (!w->trans_hashes || !w->merkles)
 		return tal_free(w);
 
 	w->hdr.version = current_version();
@@ -142,42 +145,42 @@ new_working_block(const tal_t *ctx,
 	return w;
 }
 
-/* Append a new transaction to the block. */
-static bool add_transaction(struct working_block *w,
-			    const union protocol_transaction *trans)
+/* Append a new transaction hash to the block. */
+static bool add_transaction(struct working_block *w, struct update *update)
 {
 	unsigned int i;
 	u8 new_features = 0;
 	u32 num_trans, num_merk;
+	size_t hash_count;
 
 	num_trans = le32_to_cpu(w->hdr.num_transactions) + 1;
 
 	/* Check for 2^32 transactions: discard if over. */
-	if (num_trans == 0) {
-		tal_free(trans);
-		return true;
-	}
+	assert(num_trans != 0);
+	assert(update->trans_idx < num_trans);
 
 	num_merk = num_merkles(num_trans);
 
-	/* We always keep whole number of batches of transactions. */
-	if (tal_count(w->transactions) != (num_merk << PETTYCOIN_BATCH_ORDER)) {
+	/* We always keep whole number of batches of hashes. */
+	hash_count = tal_count(w->trans_hashes);
+	if (hash_count != (num_merk << PETTYCOIN_BATCH_ORDER)) {
 		/* FIXME: Assumes NULL == bitwise 0! */
-		tal_resizez(&w->transactions,
+		tal_resizez(&w->trans_hashes,
 			    num_merk << PETTYCOIN_BATCH_ORDER);
+		hash_count = tal_count(w->trans_hashes);
 	}
 
-	/* Append transaction. */
-	w->transactions[num_trans - 1]
-		= cast_const(union protocol_transaction *, trans);
+	/* Move later transactions. */
+	memmove(w->trans_hashes + update->trans_idx + 1,
+		w->trans_hashes + update->trans_idx,
+		(hash_count - update->trans_idx - 1) * sizeof(w->trans_hashes[0]));
+	w->trans_hashes[update->trans_idx] = &update->hash;
 	w->hdr.num_transactions = cpu_to_le32(num_trans);
 
-	asort(w->transactions, num_trans, transaction_ptr_cmp, NULL);
 	merkle_hash_transactions(w);
 
-	/* Update features. */
 	for (i = 0; i < ARRAY_SIZE(w->feature_counts); i++) {
-		if (trans->hdr.features & (1 << i))
+		if (update->features & (1 << i))
 			w->feature_counts[i]++;
 		/* If less than half vote for it, clear feature. */
 		if (w->feature_counts[i] < num_trans / 2)
@@ -263,21 +266,13 @@ static bool read_all_or_none(int fd, void *buf, size_t len)
 /* Return false on EOF. */
 static bool read_transaction(struct working_block *w)
 {
-	void *buf;
-	u32 len;
+	struct update *update = tal(w, struct update);
 
 	/* Gratuitous initial read handles race */
-	if (!read_all_or_none(STDIN_FILENO, &len, sizeof(len)))
+	if (!read_all_or_none(STDIN_FILENO, update, sizeof(*update)))
 		return true;
 
-	buf = tal_arr(w, char, len);
-	if (!buf)
-		err(1, "Allocating %u bytes", len);
-
-	if (!read_all_or_none(STDIN_FILENO, buf, len))
-		errx(1, "Short read reading transaction");
-
-	if (!add_transaction(w, buf))
+	if (!add_transaction(w, update))
 		err(1, "Adding transaction");
 
 	return true;
@@ -316,22 +311,20 @@ static bool from_hex(const char *str, u8 *buf, size_t bufsize)
 	return bufsize == 0;
 }
 
-/* 32 bit length, then block, then the transactions included. */
+/* 32 bit length, then block: caller knows transactions already. */
 static void write_block(int fd, const struct working_block *w)
 {
-	u32 len, i;
 	struct protocol_req_new_block *b;
+	u32 i;
 
 	b = marshall_block(w, &w->hdr, w->merkles, w->prev_merkles, &w->tailer);
 	write_all(fd, b, le32_to_cpu(b->len));
 
-	/* Now write out the transactions, in order. */
+	/* Write out the cookies. */
 	for (i = 0; i < le32_to_cpu(w->hdr.num_transactions); i++) {
-		len = marshall_transaction_len(w->transactions[i]);
-		/* Must be valid transaction, since daemon sent it to us! */
-		assert(len);
-		write_all(fd, &len, sizeof(len));
-		write_all(fd, w->transactions[i], len);
+		/* cookie is just before hash */
+		void **cookie = (void *)w->trans_hashes[i];
+		write_all(fd, cookie[-1], sizeof(cookie[-1]));
 	}
 }
 

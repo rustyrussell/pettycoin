@@ -243,6 +243,7 @@ int main(int argc, char *argv[])
 	init_peer_cache(state);
 	make_listeners(state);
 	fill_peers(state);
+	state->pending = new_pending_block(state);
 	start_generating(state);
 
 	io_loop();

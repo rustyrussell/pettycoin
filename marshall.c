@@ -120,55 +120,55 @@ marshall_block(const tal_t *ctx,
 	return ret;
 }
 
-/* Make sure transaction is all there, convert. */
-union protocol_transaction *unmarshall_transaction(void *buffer, size_t size)
+/* Make sure transaction is all there. */
+enum protocol_error unmarshall_transaction(const void *buffer, size_t size)
 {
-	union protocol_transaction *t = buffer;
+	const union protocol_transaction *t = buffer;
 	size_t i;
 
 	if (size < sizeof(t->hdr))
-		return NULL;
+		return PROTOCOL_INVALID_LEN;
 
 	if (!version_ok(t->hdr.version))
-		return NULL;
+		return PROTOCOL_ERROR_TRANS_HIGH_VERSION;
 
 	switch (t->hdr.type) {
 	case TRANSACTION_NORMAL:
 		if (size < sizeof(t->normal))
-			return NULL;
+			return PROTOCOL_INVALID_LEN;
 		if (mul_overflows(sizeof(t->normal.input[0]),
 				  le16_to_cpu(t->normal.num_inputs)))
-			return NULL;
+			return PROTOCOL_INVALID_LEN;
 		i = sizeof(t->normal.input[0])
 			* le16_to_cpu(t->normal.num_inputs);
 
 		if (add_overflows(sizeof(t->normal), i))
-			return NULL;
+			return PROTOCOL_INVALID_LEN;
 		if (size != sizeof(t->normal) + i)
-			return NULL;
+			return PROTOCOL_INVALID_LEN;
 		break;
 	case TRANSACTION_FROM_GATEWAY:
 		if (size < sizeof(t->gateway))
-			return NULL;
+			return PROTOCOL_INVALID_LEN;
 		
 		if (mul_overflows(sizeof(t->gateway.output[0]),
 				  le16_to_cpu(t->gateway.num_outputs)))
-			return NULL;
+			return PROTOCOL_INVALID_LEN;
 		i = sizeof(t->gateway.output[0])
 			* le16_to_cpu(t->gateway.num_outputs);
 
 		if (add_overflows(sizeof(t->gateway), i))
-			return NULL;
+			return PROTOCOL_INVALID_LEN;
 
 		if (size != sizeof(t->gateway) + i)
-			return NULL;
+			return PROTOCOL_INVALID_LEN;
 		break;
 	default:
 		/* Unknown type. */
-		return NULL;
+		return PROTOCOL_ERROR_TRANS_UNKNOWN;
 	}
 
-	return t;
+	return PROTOCOL_ERROR_NONE;
 }
 
 static size_t varsize_(size_t base, size_t num, size_t fieldsize)

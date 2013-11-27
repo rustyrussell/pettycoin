@@ -126,8 +126,8 @@ static bool check_merkle(struct state *state,
 	return false;
 }
 
-static bool
-check_normal(struct state *state, const struct protocol_transaction_normal *t)
+bool check_trans_normal(struct state *state,
+			const struct protocol_transaction_normal *t)
 {
 	struct protocol_double_sha sha;
 
@@ -152,33 +152,35 @@ static u32 shard_of(const struct protocol_address *addr)
 	return be32_to_cpu(shard) & ((1 << PROTOCOL_SHARD_BITS) - 1);
 }
 
-static bool
-check_from_gateway(struct state *state,
-		   const struct protocol_transaction_gateway *t)
+enum protocol_error
+check_trans_from_gateway(struct state *state,
+			 const struct protocol_transaction_gateway *t)
 {
 	struct protocol_double_sha sha;
 	u32 i;
 	u32 the_shard;
 
 	if (!version_ok(t->version))
-		return false;
+		return PROTOCOL_ERROR_TRANS_HIGH_VERSION;
 
 	if (!accept_gateway(state, &t->gateway_key))
-		return false;
+		return PROTOCOL_ERROR_TRANS_BAD_GATEWAY;
 
 	/* Each output must be in the same shard. */
 	for (i = 0; i < le16_to_cpu(t->num_outputs); i++) {
 		if (i == 0)
 			the_shard = shard_of(&t->output[i].output_addr);
 		else if (shard_of(&t->output[i].output_addr) != the_shard)
-			return false;
+			return PROTOCOL_ERROR_TRANS_CROSS_SHARDS;
 
 		if (le32_to_cpu(t->output[i].send_amount) > MAX_SATOSHI)
-			return false;
+			return PROTOCOL_ERROR_TOO_LARGE;
 	}
 
 	hash_transaction((const union protocol_transaction *)t, NULL, 0, &sha);
-	return check_trans_sign(&sha, &t->gateway_key, &t->signature);
+	if (!check_trans_sign(&sha, &t->gateway_key, &t->signature))
+		return PROTOCOL_ERROR_TRANS_BADSIG;
+	return PROTOCOL_ERROR_NONE;
 }
 
 bool find_output(union protocol_transaction *trans, u16 output_num,
@@ -225,7 +227,8 @@ static bool check_chain(struct state *state,
 	t = **trans;
 	if (t->hdr.type == TRANSACTION_FROM_GATEWAY) {
 		/* Chain ends with a from-gateway transaction. */
-		if (!check_from_gateway(state, &t->gateway))
+		if (check_trans_from_gateway(state, &t->gateway)
+		    != PROTOCOL_ERROR_NONE)
 			return false;
 
 		if (need_proof) {
@@ -242,7 +245,7 @@ static bool check_chain(struct state *state,
 		u64 total_input = 0;
 		struct protocol_address my_addr;
 
-		if (!check_normal(state, &t->normal))
+		if (!check_trans_normal(state, &t->normal))
 			return false;
 		if (need_proof) {
 			if (!check_merkle(state, t, *proof))

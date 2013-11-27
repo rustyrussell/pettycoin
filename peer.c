@@ -10,6 +10,7 @@
 #include "log.h"
 #include "marshall.h"
 #include "check_block.h"
+#include "check_transaction.h"
 #include "generating.h"
 #include "blockfile.h"
 #include <ccan/io/io.h>
@@ -282,8 +283,8 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 
 /* Returns an error packet if there was trouble. */
 static struct protocol_resp_err *
-receive_block(struct peer *peer, u32 len,
-	      const struct protocol_block_header *hdr)
+receive_block(struct peer *peer,
+	      const struct protocol_block_header *hdr, u32 len)
 {
 	struct block *new;
 	enum protocol_error e;
@@ -295,8 +296,8 @@ receive_block(struct peer *peer, u32 len,
 	log_debug(peer->log, "version = %u, features = %u, num_transactions = %u",
 		  hdr->version, hdr->features_vote, hdr->num_transactions);
 
-	e = unmarshall_block(peer->log, len - sizeof(struct protocol_net_hdr),
-			     hdr, &merkles, &prev_merkles, &tailer);
+	e = unmarshall_block(peer->log, len, hdr,
+			     &merkles, &prev_merkles, &tailer);
 	if (e != PROTOCOL_ERROR_NONE) {
 		log_unusual(peer->log, "unmarshalling new block gave %u", e);
 		goto fail;
@@ -346,6 +347,36 @@ fail:
 	return protocol_resp_err(peer, e);
 }
 
+/* Returns an error packet if there was trouble. */
+static struct protocol_resp_new_gateway_transaction *
+receive_gateway_trans(struct peer *peer,
+		      const struct protocol_transaction_gateway *hdr, u32 len)
+{
+	enum protocol_error e;
+	struct protocol_resp_new_gateway_transaction *r;
+
+	r = tal(peer, struct protocol_resp_new_gateway_transaction);
+	r->len = cpu_to_le32(sizeof(*r));
+	r->type = cpu_to_le32(PROTOCOL_RESP_NEW_GATEWAY_TRANSACTION);
+
+	e = unmarshall_transaction(hdr, len);
+	if (e)
+		goto fail;
+	e = check_trans_from_gateway(peer->state, hdr);
+	if (e)
+		goto fail;
+
+	pending_gateway_transaction_add(peer->state, hdr);
+	r->error = cpu_to_le32(PROTOCOL_ERROR_NONE);
+	assert(!peer->response);
+	peer->response = r;
+	return NULL;
+
+fail:
+	r->error = cpu_to_le32(e);
+	return r;
+}
+
 /* Packet arrives. */
 static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 {
@@ -371,7 +402,7 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 		if (peer->curr_in_req != PROTOCOL_REQ_NONE)
 			goto unexpected_req;
 		peer->curr_in_req = PROTOCOL_REQ_NEW_BLOCK;
-		peer->error_pkt = receive_block(peer, len, body);
+		peer->error_pkt = receive_block(peer, body, len - sizeof(*hdr));
 		if (peer->error_pkt)
 			goto send_error;
 			
@@ -390,6 +421,18 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 			peer->mutual = mutual;
 			
 		peer->curr_out_req = PROTOCOL_REQ_NONE;
+		break;
+
+	case PROTOCOL_REQ_NEW_GATEWAY_TRANSACTION:
+		log_debug(peer->log,
+			  "Received PROTOCOL_RESP_NEW_GATEWAY_TRANSACTION");
+		if (peer->curr_in_req != PROTOCOL_REQ_NONE)
+			goto unexpected_req;
+		peer->curr_in_req = PROTOCOL_REQ_NEW_GATEWAY_TRANSACTION;
+		peer->error_pkt = receive_gateway_trans(peer, body,
+							len - sizeof(*hdr));
+		if (peer->error_pkt)
+			goto send_error;
 		break;
 
 	case PROTOCOL_REQ_ERR:

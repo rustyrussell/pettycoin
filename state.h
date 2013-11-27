@@ -25,7 +25,10 @@ struct state {
 	/* Non-main-chain blocks, unordered. */
 	struct list_head off_main;
 
-	/* All transactions in main chain */
+	/* Block we're working on now. */
+	struct pending_block *pending;
+
+	/* All transactions. */
 	struct thash thash;
 
 	/* Number of current peers (some may be connecting) */
