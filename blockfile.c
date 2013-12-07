@@ -61,7 +61,7 @@ static bool load_transaction(struct state *state, struct protocol_net_hdr *pkt)
 		return false;
 
 	num = le32_to_cpu(hdr->num);
-	if (num >= block->hdr->num_transactions)
+	if (num >= le32_to_cpu(block->hdr->num_transactions))
 		return false;
 
 	t = (void *)(hdr + 1);
