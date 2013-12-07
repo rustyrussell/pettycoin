@@ -121,10 +121,11 @@ marshall_block(const tal_t *ctx,
 }
 
 /* Make sure transaction is all there. */
-enum protocol_error unmarshall_transaction(const void *buffer, size_t size)
+enum protocol_error unmarshall_transaction(const void *buffer, size_t size,
+					   size_t *used)
 {
 	const union protocol_transaction *t = buffer;
-	size_t i;
+	size_t i, len;
 
 	if (size < sizeof(t->hdr))
 		return PROTOCOL_INVALID_LEN;
@@ -144,8 +145,7 @@ enum protocol_error unmarshall_transaction(const void *buffer, size_t size)
 
 		if (add_overflows(sizeof(t->normal), i))
 			return PROTOCOL_INVALID_LEN;
-		if (size != sizeof(t->normal) + i)
-			return PROTOCOL_INVALID_LEN;
+		len = sizeof(t->normal) + i;
 		break;
 	case TRANSACTION_FROM_GATEWAY:
 		if (size < sizeof(t->gateway))
@@ -160,13 +160,21 @@ enum protocol_error unmarshall_transaction(const void *buffer, size_t size)
 		if (add_overflows(sizeof(t->gateway), i))
 			return PROTOCOL_INVALID_LEN;
 
-		if (size != sizeof(t->gateway) + i)
-			return PROTOCOL_INVALID_LEN;
+		len = sizeof(t->gateway) + i;
 		break;
 	default:
 		/* Unknown type. */
 		return PROTOCOL_ERROR_TRANS_UNKNOWN;
 	}
+
+	if (size < len)
+		return PROTOCOL_INVALID_LEN;
+
+	/* If caller expects a remainder, that's OK, otherwise an error. */
+	if (used)
+		*used = len;
+	else if (size != len)
+		return PROTOCOL_INVALID_LEN;
 
 	return PROTOCOL_ERROR_NONE;
 }

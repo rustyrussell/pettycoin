@@ -65,7 +65,7 @@ static bool load_transaction(struct state *state, struct protocol_net_hdr *pkt)
 		return false;
 
 	t = (void *)(hdr + 1);
-	if (unmarshall_transaction(t, le32_to_cpu(hdr->len) - sizeof(*hdr))
+	if (unmarshall_transaction(t, le32_to_cpu(hdr->len)-sizeof(*hdr), NULL)
 	    != PROTOCOL_ERROR_NONE)
 		return false;
 

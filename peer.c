@@ -359,7 +359,7 @@ receive_gateway_trans(struct peer *peer,
 	r->len = cpu_to_le32(sizeof(*r));
 	r->type = cpu_to_le32(PROTOCOL_RESP_NEW_GATEWAY_TRANSACTION);
 
-	e = unmarshall_transaction(hdr, len);
+	e = unmarshall_transaction(hdr, len, NULL);
 	if (e)
 		goto fail;
 	e = check_trans_from_gateway(peer->state, hdr);
