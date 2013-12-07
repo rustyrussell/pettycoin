@@ -237,7 +237,7 @@ static void exec_generator(struct generator *gen)
 	char difficulty[STR_MAX_CHARS(u32)],
 		prev_merkle_str[STR_MAX_CHARS(u32)];
 	char prevblock[sizeof(struct protocol_double_sha) * 2 + 1];
-	char nonce[14];
+	char nonce[14 + 1];
 	int i;
 	const struct block *last;
 	char log_prefix[40];
@@ -249,8 +249,9 @@ static void exec_generator(struct generator *gen)
 	for (i = 0; i < sizeof(struct protocol_double_sha); i++)
 		sprintf(prevblock + i*2, "%02X", last->sha.sha[i]);
 	
-	for (i = 0; i < sizeof(nonce); i++)
+	for (i = 0; i < sizeof(nonce)-1; i++)
 		nonce[i] = 32 + isaac64_next_uint(isaac64, 224);
+	nonce[i] = '\0';
 
 	if (pipe(outfd) != 0 || pipe(infd) != 0)
 		fatal(gen->state, "pipe: %s", strerror(errno));
@@ -267,7 +268,7 @@ static void exec_generator(struct generator *gen)
 
 		/* Make sure timestamp moves forward! */
 		if (gen->state->developer_test)
-			sleep(10);
+			sleep(5 + isaac64_next_uint(isaac64, 10));
 
 		execlp(gen->state->generate,
 		       "pettycoin-generate",
