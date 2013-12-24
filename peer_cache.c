@@ -167,7 +167,7 @@ static bool peer_already(struct state *state, const struct protocol_net_address 
 	struct peer *p;
 
 	list_for_each(&state->peers, p, list)
-		if (memcmp(&p->you, a, sizeof(a)) == 0)
+		if (memcmp(&p->you, a, sizeof(*a)) == 0)
 			return true;
 	return false;
 }
