@@ -106,10 +106,10 @@ struct protocol_req_welcome {
 	le32 type; /* PROTOCOL_REQ_WELCOME */
 	le32 version; /* Protocol version, currently 1. */
 	/* Freeform software version. */
-	char moniker[32];
-	le32 num_blocks;
+	char moniker[28];
 	/* Self-detection */
 	le64 random;
+	le32 num_blocks;
 	/* Address we see you at. */
 	struct protocol_net_address you;
 	/* Port you can connect to us at (if != 0) */

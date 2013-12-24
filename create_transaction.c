@@ -111,7 +111,7 @@ create_normal_transaction(struct state *state,
 			  const struct protocol_address *pay_to,
 			  u32 send_amount,
 			  u32 change_amount,
-			  u16 num_inputs,
+			  u32 num_inputs,
 			  const struct protocol_input inputs[],
 			  EC_KEY *private_key)
 {
@@ -132,7 +132,7 @@ create_normal_transaction(struct state *state,
 	t->send_amount = cpu_to_le32(send_amount);
 	t->change_amount = cpu_to_le32(change_amount);
 
-	t->num_inputs = cpu_to_le16(num_inputs);
+	t->num_inputs = cpu_to_le32(num_inputs);
 	memcpy(t->input, inputs, sizeof(t->input[0]) * num_inputs);
 
 	hash_transaction(ut, NULL, 0, &sha);

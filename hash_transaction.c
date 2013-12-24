@@ -20,10 +20,10 @@ void hash_transaction(const union protocol_transaction *t,
 		len1 = offsetof(struct protocol_transaction_normal, signature);
 
 		assert(!mul_overflows(sizeof(t->normal.input[0]),
-				      le16_to_cpu(t->normal.num_inputs)));
+				      le32_to_cpu(t->normal.num_inputs)));
 		data2 = &t->normal.input[0];
 		len2 = sizeof(t->normal.input[0])
-			* le16_to_cpu(t->normal.num_inputs);
+			* le32_to_cpu(t->normal.num_inputs);
 		break;
 	case TRANSACTION_FROM_GATEWAY:
 		data1 = t;

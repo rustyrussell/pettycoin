@@ -259,7 +259,7 @@ static bool check_chain(struct state *state,
 		pubkey_to_addr(&t->normal.input_key, &my_addr);
 
 		/* Consume that many chains. */
-		for (i = 0; i < le16_to_cpu(t->normal.num_inputs); i++) {
+		for (i = 0; i < le32_to_cpu(t->normal.num_inputs); i++) {
 			u32 amount;
 			struct protocol_address addr;
 			struct protocol_double_sha sha;

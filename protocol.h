@@ -118,7 +118,7 @@ struct protocol_transaction_normal {
 	/* Amount to return to input_key. */
 	le32 change_amount;
 	/* Number of inputs to spend. */
-	le16 num_inputs;
+	le32 num_inputs;
 	/* ECDSA of double SHA256 of above, and inputs[] below. */
 	struct protocol_signature signature;
 	/* The inputs */

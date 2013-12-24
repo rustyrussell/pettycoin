@@ -57,7 +57,7 @@ static void add_inputs(struct state *state,
 
 	switch (t->hdr.type) {
 	case TRANSACTION_NORMAL:
-		for (i = 0; i < le16_to_cpu(t->normal.num_inputs); i++) {
+		for (i = 0; i < le32_to_cpu(t->normal.num_inputs); i++) {
 			union protocol_transaction *subt;
 			struct thash_elem *e;
 

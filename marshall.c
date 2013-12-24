@@ -138,10 +138,10 @@ enum protocol_error unmarshall_transaction(const void *buffer, size_t size,
 		if (size < sizeof(t->normal))
 			return PROTOCOL_INVALID_LEN;
 		if (mul_overflows(sizeof(t->normal.input[0]),
-				  le16_to_cpu(t->normal.num_inputs)))
+				  le32_to_cpu(t->normal.num_inputs)))
 			return PROTOCOL_INVALID_LEN;
 		i = sizeof(t->normal.input[0])
-			* le16_to_cpu(t->normal.num_inputs);
+			* le32_to_cpu(t->normal.num_inputs);
 
 		if (add_overflows(sizeof(t->normal), i))
 			return PROTOCOL_INVALID_LEN;
@@ -201,7 +201,7 @@ size_t marshall_transaction_len(const union protocol_transaction *t)
 	switch (t->hdr.type) {
 	case TRANSACTION_NORMAL:
 		return varsize(struct protocol_transaction_normal,
-			       input, le16_to_cpu(t->normal.num_inputs));
+			       input, le32_to_cpu(t->normal.num_inputs));
 	case TRANSACTION_FROM_GATEWAY:
 		return varsize(struct protocol_transaction_gateway,
 			       output, le16_to_cpu(t->gateway.num_outputs));
