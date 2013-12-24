@@ -127,9 +127,9 @@ static bool check_peer_cache(struct state *state, const struct peer_cache *pc)
 		}
 		if (peer_hash_entry(pc, &pc->file.h[i].addr) != &pc->file.h[i]) {
 			log_unusual(state->log,
-				    "peer_cache entry %i should be %i, address ",
-				    i, peer_hash_entry(pc, &pc->file.h[i].addr)
-				    - pc->file.h);
+				    "peer_cache entry %i should be %li, address ",
+				    i, (long)(peer_hash_entry(pc, &pc->file.h[i].addr)
+					     - pc->file.h));
 			log_add_struct(state->log, struct protocol_net_address,
 				       &pc->file.h[i].addr);
 			return false;

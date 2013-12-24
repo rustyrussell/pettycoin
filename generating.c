@@ -68,18 +68,10 @@ static void reap_generator(struct io_conn *conn, struct generator *gen)
 	struct state *state = gen->state;
 	bool ok;
 
-	if (conn == gen->update)
-		gen->update = NULL;
-	else if (conn == gen->answer)
-		gen->answer = NULL;
-	else
-		abort();
+	log_debug(gen->log, "Generator closed");
+	io_close_other(gen->update);
 
-	/* Wait for both to exit, then reap child. */
-	if (gen->answer || gen->update)
-		return;
-
-	if (waitpid(gen->pid, &status, WNOHANG) == -1) {
+	if (waitpid(gen->pid, &status, 0) == -1) {
 		ok = false;
 		log_unusual(gen->log,
 			    "Waiting for generator %s %u returned %s",
@@ -141,6 +133,7 @@ static struct io_plan send_go_byte(struct io_conn *conn, struct generator *gen)
 {
 	assert(conn == gen->update);
 
+	log_debug(gen->log, "Sending go byte");
 	return io_write("", 1, do_send_trans, gen);
 }
 
@@ -179,9 +172,8 @@ static struct io_plan got_trans(struct io_conn *conn, struct generator *gen)
 		log_debug(gen->log, "Added batch %u-%u", i, i+num);
 	}
 
-	if (block_add(gen->state, gen->new))
-		restart_generating(gen->state);
-
+	/* Ignore return: we restart generating whether this is in main chain or not */
+	block_add(gen->state, gen->new);
 	save_block(gen->state, gen->new);
 
 	for (i = 0; i < num_trans; i++)
@@ -220,10 +212,10 @@ static struct io_plan got_solution(struct io_conn *conn, struct generator *gen)
 	}
 
 	log_info(gen->log,
-		 "Solution received from generator for block %u",
-		 gen->new->blocknum);
+		 "Solution received from generator for block %u (%u trans)",
+		 gen->new->blocknum, le32_to_cpu(hdr->num_transactions));
 
-	/* Read transactions back. */
+	/* Read transaction pointers back. */
 	gen->trans = tal_arr(gen, union protocol_transaction *,
 			     le32_to_cpu(hdr->num_transactions));
 
@@ -297,7 +289,6 @@ static void exec_generator(struct generator *gen)
 	gen->answer = io_new_conn(outfd[0],
 				  io_read_packet(&gen->pkt_in, got_solution,
 						 gen));
-	io_set_finish(gen->update, reap_generator, gen);
 	io_set_finish(gen->answer, reap_generator, gen);
 }
 
@@ -360,7 +351,7 @@ void restart_generating(struct state *state)
 	/* Shut down existing generator, will restart after reaping. */
 	if (state->gen) {
 		log_debug(state->gen->log, "shutdown due to restart");
-		if (state->gen->update)
-			io_close_other(state->gen->update);
+		if (state->gen->answer)
+			io_close_other(state->gen->answer);
 	}
 }

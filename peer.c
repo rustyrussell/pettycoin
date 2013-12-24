@@ -613,7 +613,7 @@ static void destroy_peer(struct peer *peer)
 	list_del_from(&peer->state->peers, &peer->list);
 	if (peer->welcome) {
 		peer->state->num_peers_connected--;
-		log_info(peer->log, "Closing connected peer (%u left)",
+		log_info(peer->log, "Closing connected peer (%zu left)",
 			 peer->state->num_peers_connected);
 	} else {
 		log_debug(peer->log, "Failed connect to peer %p", peer);
@@ -654,7 +654,7 @@ void new_peer(struct state *state, int fd, const struct protocol_net_address *a)
 
 		peer->you = *a;
 
-		log_debug(state->log, "Connecting to peer %p (%u) at ",
+		log_debug(state->log, "Connecting to peer %p (%zu) at ",
 			  peer, state->num_peers);
 		log_add_struct(state->log, struct protocol_net_address,
 			       &peer->you);
@@ -673,7 +673,7 @@ void new_peer(struct state *state, int fd, const struct protocol_net_address *a)
 			return;
 		}
 		peer->w = io_new_conn(fd, setup_welcome(NULL, peer));
-		log_debug(state->log, "Peer %p (%u) connected from ",
+		log_debug(state->log, "Peer %p (%zu) connected from ",
 			  peer, state->num_peers);
 		log_add_struct(state->log, struct protocol_net_address,
 			       &peer->you);
@@ -702,7 +702,7 @@ static struct io_plan setup_peer(struct io_conn *conn, struct state *state)
 		return io_close();
 	}
 
-	log_info(state->log, "Set up --connect peer %u at ", state->num_peers);
+	log_info(state->log, "Set up --connect peer %zu at ", state->num_peers);
 	log_add_struct(state->log, struct protocol_net_address, &peer->you);
 
 	state->num_peers++;

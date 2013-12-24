@@ -1,3 +1,10 @@
+/* Example:
+ $ bitcoind -testnet getnewaddress
+ mwATgTqtQmAP4obu4tvc7i8Z9Q9qNhxqsN
+ $ bitcoind -testnet dumpprivkey mwATgTqtQmAP4obu4tvc7i8Z9Q9qNhxqsN
+ cTQSBNmMkbCUdFetsnSfzdAiJcdngQsKLyYWVTKgm6fE9GLN74qR
+ $ ./gateway_inject cTQSBNmMkbCUdFetsnSfzdAiJcdngQsKLyYWVTKgm6fE9GLN74qR localhost 56344 P-mwATgTqtQmAP4obu4tvc7i8Z9Q9qNhxqsN 100
+*/
 #include <ccan/err/err.h>
 #include <ccan/net/net.h>
 #include <ccan/read_write_all/read_write_all.h>
@@ -58,7 +65,7 @@ static EC_KEY *get_gatekey(const char *arg, struct protocol_pubkey *gkey)
 	if (keylen == 1 + 32 + 4)
 		errx(1, "Looks like privkey for uncompressed pubkey.");
 	if (keylen != 1 + 32 + 1 + 4)
-		errx(1, "Privkey length %u wrong", keylen);
+		errx(1, "Privkey length %zu wrong", keylen);
 	BN_bn2bin(&bn, keybuf);
 	BN_free(&bn);
 
@@ -139,12 +146,12 @@ static void exchange_welcome(int fd, const struct protocol_net_address *netaddr)
 
 static void read_response(int fd)
 {
-	struct protocol_resp_err resp;
+	struct protocol_resp_new_gateway_transaction resp;
 
 	if (!read_all(fd, &resp, sizeof(resp)))
 		err(1, "Reading response");
 
-	if (resp.type != cpu_to_le32(PROTOCOL_RESP_ERR))
+	if (resp.type != cpu_to_le32(PROTOCOL_RESP_NEW_GATEWAY_TRANSACTION))
 		errx(1, "Unexpected response type %u", le32_to_cpu(resp.type));
 
 	if (resp.len != cpu_to_le32(sizeof(resp)))
