@@ -269,12 +269,13 @@ static bool read_transaction(struct working_block *w)
 	struct update *update = tal(w, struct update);
 
 	/* Gratuitous initial read handles race */
-	if (!read_all_or_none(STDIN_FILENO, update, sizeof(*update)))
-		return true;
+	while (read_all_or_none(STDIN_FILENO, update, sizeof(*update))) {
+		if (!add_transaction(w, update))
+			err(1, "Adding transaction");
+		update = tal(w, struct update);
+	}
 
-	if (!add_transaction(w, update))
-		err(1, "Adding transaction");
-
+	tal_free(update);
 	return true;
 }
 
