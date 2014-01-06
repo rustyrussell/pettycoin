@@ -318,13 +318,15 @@ static void write_block(int fd, const struct working_block *w)
 	u32 i;
 
 	b = marshall_block(w, &w->hdr, w->merkles, w->prev_merkles, &w->tailer);
-	write_all(fd, b, le32_to_cpu(b->len));
+	if (!write_all(fd, b, le32_to_cpu(b->len)))
+		err(1, "Writing out results: %s", strerror(errno));
 
 	/* Write out the cookies. */
 	for (i = 0; i < le32_to_cpu(w->hdr.num_transactions); i++) {
 		/* cookie is just before hash */
 		void **cookie = (void *)w->trans_hashes[i];
-		write_all(fd, cookie[-1], sizeof(cookie[-1]));
+		if (!write_all(fd, &cookie[-1], sizeof(void *)))
+			err(1, "Writing out cookie: %s", strerror(errno));
 	}
 }
 
