@@ -5,6 +5,8 @@
 #include "peer.h"
 #include "generating.h"
 #include "log.h"
+#include "merkle_transactions.h"
+#include "pending.h"
 #include <string.h>
 
 bool block_in_main(const struct block *block)
@@ -114,12 +116,12 @@ static void promote_to_main(struct state *state, struct block *b)
 		list_del_from(&state->main_chain, &i->list);
 		i->main_chain = false;
 		list_add_tail(&from_main, &i->list);
-		add_pending_transactions(state, i);
+		steal_pending_transactions(state, i);
 	}
 
 	/* Append blocks which are now on the main chain. */
 	list_append_list(&state->main_chain, &to_main);
-	cleanup_pending_transactions(state);
+	update_pending_transactions(state);
 
 	check_chains(state);
 }
@@ -181,6 +183,21 @@ bool batch_full(const struct block *block,
 	return batch->count == full;
 }
 
+bool block_full(const struct block *block)
+{
+	unsigned int i, num;
+
+	num = num_merkles(le32_to_cpu(block->hdr->num_transactions));
+	for (i = 0; i < num; i++) {
+		const struct transaction_batch *b = block->batch[i];
+		if (!b)
+			return false;
+		if (!batch_full(block, b))
+			return false;
+	}
+	return true;
+}
+
 union protocol_transaction *block_get_trans(const struct block *block,
 					    u32 trans_num)
 {
@@ -188,6 +205,8 @@ union protocol_transaction *block_get_trans(const struct block *block,
 
 	assert(trans_num < block->hdr->num_transactions);
 	b = block->batch[batch_index(trans_num)];
+	if (!b)
+		return NULL;
 	return cast_const(union protocol_transaction *,
 			  b->t[trans_num % (1 << PETTYCOIN_BATCH_ORDER)]);
 }

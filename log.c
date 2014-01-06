@@ -112,7 +112,7 @@ static void do_log_add(struct log *log, const char *fmt, va_list ap)
 	add_entry(log, l);
 
 	if (l->level >= log->print)
-		printf("\t%s\n", l->log + oldlen);
+		printf("%s \t%s\n", log->prefix, l->log + oldlen);
 }
 
 void log_(struct log *log, enum log_level level, const char *fmt, ...)

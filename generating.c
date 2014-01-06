@@ -1,4 +1,3 @@
-#include <ccan/asort/asort.h>
 #include "generating.h"
 #include "difficulty.h"
 #include "state.h"
@@ -12,100 +11,19 @@
 #include "packet.h"
 #include "peer.h"
 #include "blockfile.h"
-#include "transaction_cmp.h"
 #include "generate.h"
+#include "pending.h"
 #include <ccan/io/io.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <errno.h>
 
-/* aka state->pending */
-struct pending_block {
-	u8 *prev_merkles;
-	const union protocol_transaction **t;
-};
-
-static const struct protocol_address *generating_address(struct state *state)
+const struct protocol_address *generating_address(struct state *state)
 {
 	/* FIXME: Invalid reward address. */
 	static struct protocol_address my_addr = { { 0 } };
 
 	return &my_addr;
-}
-
-struct pending_block *new_pending_block(struct state *state)
-{
-	struct block *tail = list_tail(&state->main_chain, struct block, list);
-	struct pending_block *b = tal(state, struct pending_block);
-
-	b->prev_merkles = make_prev_merkles(b, state, tail,
-					    generating_address(state));
-	b->t = tal_arr(b, const union protocol_transaction *, 0);
-	return b;
-}
-
-/* Block is no longer in main chain.  Dump all its transactions into pending:
- * followed up cleanup_pending to remove any which are in main due to other
- * blocks. */
-void add_pending_transactions(struct state *state, const struct block *block)
-{
-	size_t curr = tal_count(state->pending->t), num, added = 0, i;
-
-	num = le32_to_cpu(block->hdr->num_transactions);
-
-	/* Worst case. */
-	tal_resize(&state->pending->t, curr + num);
-
-	for (i = 0; i < num; i++) {
-		union protocol_transaction *t = block_get_trans(block, i);
-		if (t)
-			state->pending->t[curr + added++] = t;
-	}
-
-	log_debug(state->log, "Added %zu transactions from old block",
-		  added);
-	tal_resize(&state->pending->t, curr + added);
-}
-
-void cleanup_pending_transactions(struct state *state)
-{
-	size_t i, num = tal_count(state->pending->t);
-	const struct block *last;
-
-	for (i = 0; i < num; i++) {
-		struct thash_elem *te;
-		struct protocol_double_sha sha;
-
-		hash_transaction(state->pending->t[i], NULL, 0, &sha);
-		te = thash_get(&state->thash, &sha);
-
-		/* Already in main chain?  Discard. */
-		if (te && te->block->main_chain) {
-			memmove(state->pending->t + i,
-				state->pending->t + i + 1,
-				(num - i - 1) * sizeof(*state->pending->t));
-			num--;
-		}
-
-		/* FIXME: Discard if not valid any more, eg. inputs
-		 * already spent. */
-	}
-	log_debug(state->log, "Cleaned up %zu of %zu pending transactions",
-		  tal_count(state->pending->t) - num,
-		  tal_count(state->pending->t));
-	tal_resize(&state->pending->t, num);
-
-	/* Make sure they're sorted into correct order! */
-	asort((union protocol_transaction **)state->pending->t,
-	      num, transaction_ptr_cmp, NULL);
-
-	/* Finally, recalculate prev_merkles. */
-	tal_free(state->pending->prev_merkles);
-
-	last = list_tail(&state->main_chain, struct block, list);
-	state->pending->prev_merkles
-		= make_prev_merkles(state->pending, state, last,
-				    generating_address(state));
 }
 
 struct pending_update {
@@ -326,7 +244,7 @@ static void exec_generator(struct generator *gen)
 	char log_prefix[40];
 	const u8 *prev_merkles = gen->state->pending->prev_merkles;
 
-	last = list_tail(&gen->state->main_chain, struct block, list);
+	last = gen->state->pending->prev;
 	sprintf(difficulty, "%u", get_difficulty(gen->state, last));
 	sprintf(prev_merkle_str, "%zu", tal_count(prev_merkles));
 	for (i = 0; i < sizeof(struct protocol_double_sha); i++)
@@ -383,49 +301,28 @@ static void exec_generator(struct generator *gen)
 	io_set_finish(gen->answer, reap_generator, gen);
 }
 
-void pending_gateway_transaction_add(struct state *state,
-			     const struct protocol_transaction_gateway *gt)
+
+void tell_generator_new_pending(struct state *state, unsigned int num)
 {
-	struct pending_block *pending = state->pending;
-	const union protocol_transaction *t = (void *)gt;
-	size_t start = 0, num = tal_count(pending->t), end = num;
-
-	/* Assumes tal_count < max-size_t / 2 */
-	while (start < end) {
-		size_t halfway = (start + end) / 2;
-		int c;
-
-		c = transaction_cmp(t, pending->t[halfway]);
-		if (c < 0)
-			end = halfway;
-		else if (c > 0)
-			start = halfway + 1;
-		else
-			/* Duplicate!  Ignore it. */
-			return;
-	}
-
-	/* Move down to make room, and insert */
-	tal_resize(&pending->t, num + 1);
-	memmove(pending->t + start + 1,
-		pending->t + start,
-		(num - start) * sizeof(*pending->t));
-	pending->t[start] = t;
+	struct pending_update *update;
+	const union protocol_transaction *t;
 
 	/* Tell generator about new transaction. */
-	if (state->gen) {
-		struct pending_update *update;
+	if (!state->gen)
+		return;
 
-		update = tal(state->gen, struct pending_update);
-		update->update.features = gt->features;
-		update->update.trans_idx = start;
-		update->update.cookie = t;
-		hash_transaction(t, NULL, 0, &update->update.hash);
-		list_add_tail(&state->gen->updates, &update->list);
-		if (io_is_idle(state->gen->update))
-			io_wake(state->gen->update,
-				do_send_trans(state->gen->update, state->gen));
-	}
+	/* This is the new transaction. */
+	t = state->pending->t[num];
+
+	update = tal(state->gen, struct pending_update);
+	update->update.features = t->hdr.features;
+	update->update.trans_idx = num;
+	update->update.cookie = t;
+	hash_transaction(t, NULL, 0, &update->update.hash);
+	list_add_tail(&state->gen->updates, &update->list);
+	if (io_is_idle(state->gen->update))
+		io_wake(state->gen->update,
+			do_send_trans(state->gen->update, state->gen));
 }
 
 /* FIXME: multiple generators. */

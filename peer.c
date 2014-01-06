@@ -13,6 +13,7 @@
 #include "check_transaction.h"
 #include "generating.h"
 #include "blockfile.h"
+#include "pending.h"
 #include <ccan/io/io.h>
 #include <ccan/time/time.h>
 #include <ccan/tal/tal.h>
@@ -379,7 +380,7 @@ receive_gateway_trans(struct peer *peer,
 	/* OK, we own it now. */
 	tal_steal(peer->state, req);
 
-	pending_gateway_transaction_add(peer->state, &req->trans);
+	add_pending_gateway_transaction(peer->state, &req->trans);
 	r->error = cpu_to_le32(PROTOCOL_ERROR_NONE);
 	assert(!peer->response);
 	peer->response = r;

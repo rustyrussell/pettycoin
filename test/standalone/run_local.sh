@@ -20,7 +20,7 @@ flags="--log-level=debug"
 
 for i in `seq 2 $1`; do
     mkdir home-$i
-    HOME=home-$i ../../pettycoin --developer-test --generate=../../../../generate &
+    HOME=home-$i ../../pettycoin --developer-test --generate=../../../../generate $flags &
 done
 trap "" EXIT
 

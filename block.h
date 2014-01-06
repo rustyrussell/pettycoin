@@ -55,6 +55,9 @@ struct block *block_find_any(struct state *state,
 bool batch_full(const struct block *block,
 		const struct transaction_batch *batch);
 
+/* Do we have everything in this block? */
+bool block_full(const struct block *block);
+
 /* Is this block in the main chain? */
 bool block_in_main(const struct block *block);
 
