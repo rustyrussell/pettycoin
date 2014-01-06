@@ -53,11 +53,36 @@ struct block *block_find(struct block *start, const u8 lower_sha[4])
 	return b;
 }
 
-/* In normal operation, this is a convolud way of adding b to the main chain */
+static void update_thashes(struct state *state, struct block *b)
+{
+	u32 i, num = le32_to_cpu(b->hdr->num_transactions);
+
+	for (i = 0; i < num; i++) {
+		union protocol_transaction *t = block_get_trans(b, i);
+		struct thash_elem *te;
+		struct protocol_double_sha sha;
+
+		/* For the moment, blocks are always full.  Not forever. */
+		if (!t)
+			continue;
+
+		/* Must already be in thash: added when added to block. */
+		hash_transaction(t, NULL, 0, &sha);
+		te = thash_get(&state->thash, &sha);
+
+		if (te->block != b) {
+			te->block = b;
+			te->tnum = i;
+		}
+	}
+}
+
+/* In normal operation, this is a convoluted way of adding b to the main chain */
 static void promote_to_main(struct state *state, struct block *b)
 {
 	struct block *i, *common;
 	struct list_head to_main = LIST_HEAD_INIT(to_main);
+	struct list_head from_main = LIST_HEAD_INIT(from_main);
 
 	log_debug(state->log, "Promoting block %u ", b->blocknum);
 	log_add_struct(state->log, struct protocol_double_sha, &b->sha);
@@ -71,6 +96,8 @@ static void promote_to_main(struct state *state, struct block *b)
 		/* Add to front, since we're going backwards. */
 		list_add(&to_main, &i->list);
 		i->main_chain = true;
+		/* Make sure entries in thash point to *this* block. */
+		update_thashes(state, i);
 	}
 
 	/* This is where we meet the (old) main chain. */
@@ -86,11 +113,13 @@ static void promote_to_main(struct state *state, struct block *b)
 		assert(block_in_main(i));
 		list_del_from(&state->main_chain, &i->list);
 		i->main_chain = false;
-		list_add_tail(&state->off_main, &i->list);
+		list_add_tail(&from_main, &i->list);
+		add_pending_transactions(state, i);
 	}
 
 	/* Append blocks which are now on the main chain. */
 	list_append_list(&state->main_chain, &to_main);
+	cleanup_pending_transactions(state);
 
 	check_chains(state);
 }
@@ -103,7 +132,7 @@ bool block_add(struct state *state, struct block *block)
 	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
 
 	/* First we add to off_main. */
-	block->main_chain = false;
+	assert(!block->main_chain);
 	list_add_tail(&state->off_main, &block->list);
 
 	/* If this has more work than main chain, move to main chain. */

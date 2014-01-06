@@ -283,8 +283,7 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 
 /* Returns an error packet if there was trouble. */
 static struct protocol_resp_err *
-receive_block(struct peer *peer,
-	      const struct protocol_block_header *hdr, u32 len)
+receive_block(struct peer *peer, const struct protocol_req_new_block *req)
 {
 	struct block *new;
 	enum protocol_error e;
@@ -292,16 +291,18 @@ receive_block(struct peer *peer,
 	const u8 *prev_merkles;
 	const struct protocol_block_tailer *tailer;
 	struct protocol_resp_new_block *r;
+	const struct protocol_block_header *hdr = (void *)req->block;
+	u32 blocklen = le32_to_cpu(req->len) - sizeof(struct protocol_net_hdr);
 
-	log_debug(peer->log, "version = %u, features = %u, num_transactions = %u",
-		  hdr->version, hdr->features_vote, hdr->num_transactions);
-
-	e = unmarshall_block(peer->log, len, hdr,
+	e = unmarshall_block(peer->log, blocklen, hdr,
 			     &merkles, &prev_merkles, &tailer);
 	if (e != PROTOCOL_ERROR_NONE) {
 		log_unusual(peer->log, "unmarshalling new block gave %u", e);
 		goto fail;
 	}
+
+	log_debug(peer->log, "version = %u, features = %u, num_transactions = %u",
+		  hdr->version, hdr->features_vote, hdr->num_transactions);
 
 	e = check_block_header(peer->state, hdr, merkles, prev_merkles,
 			       tailer, &new);
@@ -309,9 +310,17 @@ receive_block(struct peer *peer,
 		log_unusual(peer->log, "checking new block gave %u", e);
 		goto fail;
 	}
+
 	/* Now new block owns the packet. */
-	tal_steal(new, peer->incoming);
-	peer->incoming = NULL;
+	tal_steal(new, req);
+
+	/* Actually check the previous merkles are correct. */
+	if (!check_block_prev_merkles(peer->state, new)) {
+		log_unusual(peer->log, "new block has bad prev merkles");
+		e = PROTOCOL_ERROR_BAD_PREV_MERKLES;
+		/* FIXME: provide proof. */
+		goto fail;
+	}
 
 	log_debug(peer->log, "New block %u is good!", new->blocknum);
 
@@ -350,23 +359,27 @@ fail:
 /* Returns an error packet if there was trouble. */
 static struct protocol_resp_new_gateway_transaction *
 receive_gateway_trans(struct peer *peer,
-		      const struct protocol_transaction_gateway *hdr, u32 len)
+		      const struct protocol_req_new_gateway_transaction *req)
 {
 	enum protocol_error e;
 	struct protocol_resp_new_gateway_transaction *r;
+	u32 translen = le32_to_cpu(req->len) - sizeof(struct protocol_net_hdr);
 
 	r = tal(peer, struct protocol_resp_new_gateway_transaction);
 	r->len = cpu_to_le32(sizeof(*r));
 	r->type = cpu_to_le32(PROTOCOL_RESP_NEW_GATEWAY_TRANSACTION);
 
-	e = unmarshall_transaction(hdr, len, NULL);
+	e = unmarshall_transaction(&req->trans, translen, NULL);
 	if (e)
 		goto fail;
-	e = check_trans_from_gateway(peer->state, hdr);
+	e = check_trans_from_gateway(peer->state, &req->trans);
 	if (e)
 		goto fail;
 
-	pending_gateway_transaction_add(peer->state, hdr);
+	/* OK, we own it now. */
+	tal_steal(peer->state, req);
+
+	pending_gateway_transaction_add(peer->state, &req->trans);
 	r->error = cpu_to_le32(PROTOCOL_ERROR_NONE);
 	assert(!peer->response);
 	peer->response = r;
@@ -381,12 +394,15 @@ fail:
 static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 {
 	const struct protocol_net_hdr *hdr = peer->incoming;
-	const void *body = hdr + 1;
+	tal_t *ctx = tal_arr(peer, char, 0);
 	struct block *mutual;
 	u32 len, type;
 
 	len = le32_to_cpu(hdr->len);
 	type = le32_to_cpu(hdr->type);
+
+	/* Recipient function should steal this if it should outlive function. */
+	tal_steal(ctx, peer->incoming);
 
 	/* Requests must be one-at-a-time. */
 	if (type < PROTOCOL_REQ_MAX  && peer->curr_in_req != PROTOCOL_REQ_NONE) {
@@ -402,26 +418,28 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 		if (peer->curr_in_req != PROTOCOL_REQ_NONE)
 			goto unexpected_req;
 		peer->curr_in_req = PROTOCOL_REQ_NEW_BLOCK;
-		peer->error_pkt = receive_block(peer, body, len - sizeof(*hdr));
+		peer->error_pkt = receive_block(peer, peer->incoming);
 		if (peer->error_pkt)
 			goto send_error;
 			
 		break;
 
-	case PROTOCOL_RESP_NEW_BLOCK:
+	case PROTOCOL_RESP_NEW_BLOCK: {
+		struct protocol_resp_new_block *resp = (void *)hdr;
 		log_debug(peer->log, "Received PROTOCOL_RESP_NEW_BLOCK");
-		if (len != sizeof(struct protocol_resp_new_block))
+		if (len != sizeof(*resp))
 			goto bad_resp_length;
 		if (peer->curr_out_req != PROTOCOL_REQ_NEW_BLOCK)
 			goto unexpected_resp;
 
 		/* If we know the block they know, update it. */
-		mutual = find_mutual_block(peer, body);
+		mutual = find_mutual_block(peer, &resp->final);
 		if (mutual)
 			peer->mutual = mutual;
 			
 		peer->curr_out_req = PROTOCOL_REQ_NONE;
 		break;
+	}
 
 	case PROTOCOL_REQ_NEW_GATEWAY_TRANSACTION:
 		log_debug(peer->log,
@@ -429,8 +447,7 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 		if (peer->curr_in_req != PROTOCOL_REQ_NONE)
 			goto unexpected_req;
 		peer->curr_in_req = PROTOCOL_REQ_NEW_GATEWAY_TRANSACTION;
-		peer->error_pkt = receive_gateway_trans(peer, body,
-							len - sizeof(*hdr));
+		peer->error_pkt = receive_gateway_trans(peer, peer->incoming);
 		if (peer->error_pkt)
 			goto send_error;
 		break;
@@ -461,9 +478,7 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 		io_wake(peer->w, plan_output(peer->w, peer));
 	}
 
-	/* We're done processing packet, free for next one. */
-	peer->incoming = tal_free(peer->incoming);
-
+	tal_free(ctx);
 	return io_read_packet(&peer->incoming, pkt_in, peer);
 
 unexpected_req:
@@ -487,6 +502,7 @@ send_error:
 	if (io_is_idle(peer->w))
 		io_wake(peer->w, plan_output(peer->w, peer));
 
+	tal_free(ctx);
 	return io_idle();
 }
 

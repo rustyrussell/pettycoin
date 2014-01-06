@@ -1,3 +1,4 @@
+#include <ccan/asort/asort.h>
 #include "generating.h"
 #include "difficulty.h"
 #include "state.h"
@@ -41,6 +42,70 @@ struct pending_block *new_pending_block(struct state *state)
 					    generating_address(state));
 	b->t = tal_arr(b, const union protocol_transaction *, 0);
 	return b;
+}
+
+/* Block is no longer in main chain.  Dump all its transactions into pending:
+ * followed up cleanup_pending to remove any which are in main due to other
+ * blocks. */
+void add_pending_transactions(struct state *state, const struct block *block)
+{
+	size_t curr = tal_count(state->pending->t), num, added = 0, i;
+
+	num = le32_to_cpu(block->hdr->num_transactions);
+
+	/* Worst case. */
+	tal_resize(&state->pending->t, curr + num);
+
+	for (i = 0; i < num; i++) {
+		union protocol_transaction *t = block_get_trans(block, i);
+		if (t)
+			state->pending->t[curr + added++] = t;
+	}
+
+	log_debug(state->log, "Added %zu transactions from old block",
+		  added);
+	tal_resize(&state->pending->t, curr + added);
+}
+
+void cleanup_pending_transactions(struct state *state)
+{
+	size_t i, num = tal_count(state->pending->t);
+	const struct block *last;
+
+	for (i = 0; i < num; i++) {
+		struct thash_elem *te;
+		struct protocol_double_sha sha;
+
+		hash_transaction(state->pending->t[i], NULL, 0, &sha);
+		te = thash_get(&state->thash, &sha);
+
+		/* Already in main chain?  Discard. */
+		if (te && te->block->main_chain) {
+			memmove(state->pending->t + i,
+				state->pending->t + i + 1,
+				(num - i - 1) * sizeof(*state->pending->t));
+			num--;
+		}
+
+		/* FIXME: Discard if not valid any more, eg. inputs
+		 * already spent. */
+	}
+	log_debug(state->log, "Cleaned up %zu of %zu pending transactions",
+		  tal_count(state->pending->t) - num,
+		  tal_count(state->pending->t));
+	tal_resize(&state->pending->t, num);
+
+	/* Make sure they're sorted into correct order! */
+	asort((union protocol_transaction **)state->pending->t,
+	      num, transaction_ptr_cmp, NULL);
+
+	/* Finally, recalculate prev_merkles. */
+	tal_free(state->pending->prev_merkles);
+
+	last = list_tail(&state->main_chain, struct block, list);
+	state->pending->prev_merkles
+		= make_prev_merkles(state->pending, state, last,
+				    generating_address(state));
 }
 
 struct pending_update {
@@ -119,9 +184,9 @@ static struct io_plan do_send_trans(struct io_conn *conn, struct generator *gen)
 
 	u = list_top(&gen->updates, struct pending_update, list);
 	if (u) {
-		log_debug(gen->log, "Sending transaction update pos %u",
-			  u->update.trans_idx);
-		
+		log_debug(gen->log, "Sending transaction update pos %u cookie %p",
+			  u->update.trans_idx, u->update.cookie);
+
 		return io_write(&u->update, sizeof(u->update), trans_sent, gen);
 	}
 
@@ -215,12 +280,38 @@ static struct io_plan got_solution(struct io_conn *conn, struct generator *gen)
 		 "Solution received from generator for block %u (%u trans)",
 		 gen->new->blocknum, le32_to_cpu(hdr->num_transactions));
 
+	/* Actually check the previous merkles are correct. */
+	if (!check_block_prev_merkles(gen->state, gen->new)) {
+		log_broken(gen->log,
+			   "Generator %u block %u bad prev_merkles",
+			   gen->pid, gen->new->blocknum);
+		return io_close();
+	}
 	/* Read transaction pointers back. */
 	gen->trans = tal_arr(gen, union protocol_transaction *,
 			     le32_to_cpu(hdr->num_transactions));
 
 	return io_read(gen->trans, sizeof(union protocol_transaction *)
 		       * le32_to_cpu(hdr->num_transactions), got_trans, gen);
+}
+
+static void init_updates(struct generator *gen)
+{
+	size_t i;
+	const union protocol_transaction **t = gen->state->pending->t;
+
+	list_head_init(&gen->updates);
+
+	for (i = 0; i < tal_count(t); i++) {
+		struct pending_update *update;
+
+		update = tal(gen, struct pending_update);
+		update->update.features = t[i]->hdr.features;
+		update->update.trans_idx = i;
+		update->update.cookie = t[i];
+		hash_transaction(t[i], NULL, 0, &update->update.hash);
+		list_add_tail(&gen->updates, &update->list);
+	}
 }
 
 static void exec_generator(struct generator *gen)
@@ -281,7 +372,7 @@ static void exec_generator(struct generator *gen)
 	close(outfd[1]);
 	close(infd[0]);
 
-	list_head_init(&gen->updates);
+	init_updates(gen);
 	gen->update = io_new_conn(infd[1],
 				  io_write(prev_merkles,
 					   tal_count(prev_merkles) * sizeof(u8),

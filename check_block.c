@@ -53,12 +53,6 @@ check_block_header(struct state *state,
 		goto fail;
 	}
 
-	/* Must have right number of hashes for previous blocks. */
-	if (le32_to_cpu(hdr->num_prev_merkles) != num_prev_merkles(block->prev)){
-		e = PROTOCOL_ERROR_BAD_PREV_MERKLES;
-		goto fail;
-	}
-
 	/* Based on previous blocks, how difficult should this be? */
 	if (le32_to_cpu(tailer->difficulty)
 	    != get_difficulty(state, block->prev)) {
@@ -81,6 +75,7 @@ check_block_header(struct state *state,
 	block->batch = tal_arrz(block, struct transaction_batch *,
 				num_merkles(le32_to_cpu(hdr->num_transactions)));
 
+	block->main_chain = false;
 	block->hdr = hdr;
 	block->merkles = merkles;
 	block->prev_merkles = prev_merkles;
@@ -151,6 +146,36 @@ static union protocol_transaction *first_trans(struct transaction_batch *batch)
 	abort();
 }
 
+static void add_to_thash(struct state *state,
+			 struct block *block,
+			 struct transaction_batch *batch)
+{
+	u32 i;
+
+	for (i = batch->trans_start;
+	     i < batch->trans_start + ARRAY_SIZE(batch->t);
+	     i++) {
+		struct thash_elem *te;
+		struct protocol_double_sha sha;
+
+		if (!batch->t[i])
+			continue;
+
+		hash_transaction(batch->t[i], NULL, 0, &sha);
+
+		/* It could already be there (alternate chain, or previous
+		 * partial batch which we just overwrote). */
+		te = thash_get(&state->thash, &sha);
+		if (!te) {
+			te = tal(state, struct thash_elem);
+			te->block = block;
+			te->tnum = i;
+			te->sha = sha;
+			thash_add(&state->thash, te);
+		}
+	}
+}
+
 bool put_batch_in_block(struct state *state,
 			struct block *block,
 			struct transaction_batch *batch)
@@ -205,6 +230,9 @@ bool put_batch_in_block(struct state *state,
 		tal_free(block->batch[batchnum]);
 	}
 	block->batch[batchnum] = tal_steal(block, batch);
+
+	add_to_thash(state, block, block->batch[batchnum]);
+
 	return true;
 }
 
@@ -244,8 +272,16 @@ bool check_block_prev_merkles(struct state *state,
 					    &merkle);
 
 			/* We only check one byte; that's enough. */
-			if (merkle.sha[0] != block->prev_merkles[off+j])
+			if (merkle.sha[0] != block->prev_merkles[off+j]) {
+				log_unusual(state->log,
+					    "Incorrect merkle for block %u:"
+					    " block %u batch %u was %u not %u",
+					    block->blocknum,
+					    block->blocknum - i, j,
+					    merkle.sha[0],
+					    block->prev_merkles[off+j]);
 				return false;
+			}
 		}
 		off += j;
 	}
