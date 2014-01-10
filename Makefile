@@ -10,7 +10,7 @@ VERSION:=$(shell git describe --dirty --always 2>/dev/null || echo Unknown)
 #CFLAGS = -O3 -flto -ggdb -I $(CCANDIR) -Wall -DVERSION=\"$(VERSION)\"
 CFLAGS = -ggdb -I $(CCANDIR) -Wall -Wmissing-prototypes -DVERSION=\"$(VERSION)\"
 LDFLAGS = -O3 -flto
-LDLIBS := -lcrypto
+LDLIBS := -lcrypto -lrt
 
 # We set this low for convenient testing.
 INITIAL_DIFFICULTY=0x1effffff
