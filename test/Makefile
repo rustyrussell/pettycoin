@@ -3,7 +3,7 @@ HELPERS := $(wildcard helper*.c)
 BINS := $(SOURCES:.c=)
 CCANDIR := ../../ccan/
 CFLAGS := -MMD -ggdb -I $(CCANDIR) -Wall -DFASTCHECK
-LDLIBS := -lcrypto
+LDLIBS := -lcrypto -lrt
 CCAN_OBJS := ccan-noerr.o ccan-tal.o ccan-take.o ccan-list.o ccan-read_write_all.o ccan-htable.o ccan-isaac64.o ccan-tal-str.o ccan-str.o ccan-time.o
 HELPER_OBJS := $(HELPERS:.c=.o)
 

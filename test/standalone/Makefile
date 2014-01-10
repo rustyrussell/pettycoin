@@ -1,7 +1,7 @@
 BINS := serve_addresses
 CCANDIR := ../../../ccan/
 CFLAGS := -MMD -ggdb -I $(CCANDIR) -Wall
-LDLIBS := -lcrypto
+LDLIBS := -lcrypto -lrt
 CCAN_OBJS := ccan-io-io.o ccan-io-poll.o ccan-read_write_all.o ccan-io-io.o ccan-io-poll.o ccan-timer.o ccan-time.o ccan-list.o
 
 default: $(BINS)
