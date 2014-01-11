@@ -1,9 +1,12 @@
 *.o
 *.d
 *~
+vgcore.*
 generate
 mkgenesis
 pettycoin
 TAGS
 gateway_inject
 mkpriv
+test/standalone/serve_addresses
+sizes
