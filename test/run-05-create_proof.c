@@ -73,6 +73,7 @@ int main(int argc, char *argv[])
 
 	pseudorand_init();
 	s = new_state(true);
+	s->pending = new_pending_block(s);
 
 	/* Gateway payment to addresses 0, 1 and 2 */
 	named_gateway(s, "gateway1", 1000, 0, 1, 2, -1);

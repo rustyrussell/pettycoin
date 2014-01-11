@@ -79,6 +79,7 @@ int main(int argc, char *argv[])
 
 	pseudorand_init();
 	s = new_state(false);
+	s->pending = new_pending_block(s);
 	fake_time = le32_to_cpu(genesis_tlr.timestamp) + 1;
 	prev_sha = &genesis.sha;
 		

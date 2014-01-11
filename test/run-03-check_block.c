@@ -90,6 +90,8 @@ int main(int argc, char *argv[])
 	/* Other minimal setup for state. */
 	list_head_init(&s->off_main);
 	list_head_init(&s->peers);
+	s->pending = new_pending_block(s);
+	thash_init(&s->thash);
 	s->log = new_log(s, "", LOG_BROKEN, 100000);
 
 	/* Generate a new block, with a transaction in it. */
