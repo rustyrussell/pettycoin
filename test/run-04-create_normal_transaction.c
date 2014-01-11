@@ -12,10 +12,13 @@ static time_t my_time(time_t *p)
 
 #define main generate_main
 #define time my_time
+#define restart_generating my_restart_generating
 
 #include "../generate.c"
+#include "../generating.c"
 #undef main
 #undef time
+#undef restart_generating
 #include "helper_key.h"
 #include "helper_gateway_key.h"
 #include "../hash_block.c"
@@ -32,6 +35,13 @@ static time_t my_time(time_t *p)
 #include "../prev_merkles.c"
 #include "../pseudorand.c"
 #include "../log.c"
+#include "../pending.c"
+#include "../packet.c"
+#include "../blockfile.c"
+#define ONLY_WANT_FATAL
+#define genesis my_genesis
+#include "../state.c"
+#undef genesis
 
 /* Here's a genesis block we created earlier */
 static struct protocol_block_header genesis_hdr = {

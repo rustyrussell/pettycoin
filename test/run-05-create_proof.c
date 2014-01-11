@@ -1,3 +1,13 @@
+#include <ccan/asort/asort.h>
+#include <time.h>
+#include <assert.h>
+
+#define main generate_main
+#define restart_generating my_restart_generating
+
+#include "../generating.c"
+#undef main
+#undef restart_generating
 #include "../timestamp.c"
 #include "../create_proof.c"
 #include "../check_transaction.c"
@@ -18,6 +28,9 @@
 #include <ccan/tal/tal.h>
 #include <ccan/list/list.h>
 #include "trans_named.c"
+#include "../blockfile.c"
+#include "../pending.c"
+#include "../packet.c"
 
 /* Here's a genesis block we created earlier */
 static struct protocol_block_header genesis_hdr = {

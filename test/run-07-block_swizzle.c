@@ -13,8 +13,11 @@ static time_t my_time(time_t *p)
 
 #define main generate_main
 #define time my_time
+#define restart_generating my_restart_generating
 
 #include "../generate.c"
+#include "../generating.c"
+#undef restart_generating
 #undef main
 #undef time
 #include "helper_key.h"
@@ -34,6 +37,9 @@ static time_t my_time(time_t *p)
 #include "../state.c"
 #include "../pseudorand.c"
 #include "../log.c"
+#include "../pending.c"
+#include "../blockfile.c"
+#include "../packet.c"
 
 /* Here's a genesis block we created earlier */
 static struct protocol_block_header genesis_hdr = {
