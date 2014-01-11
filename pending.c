@@ -9,7 +9,7 @@
 /* Find the last block that we know everything about. */
 static struct block *last_full(struct state *state)
 {
-	struct block *i, *prev;
+	struct block *i=NULL, *prev=NULL;
 
 	/* FIXME: slow. */
 	list_for_each(&state->main_chain, i, list) {
@@ -56,10 +56,13 @@ void steal_pending_transactions(struct state *state, const struct block *block)
 
 void update_pending_transactions(struct state *state)
 {
-	size_t i, num = tal_count(state->pending->t);
+	size_t i, updated_num, num;
+	assert(state);
+	assert(state->pending);
+	num = tal_count(state->pending->t);
 
 	log_debug(state->log, "Searching %zu pending transactions",
-		  tal_count(state->pending->t));
+		  num);
 	for (i = 0; i < num; i++) {
 		struct thash_elem *te;
 		struct protocol_double_sha sha;
@@ -84,9 +87,9 @@ void update_pending_transactions(struct state *state)
 		/* FIXME: Discard if not valid any more, eg. inputs
 		 * already spent. */
 	}
+	updated_num = tal_count(state->pending->t);
 	log_debug(state->log, "Cleaned up %zu of %zu pending transactions",
-		  tal_count(state->pending->t) - num,
-		  tal_count(state->pending->t));
+		  updated_num - num, updated_num);
 	tal_resize(&state->pending->t, num);
 
 	/* Make sure they're sorted into correct order! */

@@ -36,6 +36,7 @@ struct state *new_state(bool test_net)
 	s->log_level = LOG_BROKEN;
 	s->log = new_log(s, "", s->log_level, STATE_LOG_MAX);
 	s->generate = "pettycoin-generate";
+	s->pending = NULL;
 
 	/* Set up genesis block */
 	BN_init(&genesis.total_work);
