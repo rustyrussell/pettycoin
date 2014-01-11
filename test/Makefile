@@ -8,10 +8,10 @@ CCAN_OBJS := ccan-io.o ccan-io-poll.o ccan-timer.o ccan-noerr.o ccan-tal.o ccan-
 HELPER_OBJS := $(HELPERS:.c=.o)
 
 # Can't use --leack-check, as openssl leaks?
-VALGRIND=valgrind -q --error-exitcode=99 # --leak-check=full --show-reachable=yes 
+VALGRIND=valgrind -q --error-exitcode=99 # --track-origins=yes --leak-check=full --show-reachable=yes
 
 check: $(BINS)
-	set -e; for b in $(BINS); do $(VALGRIND) ./$$b; done
+	set -e; for b in $(BINS); do printf "[TEST] %-48s" $$b ; $(VALGRIND) ./$$b; echo OK ; done
 
 $(BINS:=.o) : %.o : %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
