@@ -2,5 +2,7 @@ This is an unstable, non-working experiment!
 
 You will need a ccan directory: see http://ccodearchive.net.
 
+Pettycoin also uses openssl.h; on a Debian-based system you may need to do `apt-get install libssl-dev`.
+
 Good luck!
 Rusty.
