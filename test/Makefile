@@ -13,6 +13,8 @@ VALGRIND=valgrind -q --error-exitcode=99 # --track-origins=yes --leak-check=full
 check: $(BINS)
 	set -e; for b in $(BINS); do printf "[TEST] %-48s" $$b ; $(VALGRIND) ./$$b; echo OK ; done
 
+bins: $(BINS)
+
 $(BINS:=.o) : %.o : %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
@@ -47,5 +49,8 @@ ccan-timer.o: $(CCANDIR)/ccan/timer/timer.c
 
 clean:
 	rm -f $(BINS) *.o
+
+.PHONY:
+	bins
 
 -include *.d
