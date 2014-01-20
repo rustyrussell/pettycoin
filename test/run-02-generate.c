@@ -1,3 +1,4 @@
+#define THIS_TEST_MODULE "generate"
 #include <ccan/asort/asort.h>
 #include <time.h>
 #include <assert.h>
@@ -39,13 +40,16 @@ int main(int argc, char *argv[])
 	struct protocol_gateway_payment payment;
 	struct update update;
 
+	log_test_start();
 	/* This creates a new genesis block. */
 	fake_time = 1378605752;
+	log_test( "Calling new_working_block...\n");
 	w = new_working_block(s, 0x1effffff, NULL, 0, &prev, helper_addr(0));
 
 	for (i = 0; !solve_block(w); i++);
 	assert(i == 104624);
 
+	log_test( "Calling hash_block...\n");
 	hash_block(&w->hdr, w->merkles, w->prev_merkles, &w->tailer, &hash);
 	assert(beats_target(&hash, 0x1effffff));
 
@@ -65,6 +69,8 @@ int main(int argc, char *argv[])
 
 	/* Now create a block after that, with a gateway transaction in it. */
 	fake_time++;
+
+	log_test( "Calling new_working_block...\n");
 	w2 = new_working_block(s, 0x1effffff, NULL, 0, &hash, helper_addr(1));
 
 	payment.send_amount = cpu_to_le32(1000);
@@ -77,9 +83,11 @@ int main(int argc, char *argv[])
 	hash_transaction(t, NULL, 0, &update.hash);
 	assert(add_transaction(w2, &update));
 
-	for (i = 0; !solve_block(w2); i++);
+	log_test( "Looping solve_block...\n");
+	for (i = 0; !solve_block(w2); i++, ((i % 1000==0)?log_test("solve_block %d\n", i):0));
 	assert(i == 15024);
 
+	log_test( "Calling hash_block...\n");
 	hash_block(&w2->hdr, w2->merkles, w2->prev_merkles, &w2->tailer,
 		   &hash2);
 	assert(beats_target(&hash2, 0x1effffff));
@@ -99,5 +107,6 @@ int main(int argc, char *argv[])
 	assert(le32_to_cpu(w2->tailer.nonce1) == i);
 
 	tal_free(s);
+	log_test_finish();
 	return 0;
 }
