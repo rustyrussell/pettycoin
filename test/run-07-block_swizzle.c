@@ -1,3 +1,5 @@
+#define THIS_TEST_MODULE "block_swizzle"
+
 /* Test we correctly switch to longer chains. */
 #include <ccan/asort/asort.h>
 #include <time.h>
@@ -83,8 +85,11 @@ int main(int argc, char *argv[])
 	fake_time = le32_to_cpu(genesis_tlr.timestamp) + 1;
 	prev_sha = &genesis.sha;
 		
+	log_test( "Generate chain of three blocks...\n");
+
 	/* Generate chain of three blocks. */
 	for (i = 0; i < 3; i++) {
+		log_test( "Generate block %d... prev_sha=%016llX\n", i, *((long long int*)prev_sha));
 		w = new_working_block(s, 0x1effffff, NULL, 0, prev_sha,
 				      helper_addr(1));
 		for (j = 0; !solve_block(w); j++);
@@ -99,8 +104,10 @@ int main(int argc, char *argv[])
 	}
 
 	/* Now generate an alternate chain of two blocks, from b[0]. */
+	log_test( "Generate alternate chain of two blocks...\n");
 	prev_sha = &b[0]->sha;
 	for (i = 0; i < 2; i++) {
+		log_test( "Generate alternate block %d... prev_sha=%016llX\n", i, *((long long int*)prev_sha));
 		w = new_working_block(s, 0x1effffff, NULL, 0, prev_sha,
 				      helper_addr(2));
 		for (j = 0; !solve_block(w); j++);
@@ -115,8 +122,10 @@ int main(int argc, char *argv[])
 	}
 
 	/* Now make alternate chain overtake first chain. */
+	log_test( "New working block... prev_sha=%016llX\n", *((long long int*)prev_sha));
 	w = new_working_block(s, 0x1effffff, NULL, 0, prev_sha, helper_addr(2));
-	for (j = 0; !solve_block(w); j++);
+	log_test( "Looping solve_block...\n");
+	for (j = 0; !solve_block(w); j++, ((j % 1000==0)?log_test("solve_block %d\n", j):0));
 	fake_time++;
 	e = check_block_header(s, &w->hdr, w->merkles, w->prev_merkles,
 			       &w->tailer, &b_alt[2]);
