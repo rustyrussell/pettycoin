@@ -1,8 +1,15 @@
-This is an unstable, non-working experiment!
+This is an unstable, developer experiment!
 
 Follow along the fun here: http://rustyrussell.github.io/pettycoin/
 
-You will need a ccan directory: see http://ccodearchive.net.
+Pettycoin requires the following dependencies:
+
+* openssl.h
+* valgrind, used by unit testing
+
+Thus, on a fresh Debian-based system you may need to do:
+
+	# apt-get install build-essential git libssl-dev valgrind
 
 Good luck!
 Rusty.
