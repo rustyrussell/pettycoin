@@ -7,7 +7,7 @@ LDLIBS := -lcrypto -lrt
 CCAN_OBJS := ccan-io.o ccan-io-poll.o ccan-timer.o ccan-noerr.o ccan-tal.o ccan-take.o ccan-list.o ccan-read_write_all.o ccan-htable.o ccan-isaac64.o ccan-tal-str.o ccan-str.o ccan-time.o
 HELPER_OBJS := $(HELPERS:.c=.o)
 
-# Can't use --leack-check, as openssl leaks?
+# Can't use --leak-check, as openssl leaks?
 VALGRIND=valgrind -q --error-exitcode=99 # --track-origins=yes --leak-check=full --show-reachable=yes
 
 check: $(BINS)

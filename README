@@ -1,8 +1,14 @@
 This is an unstable, non-working experiment!
 
-You will need a ccan directory: see http://ccodearchive.net.
+You will need a ccan directory: see http://ccodearchive.net. See README.ccan for further information.
 
-Pettycoin also uses openssl.h; on a Debian-based system you may need to do `apt-get install libssl-dev`.
+Pettycoin also requires the following dependencies:
+
+* openssl.h
+* valgrind, used by unit testing
+
+Thus, on a fresh Debian-based system you may need to do `apt-get install build-essential git libssl-dev valgrind` before starting.
+(Tested under Xubuntu 13.04 amd64, Debian and 7.2 amd64, i386)
 
 Good luck!
 Rusty.
