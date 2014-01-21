@@ -9,6 +9,13 @@
 #include "log.h"
 #include "peer.h"
 
+/* helper for unit testing, we only want fatal() below.
+ * TODO consider moving fatal() to another file.
+ * I wonder whether this is a sign that a lot of the code should be in a lib
+ * to make integrating into unit testing easier.
+ */
+#ifndef ONLY_WANT_FATAL
+
 struct state *new_state(bool test_net)
 {
 	struct state *s = tal(NULL, struct state);
@@ -29,6 +36,7 @@ struct state *new_state(bool test_net)
 	s->log_level = LOG_BROKEN;
 	s->log = new_log(s, "", s->log_level, STATE_LOG_MAX);
 	s->generate = "pettycoin-generate";
+	s->pending = NULL;
 
 	/* Set up genesis block */
 	BN_init(&genesis.total_work);
@@ -39,6 +47,8 @@ struct state *new_state(bool test_net)
 	list_add_tail(&s->main_chain, &genesis.list);
 	return s;
 }
+
+#endif
 
 void fatal(struct state *state, const char *fmt, ...)
 {

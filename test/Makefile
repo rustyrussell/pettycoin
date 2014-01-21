@@ -2,16 +2,18 @@ SOURCES := $(wildcard run-*.c)
 HELPERS := $(wildcard helper*.c)
 BINS := $(SOURCES:.c=)
 CCANDIR := ../../ccan/
-CFLAGS := -MMD -ggdb -I $(CCANDIR) -Wall -DFASTCHECK
-LDLIBS := -lcrypto
-CCAN_OBJS := ccan-noerr.o ccan-tal.o ccan-take.o ccan-list.o ccan-read_write_all.o ccan-htable.o ccan-isaac64.o ccan-tal-str.o ccan-str.o ccan-time.o
+CFLAGS := -MMD -ggdb -I $(CCANDIR) -Wall -DFASTCHECK -DVERBOSE_TEST_LOGGING
+LDLIBS := -lcrypto -lrt
+CCAN_OBJS := ccan-io.o ccan-io-poll.o ccan-timer.o ccan-noerr.o ccan-tal.o ccan-take.o ccan-list.o ccan-read_write_all.o ccan-htable.o ccan-isaac64.o ccan-tal-str.o ccan-str.o ccan-time.o
 HELPER_OBJS := $(HELPERS:.c=.o)
 
-# Can't use --leack-check, as openssl leaks?
-VALGRIND=valgrind -q --error-exitcode=99 # --leak-check=full --show-reachable=yes 
+# Can't use --leak-check, as openssl leaks?
+VALGRIND=valgrind -q --error-exitcode=99 # --track-origins=yes --leak-check=full --show-reachable=yes
 
 check: $(BINS)
-	set -e; for b in $(BINS); do $(VALGRIND) ./$$b; done
+	set -e; for b in $(BINS); do printf "[TEST] %-48s" $$b ; $(VALGRIND) ./$$b; echo OK ; done
+
+bins: $(BINS)
 
 $(BINS:=.o) : %.o : %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -38,8 +40,17 @@ ccan-isaac64.o: $(CCANDIR)/ccan/isaac/isaac64.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-time.o: $(CCANDIR)/ccan/time/time.c
 	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-io.o: $(CCANDIR)/ccan/io/io.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-io-poll.o: $(CCANDIR)/ccan/io/poll.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-timer.o: $(CCANDIR)/ccan/timer/timer.c
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
 	rm -f $(BINS) *.o
+
+.PHONY:
+	bins
 
 -include *.d

@@ -31,6 +31,19 @@ struct log *new_log(const tal_t *ctx, const char *prefix,
 #define log_unusual(log, ...) log_((log), LOG_UNUSUAL, __VA_ARGS__)
 #define log_broken(log, ...) log_((log), LOG_BROKEN, __VA_ARGS__)
 
+#ifndef THIS_TEST_MODULE
+#define THIS_TEST_MODULE "undefined-test"
+#endif
+#if defined(VERBOSE_TEST_LOGGING)
+#define log_test(...) (void)fprintf( stderr, "[TEST] " THIS_TEST_MODULE ": " __VA_ARGS__)
+#define log_test_start() (void)fprintf(stderr, "\n")
+#define log_test_finish() (void)fprintf(stderr, "[TEST] %-48s", "")
+#else
+#define log_test(...)
+#define log_test_start() (void)0
+#define log_test_finish() (void)0
+#endif
+
 void log_(struct log *log, enum log_level level, const char *fmt, ...)
 	PRINTF_FMT(3,4);
 void log_add(struct log *log, const char *fmt, ...) PRINTF_FMT(2,3);

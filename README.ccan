@@ -1,0 +1,16 @@
+This project relies on CCAN, the Comprehensive C Archive Network.
+
+See http://ccodearchive.net/ for further information.
+
+Some simple instructions for preparing to use CCAN with pettycoin (YMMV):
+
+1. cd pettycoin ; cd ..
+
+2. git clone http://github.com/rustyrussell/ccan/
+   This will create a ccan directory at the same level as pettycoin/
+
+3. cd ccan && make
+   This runs the configurator for ccan, which generates config.h and compiles a bunch of stuff
+
+Now you can run make after changing back to your pettycoin/ working copy.
+   
