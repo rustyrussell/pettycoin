@@ -400,29 +400,36 @@ fail:
 }
 
 /* Returns an error packet if there was trouble. */
-static struct protocol_resp_new_gateway_transaction *
-receive_gateway_trans(struct peer *peer,
-		      const struct protocol_req_new_gateway_transaction *req)
+static struct protocol_resp_new_transaction *
+receive_trans(struct peer *peer,
+	      const struct protocol_req_new_transaction *req)
 {
 	enum protocol_error e;
-	struct protocol_resp_new_gateway_transaction *r;
+	struct protocol_resp_new_transaction *r;
 	u32 translen = le32_to_cpu(req->len) - sizeof(struct protocol_net_hdr);
 
-	r = tal(peer, struct protocol_resp_new_gateway_transaction);
+	r = tal(peer, struct protocol_resp_new_transaction);
 	r->len = cpu_to_le32(sizeof(*r));
-	r->type = cpu_to_le32(PROTOCOL_RESP_NEW_GATEWAY_TRANSACTION);
+	r->type = cpu_to_le32(PROTOCOL_RESP_NEW_TRANSACTION);
 
 	e = unmarshall_transaction(&req->trans, translen, NULL);
 	if (e)
 		goto fail;
-	e = check_trans_from_gateway(peer->state, &req->trans);
+
+	/* FIXME: Handle non-gateway transactions! */
+	if (req->trans.hdr.type != TRANSACTION_FROM_GATEWAY) {
+		e = PROTOCOL_ERROR_TRANS_UNKNOWN;
+		goto fail;
+	}
+
+	e = check_trans_from_gateway(peer->state, &req->trans.gateway);
 	if (e)
 		goto fail;
 
 	/* OK, we own it now. */
 	tal_steal(peer->state, req);
 
-	add_pending_gateway_transaction(peer->state, &req->trans);
+	add_pending_gateway_transaction(peer->state, &req->trans.gateway);
 	r->error = cpu_to_le32(PROTOCOL_ERROR_NONE);
 	assert(!peer->response);
 	peer->response = r;
@@ -484,13 +491,13 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 		break;
 	}
 
-	case PROTOCOL_REQ_NEW_GATEWAY_TRANSACTION:
+	case PROTOCOL_REQ_NEW_TRANSACTION:
 		log_debug(peer->log,
-			  "Received PROTOCOL_RESP_NEW_GATEWAY_TRANSACTION");
+			  "Received PROTOCOL_RESP_NEW_TRANSACTION");
 		if (peer->curr_in_req != PROTOCOL_REQ_NONE)
 			goto unexpected_req;
-		peer->curr_in_req = PROTOCOL_REQ_NEW_GATEWAY_TRANSACTION;
-		peer->error_pkt = receive_gateway_trans(peer, peer->incoming);
+		peer->curr_in_req = PROTOCOL_REQ_NEW_TRANSACTION;
+		peer->error_pkt = receive_trans(peer, peer->incoming);
 		if (peer->error_pkt)
 			goto send_error;
 		break;

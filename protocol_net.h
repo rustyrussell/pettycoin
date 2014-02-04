@@ -14,16 +14,14 @@ enum protocol_req_type {
 	PROTOCOL_REQ_ERR,
 	/* I have a new block! */
 	PROTOCOL_REQ_NEW_BLOCK,
-	/* I have a new gateway transaction */
-	PROTOCOL_REQ_NEW_GATEWAY_TRANSACTION,
+	/* I have a new transaction */
+	PROTOCOL_REQ_NEW_TRANSACTION,
 	/* Tell me about this block. */
 	PROTOCOL_REQ_TRANSACTION_NUMS,
 	/* Tell me about this batch in a block. */
 	PROTOCOL_REQ_BATCH,
 	/* Tell me about this transaction in a block. */
 	PROTOCOL_REQ_TRANSACTION,
-	/* I have a new transaction */
-	PROTOCOL_REQ_NEW_TRANSACTION,
 
 	/* >= this is invalid. */
 	PROTOCOL_REQ_MAX
@@ -36,12 +34,11 @@ enum protocol_resp_type {
 	PROTOCOL_RESP_WELCOME,
 	PROTOCOL_RESP_ERR,
 	PROTOCOL_RESP_NEW_BLOCK,
-	PROTOCOL_RESP_NEW_GATEWAY_TRANSACTION,
+	PROTOCOL_RESP_NEW_TRANSACTION,
 	PROTOCOL_RESP_BLOCKSTART,
 	PROTOCOL_RESP_TRANSACTION_NUMS,
 	PROTOCOL_RESP_BATCH,
-	PROTOCOL_RESP_TRANNSACTION,
-	PROTOCOL_RESP_NEW_TRANSACTION,
+	PROTOCOL_RESP_TRANSACTION,
 
 	/* >= this is invalid. */
 	PROTOCOL_RESP_MAX
@@ -70,7 +67,7 @@ enum protocol_error {
 	PROTOCOL_ERROR_BAD_DIFFICULTY, /* Wrong difficulty calculation. */
 	PROTOCOL_ERROR_INSUFFICIENT_WORK, /* Didn't meet difficulty. */
 
-	/* protocol_req_new_gateway_transaction: */
+	/* protocol_req_new_transaction: */
 	PROTOCOL_ERROR_TRANS_HIGH_VERSION, /* transaction version unknown */
 	PROTOCOL_ERROR_TRANS_LOW_VERSION, /* transaction version old */
 	PROTOCOL_ERROR_TRANS_UNKNOWN, /* unknown transaction type */
@@ -152,19 +149,19 @@ struct protocol_resp_new_block {
 	struct protocol_double_sha final;
 };
 
-/* I have a new transaction from gateway! */
-struct protocol_req_new_gateway_transaction {
+/* I have a new transaction! */
+struct protocol_req_new_transaction {
 	le32 len; /* ... */
-	le32 type; /* PROTOCOL_REQ_NEW_GATEWAY_TRANSACTION */
+	le32 type; /* PROTOCOL_REQ_NEW_TRANSACTION */
 
 	/* Marshalled transaction. */
-	struct protocol_transaction_gateway trans;
+	union protocol_transaction trans;
 	/* ... */
 };
 
-struct protocol_resp_new_gateway_transaction {
-	le32 len; /* sizeof(struct protocol_resp_new_gateway_transaction) */
-	le32 type; /* PROTOCOL_RESP_NEW_GATEWAY_TRANSACTION */
+struct protocol_resp_new_transaction {
+	le32 len; /* sizeof(struct protocol_resp_new_transaction) */
+	le32 type; /* PROTOCOL_RESP_NEW_TRANSACTION */
 	le32 error; /* Expect PROTOCOL_ERROR_NONE. */
 };
 

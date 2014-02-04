@@ -42,7 +42,7 @@ check:
 	$(MAKE) -C test check
 
 clean:
-	$(RM) pettycoin generate mkgenesis sizes *.o
+	$(RM) pettycoin generate mkgenesis sizes gateway_inject *.o
 	$(MAKE) -C test clean
 
 TAGS:

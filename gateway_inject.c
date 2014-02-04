@@ -146,12 +146,12 @@ static void exchange_welcome(int fd, const struct protocol_net_address *netaddr)
 
 static void read_response(int fd)
 {
-	struct protocol_resp_new_gateway_transaction resp;
+	struct protocol_resp_new_transaction resp;
 
 	if (!read_all(fd, &resp, sizeof(resp)))
 		err(1, "Reading response");
 
-	if (resp.type != cpu_to_le32(PROTOCOL_RESP_NEW_GATEWAY_TRANSACTION))
+	if (resp.type != cpu_to_le32(PROTOCOL_RESP_NEW_TRANSACTION))
 		errx(1, "Unexpected response type %u", le32_to_cpu(resp.type));
 
 	if (resp.len != cpu_to_le32(sizeof(resp)))
@@ -206,7 +206,7 @@ int main(int argc, char *argv[])
 	exchange_welcome(fd, &netaddr);
 
 	hdr.len = cpu_to_le32(len + sizeof(struct protocol_net_hdr));
-	hdr.type = cpu_to_le32(PROTOCOL_REQ_NEW_GATEWAY_TRANSACTION);
+	hdr.type = cpu_to_le32(PROTOCOL_REQ_NEW_TRANSACTION);
 	if (!write_all(fd, &hdr, sizeof(hdr)))
 		err(1, "Failed writing header");
 	if (!write_all(fd, t, len))

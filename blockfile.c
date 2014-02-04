@@ -109,7 +109,7 @@ void load_blocks(struct state *state)
 				goto truncate;
 			}
 			break;
-		case PROTOCOL_REQ_NEW_GATEWAY_TRANSACTION:
+		case PROTOCOL_REQ_NEW_TRANSACTION:
 			if (!load_transaction(state, pkt)) {
 				log_unusual(state->log,
 					    "blockfile partial transaction");
@@ -157,10 +157,7 @@ void save_transaction(struct state *state, struct block *b, u32 i)
 
 	len = marshall_transaction_len(t);
 	hdr.len = cpu_to_le32(sizeof(hdr) + len);
-	if (t->hdr.type == TRANSACTION_FROM_GATEWAY)
-		hdr.type = PROTOCOL_REQ_NEW_GATEWAY_TRANSACTION;
-	else
-		abort();
+	hdr.type = PROTOCOL_REQ_NEW_TRANSACTION;
 	hdr.block = b->sha;
 	hdr.num = cpu_to_le32(i);
 
