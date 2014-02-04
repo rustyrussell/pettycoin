@@ -280,7 +280,8 @@ static void exec_generator(struct generator *gen)
 	}
 
 	sprintf(log_prefix, "Generator %u:", gen->pid);
-	gen->log = new_log(gen, log_prefix, gen->state->log_level, GEN_LOG_MAX);
+	gen->log = new_log(gen, gen->state->log,
+			   log_prefix, gen->state->log_level, GEN_LOG_MAX);
 	log_debug(gen->log, "Running '%s' '%s' '%s' %s' '%s' '%s'",
 		  gen->state->generate,
 		  /* FIXME: Invalid reward address. */

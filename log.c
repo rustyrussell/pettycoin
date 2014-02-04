@@ -12,6 +12,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <stdio.h>
+#include <openssl/bn.h>
 
 struct log_entry {
 	struct list_node list;
@@ -58,13 +59,18 @@ static void prune_log(struct log *log)
 		  deleted, old_mem, log->mem_used);
 }
 
-struct log *new_log(const tal_t *ctx, const char *prefix,
+struct log *new_log(const tal_t *ctx,
+		    const struct log *parent,
+		    const char *prefix,
 		    enum log_level printlevel, size_t max_mem)
 {
 	struct log *log = tal(ctx, struct log);
 	log->mem_used = 0;
 	log->max_mem = max_mem;
-	log->prefix = tal_strdup(log, prefix);
+	if (parent)
+		log->prefix = tal_fmt(log, "%s:%s", parent->prefix, prefix);
+	else
+		log->prefix = tal_strdup(log, prefix);
 	log->print = printlevel;
 	list_head_init(&log->log);
 
@@ -74,6 +80,11 @@ struct log *new_log(const tal_t *ctx, const char *prefix,
 void set_log_level(struct log *log, enum log_level level)
 {
 	log->print = level;
+}
+
+void set_log_prefix(struct log *log, const char *prefix)
+{
+	log->prefix = prefix;
 }
 
 static void add_entry(struct log *log, struct log_entry *l)
@@ -182,6 +193,10 @@ void log_add_struct_(struct log *log, const char *structname, const void *ptr)
 			break;
 		}
 		log_add_struct(log, struct protocol_double_sha, &sha);
+	} else if (streq(structname, "BIGNUM")) {
+		char *str = BN_bn2hex(ptr);
+		log_add(log, "%s", str);
+		OPENSSL_free(str);
 	} else
 		abort();
 }

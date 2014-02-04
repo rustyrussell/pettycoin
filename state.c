@@ -27,7 +27,7 @@ struct state *new_state(bool test_net)
 	s->random_welcome = isaac64_next_uint64(isaac64);
 	s->peer_seed_count = 0;
 	s->log_level = LOG_BROKEN;
-	s->log = new_log(s, "", s->log_level, STATE_LOG_MAX);
+	s->log = new_log(s, NULL, "", s->log_level, STATE_LOG_MAX);
 	s->generate = "pettycoin-generate";
 
 	/* Set up genesis block */

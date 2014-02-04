@@ -20,12 +20,12 @@ flags="--log-level=debug"
 
 for i in `seq 2 $1`; do
     mkdir home-$i
-    HOME=home-$i ../../pettycoin --developer-test --generate=../../../../generate $flags &
+    HOME=home-$i ../../pettycoin --developer-test --generate=../../../../generate --log-prefix="$i:" $flags &
 done
 trap "" EXIT
 
 i=1
 mkdir home-$i
 #HOME=home-$i valgrind --db-attach=yes --child-silent-after-fork=yes ../../pettycoin --developer-test --generate=../../../../generate $flags
-HOME=home-$i gdb --args ../../pettycoin --developer-test --generate=../../../../generate $flags
+HOME=home-$i gdb --args ../../pettycoin --developer-test --generate=../../../../generate --log-prefix="$i:" $flags
 #HOME=home-$i strace -f -o /tmp/out ../../pettycoin --developer-test --generate=../../../../generate $flags

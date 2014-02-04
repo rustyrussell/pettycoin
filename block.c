@@ -141,6 +141,10 @@ bool block_add(struct state *state, struct block *block)
 	/* FIXME: if equal, do coinflip as per
 	 * http://arxiv.org/pdf/1311.0243v2.pdf ?  Or GHOST? */
 	if (BN_cmp(&block->total_work, &tail->total_work) > 0) {
+		log_debug(state->log, "New block work ");
+		log_add_struct(state->log, BIGNUM, &block->total_work);
+		log_add(state->log, " exceeds old work ");
+		log_add_struct(state->log, BIGNUM, &tail->total_work);
 		promote_to_main(state, block);
 		return true;
 	}

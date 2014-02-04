@@ -288,7 +288,7 @@ trans_pkt(tal_t *ctx, const union protocol_transaction *t)
 	
 	r = tal_alloc_(ctx, len, false, "struct protocol_req_new_trans");
 	r->len = cpu_to_le32(len);
-	r->type = cpu_to_le32(PROTOCOL_REQ_NEW_BLOCK);
+	r->type = cpu_to_le32(PROTOCOL_REQ_NEW_TRANSACTION);
 	memcpy(&r->trans, t, mlen);
 
 	return r;
@@ -775,7 +775,8 @@ void new_peer(struct state *state, int fd, const struct protocol_net_address *a)
 	if (inet_ntop(AF_INET6, peer->you.addr, name, sizeof(name)) == NULL)
 		strcpy(name, "UNCONVERTABLE-IPV6");
 	sprintf(name + strlen(name), ":%u:", be16_to_cpu(peer->you.port));
-	peer->log = new_log(peer, name, state->log_level, PEER_LOG_MAX);
+	peer->log = new_log(peer, state->log,
+			    name, state->log_level, PEER_LOG_MAX);
 
 	state->num_peers++;
 	tal_add_destructor(peer, destroy_peer);

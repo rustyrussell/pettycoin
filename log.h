@@ -23,7 +23,8 @@ enum log_level {
 	LOG_BROKEN
 };
 
-struct log *new_log(const tal_t *ctx, const char *prefix,
+struct log *new_log(const tal_t *ctx,
+		    const struct log *parent, const char *prefix,
 		    enum log_level printlevel, size_t max_mem);
 
 #define log_debug(log, ...) log_((log), LOG_DBG, __VA_ARGS__)
@@ -43,5 +44,6 @@ void logv(struct log *log, enum log_level level, const char *fmt, va_list ap);
 void log_add_struct_(struct log *log, const char *structname, const void *ptr);
 
 void set_log_level(struct log *log, enum log_level level);
+void set_log_prefix(struct log *log, const char *prefix);
 void log_to_file(int fd, const struct log *log);
 #endif /* PETTYCOIN_LOG_H */

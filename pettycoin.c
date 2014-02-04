@@ -195,6 +195,7 @@ int main(int argc, char *argv[])
 {
 	char *pettycoin_dir;
 	struct state *state;
+	char *log_prefix = "";
 
 	pseudorand_init();
 	state = new_state(true);
@@ -206,6 +207,8 @@ int main(int argc, char *argv[])
 	opt_register_early_arg("--log-level", arg_log_level, NULL,
 			       &state->log_level,
 			       "log level (debug, info, unusual, broken)");
+	opt_register_early_arg("--log-prefix", opt_set_charp, opt_show_charp,
+			       &log_prefix, "log prefix");
 	opt_register_arg("--connect", add_connect, NULL, state,
 			 "Node to connect to (can be specified multiple times)");
 	opt_register_arg("--generate", opt_set_charp, opt_show_charp,
@@ -218,9 +221,10 @@ int main(int argc, char *argv[])
 	opt_register_noarg("-V|--version", opt_version_and_exit,
 			   VERSION, "Show version and exit");
 
-	/* Parse --log-level first. */
+	/* Parse --log-level & --log-prefix first. */
 	opt_early_parse(argc, argv, opt_log_stderr_exit);
 	set_log_level(state->log, state->log_level);
+	set_log_prefix(state->log, log_prefix);
 
 	pettycoin_dir = make_pettycoin_dir(state);
 	opt_parse(&argc, argv, opt_log_stderr_exit);
