@@ -301,7 +301,6 @@ static void exec_generator(struct generator *gen)
 	io_set_finish(gen->answer, reap_generator, gen);
 }
 
-
 void tell_generator_new_pending(struct state *state, unsigned int num)
 {
 	struct pending_update *update;

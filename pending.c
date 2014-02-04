@@ -5,6 +5,7 @@
 #include "generating.h"
 #include "transaction_cmp.h"
 #include "block.h"
+#include "peer.h"
 
 /* Find the last block that we know everything about. */
 static struct block *last_full(struct state *state)
@@ -73,16 +74,20 @@ void update_pending_transactions(struct state *state)
 			  : "NOT FOUND");
 
 		/* Already in main chain?  Discard. */
-		if (te && te->block->main_chain) {
-			memmove(state->pending->t + i,
-				state->pending->t + i + 1,
-				(num - i - 1) * sizeof(*state->pending->t));
-			num--;
-			i--;
-		}
+		if (te && te->block->main_chain)
+			goto discard;
 
 		/* FIXME: Discard if not valid any more, eg. inputs
 		 * already spent. */
+		continue;
+
+	discard:
+		remove_trans_from_peers(state, state->pending->t[i]);
+		memmove(state->pending->t + i,
+			state->pending->t + i + 1,
+			(num - i - 1) * sizeof(*state->pending->t));
+		num--;
+		i--;
 	}
 	log_debug(state->log, "Cleaned up %zu of %zu pending transactions",
 		  tal_count(state->pending->t) - num,
@@ -132,4 +137,5 @@ void add_pending_gateway_transaction(struct state *state,
 	pending->t[start] = t;
 
 	tell_generator_new_pending(state, start);
+	add_trans_to_peers(state, t);
 }

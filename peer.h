@@ -5,6 +5,7 @@
 #include <stdbool.h>
 
 struct peer {
+	/* state->peers list */
 	struct list_node list;
 
 	/* Global state. */
@@ -37,12 +38,20 @@ struct peer {
 	/* Last block it knows about. */
 	struct block *mutual;
 
+	/* Pending transactions. */
+	struct list_head pending;
+
 	/* What happened. */
 	struct log *log;
 };
 
 void new_peer(struct state *state, int fd, const struct protocol_net_address *a);
 bool new_peer_by_addr(struct state *state, const char *node, const char *port);
+
+void add_trans_to_peers(struct state *state,
+			const union protocol_transaction *t);
+void remove_trans_from_peers(struct state *state,
+			     const union protocol_transaction *t);
 
 void update_peers_mutual(struct state *state);
 #endif /* PETTYCOIN_PEER_H */

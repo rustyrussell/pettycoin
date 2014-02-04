@@ -146,6 +146,48 @@ void fill_peers(struct state *state)
 	}
 }
 
+struct pending_trans {
+	struct list_node list;
+	const union protocol_transaction *t;
+};
+
+void remove_trans_from_peers(struct state *state,
+			     const union protocol_transaction *t)
+{
+	struct peer *p;
+
+	list_for_each(&state->peers, p, list) {
+		struct pending_trans *pend;
+
+		list_for_each(&p->pending, pend, list) {
+			if (pend->t == t) {
+				/* Destructor removes from list. */
+				tal_free(pend);
+				break;
+			}
+		}
+	}
+}
+
+static void unlink_pend(struct pending_trans *pend)
+{
+	list_del(&pend->list);
+}
+	
+void add_trans_to_peers(struct state *state,
+			const union protocol_transaction *t)
+{
+	struct peer *peer;
+
+	list_for_each(&state->peers, peer, list) {
+		struct pending_trans *pend = tal(peer, struct pending_trans);
+
+		pend->t = t;
+		list_add_tail(&peer->pending, &pend->list);
+		tal_add_destructor(pend, unlink_pend);
+	}
+}
+
 static struct protocol_req_err *protocol_req_err(struct peer *peer,
 						 enum protocol_error e)
 {
@@ -664,6 +706,7 @@ void new_peer(struct state *state, int fd, const struct protocol_net_address *a)
 	peer->response = NULL;
 	peer->mutual = NULL;
 	peer->curr_in_req = peer->curr_out_req = PROTOCOL_REQ_NONE;
+	list_head_init(&peer->pending);
 
 	/* If a, we need to connect to there. */
 	if (a) {
