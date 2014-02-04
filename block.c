@@ -139,7 +139,7 @@ bool block_add(struct state *state, struct block *block)
 
 	/* If this has more work than main chain, move to main chain. */
 	/* FIXME: if equal, do coinflip as per
-	 * http://arxiv.org/pdf/1311.0243v2.pdf ? */
+	 * http://arxiv.org/pdf/1311.0243v2.pdf ?  Or GHOST? */
 	if (BN_cmp(&block->total_work, &tail->total_work) > 0) {
 		promote_to_main(state, block);
 		return true;

@@ -277,6 +277,23 @@ static struct protocol_req_new_block *block_pkt(tal_t *ctx, struct block *b)
 	return blk;
 }
 
+static struct protocol_req_new_transaction *
+trans_pkt(tal_t *ctx, const union protocol_transaction *t)
+{
+	struct protocol_req_new_transaction *r;
+	size_t mlen, len;
+
+	mlen = marshall_transaction_len(t);
+	len = sizeof(struct protocol_net_hdr) + mlen;
+	
+	r = tal_alloc_(ctx, len, false, "struct protocol_req_new_trans");
+	r->len = cpu_to_le32(len);
+	r->type = cpu_to_le32(PROTOCOL_REQ_NEW_BLOCK);
+	memcpy(&r->trans, t, mlen);
+
+	return r;
+}
+
 static struct io_plan response_sent(struct io_conn *conn, struct peer *peer)
 {
 	/* We sent a response, now we're ready for another request. */
@@ -288,6 +305,7 @@ static struct io_plan response_sent(struct io_conn *conn, struct peer *peer)
 static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 {
 	struct block *next;
+	struct pending_trans *pend;
 
 	/* There was an error?  Send that then close. */
 	if (peer->error_pkt) {
@@ -317,7 +335,15 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 				       plan_output);
 	}
 
-	/* FIXME: Now, send any transactions they don't know about. */
+	pend = list_pop(&peer->pending, struct pending_trans, list);
+	if (pend) {
+		tal_del_destructor(pend, unlink_pend);
+
+		log_debug(peer->log, "Sending transaction ");
+		log_add_struct(peer->log, union protocol_transaction, pend->t);
+		return io_write_packet(peer, trans_pkt(peer, pend->t),
+				       plan_output);
+	}
 
 	/* Otherwise, we're idle. */
 	log_debug(peer->log, "Nothing to send");

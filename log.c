@@ -2,6 +2,7 @@
 #include "pseudorand.h"
 #include "protocol.h"
 #include "protocol_net.h"
+#include "hash_transaction.h"
 #include <ccan/list/list.h>
 #include <ccan/time/time.h>
 #include <ccan/tal/str/str.h>
@@ -160,6 +161,27 @@ void log_add_struct_(struct log *log, const char *structname, const void *ptr)
 		else
 			log_add(log, "%s", str);
 		log_add(log, ":%u", be16_to_cpu(addr->port));
+	} else if (streq(structname, "union protocol_transaction")) {
+		const union protocol_transaction *t = ptr;
+		struct protocol_double_sha sha;
+
+		hash_transaction(t, NULL, 0, &sha);
+		switch (t->hdr.type) {
+		case TRANSACTION_NORMAL:
+			log_add(log, "NORMAL %u inputs => %u (%u change) ",
+				le32_to_cpu(t->normal.num_inputs),
+				le32_to_cpu(t->normal.send_amount),
+				le32_to_cpu(t->normal.change_amount));
+			break;
+		case TRANSACTION_FROM_GATEWAY:
+			log_add(log, "GATEWAY %u outputs ",
+				le32_to_cpu(t->gateway.num_outputs));
+			break;
+		default:
+			log_add(log, "UNKNOWN(%u) ", t->hdr.type);
+			break;
+		}
+		log_add_struct(log, struct protocol_double_sha, &sha);
 	} else
 		abort();
 }
