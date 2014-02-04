@@ -10,6 +10,7 @@ struct pending_block {
 };
 
 struct state;
+struct peer;
 struct block;
 struct protocol_transaction_gateway;
 
@@ -17,9 +18,9 @@ struct protocol_transaction_gateway;
 void steal_pending_transactions(struct state *state, const struct block *block);
 void update_pending_transactions(struct state *state);
 
-/* Add a gateway transaction to the pending block. */
-void add_pending_gateway_transaction(struct state *state,
-				     const struct protocol_transaction_gateway *hdr);
+/* Add a new transaction from peer to the current block. */
+void add_pending_transaction(struct peer *peer,
+			     const union protocol_transaction *t);
 
 /* Get a new working block. */
 struct pending_block *new_pending_block(struct state *state);

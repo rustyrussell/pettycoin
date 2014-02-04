@@ -175,13 +175,19 @@ static void unlink_pend(struct pending_trans *pend)
 }
 	
 void add_trans_to_peers(struct state *state,
+			struct peer *exclude,
 			const union protocol_transaction *t)
 {
 	struct peer *peer;
 
 	list_for_each(&state->peers, peer, list) {
-		struct pending_trans *pend = tal(peer, struct pending_trans);
+		struct pending_trans *pend;
 
+		/* Avoid sending back to peer who told us. */
+		if (peer == exclude)
+			continue;
+
+		pend = tal(peer, struct pending_trans);
 		pend->t = t;
 		list_add_tail(&peer->pending, &pend->list);
 		tal_add_destructor(pend, unlink_pend);
@@ -455,7 +461,7 @@ receive_trans(struct peer *peer,
 	/* OK, we own it now. */
 	tal_steal(peer->state, req);
 
-	add_pending_gateway_transaction(peer->state, &req->trans.gateway);
+	add_pending_transaction(peer, &req->trans);
 	r->error = cpu_to_le32(PROTOCOL_ERROR_NONE);
 	assert(!peer->response);
 	peer->response = r;

@@ -49,6 +49,7 @@ void new_peer(struct state *state, int fd, const struct protocol_net_address *a)
 bool new_peer_by_addr(struct state *state, const char *node, const char *port);
 
 void add_trans_to_peers(struct state *state,
+			struct peer *exclude,
 			const union protocol_transaction *t);
 void remove_trans_from_peers(struct state *state,
 			     const union protocol_transaction *t);

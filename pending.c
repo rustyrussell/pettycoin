@@ -107,11 +107,10 @@ void update_pending_transactions(struct state *state)
 				    generating_address(state));
 }
 
-void add_pending_gateway_transaction(struct state *state,
-				     const struct protocol_transaction_gateway *gt)
+void add_pending_transaction(struct peer *peer,
+			     const union protocol_transaction *t)
 {
-	struct pending_block *pending = state->pending;
-	const union protocol_transaction *t = (void *)gt;
+	struct pending_block *pending = peer->state->pending;
 	size_t start = 0, num = tal_count(pending->t), end = num;
 
 	/* Assumes tal_count < max-size_t / 2 */
@@ -124,9 +123,13 @@ void add_pending_gateway_transaction(struct state *state,
 			end = halfway;
 		else if (c > 0)
 			start = halfway + 1;
-		else
+		else {
 			/* Duplicate!  Ignore it. */
+			log_debug(peer->log, "Ignoring duplicate transaction ");
+			log_add_struct(peer->log, union protocol_transaction,
+				       t);
 			return;
+		}
 	}
 
 	/* Move down to make room, and insert */
@@ -136,6 +139,6 @@ void add_pending_gateway_transaction(struct state *state,
 		(num - start) * sizeof(*pending->t));
 	pending->t[start] = t;
 
-	tell_generator_new_pending(state, start);
-	add_trans_to_peers(state, t);
+	tell_generator_new_pending(peer->state, start);
+	add_trans_to_peers(peer->state, peer, t);
 }
