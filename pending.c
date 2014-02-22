@@ -14,7 +14,7 @@ static struct block *last_full(struct state *state)
 
 	/* FIXME: slow. */
 	list_for_each(&state->main_chain, i, list) {
-		if (!block_full(i))
+		if (!block_full(i, NULL))
 			break;
 		prev = i;
 	}

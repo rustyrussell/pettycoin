@@ -283,6 +283,20 @@ static struct protocol_req_new_block *block_pkt(tal_t *ctx, struct block *b)
 	return blk;
 }
 
+static struct protocol_req_batch *batch_req(tal_t *ctx, struct block *b,
+					    unsigned int batchnum)
+{
+	struct protocol_req_batch *r;
+ 
+	r = tal(ctx, struct protocol_req_batch);
+	r->len = cpu_to_le32(sizeof(*r));
+	r->type = cpu_to_le32(PROTOCOL_REQ_BATCH);
+	r->block = b->sha;
+	r->batchnum = cpu_to_le32(batchnum);
+
+	return r;
+}
+
 static struct protocol_req_new_transaction *
 trans_pkt(tal_t *ctx, const union protocol_transaction *t)
 {
@@ -308,10 +322,24 @@ static struct io_plan response_sent(struct io_conn *conn, struct peer *peer)
 	return plan_output(conn, peer);
 }
 
+static struct block *find_main_incomplete(struct list_head *main_chain,
+					  unsigned int *batchnum)
+{
+	struct block *i;
+
+	/* FIXME: Inefficient, could use pending->prev to terminate. */
+	list_for_each_rev(main_chain, i, list) {
+		if (!block_full(i, batchnum))
+			return i;
+	}
+	return NULL;
+}
+
 static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 {
 	struct block *next;
 	struct pending_trans *pend;
+	unsigned int batchnum;
 
 	/* There was an error?  Send that then close. */
 	if (peer->error_pkt) {
@@ -338,6 +366,16 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 		peer->curr_out_req = PROTOCOL_REQ_NEW_BLOCK;
 		peer->mutual = next;
 		return io_write_packet(peer, block_pkt(peer, next),
+				       plan_output);
+	}
+
+	/* Do we have a main chain block we don't know the transactions for? */
+	next = find_main_incomplete(&peer->state->main_chain, &batchnum);
+	if (next) {
+		log_debug(peer->log, "Need batch %u for block %u",
+			  batchnum, next->blocknum);
+		peer->curr_out_req = PROTOCOL_REQ_BATCH;
+		return io_write_packet(peer, batch_req(peer, next, batchnum),
 				       plan_output);
 	}
 

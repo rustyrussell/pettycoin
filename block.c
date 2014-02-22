@@ -187,13 +187,15 @@ bool batch_full(const struct block *block,
 	return batch->count == full;
 }
 
-bool block_full(const struct block *block)
+bool block_full(const struct block *block, unsigned int *batchnum)
 {
 	unsigned int i, num;
 
 	num = num_merkles(le32_to_cpu(block->hdr->num_transactions));
 	for (i = 0; i < num; i++) {
 		const struct transaction_batch *b = block->batch[i];
+		if (batchnum)
+			*batchnum = i;
 		if (!b)
 			return false;
 		if (!batch_full(block, b))
