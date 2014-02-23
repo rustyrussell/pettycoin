@@ -565,7 +565,7 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 
 	case PROTOCOL_REQ_NEW_TRANSACTION:
 		log_debug(peer->log,
-			  "Received PROTOCOL_RESP_NEW_TRANSACTION");
+			  "Received PROTOCOL_REQ_NEW_TRANSACTION");
 		if (peer->curr_in_req != PROTOCOL_REQ_NONE)
 			goto unexpected_req;
 		peer->curr_in_req = PROTOCOL_REQ_NEW_TRANSACTION;
