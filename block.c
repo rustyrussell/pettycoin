@@ -170,21 +170,27 @@ struct block *block_find_any(struct state *state,
 	return NULL;
 }
 
+u32 batch_max(const struct block *block, unsigned int batchnum)
+{
+	unsigned int num_trans, batch_start, full;
+
+	/* How many could we possibly fit? */
+	num_trans = le32_to_cpu(block->hdr->num_transactions);
+	batch_start = batchnum << PETTYCOIN_BATCH_ORDER;
+
+	full = num_trans - batch_start;
+	if (full > (1 << PETTYCOIN_BATCH_ORDER))
+		return (1 << PETTYCOIN_BATCH_ORDER);
+
+	return full;
+}
+
 /* Do we have everything in this batch? */
 bool batch_full(const struct block *block,
 		const struct transaction_batch *batch)
 {
-	u32 full;
-
-	assert((batch->trans_start & ((1 << PETTYCOIN_BATCH_ORDER)-1)) == 0);
-
-	/* How many could we possibly fit? */
-	full = le32_to_cpu(block->hdr->num_transactions) - batch->trans_start;
-	/* But this is the max in a batch. */
-	if (full > (1 << PETTYCOIN_BATCH_ORDER))
-		full = (1 << PETTYCOIN_BATCH_ORDER);
-
-	return batch->count == full;
+	unsigned int batchnum = batch->trans_start >> PETTYCOIN_BATCH_ORDER;
+	return batch->count == batch_max(block, batchnum);
 }
 
 bool block_full(const struct block *block, unsigned int *batchnum)
