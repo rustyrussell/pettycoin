@@ -45,7 +45,7 @@ void logv(struct log *log, enum log_level level, const char *fmt, va_list ap);
 	log_add_enum_((log), stringify(enumtype), (val))
 
 void log_add_struct_(struct log *log, const char *structname, const void *ptr);
-void log_add_enum_(struct log *log, const char *enumname, int val);
+void log_add_enum_(struct log *log, const char *enumname, unsigned int val);
 
 void set_log_level(struct log *log, enum log_level level);
 void set_log_prefix(struct log *log, const char *prefix);

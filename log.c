@@ -202,10 +202,11 @@ void log_add_struct_(struct log *log, const char *structname, const void *ptr)
 		abort();
 }
 
-void log_add_enum_(struct log *log, const char *enumname, int val)
+void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 {
 	const char *name = NULL;
-	if (streq(enumname, "enum protocol_req_type")) {
+	if (streq(enumname, "enum protocol_req_type")
+	    || streq(enumname, "enum protocol_resp_type")) {
 		switch (val) {
 		case PROTOCOL_REQ_WELCOME:
 			name = "PROTOCOL_REQ_WELCOME"; break;
@@ -221,9 +222,6 @@ void log_add_enum_(struct log *log, const char *enumname, int val)
 			name = "PROTOCOL_REQ_TRANSACTION_NUMS"; break;
 		case PROTOCOL_REQ_TRANSACTION:
 			name = "PROTOCOL_REQ_TRANSACTION"; break;
-		}
-	} else if (streq(enumname, "enum protocol_resp_type")) {
-		switch (val) {
 		case PROTOCOL_RESP_WELCOME:
 			name = "PROTOCOL_RESP_WELCOME"; break;
 		case PROTOCOL_RESP_ERR:
@@ -302,7 +300,7 @@ void log_add_enum_(struct log *log, const char *enumname, int val)
 	if (name)
 		log_add(log, "%s", name);
 	else
-		log_add(log, "Unknown %s (%i)", enumname, val);
+		log_add(log, "Unknown %s (%u)", enumname, val);
 }
 
 void log_to_file(int fd, const struct log *log)

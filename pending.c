@@ -14,8 +14,11 @@ static struct block *last_full(struct state *state)
 
 	/* FIXME: slow. */
 	list_for_each(&state->main_chain, i, list) {
-		if (!block_full(i, NULL))
+		if (!block_full(i, NULL)) {
+			log_debug(state->log, "Block %u is not full, using %u!",
+				  i->blocknum, prev->blocknum);
 			break;
+		}
 		prev = i;
 	}
 	return prev;

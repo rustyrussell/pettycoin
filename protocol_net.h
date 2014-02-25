@@ -16,10 +16,10 @@ enum protocol_req_type {
 	PROTOCOL_REQ_NEW_BLOCK,
 	/* I have a new transaction */
 	PROTOCOL_REQ_NEW_TRANSACTION,
-	/* Tell me about this block. */
-	PROTOCOL_REQ_TRANSACTION_NUMS,
 	/* Tell me about this batch in a block. */
 	PROTOCOL_REQ_BATCH,
+	/* Tell me about this block. */
+	PROTOCOL_REQ_TRANSACTION_NUMS,
 	/* Tell me about this transaction in a block. */
 	PROTOCOL_REQ_TRANSACTION,
 
@@ -35,9 +35,8 @@ enum protocol_resp_type {
 	PROTOCOL_RESP_ERR,
 	PROTOCOL_RESP_NEW_BLOCK,
 	PROTOCOL_RESP_NEW_TRANSACTION,
-	PROTOCOL_RESP_BLOCKSTART,
-	PROTOCOL_RESP_TRANSACTION_NUMS,
 	PROTOCOL_RESP_BATCH,
+	PROTOCOL_RESP_TRANSACTION_NUMS,
 	PROTOCOL_RESP_TRANSACTION,
 
 	/* >= this is invalid. */
@@ -76,12 +75,14 @@ enum protocol_error {
 	PROTOCOL_ERROR_TOO_LARGE, /* too many satoshi in one transaction. */
 	PROTOCOL_ERROR_TRANS_BADSIG, /* invalid signature */
 
-	/* protocol_req_blockstart/protocol_req_batchnums/protocol_req_batch: */
+	/* protocol_req_batch: */
 	PROTOCOL_ERROR_UNKNOWN_BLOCK, /* I don't know that block? */
-	/* protocol_req_batchnums/protocol_req_batch: */
 	PROTOCOL_ERROR_BAD_BATCHNUM, /* Exceeds transaction count. */
-	/* protocol_response_batch: */
-	PROTOCOL_ERROR_INVALID_MERKLE,
+	PROTOCOL_ERROR_UNKNOWN_BATCH, /* It exists, but I don't know it. */
+
+	/* protocol_resp_batch: */
+	PROTOCOL_ERROR_DISAGREE_BATCHNUM, /* Disagree with BAD_BATCHNUM */
+	PROTOCOL_ERROR_DISAGREE_BATCHSIZE, /* Disagree with num in batch. */
 
 	/* >= this is invalid. */
 	PROTOCOL_ERROR_MAX
@@ -165,23 +166,6 @@ struct protocol_resp_new_transaction {
 	le32 error; /* Expect PROTOCOL_ERROR_NONE. */
 };
 
-/* Which transactions are interesting to me? */
-struct protocol_req_batch_nums {
-	le32 len; /* sizeof(struct protocol_req_batchnums) */
-	le32 type; /* PROTOCOL_REQ_TRANSACTION_NUMS */
-	/* Which block do I want to know about. */
-	struct protocol_double_sha block;
-};
-
-/* Here's some transaction nums for you. */
-struct protocol_resp_transaction_nums {
-	le32 len; /* sizeof(struct protocol_resp_welcome) */
-	le32 type; /* PROTOCOL_RESP_TRANSACTION_NUMS */
-	le32 error; /* Expect PROTOCOL_ERROR_NONE. */
-	le32 num_transactions; /* Number of individual transactions. */
-	le32 idx[ /* num_transactions */ ];
-};
-
 /* Give me this batch. */
 struct protocol_req_batch {
 	le32 len; /* sizeof(struct protocol_req_batch) */
@@ -199,9 +183,24 @@ struct protocol_resp_batch {
 	le32 error; /* Expect PROTOCOL_ERROR_NONE. */
 	le32 num; /* Number of transactions in batch. */
 
-	/* Marshalled transaction. */
-	union protocol_transaction trans;
-	/* ... */
+	/* Marshalled transactions... */
+};
+
+/* Which transactions are interesting to me? */
+struct protocol_req_batch_nums {
+	le32 len; /* sizeof(struct protocol_req_batchnums) */
+	le32 type; /* PROTOCOL_REQ_TRANSACTION_NUMS */
+	/* Which block do I want to know about. */
+	struct protocol_double_sha block;
+};
+
+/* Here's some transaction nums for you. */
+struct protocol_resp_transaction_nums {
+	le32 len; /* sizeof(struct protocol_resp_welcome) */
+	le32 type; /* PROTOCOL_RESP_TRANSACTION_NUMS */
+	le32 error; /* Expect PROTOCOL_ERROR_NONE. */
+	le32 num_transactions; /* Number of individual transactions. */
+	le32 idx[ /* num_transactions */ ];
 };
 
 /* Give me this transaction. */

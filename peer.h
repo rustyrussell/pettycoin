@@ -35,6 +35,10 @@ struct peer {
 	/* For when we sent PROTOCOL_REQ_NEW_TRANS: */
 	const struct pending_trans *new_trans_pending;
 
+	/* For when we sent PROTOCOL_REQ_BATCH: */
+	struct block *batch_requested_block;
+	u32 batch_requested_num;
+
 	/* We keep this. */
 	struct protocol_req_welcome *welcome;
 

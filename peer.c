@@ -14,6 +14,7 @@
 #include "generating.h"
 #include "blockfile.h"
 #include "pending.h"
+#include "merkle_transactions.h"
 #include <ccan/io/io.h>
 #include <ccan/time/time.h>
 #include <ccan/tal/tal.h>
@@ -340,16 +341,23 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 	struct block *next;
 	struct pending_trans *pend;
 	unsigned int batchnum;
+	void *pkt;
 
 	/* There was an error?  Send that then close. */
 	if (peer->error_pkt) {
-		log_debug(peer->log, "Writing error packet");
+		log_debug(peer->log, "Writing error packet ");
+		log_add_enum(peer->log, enum protocol_resp_type,
+			     ((struct protocol_net_hdr *)peer->error_pkt)->type);
+		log_add_enum(peer->log, enum protocol_error,
+			     ((struct protocol_resp_err *)peer->error_pkt)->error);
 		return io_write_packet(peer, peer->error_pkt, io_close_cb);
 	}
 
-	/* First, response to their queries. */
+	/* First, respond to their queries. */
 	if (peer->response) {
-		log_debug(peer->log, "Writing response packet");
+		log_debug(peer->log, "Writing response packet ");
+		log_add_enum(peer->log, enum protocol_resp_type,
+			     ((struct protocol_net_hdr *)peer->response)->type);
 		return io_write_packet(peer, peer->response, response_sent);
 	}
 
@@ -365,8 +373,8 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 		log_debug(peer->log, "Sending block %u", next->blocknum);
 		peer->curr_out_req = PROTOCOL_REQ_NEW_BLOCK;
 		peer->mutual = next;
-		return io_write_packet(peer, block_pkt(peer, next),
-				       plan_output);
+		pkt = block_pkt(peer, next);
+		goto write;
 	}
 
 	/* Do we have a main chain block we don't know the transactions for? */
@@ -375,8 +383,10 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 		log_debug(peer->log, "Need batch %u for block %u",
 			  batchnum, next->blocknum);
 		peer->curr_out_req = PROTOCOL_REQ_BATCH;
-		return io_write_packet(peer, batch_req(peer, next, batchnum),
-				       plan_output);
+		peer->batch_requested_block = next;
+		peer->batch_requested_num = batchnum;
+		pkt = batch_req(peer, next, batchnum);
+		goto write;
 	}
 
 	pend = list_pop(&peer->pending, struct pending_trans, list);
@@ -387,13 +397,20 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 		log_add_struct(peer->log, union protocol_transaction, pend->t);
 		peer->new_trans_pending = pend;
 		peer->curr_out_req = PROTOCOL_REQ_NEW_TRANSACTION;
-		return io_write_packet(peer, trans_pkt(peer, pend->t),
-				       plan_output);
+		pkt = trans_pkt(peer, pend->t);
+		goto write;
 	}
 
 	/* Otherwise, we're idle. */
 	log_debug(peer->log, "Nothing to send");
 	return io_idle();
+
+write:
+	log_debug(peer->log, "Sending ");
+	log_add_enum(peer->log, enum protocol_req_type,
+		     ((struct protocol_net_hdr *)pkt)->type);
+	assert(peer->curr_out_req);
+	return io_write_packet(peer, pkt, plan_output);
 }
 
 /* Returns an error packet if there was trouble. */
@@ -512,6 +529,212 @@ fail:
 	return r;
 }
 
+/* Returns an error packet if there was trouble. */
+static struct protocol_resp_batch *
+receive_batch_req(struct peer *peer,
+		  const struct protocol_req_batch *req)
+{
+	struct protocol_resp_batch *r;
+	struct block *block;
+	struct transaction_batch *batch;
+	unsigned int i, num;
+	size_t tlen;
+	char *p;
+
+	if (le32_to_cpu(req->len) != sizeof(*req))
+		return (void *)protocol_resp_err(peer, PROTOCOL_INVALID_LEN);
+
+	r = tal(peer, struct protocol_resp_batch);
+	r->len = cpu_to_le32(sizeof(*r));
+	r->type = cpu_to_le32(PROTOCOL_RESP_BATCH);
+	r->num = 0;
+
+	/* This could happen, but is unusual. */
+	block = block_find_any(peer->state, &req->block);
+	if (!block) {
+		log_unusual(peer->log,
+			    "Peer asked PROTOCOL_RESP_BATCH for unknown block ");
+		log_add_struct(peer->log, struct protocol_double_sha,
+			       &req->block);
+		r->error = cpu_to_le32(PROTOCOL_ERROR_UNKNOWN_BLOCK);
+		return r;
+	}
+
+	/* This should never happen. */
+	num = le32_to_cpu(req->batchnum);
+	if (num >= num_merkles(le32_to_cpu(block->hdr->num_transactions))) {
+		log_unusual(peer->log,
+			    "Peer sent PROTOCOL_RESP_BATCH for batch %u/%zu of ",
+			num,
+			num_merkles(le32_to_cpu(block->hdr->num_transactions)));
+		log_add_struct(peer->log, struct protocol_double_sha,
+			       &req->block);
+		r->error = cpu_to_le32(PROTOCOL_ERROR_BAD_BATCHNUM);
+		return r;
+	}
+
+	batch = block->batch[num];
+	/* This could happen easily: we might be asking for it
+	 * ourselves, right now. */
+	if (!batch || !batch_full(block, batch)) {
+		log_debug(peer->log,
+			  "We don't know batch %u of ", num);
+		log_add_struct(peer->log, struct protocol_double_sha,
+			       &req->block);
+		r->error = cpu_to_le32(PROTOCOL_ERROR_UNKNOWN_BATCH);
+		return r;
+	}
+
+	/* Get size and resize. */
+	tlen = 0;
+	for (i = 0; i < batch->count; i++)
+		tlen += marshall_transaction_len(batch->t[i]);
+	tal_resize(&r, sizeof(*r) + tlen);
+
+	/* Adjust patcket to reflect these transactions. */
+	r->num = cpu_to_le32(batch->count);
+	r->len = cpu_to_le32(sizeof(*r) + tlen);
+
+	/* Now copy in transactions. */
+	p = (char *)(r + 1);
+	for (i = 0; i < batch->count; i++) {
+		tlen = marshall_transaction_len(batch->t[i]);
+		memcpy(p, batch->t[i], tlen);
+		p += tlen;
+	}
+
+	r->error = cpu_to_le32(PROTOCOL_ERROR_NONE);
+	assert(!peer->response);
+	peer->response = r;
+
+	log_debug(peer->log, "Sending PROTOCOL_RESP_BATCH for %u of ", num);
+	log_add_struct(peer->log, struct protocol_double_sha, &req->block);
+	
+	return NULL;
+}
+
+static struct protocol_req_err *
+receive_batch_resp(struct peer *peer, struct protocol_resp_batch *resp)
+{
+	struct block *block = peer->batch_requested_block;
+	u32 batchnum = peer->batch_requested_num;
+	enum protocol_error err;
+	const char *buffer;
+	size_t size;
+	struct transaction_batch *batch;
+
+	if (le32_to_cpu(resp->len) < sizeof(*resp)) {
+		log_unusual(peer->log,
+			    "Peer sent PROTOCOL_RESP_BATCH with bad length %u",
+			    le32_to_cpu(resp->len));
+		return protocol_req_err(peer, PROTOCOL_INVALID_LEN);
+	}
+
+	switch (le32_to_cpu(resp->error)) {
+	case PROTOCOL_ERROR_NONE:
+		break;
+
+	case PROTOCOL_ERROR_UNKNOWN_BLOCK:
+		log_unusual(peer->log, "Peer does not know block for batch ");
+		log_add_struct(peer->log, struct protocol_double_sha,
+			       &block->sha);
+		return NULL;
+
+	case PROTOCOL_ERROR_BAD_BATCHNUM:
+		log_unusual(peer->log, "Peer does not like batch number %u for ",
+			    batchnum);
+		log_add_struct(peer->log, struct protocol_double_sha,
+			       &block->sha);
+		return protocol_req_err(peer, PROTOCOL_ERROR_DISAGREE_BATCHNUM);
+
+	case PROTOCOL_ERROR_UNKNOWN_BATCH:
+		/* FIXME: well, don't keep asking then! */
+		log_debug(peer->log, "Peer does not know batch ");
+		log_add_struct(peer->log, struct protocol_double_sha, &block->sha);
+		return NULL;
+
+	default:
+		log_unusual(peer->log, "Peer returned %u for batch %u of ",
+			    le32_to_cpu(resp->error), peer->batch_requested_num);
+		log_add_struct(peer->log, struct protocol_double_sha,
+			       &block->sha);
+		return protocol_req_err(peer, PROTOCOL_INVALID_RESPONSE);
+	}
+
+	/* We must agree on number. */
+	if (le32_to_cpu(resp->num) != batch_max(block, batchnum)) {
+		log_unusual(peer->log, "Peer returned %u not %u for batch %u of ",
+			    le32_to_cpu(resp->num), batch_max(block, batchnum),
+			    peer->batch_requested_num);
+		log_add_struct(peer->log, struct protocol_double_sha,
+			       &block->sha);
+		return protocol_req_err(peer, PROTOCOL_ERROR_DISAGREE_BATCHSIZE);
+	}
+
+	/* Unmarshall batch. */
+	buffer = (char *)(resp + 1);
+	size = le32_to_cpu(resp->len) - sizeof(*resp);
+
+	/* Attach to response so we get freed with it on failure. */
+	batch = tal(resp, struct transaction_batch);
+	batch->trans_start = (peer->batch_requested_num << PETTYCOIN_BATCH_ORDER);
+
+	for (batch->count = 0;
+	     batch->count < le32_to_cpu(resp->num);
+	     batch->count++) {
+		size_t used;
+
+		batch->t[batch->count] = (union protocol_transaction *)buffer;
+		err = unmarshall_transaction(buffer, size, &used);
+		if (err) {
+			log_unusual(peer->log, "Peer resp_batch transaction %u/%u"
+				    " for len %zu/%u gave error ",
+				    batch->count, le32_to_cpu(resp->num),
+				    le32_to_cpu(resp->len) - size,
+				    le32_to_cpu(resp->len));
+			log_add_enum(peer->log, enum protocol_error, err);
+			return protocol_req_err(peer, err);
+		}
+		size -= used;
+		buffer += used;
+	}
+
+	if (size) {
+		log_unusual(peer->log, "Peer resp_batch leftover %zu bytes of %u",
+			    size, le32_to_cpu(resp->num));
+		return protocol_req_err(peer, PROTOCOL_INVALID_LEN);
+	}
+
+	/* FIXME: Get exact error to report. */
+	if (!check_batch_valid(peer->state, peer->batch_requested_block, batch)) {
+		log_unusual(peer->log, "Peer gave invalid batch %u for ",
+			    batchnum);
+		log_add_struct(peer->log, struct protocol_double_sha,
+			       &block->sha);
+		return protocol_req_err(peer, PROTOCOL_INVALID_RESPONSE);
+	}
+
+	/* FIXME: Get exact error to report. */
+	if (!put_batch_in_block(peer->state, block, batch)) {
+		log_unusual(peer->log, "Peer gave wrong batch %u for ",
+			    batchnum);
+		log_add_struct(peer->log, struct protocol_double_sha,
+			       &block->sha);
+		return protocol_req_err(peer, PROTOCOL_INVALID_RESPONSE);
+	}
+
+	/* block now owns the packet */
+	tal_steal(batch, resp);
+
+	log_debug(peer->log, "Added batch %u to ", batchnum);
+	log_add_struct(peer->log, struct protocol_double_sha,
+			       &block->sha);
+
+	/* FIXME: only do this if we gained something. */
+	restart_generating(peer->state);
+	return NULL;
+}
+
 /* Packet arrives. */
 static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 {
@@ -522,6 +745,9 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 
 	len = le32_to_cpu(hdr->len);
 	type = le32_to_cpu(hdr->type);
+
+	log_debug(peer->log, "Received ");
+	log_add_enum(peer->log, enum protocol_req_type, type);
 
 	/* Recipient function should steal this if it should outlive function. */
 	tal_steal(ctx, peer->incoming);
@@ -594,6 +820,28 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 		break;
 	}
 
+	case PROTOCOL_REQ_BATCH:
+		log_debug(peer->log,
+			  "Received PROTOCOL_REQ_BATCH");
+		if (peer->curr_in_req != PROTOCOL_REQ_NONE)
+			goto unexpected_req;
+		peer->curr_in_req = PROTOCOL_REQ_BATCH;
+		peer->error_pkt = receive_batch_req(peer, peer->incoming);
+		if (peer->error_pkt)
+			goto send_error;
+		break;
+
+	case PROTOCOL_RESP_BATCH:
+		log_debug(peer->log,
+			  "Received PROTOCOL_RESP_BATCH");
+		if (peer->curr_out_req != PROTOCOL_REQ_BATCH)
+			goto unexpected_resp;
+		peer->error_pkt = receive_batch_resp(peer, peer->incoming);
+		if (peer->error_pkt)
+			goto send_error;
+		peer->curr_out_req = PROTOCOL_REQ_NONE;
+		break;
+		
 	case PROTOCOL_REQ_ERR:
 		log_unusual(peer->log, "Received PROTOCOL_REQ_ERR %u",
 			    cpu_to_le32(((struct protocol_req_err*)hdr)->error));
