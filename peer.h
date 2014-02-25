@@ -32,6 +32,9 @@ struct peer {
 	/* The other end's address. */
 	struct protocol_net_address you;
 
+	/* For when we sent PROTOCOL_REQ_NEW_TRANS: */
+	const struct pending_trans *new_trans_pending;
+
 	/* We keep this. */
 	struct protocol_req_welcome *welcome;
 

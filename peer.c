@@ -347,6 +347,8 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 
 		log_debug(peer->log, "Sending transaction ");
 		log_add_struct(peer->log, union protocol_transaction, pend->t);
+		peer->new_trans_pending = pend;
+		peer->curr_out_req = PROTOCOL_REQ_NEW_TRANSACTION;
 		return io_write_packet(peer, trans_pkt(peer, pend->t),
 				       plan_output);
 	}
@@ -533,6 +535,26 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 		if (peer->error_pkt)
 			goto send_error;
 		break;
+
+	case PROTOCOL_RESP_NEW_TRANSACTION: {
+		struct protocol_resp_new_transaction *resp = (void *)hdr;
+		log_debug(peer->log, "Received PROTOCOL_RESP_NEW_TRANSACTION");
+		if (len != sizeof(*resp))
+			goto bad_resp_length;
+		if (peer->curr_out_req != PROTOCOL_REQ_NEW_TRANSACTION)
+			goto unexpected_resp;
+
+		if (le32_to_cpu(resp->error) != PROTOCOL_ERROR_NONE) {
+			log_debug(peer->log,
+				  "Error %u on PROTOCOL_RESP_NEW_TRANSACTION ",
+				  le32_to_cpu(resp->error));
+			log_add_struct(peer->log, union protocol_transaction,
+				       peer->new_trans_pending->t);
+		}
+		tal_free(peer->new_trans_pending);
+		peer->curr_out_req = PROTOCOL_REQ_NONE;
+		break;
+	}
 
 	case PROTOCOL_REQ_ERR:
 		log_unusual(peer->log, "Received PROTOCOL_REQ_ERR %u",
