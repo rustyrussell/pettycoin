@@ -45,20 +45,25 @@ struct generator {
 	struct list_head updates;
 };
 
+/* After answer fd closes, this gets called. */
 static void reap_generator(struct io_conn *conn, struct generator *gen)
 {
 	int status;
 	struct state *state = gen->state;
 	bool ok;
+	int ret;
 
 	log_debug(gen->log, "Generator closed");
-	io_close_other(gen->update);
 
-	if (waitpid(gen->pid, &status, 0) == -1) {
+	/* If we use WHOHANG here, we get occasional failures under
+	 * load.  The implicit close on exit is done before the kernel
+	 * marks the process ready to be reaped, which is fair enough.
+	 * But it should only close the fd on exit anyway. */
+	if ((ret = waitpid(gen->pid, &status, 0)) != gen->pid) {
 		ok = false;
 		log_unusual(gen->log,
-			    "Waiting for generator %s %u returned %s",
-			    gen->state->generate, gen->pid, strerror(errno));
+			    "Waiting for generator %s %u returned %i %s",
+			    gen->state->generate, gen->pid, ret, strerror(errno));
 	} else if (WIFSIGNALED(status)) {
 		log_unusual(gen->log,
 			    "generator %s %u exited with signal %u",
@@ -75,7 +80,7 @@ static void reap_generator(struct io_conn *conn, struct generator *gen)
 			  gen->state->generate, gen->pid);
 	}
 
-	assert(state->gen == gen);
+	assert(!state->gen || state->gen == gen);
 	state->gen = tal_free(gen);
 
 	if (ok)
@@ -340,7 +345,9 @@ void restart_generating(struct state *state)
 	/* Shut down existing generator, will restart after reaping. */
 	if (state->gen) {
 		log_debug(state->gen->log, "shutdown due to restart");
-		if (state->gen->answer)
-			io_close_other(state->gen->answer);
+		/* This should make the generator shutdown. */
+		io_close_other(state->gen->update);
+		/* Don't restart again before it's reaped. */
+		state->gen = NULL;
 	}
 }
