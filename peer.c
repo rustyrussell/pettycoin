@@ -474,6 +474,8 @@ receive_block(struct peer *peer, const struct protocol_req_new_block *req)
 		}
 	}
 
+	/* FIXME: Try to guess the batches */
+
 	/* Reply, tell them we're all good... */
 	r = tal(peer, struct protocol_resp_new_block);
 	r->len = cpu_to_le32(sizeof(*r));
