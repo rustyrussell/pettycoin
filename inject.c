@@ -3,7 +3,7 @@
  mwATgTqtQmAP4obu4tvc7i8Z9Q9qNhxqsN
  $ bitcoind -testnet dumpprivkey mwATgTqtQmAP4obu4tvc7i8Z9Q9qNhxqsN
  cTQSBNmMkbCUdFetsnSfzdAiJcdngQsKLyYWVTKgm6fE9GLN74qR
- $ ./gateway_inject cTQSBNmMkbCUdFetsnSfzdAiJcdngQsKLyYWVTKgm6fE9GLN74qR localhost 56344 P-mwATgTqtQmAP4obu4tvc7i8Z9Q9qNhxqsN 100
+ $ ./inject gateway cTQSBNmMkbCUdFetsnSfzdAiJcdngQsKLyYWVTKgm6fE9GLN74qR localhost 56344 P-mwATgTqtQmAP4obu4tvc7i8Z9Q9qNhxqsN 100
 */
 #include <ccan/err/err.h>
 #include <ccan/net/net.h>
@@ -17,6 +17,7 @@
 #include "protocol_net.h"
 #include "marshall.h"
 #include "netaddr.h"
+#include "hash_transaction.h"
 #include <string.h>
 #include <assert.h>
 #include <openssl/obj_mac.h>
@@ -161,6 +162,11 @@ static void read_response(int fd)
 		errx(1, "Response gave error %u", le32_to_cpu(resp.error));
 }
 
+static void usage(void)
+{
+	errx(1, "Usage: inject gateway <privkey> <peer> <port> <dstaddr> <satoshi>");
+}
+
 /* Simple test code to create a gateway transaction */
 int main(int argc, char *argv[])
 {
@@ -174,24 +180,34 @@ int main(int argc, char *argv[])
 	int fd;
 	size_t len;
 	struct protocol_net_hdr hdr;
+	bool gateway = false;
+	struct protocol_double_sha sha;
 
-	if (argc != 6)
-		errx(1, "Usage: gateway_inject <privkey> <peer> <port> <dstaddr> <satoshi>");
+	if (argv[1] && streq(argv[1], "gateway"))
+		gateway = true;
+	else
+		usage();
 
-	key = get_gatekey(argv[1], &gkey);
+	if (gateway) {
+		if (argc != 7)
+			usage();
+		key = get_gatekey(argv[2], &gkey);
 
-	payment.send_amount = cpu_to_le32(atoi(argv[5]));
-	if (!pettycoin_from_base58(&test_net, &payment.output_addr, argv[4]))
-		errx(1, "Invalid dstaddr");
-	if (!test_net)
-		errx(1, "dstaddr is not on test net!");
+		payment.send_amount = cpu_to_le32(atoi(argv[6]));
+		if (!pettycoin_from_base58(&test_net, &payment.output_addr,
+					   argv[5]))
+			errx(1, "Invalid dstaddr");
+		if (!test_net)
+			errx(1, "dstaddr is not on test net!");
 
-	t = create_gateway_transaction(NULL, &gkey, 1, 0, &payment, key);
+		t = create_gateway_transaction(NULL, &gkey, 1, 0, &payment, key);
+	}
+
 	len = marshall_transaction_len(t);
 	if (!len)
 		errx(1, "Marshalling transaction failed");
 
-	a = net_client_lookup(argv[2], argv[3], AF_UNSPEC, SOCK_STREAM);
+	a = net_client_lookup(argv[3], argv[4], AF_UNSPEC, SOCK_STREAM);
 	if (!a)
 		errx(1, "Failed to look up address %s:%s", argv[2], argv[3]);
 
@@ -200,7 +216,7 @@ int main(int argc, char *argv[])
 
 	fd = net_connect(a);
 	if (fd < 0)
-		err(1, "Failed to connect to %s:%s", argv[2], argv[3]);
+		err(1, "Failed to connect to %s:%s", argv[3], argv[4]);
 	freeaddrinfo(a);
 
 	exchange_welcome(fd, &netaddr);
@@ -214,6 +230,18 @@ int main(int argc, char *argv[])
 
 	read_response(fd);
 
-	printf("Transaction sent!\n");
+	hash_transaction(t, NULL, 0, &sha);
+	printf("%02x%02x%02x%02x%02x%02x%02x%02x"
+	       "%02x%02x%02x%02x%02x%02x%02x%02x"
+	       "%02x%02x%02x%02x%02x%02x%02x%02x"
+	       "%02x%02x%02x%02x%02x%02x%02x%02x\n",
+	       sha.sha[0], sha.sha[1], sha.sha[2], sha.sha[3],
+	       sha.sha[4], sha.sha[5], sha.sha[6], sha.sha[7],
+	       sha.sha[8], sha.sha[9], sha.sha[10], sha.sha[11],
+	       sha.sha[12], sha.sha[13], sha.sha[14], sha.sha[15],
+	       sha.sha[16], sha.sha[17], sha.sha[18], sha.sha[19],
+	       sha.sha[20], sha.sha[21], sha.sha[22], sha.sha[23],
+	       sha.sha[24], sha.sha[25], sha.sha[26], sha.sha[27],
+	       sha.sha[28], sha.sha[29], sha.sha[30], sha.sha[31]);
 	return 0;
 }
