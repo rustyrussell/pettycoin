@@ -28,9 +28,22 @@
 #include "netaddr.h"
 #include "addr.h"
 #include "hash_transaction.h"
+#include "log.h"
 #include <string.h>
 #include <assert.h>
 #include <openssl/obj_mac.h>
+
+#define log_enum_and_exit(message, enumtype, val) \
+	log_enum_and_exit_((message), stringify(enumtype), (val))
+
+static void log_enum_and_exit_(const char *message, const char *enumtype,
+			       unsigned int val)
+{
+	log_broken(NULL, "%s", message);
+	log_add_enum_(NULL, enumtype, val);
+	fprintf(stderr, "\n");
+	exit(1);
+}
 
 // Thus function based on bitcoin's key.cpp:
 // Copyright (c) 2009-2012 The Bitcoin developers
@@ -146,13 +159,18 @@ static void exchange_welcome(int fd, const struct protocol_net_address *netaddr)
 	if (!read_all(fd, &wresp, sizeof(wresp)))
 		err(1, "Reading welcome response");
 
-	if (wresp.len != cpu_to_le32(sizeof(wresp))
-	    || wresp.type != cpu_to_le32(PROTOCOL_RESP_ERR)
-	    || wresp.error != cpu_to_le32(PROTOCOL_ERROR_NONE))
-		errx(1, "Bad welcome response %u/%u/%u",
-		     le32_to_cpu(wresp.len),
-		     le32_to_cpu(wresp.type),
-		     le32_to_cpu(wresp.error));
+	if (wresp.type != cpu_to_le32(PROTOCOL_RESP_ERR))
+		log_enum_and_exit("Bad response type ", enum protocol_resp_type,
+				  le32_to_cpu(wresp.type));
+
+	if (wresp.error != cpu_to_le32(PROTOCOL_ERROR_NONE))
+		log_enum_and_exit("Response error ", enum protocol_error,
+				  le32_to_cpu(wresp.error));
+
+	if (wresp.len != cpu_to_le32(sizeof(wresp)))
+		errx(1, "Bad welcome response length %u",
+		     le32_to_cpu(wresp.len));
+
 }
 
 static void read_response(int fd)
@@ -163,13 +181,16 @@ static void read_response(int fd)
 		err(1, "Reading response");
 
 	if (resp.type != cpu_to_le32(PROTOCOL_RESP_NEW_TRANSACTION))
-		errx(1, "Unexpected response type %u", le32_to_cpu(resp.type));
+		log_enum_and_exit("Unexpected response type ",
+				  enum protocol_resp_type,
+				  le32_to_cpu(resp.type));
+
+	if (resp.error != cpu_to_le32(PROTOCOL_ERROR_NONE))
+		log_enum_and_exit("Response gave error ", enum protocol_error,
+				  le32_to_cpu(resp.error));
 
 	if (resp.len != cpu_to_le32(sizeof(resp)))
 		errx(1, "Unexpected response len %u", le32_to_cpu(resp.len));
-
-	if (resp.error != cpu_to_le32(PROTOCOL_ERROR_NONE))
-		errx(1, "Response gave error %u", le32_to_cpu(resp.error));
 }
 
 static void usage(void)
@@ -280,17 +301,8 @@ int main(int argc, char *argv[])
 	read_response(fd);
 
 	hash_transaction(t, NULL, 0, &sha);
-	printf("%02x%02x%02x%02x%02x%02x%02x%02x"
-	       "%02x%02x%02x%02x%02x%02x%02x%02x"
-	       "%02x%02x%02x%02x%02x%02x%02x%02x"
-	       "%02x%02x%02x%02x%02x%02x%02x%02x\n",
-	       sha.sha[0], sha.sha[1], sha.sha[2], sha.sha[3],
-	       sha.sha[4], sha.sha[5], sha.sha[6], sha.sha[7],
-	       sha.sha[8], sha.sha[9], sha.sha[10], sha.sha[11],
-	       sha.sha[12], sha.sha[13], sha.sha[14], sha.sha[15],
-	       sha.sha[16], sha.sha[17], sha.sha[18], sha.sha[19],
-	       sha.sha[20], sha.sha[21], sha.sha[22], sha.sha[23],
-	       sha.sha[24], sha.sha[25], sha.sha[26], sha.sha[27],
-	       sha.sha[28], sha.sha[29], sha.sha[30], sha.sha[31]);
+	log_info(NULL, "%s", "");
+	log_add_struct(NULL, struct protocol_double_sha, &sha);
+	printf("\n");
 	return 0;
 }
