@@ -1,9 +1,18 @@
-/* Example:
+/*
+ # Example 1 (a gateway injection)
  $ bitcoind -testnet getnewaddress
  mwATgTqtQmAP4obu4tvc7i8Z9Q9qNhxqsN
  $ bitcoind -testnet dumpprivkey mwATgTqtQmAP4obu4tvc7i8Z9Q9qNhxqsN
  cTQSBNmMkbCUdFetsnSfzdAiJcdngQsKLyYWVTKgm6fE9GLN74qR
  $ ./inject gateway cTQSBNmMkbCUdFetsnSfzdAiJcdngQsKLyYWVTKgm6fE9GLN74qR localhost 56344 P-mwATgTqtQmAP4obu4tvc7i8Z9Q9qNhxqsN 100
+ 6ac5ce095cb096d16ab81cf276486615df8714105bc0672639bbc31bfd8071c1
+
+ # Example 2 (using that gateway injection to pay someone else)
+ $ bitcoind -testnet getnewaddress
+ mv5fpRMAhaPV9LBrAk3MaBH8FG13TpqTxD
+ $ bitcoind -testnet dumpprivkey mv5fpRMAhaPV9LBrAk3MaBH8FG13TpqTxD
+ cUjJCgPjWAdsJBm85zwCg7ekLYkeeRRoUmkNk3wYydrhbHYKxnwt
+ $ ./inject tx cTQSBNmMkbCUdFetsnSfzdAiJcdngQsKLyYWVTKgm6fE9GLN74qR localhost 56344 50 50 6ac5ce095cb096d16ab81cf276486615df8714105bc0672639bbc31bfd8071c1/0
 */
 #include <ccan/err/err.h>
 #include <ccan/net/net.h>
@@ -17,6 +26,7 @@
 #include "protocol_net.h"
 #include "marshall.h"
 #include "netaddr.h"
+#include "addr.h"
 #include "hash_transaction.h"
 #include <string.h>
 #include <assert.h>
@@ -50,7 +60,7 @@ static bool EC_KEY_regenerate_key(EC_KEY *eckey, BIGNUM *priv_key)
 	return true;
 }
 
-static EC_KEY *get_gatekey(const char *arg, struct protocol_pubkey *gkey)
+static EC_KEY *get_privkey(const char *arg, struct protocol_pubkey *gkey)
 {
 	size_t keylen;
 	u8 keybuf[1 + 32 + 1 + 4], *pubkey;
@@ -164,14 +174,28 @@ static void read_response(int fd)
 
 static void usage(void)
 {
-	errx(1, "Usage: inject gateway <privkey> <peer> <port> <dstaddr> <satoshi>");
+	errx(1, "Usage: inject gateway <privkey> <peer> <port> <dstaddr> <satoshi>\n"
+		"   inject tx <privkey> <peer> <port> <dstaddr> <satout> <change> <tx>[/<out>]...");
+}
+
+static struct protocol_double_sha parse_sha(const char *shastr)
+{
+	unsigned int i;
+	struct protocol_double_sha sha;
+
+	for (i = 0; i < 32; i++) {
+		unsigned int v;
+
+		if (sscanf(shastr + i*2, "%02x", &v) != 1)
+			errx(1, "Bad sha '%s'", shastr);
+		sha.sha[i] = v;
+	}
+	return sha;
 }
 
 /* Simple test code to create a gateway transaction */
 int main(int argc, char *argv[])
 {
-	EC_KEY *key;
-	struct protocol_pubkey gkey;
 	union protocol_transaction *t;
 	struct protocol_gateway_payment payment;
 	struct protocol_net_address netaddr;
@@ -181,17 +205,23 @@ int main(int argc, char *argv[])
 	size_t len;
 	struct protocol_net_hdr hdr;
 	bool gateway = false;
+	bool tx = false;
 	struct protocol_double_sha sha;
 
 	if (argv[1] && streq(argv[1], "gateway"))
 		gateway = true;
+	else if (argv[1] && streq(argv[1], "tx"))
+		tx = true;
 	else
 		usage();
 
 	if (gateway) {
+		struct protocol_pubkey gkey;
+		EC_KEY *key;
+
 		if (argc != 7)
 			usage();
-		key = get_gatekey(argv[2], &gkey);
+		key = get_privkey(argv[2], &gkey);
 
 		payment.send_amount = cpu_to_le32(atoi(argv[6]));
 		if (!pettycoin_from_base58(&test_net, &payment.output_addr,
@@ -201,6 +231,25 @@ int main(int argc, char *argv[])
 			errx(1, "dstaddr is not on test net!");
 
 		t = create_gateway_transaction(NULL, &gkey, 1, 0, &payment, key);
+	} else if (tx) {
+		struct protocol_pubkey destkey;
+		EC_KEY *key;
+		struct protocol_input input[argc - 8];
+		unsigned int i;
+		struct protocol_address destaddr;
+
+		if (argc < 9)
+			usage();
+
+		key = get_privkey(argv[2], &destkey);
+		pubkey_to_addr(&destkey, &destaddr);
+		for (i = 0; i < argc - 8; i++) {
+			input[i].input = parse_sha(argv[8+i]);
+			input[i].output = atoi(argv[8+i] + 64);
+		}
+		t = create_normal_transaction(NULL, &destaddr, atoi(argv[6]),
+					      atoi(argv[7]), argc - 8, input,
+					      key);
 	}
 
 	len = marshall_transaction_len(t);
