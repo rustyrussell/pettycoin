@@ -179,7 +179,7 @@ check_trans_from_gateway(struct state *state,
 
 	hash_transaction((const union protocol_transaction *)t, NULL, 0, &sha);
 	if (!check_trans_sign(&sha, &t->gateway_key, &t->signature))
-		return PROTOCOL_ERROR_TRANS_BADSIG;
+		return PROTOCOL_ERROR_TRANS_BAD_SIG;
 	return PROTOCOL_ERROR_NONE;
 }
 

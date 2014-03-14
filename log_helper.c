@@ -146,8 +146,8 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "PROTOCOL_ERROR_TRANS_CROSS_SHARDS"; break;
 		case PROTOCOL_ERROR_TOO_LARGE:
 			name = "PROTOCOL_ERROR_TOO_LARGE"; break;
-		case PROTOCOL_ERROR_TRANS_BADSIG:
-			name = "PROTOCOL_ERROR_TRANS_BADSIG"; break;
+		case PROTOCOL_ERROR_TRANS_BAD_SIG:
+			name = "PROTOCOL_ERROR_TRANS_BAD_SIG"; break;
 		case PROTOCOL_ERROR_UNKNOWN_BLOCK:
 			name = "PROTOCOL_ERROR_UNKNOWN_BLOCK"; break;
 		case PROTOCOL_ERROR_BAD_BATCHNUM:

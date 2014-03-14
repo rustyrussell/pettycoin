@@ -73,7 +73,7 @@ enum protocol_error {
 	PROTOCOL_ERROR_TRANS_BAD_GATEWAY, /* unknown gateway */
 	PROTOCOL_ERROR_TRANS_CROSS_SHARDS, /* to different shards. */
 	PROTOCOL_ERROR_TOO_LARGE, /* too many satoshi in one transaction. */
-	PROTOCOL_ERROR_TRANS_BADSIG, /* invalid signature */
+	PROTOCOL_ERROR_TRANS_BAD_SIG, /* invalid signature */
 
 	/* protocol_req_batch: */
 	PROTOCOL_ERROR_UNKNOWN_BLOCK, /* I don't know that block? */
