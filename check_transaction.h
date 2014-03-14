@@ -11,8 +11,16 @@ struct protocol_transaction_gateway;
 struct protocol_proof;
 struct protocol_address;
 
-bool check_trans_normal(struct state *state,
-			const struct protocol_transaction_normal *t);
+enum protocol_error
+check_trans_normal_basic(struct state *state,
+			 const struct protocol_transaction_normal *t);
+
+enum protocol_error
+check_trans_normal_inputs(struct state *state,
+			  const struct protocol_transaction_normal *t,
+			  unsigned int *inputs_known,
+			  unsigned int *bad_input_num,
+			  union protocol_transaction **bad_input);
 
 enum protocol_error
 check_trans_from_gateway(struct state *state,

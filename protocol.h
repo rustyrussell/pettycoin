@@ -14,6 +14,9 @@
 /* How many bits do we care about. */
 #define PROTOCOL_SHARD_BITS 12
 
+/* Maximum inputs in a single transaction. */
+#define TRANSACTION_MAX_INPUTS 4
+
 struct protocol_double_sha {
 	u8 sha[SHA256_DIGEST_LENGTH /* 32 */ ];
 };
@@ -117,7 +120,7 @@ struct protocol_transaction_normal {
 	le32 send_amount;
 	/* Amount to return to input_key. */
 	le32 change_amount;
-	/* Number of inputs to spend. */
+	/* Number of inputs to spend (<= TRANSACTION_MAX_INPUTS) */
 	le32 num_inputs;
 	/* ECDSA of double SHA256 of above, and inputs[] below. */
 	struct protocol_signature signature;

@@ -498,6 +498,8 @@ receive_trans(struct peer *peer,
 	enum protocol_error e;
 	struct protocol_resp_new_transaction *r;
 	u32 translen = le32_to_cpu(req->len) - sizeof(struct protocol_net_hdr);
+	union protocol_transaction *bad_input;
+	unsigned int bad_input_num;
 
 	r = tal(peer, struct protocol_resp_new_transaction);
 	r->len = cpu_to_le32(sizeof(*r));
@@ -507,13 +509,34 @@ receive_trans(struct peer *peer,
 	if (e)
 		goto fail;
 
-	/* FIXME: Handle non-gateway transactions! */
-	if (req->trans.hdr.type != TRANSACTION_FROM_GATEWAY) {
-		e = PROTOCOL_ERROR_TRANS_UNKNOWN;
-		goto fail;
-	}
+	switch (req->trans.hdr.type) {
+	case TRANSACTION_FROM_GATEWAY:
+		e = check_trans_from_gateway(peer->state, &req->trans.gateway);
+		break;
+	case TRANSACTION_NORMAL:
+		e = check_trans_normal_basic(peer->state, &req->trans.normal);
+		if (!e) {
+			unsigned int inputs_known;
 
-	e = check_trans_from_gateway(peer->state, &req->trans.gateway);
+			e = check_trans_normal_inputs(peer->state,
+						      &req->trans.normal,
+						      &inputs_known,
+						      &bad_input_num,
+						      &bad_input);
+			/* FIXME: We currently insist on complete knowledge. */
+			if (!e && (inputs_known
+				   != le32_to_cpu(req->trans.normal.num_inputs))) {
+				e = PROTOCOL_ERROR_TRANS_BAD_INPUT;
+				bad_input = NULL;
+			}
+			if (e == PROTOCOL_ERROR_TRANS_BAD_INPUT)
+				goto bad_input;
+		}
+		break;
+	default:
+		e = PROTOCOL_ERROR_TRANS_UNKNOWN;
+		break;
+	}
 	if (e)
 		goto fail;
 
@@ -527,6 +550,20 @@ receive_trans(struct peer *peer,
 	return NULL;
 
 fail:
+	r->error = cpu_to_le32(e);
+	return r;
+
+bad_input:
+	/* We append information about the bad input transaction. */
+	assert(e == PROTOCOL_ERROR_TRANS_BAD_INPUT);
+	if (bad_input) {
+		tal_resize(&r, sizeof(*r) + sizeof(le32)
+			   + marshall_transaction_len(bad_input));
+		memcpy((char *)r + sizeof(le32),
+		       bad_input, marshall_transaction_len(bad_input));
+	} else
+		tal_resize(&r, sizeof(*r) + sizeof(le32));
+	*(le32 *)(r + 1) = cpu_to_le32(bad_input_num);
 	r->error = cpu_to_le32(e);
 	return r;
 }

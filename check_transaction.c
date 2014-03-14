@@ -126,22 +126,94 @@ static bool check_merkle(struct state *state,
 	return false;
 }
 
-bool check_trans_normal(struct state *state,
-			const struct protocol_transaction_normal *t)
+enum protocol_error
+check_trans_normal_basic(struct state *state,
+			 const struct protocol_transaction_normal *t)
 {
 	struct protocol_double_sha sha;
 
 	if (!version_ok(t->version))
-		return false;
+		return PROTOCOL_ERROR_HIGH_VERSION;
 
 	if (le32_to_cpu(t->send_amount) > MAX_SATOSHI)
-		return false;
+		return PROTOCOL_ERROR_TOO_LARGE;
 
 	if (le32_to_cpu(t->change_amount) > MAX_SATOSHI)
-		return false;
+		return PROTOCOL_ERROR_TOO_LARGE;
+
+	if (le32_to_cpu(t->num_inputs) > TRANSACTION_MAX_INPUTS)
+		return PROTOCOL_ERROR_TOO_MANY_INPUTS;
+
+	if (le32_to_cpu(t->num_inputs) == 0)
+		return PROTOCOL_ERROR_TOO_MANY_INPUTS;
 
 	hash_transaction((const union protocol_transaction *)t, NULL, 0, &sha);
-	return check_trans_sign(&sha, &t->input_key, &t->signature);
+	if (!check_trans_sign(&sha, &t->input_key, &t->signature))
+		return PROTOCOL_ERROR_TRANS_BAD_SIG;
+
+	return PROTOCOL_ERROR_NONE;
+}
+
+/* Sets bad_input_num and bad_input if PROTOCOL_ERROR_TRANS_BAD_INPUT.
+ *
+ * Otherwise bad_input_num indicates an unknown input.
+ */
+enum protocol_error
+check_trans_normal_inputs(struct state *state,
+			  const struct protocol_transaction_normal *t,
+			  unsigned int *inputs_known,
+			  unsigned int *bad_input_num,
+			  union protocol_transaction **bad_input)
+{
+	unsigned int i, num;
+	u64 input_total = 0;
+	struct protocol_address my_addr;
+
+	/* Get the input address used by this transaction. */
+	pubkey_to_addr(&t->input_key, &my_addr);
+
+	num = le32_to_cpu(t->num_inputs);
+	*inputs_known = 0;
+
+	for (i = 0; i < num; i++) {
+		struct thash_elem *te;
+		union protocol_transaction *in;
+		u32 amount;
+		struct protocol_address addr;
+
+		te = thash_get(&state->thash, &t->input[i].input);
+		if (!te) {
+			*bad_input_num = i;
+			continue;
+		}
+
+		(*inputs_known)++;
+		in = block_get_trans(te->block, te->tnum);
+		assert(in);
+
+		if (!find_output(in, t->input[i].output, &addr, &amount)) {
+			*bad_input_num = i;
+			*bad_input = in;
+			return PROTOCOL_ERROR_TRANS_BAD_INPUT;
+		}
+
+		/* Check it was to this address. */
+		if (memcmp(&my_addr, &addr, sizeof(addr)) != 0) {
+			*bad_input_num = i;
+			*bad_input = in;
+			return PROTOCOL_ERROR_TRANS_BAD_INPUT;
+		}
+
+		input_total += amount;
+	}
+
+	if (*inputs_known == num) {
+		if (input_total != (le32_to_cpu(t->send_amount)
+				    + le32_to_cpu(t->change_amount))) {
+			return PROTOCOL_ERROR_TRANS_BAD_AMOUNTS;
+		}
+	}
+	return PROTOCOL_ERROR_NONE;
 }
 
 static u32 shard_of(const struct protocol_address *addr)
@@ -245,7 +317,7 @@ static bool check_chain(struct state *state,
 		u64 total_input = 0;
 		struct protocol_address my_addr;
 
-		if (!check_trans_normal(state, &t->normal))
+		if (check_trans_normal_basic(state, &t->normal))
 			return false;
 		if (need_proof) {
 			if (!check_merkle(state, t, *proof))

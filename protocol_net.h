@@ -74,6 +74,9 @@ enum protocol_error {
 	PROTOCOL_ERROR_TRANS_CROSS_SHARDS, /* to different shards. */
 	PROTOCOL_ERROR_TOO_LARGE, /* too many satoshi in one transaction. */
 	PROTOCOL_ERROR_TRANS_BAD_SIG, /* invalid signature */
+	PROTOCOL_ERROR_TOO_MANY_INPUTS, /* > TRANSACTION_MAX_INPUTS. */
+	PROTOCOL_ERROR_TRANS_BAD_INPUT, /* an input is bad. */
+	PROTOCOL_ERROR_TRANS_BAD_AMOUNTS, /* total inputs != outputs  */
 
 	/* protocol_req_batch: */
 	PROTOCOL_ERROR_UNKNOWN_BLOCK, /* I don't know that block? */
@@ -164,6 +167,11 @@ struct protocol_resp_new_transaction {
 	le32 len; /* sizeof(struct protocol_resp_new_transaction) */
 	le32 type; /* PROTOCOL_RESP_NEW_TRANSACTION */
 	le32 error; /* Expect PROTOCOL_ERROR_NONE. */
+
+	/* If PROTOCOL_ERROR_TRANS_BAD_INPUT, followed by:
+	   le32 input;
+	   union protocol_transaction trans; (optional)
+	*/
 };
 
 /* Give me this batch. */
