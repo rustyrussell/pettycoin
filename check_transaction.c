@@ -379,9 +379,9 @@ static bool check_chain(struct state *state,
 
 /* Transaction consists of a new transaction, followed by a flattened tree
  * of prior transactions. */
-bool check_transaction(struct state *state,
-		       union protocol_transaction **trans,
-		       struct protocol_proof *proof)
+bool check_transaction_proof(struct state *state,
+			     union protocol_transaction **trans,
+			     struct protocol_proof *proof)
 {
 	size_t n = tal_count(trans);
 
@@ -399,4 +399,41 @@ bool check_transaction(struct state *state,
 
 	/* Must consume all of it. */
 	return n == 0;
+}
+
+enum protocol_error check_transaction(struct state *state,
+				      const union protocol_transaction *trans,
+				      union protocol_transaction **bad_input,
+				      unsigned int *bad_input_num)
+{
+	enum protocol_error e;
+
+	switch (trans->hdr.type) {
+	case TRANSACTION_FROM_GATEWAY:
+		e = check_trans_from_gateway(state, &trans->gateway);
+		break;
+	case TRANSACTION_NORMAL:
+		e = check_trans_normal_basic(state, &trans->normal);
+		if (!e) {
+			unsigned int inputs_known;
+
+			e = check_trans_normal_inputs(state,
+						      &trans->normal,
+						      &inputs_known,
+						      bad_input_num,
+						      bad_input);
+			/* FIXME: We currently insist on complete knowledge. */
+			if (!e && (inputs_known
+				   != le32_to_cpu(trans->normal.num_inputs))) {
+				e = PROTOCOL_ERROR_TRANS_BAD_INPUT;
+				*bad_input = NULL;
+			}
+		}
+		break;
+	default:
+		e = PROTOCOL_ERROR_TRANS_UNKNOWN;
+		break;
+	}
+
+	return e;
 }

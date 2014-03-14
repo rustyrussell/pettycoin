@@ -509,34 +509,10 @@ receive_trans(struct peer *peer,
 	if (e)
 		goto fail;
 
-	switch (req->trans.hdr.type) {
-	case TRANSACTION_FROM_GATEWAY:
-		e = check_trans_from_gateway(peer->state, &req->trans.gateway);
-		break;
-	case TRANSACTION_NORMAL:
-		e = check_trans_normal_basic(peer->state, &req->trans.normal);
-		if (!e) {
-			unsigned int inputs_known;
-
-			e = check_trans_normal_inputs(peer->state,
-						      &req->trans.normal,
-						      &inputs_known,
-						      &bad_input_num,
-						      &bad_input);
-			/* FIXME: We currently insist on complete knowledge. */
-			if (!e && (inputs_known
-				   != le32_to_cpu(req->trans.normal.num_inputs))) {
-				e = PROTOCOL_ERROR_TRANS_BAD_INPUT;
-				bad_input = NULL;
-			}
-			if (e == PROTOCOL_ERROR_TRANS_BAD_INPUT)
-				goto bad_input;
-		}
-		break;
-	default:
-		e = PROTOCOL_ERROR_TRANS_UNKNOWN;
-		break;
-	}
+	e = check_transaction(peer->state, &req->trans,
+			      &bad_input, &bad_input_num);
+	if (e == PROTOCOL_ERROR_TRANS_BAD_INPUT)
+		goto bad_input;
 	if (e)
 		goto fail;
 

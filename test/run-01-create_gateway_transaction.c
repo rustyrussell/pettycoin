@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
 
 	trans = tal_arr(s, union protocol_transaction *, 1);
 	trans[0] = t;
-	assert(check_transaction(s, trans, NULL));
+	assert(check_transaction_proof(s, trans, NULL));
 
 	/* Two payments (must be same shard!) */
 	payment = tal_arr(s, struct protocol_gateway_payment, 2);
@@ -76,51 +76,51 @@ int main(int argc, char *argv[])
 
 	trans = tal_arr(s, union protocol_transaction *, 1);
 	trans[0] = t;
-	assert(check_transaction(s, trans, NULL));
+	assert(check_transaction_proof(s, trans, NULL));
 
 	/* Now try changing it. */
 	t->gateway.version++;
-	assert(!check_transaction(s, trans, NULL));
+	assert(!check_transaction_proof(s, trans, NULL));
 	t->gateway.version--;
 
 	t->gateway.features++;
-	assert(!check_transaction(s, trans, NULL));
+	assert(!check_transaction_proof(s, trans, NULL));
 	t->gateway.features--;
 
 	t->gateway.type++;
-	assert(!check_transaction(s, trans, NULL));
+	assert(!check_transaction_proof(s, trans, NULL));
 	t->gateway.type--;
 
 	t->gateway.num_outputs = cpu_to_le16(le16_to_cpu(t->gateway.num_outputs)
 					     - 1);
-	assert(!check_transaction(s, trans, NULL));
+	assert(!check_transaction_proof(s, trans, NULL));
 	t->gateway.num_outputs = cpu_to_le16(le16_to_cpu(t->gateway.num_outputs)
 					     + 1);
 
 	t->gateway.output[0].send_amount ^= cpu_to_le32(1);
-	assert(!check_transaction(s, trans, NULL));
+	assert(!check_transaction_proof(s, trans, NULL));
 	t->gateway.output[0].send_amount ^= cpu_to_le32(1);
 
 	t->gateway.output[0].output_addr.addr[0]++;
-	assert(!check_transaction(s, trans, NULL));
+	assert(!check_transaction_proof(s, trans, NULL));
 	t->gateway.output[0].output_addr.addr[0]--;
 
 	t->gateway.output[1].send_amount ^= cpu_to_le32(1);
-	assert(!check_transaction(s, trans, NULL));
+	assert(!check_transaction_proof(s, trans, NULL));
 	t->gateway.output[1].send_amount ^= cpu_to_le32(1);
 
 	t->gateway.output[1].output_addr.addr[0]++;
-	assert(!check_transaction(s, trans, NULL));
+	assert(!check_transaction_proof(s, trans, NULL));
 	t->gateway.output[1].output_addr.addr[0]--;
 
 	/* We restored it ok? */
-	assert(check_transaction(s, trans, NULL));
+	assert(check_transaction_proof(s, trans, NULL));
 
 	/* Try signing it with non-gateway key. */
 	trans[0] = create_gateway_transaction(s, helper_public_key(0),
 					      2, 12, payment,
 					      helper_private_key(0));
-	assert(!check_transaction(s, trans, NULL));
+	assert(!check_transaction_proof(s, trans, NULL));
 
 	tal_free(s);
 	return 0;

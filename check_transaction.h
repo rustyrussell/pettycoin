@@ -27,9 +27,14 @@ check_trans_from_gateway(struct state *state,
 			 const struct protocol_transaction_gateway *t);
 
 /* True if OK. */
-bool check_transaction(struct state *state,
-		       union protocol_transaction **trans,
-		       struct protocol_proof *proof);
+bool check_transaction_proof(struct state *state,
+			     union protocol_transaction **trans,
+			     struct protocol_proof *proof);
+
+enum protocol_error check_transaction(struct state *state,
+				      const union protocol_transaction *trans,
+				      union protocol_transaction **bad_input,
+				      unsigned int *bad_input_num);
 
 /* Find the output_num'th output in trans */
 bool find_output(union protocol_transaction *trans, u16 output_num,

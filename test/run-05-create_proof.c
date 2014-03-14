@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
 	assert(tal_count(transarr) == 2);
 	assert(tal_count(proof) == 1);
 
-	assert(check_transaction(s, transarr, proof));
+	assert(check_transaction_proof(s, transarr, proof));
 
 	/* Now address 1 pays 500 to address 3. */
 	t = named_trans(s, "1to3", 1, 3, 500, "gateway1-1", NULL);
@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
 	assert(tal_count(transarr) == 2);
 	assert(tal_count(proof) == 1);
 
-	assert(check_transaction(s, transarr, proof));
+	assert(check_transaction_proof(s, transarr, proof));
 
 	/* Both go into block. */
 	b[1] = block_with_names(s);
@@ -95,7 +95,7 @@ int main(int argc, char *argv[])
 	assert(tal_count(transarr) == 5);
 	assert(tal_count(proof) == 4);
 
-	assert(check_transaction(s, transarr, proof));
+	assert(check_transaction_proof(s, transarr, proof));
 
 	b[2] = block_with_names(s);
 
@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
 	assert(tal_count(transarr) == 6);
 	assert(tal_count(proof) == 5);
 
-	assert(check_transaction(s, transarr, proof));
+	assert(check_transaction_proof(s, transarr, proof));
 
 	tal_free(s);
 	return 0;
