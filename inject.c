@@ -12,7 +12,7 @@
  mv5fpRMAhaPV9LBrAk3MaBH8FG13TpqTxD
  $ bitcoind -testnet dumpprivkey mv5fpRMAhaPV9LBrAk3MaBH8FG13TpqTxD
  cUjJCgPjWAdsJBm85zwCg7ekLYkeeRRoUmkNk3wYydrhbHYKxnwt
- $ ./inject tx cTQSBNmMkbCUdFetsnSfzdAiJcdngQsKLyYWVTKgm6fE9GLN74qR localhost 56344 50 50 6ac5ce095cb096d16ab81cf276486615df8714105bc0672639bbc31bfd8071c1/0
+ $ ./inject tx cTQSBNmMkbCUdFetsnSfzdAiJcdngQsKLyYWVTKgm6fE9GLN74qR localhost 56344 50 50 mv5fpRMAhaPV9LBrAk3MaBH8FG13TpqTxD 6ac5ce095cb096d16ab81cf276486615df8714105bc0672639bbc31bfd8071c1/0
 */
 #include <ccan/err/err.h>
 #include <ccan/net/net.h>
