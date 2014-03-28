@@ -4,6 +4,7 @@
 #include "state.h"
 #include "generating.h"
 #include "transaction_cmp.h"
+#include "check_transaction.h"
 #include "block.h"
 #include "peer.h"
 
@@ -67,6 +68,9 @@ void update_pending_transactions(struct state *state)
 	for (i = 0; i < num; i++) {
 		struct thash_elem *te;
 		struct protocol_double_sha sha;
+		union protocol_transaction *bad_input;
+		unsigned int bad_input_num;
+		enum protocol_error e;
 
 		hash_transaction(state->pending->t[i], NULL, 0, &sha);
 		te = thash_get(&state->thash, &sha);
@@ -80,8 +84,21 @@ void update_pending_transactions(struct state *state)
 		if (te && te->block->main_chain)
 			goto discard;
 
-		/* FIXME: Discard if not valid any more, eg. inputs
-		 * already spent. */
+		/* Discard if no longer valid (inputs already spent) */
+		e = check_transaction(state, state->pending->t[i],
+				      &bad_input, &bad_input_num);
+		if (e) {
+			log_debug(state->log, "%zu is now ", i);
+			log_add_enum(state->log, enum protocol_error, e);
+			if (e == PROTOCOL_ERROR_TRANS_BAD_INPUT) {
+				log_add(state->log,
+					": input %u ", bad_input_num);
+				log_add_struct(state->log,
+					       union protocol_transaction,
+					       bad_input);
+			}
+			goto discard;
+		}
 		continue;
 
 	discard:
