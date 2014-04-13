@@ -157,6 +157,7 @@ static void add_to_thash(struct state *state,
 	     i++) {
 		struct thash_elem *te;
 		struct protocol_double_sha sha;
+		struct thash_iter iter;
 
 		if (!batch->t[i])
 			continue;
@@ -165,8 +166,16 @@ static void add_to_thash(struct state *state,
 
 		/* It could already be there (alternate chain, or previous
 		 * partial batch which we just overwrote). */
-		te = thash_get(&state->thash, &sha);
+		for (te = thash_firstval(&state->thash, &sha, &iter);
+		     te;
+		     te = thash_nextval(&state->thash, &sha, &iter)) {
+			/* Previous partial batch which we just overwrote? */
+			if (te->block == block && te->tnum == i)
+				break;
+		}
+
 		if (!te) {
+			/* Add a new one for this block. */
 			te = tal(state, struct thash_elem);
 			te->block = block;
 			te->tnum = i;

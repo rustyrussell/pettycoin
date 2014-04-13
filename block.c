@@ -55,30 +55,6 @@ struct block *block_find(struct block *start, const u8 lower_sha[4])
 	return b;
 }
 
-static void update_thashes(struct state *state, struct block *b)
-{
-	u32 i, num = le32_to_cpu(b->hdr->num_transactions);
-
-	for (i = 0; i < num; i++) {
-		union protocol_transaction *t = block_get_trans(b, i);
-		struct thash_elem *te;
-		struct protocol_double_sha sha;
-
-		/* For the moment, blocks are always full.  Not forever. */
-		if (!t)
-			continue;
-
-		/* Must already be in thash: added when added to block. */
-		hash_transaction(t, NULL, 0, &sha);
-		te = thash_get(&state->thash, &sha);
-
-		if (te->block != b) {
-			te->block = b;
-			te->tnum = i;
-		}
-	}
-}
-
 /* In normal operation, this is a convoluted way of adding b to the main chain */
 static void promote_to_main(struct state *state, struct block *b)
 {
@@ -98,8 +74,6 @@ static void promote_to_main(struct state *state, struct block *b)
 		/* Add to front, since we're going backwards. */
 		list_add(&to_main, &i->list);
 		i->main_chain = true;
-		/* Make sure entries in thash point to *this* block. */
-		update_thashes(state, i);
 	}
 
 	/* This is where we meet the (old) main chain. */

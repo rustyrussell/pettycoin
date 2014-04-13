@@ -60,9 +60,16 @@ static void add_inputs(struct state *state,
 		for (i = 0; i < le32_to_cpu(t->normal.num_inputs); i++) {
 			union protocol_transaction *subt;
 			struct thash_elem *e;
+			struct thash_iter iter;
+			const struct protocol_double_sha *sha;
 
-			e = thash_get(&state->thash,
-				      &t->normal.input[i].input);
+			sha = &t->normal.input[i].input;
+			for (e = thash_firstval(&state->thash, sha, &iter);
+			     e;
+			     e = thash_nextval(&state->thash, sha, &iter)) {
+				if (e->block->main_chain)
+					break;
+			}
 			assert(e);
 			subt = block_get_trans(e->block, e->tnum);
 			assert(subt);

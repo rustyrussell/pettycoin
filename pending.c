@@ -76,17 +76,25 @@ void update_pending_transactions(struct state *state)
 		union protocol_transaction *bad_input;
 		unsigned int bad_input_num;
 		enum protocol_error e;
+		struct thash_iter iter;
+		bool in_main = false;
 
 		hash_transaction(state->pending->t[i], NULL, 0, &sha);
-		te = thash_get(&state->thash, &sha);
 
-		log_debug(state->log, "%zu is %s",
-			  i, te ? (te->block->main_chain ? "IN MAIN" 
-				   : "OFF MAIN")
-			  : "NOT FOUND");
+		te = thash_firstval(&state->thash, &sha, &iter);
+		if (!te)
+			log_debug(state->log, "%zu is NOT FOUND", i);
+			
+		for (; te; te = thash_nextval(&state->thash, &sha, &iter)) {
+			if (te->block->main_chain)
+				in_main = true;
+			log_debug(state->log, "%zu is %s",
+				  i, te->block->main_chain ? "IN MAIN" 
+				  : "OFF MAIN");
+		}
 
 		/* Already in main chain?  Discard. */
-		if (te && te->block->main_chain)
+		if (in_main)
 			goto discard;
 
 		/* Discard if no longer valid (inputs already spent) */

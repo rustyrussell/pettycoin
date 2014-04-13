@@ -176,20 +176,18 @@ check_trans_normal_inputs(struct state *state,
 	*inputs_known = 0;
 
 	for (i = 0; i < num; i++) {
-		struct thash_elem *te;
 		union protocol_transaction *in;
 		u32 amount;
 		struct protocol_address addr;
 
-		te = thash_get(&state->thash, &t->input[i].input);
-		if (!te) {
+		/* FIXME: Search pending transactions too! */
+		in = thash_gettrans(&state->thash, &t->input[i].input);
+		if (!in) {
 			*bad_input_num = i;
 			continue;
 		}
 
 		(*inputs_known)++;
-		in = block_get_trans(te->block, te->tnum);
-		assert(in);
 
 		if (!find_output(in, t->input[i].output, &addr, &amount)) {
 			*bad_input_num = i;

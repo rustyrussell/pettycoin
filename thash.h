@@ -39,4 +39,16 @@ static inline bool thash_eq(const struct thash_elem *elem,
 
 HTABLE_DEFINE_TYPE(struct thash_elem,
 		   thash_keyof, thash_hashfn, thash_eq, thash);
+
+/* Since a transaction can appear in multiple blocks (different chains)... */
+struct thash_elem *thash_firstval(struct thash *thash,
+				  const struct protocol_double_sha *sha,
+				  struct thash_iter *i);
+struct thash_elem *thash_nextval(struct thash *thash,
+				 const struct protocol_double_sha *sha,
+				 struct thash_iter *i);
+
+/* Get the actual transaction, we don't care about which block it's in */
+union protocol_transaction *thash_gettrans(struct thash *thash,
+					   const struct protocol_double_sha *);
 #endif /* PETTYCOIN_THASH_H */
