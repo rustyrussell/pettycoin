@@ -70,7 +70,14 @@ static bool load_transaction(struct state *state, struct protocol_net_hdr *pkt)
 		return false;
 
 	batch = block->batch[batch_index(num)];
+	if (!batch) {
+		batch = block->batch[batch_index(num)]
+			= talz(block->batch, struct transaction_batch);
+		batch->trans_start = batch_index(num) << PETTYCOIN_BATCH_ORDER;
+	}
+	assert(!batch->t[num % (1 << PETTYCOIN_BATCH_ORDER)]);
 	batch->t[num % (1 << PETTYCOIN_BATCH_ORDER)] = t;
+	batch->count++;
 	return true;
 }
 
