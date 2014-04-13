@@ -269,8 +269,7 @@ void update_peers_mutual(struct state *state)
 		while (!block_in_main(p->mutual))
 			p->mutual = p->mutual->prev;
 
-		if (p->w && io_is_idle(p->w))
-			io_wake(p->w, plan_output(p->w, p));
+		io_wake(p);
 	}
 }
 
@@ -364,7 +363,7 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 	/* Are we waiting for a response? */
 	if (peer->curr_out_req != PROTOCOL_REQ_NONE) {
 		log_debug(peer->log, "Awaiting response packet");
-		return io_idle();
+		return io_wait(peer, plan_output, peer);
 	}
 
 	/* Second, do we have any blocks to send? */
@@ -403,7 +402,7 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 
 	/* Otherwise, we're idle. */
 	log_debug(peer->log, "Nothing to send");
-	return io_idle();
+	return io_wait(peer, plan_output, peer);
 
 write:
 	log_debug(peer->log, "Sending ");
@@ -878,10 +877,7 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 	}
 
 	/* Wake output if necessary. */
-	if (io_is_idle(peer->w)) {
-		log_debug(peer->log, "Waking output");
-		io_wake(peer->w, plan_output(peer->w, peer));
-	}
+	io_wake(peer);
 
 	tal_free(ctx);
 	return io_read_packet(&peer->incoming, pkt_in, peer);
@@ -904,11 +900,12 @@ bad_resp_length:
 	goto send_error;
 
 send_error:
-	if (io_is_idle(peer->w))
-		io_wake(peer->w, plan_output(peer->w, peer));
+	/* In case writer is waiting. */
+	io_wake(peer);
 
+	/* Wait for writer to send error. */
 	tal_free(ctx);
-	return io_idle();
+	return io_wait(peer, io_close_cb, NULL);
 }
 
 static void close_writer(struct io_conn *conn, struct peer *peer)

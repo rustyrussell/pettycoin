@@ -45,7 +45,7 @@ struct generator {
 	struct list_head updates;
 };
 
-/* After answer fd closes, this gets called. */
+/* After both fds close, this gets called. */
 static void reap_generator(struct io_conn *conn, struct generator *gen)
 {
 	int status;
@@ -54,6 +54,8 @@ static void reap_generator(struct io_conn *conn, struct generator *gen)
 	int ret;
 
 	log_debug(gen->log, "Generator closed");
+	assert(!gen->answer);
+	assert(!gen->update);
 
 	/* If we use WHOHANG here, we get occasional failures under
 	 * load.  The implicit close on exit is done before the kernel
@@ -87,6 +89,27 @@ static void reap_generator(struct io_conn *conn, struct generator *gen)
 		start_generating(state);
 }
 
+/* Whichever fd gets closed last reaps the generator */
+static void finish_update(struct io_conn *conn, struct generator *gen)
+{
+	assert(gen->update);
+	gen->update = NULL;
+	if (gen->answer)
+		io_close_other(gen->answer);
+	else
+		reap_generator(conn, gen);
+}
+
+static void finish_answer(struct io_conn *conn, struct generator *gen)
+{
+	assert(gen->answer);
+	gen->answer = NULL;
+	if (gen->update)
+		io_close_other(gen->update);
+	else
+		reap_generator(conn, gen);
+}		       
+
 static struct io_plan do_send_trans(struct io_conn *conn,struct generator *gen);
 
 static struct io_plan trans_sent(struct io_conn *conn, struct generator *gen)
@@ -113,8 +136,8 @@ static struct io_plan do_send_trans(struct io_conn *conn, struct generator *gen)
 		return io_write(&u->update, sizeof(u->update), trans_sent, gen);
 	}
 
-	log_debug(gen->log, "Sending transactions going idle");
-	return io_idle();
+	log_debug(gen->log, "Sending transactions going idle %p", gen);
+	return io_wait(gen, do_send_trans, gen);
 }
 
 static struct io_plan send_go_byte(struct io_conn *conn, struct generator *gen)
@@ -302,10 +325,11 @@ static void exec_generator(struct generator *gen)
 				  io_write(prev_merkles,
 					   tal_count(prev_merkles) * sizeof(u8),
 					   send_go_byte, gen));
+	io_set_finish(gen->update, finish_update, gen);
 	gen->answer = io_new_conn(outfd[0],
 				  io_read_packet(&gen->pkt_in, got_solution,
 						 gen));
-	io_set_finish(gen->answer, reap_generator, gen);
+	io_set_finish(gen->answer, finish_answer, gen);
 }
 
 void tell_generator_new_pending(struct state *state, unsigned int num)
@@ -326,9 +350,7 @@ void tell_generator_new_pending(struct state *state, unsigned int num)
 	update->update.cookie = t;
 	hash_transaction(t, NULL, 0, &update->update.hash);
 	list_add_tail(&state->gen->updates, &update->list);
-	if (io_is_idle(state->gen->update))
-		io_wake(state->gen->update,
-			do_send_trans(state->gen->update, state->gen));
+	io_wake(state->gen);
 }
 
 /* FIXME: multiple generators. */
