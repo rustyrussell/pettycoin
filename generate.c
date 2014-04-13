@@ -263,8 +263,7 @@ static bool read_all_or_none(int fd, void *buf, size_t len)
 	return true;
 }
 
-/* Return false on EOF. */
-static bool read_transaction(struct working_block *w)
+static void read_transactions(struct working_block *w)
 {
 	struct update *update = tal(w, struct update);
 
@@ -276,7 +275,6 @@ static bool read_transaction(struct working_block *w)
 	}
 
 	tal_free(update);
-	return true;
 }
 
 static bool char_to_hex(u8 *val, char c)
@@ -384,10 +382,7 @@ int main(int argc, char *argv[])
 	do {
 		if (input) {
 			input = false;
-			if (!read_transaction(w)) {
-				tal_free(ctx);
-				return 0;
-			}
+			read_transactions(w);
 		}
 	} while (!solve_block(w));
 

@@ -66,7 +66,7 @@ static void reap_generator(struct io_conn *conn, struct generator *gen)
 		log_unusual(gen->log,
 			    "Waiting for generator %s %u returned %i %s",
 			    gen->state->generate, gen->pid, ret, strerror(errno));
-	} else if (WIFSIGNALED(status)) {
+	} else if (WIFSIGNALED(status) && WTERMSIG(status) != SIGUSR1) {
 		log_unusual(gen->log,
 			    "generator %s %u exited with signal %u",
 			    gen->state->generate, gen->pid, WTERMSIG(status));
@@ -368,7 +368,7 @@ void restart_generating(struct state *state)
 	if (state->gen) {
 		log_debug(state->gen->log, "shutdown due to restart");
 		/* This should make the generator shutdown. */
-		io_close_other(state->gen->update);
+		kill(state->gen->pid, SIGUSR1);
 		/* Don't restart again before it's reaped. */
 		state->gen = NULL;
 	}
