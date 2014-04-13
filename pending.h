@@ -4,7 +4,6 @@
 
 /* aka state->pending */
 struct pending_block {
-	struct block *prev;
 	u8 *prev_merkles;
 	const union protocol_transaction **t;
 };

@@ -8,6 +8,7 @@
 #include "pseudorand.h"
 #include "log.h"
 #include "peer.h"
+#include "pending.h"
 
 struct state *new_state(bool test_net)
 {
@@ -19,6 +20,7 @@ struct state *new_state(bool test_net)
 	s->block_depth[0] = tal(s->block_depth, struct list_head);
 	list_head_init(s->block_depth[0]);
 	s->longest_chain = &genesis;
+	s->longest_known = &genesis;
 	thash_init(&s->thash);
 	s->num_peers = 0;
 	s->num_peers_connected = 0;
@@ -37,8 +39,10 @@ struct state *new_state(bool test_net)
 	if (!BN_zero(&genesis.total_work))
 		errx(1, "Failed to initialize genesis block");
 	genesis.main_chain = true;
+	genesis.all_known = true;
 
 	list_add_tail(s->block_depth[0], &genesis.list);
+	s->pending = new_pending_block(s);
 	return s;
 }
 

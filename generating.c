@@ -273,7 +273,7 @@ static void exec_generator(struct generator *gen)
 	char log_prefix[40];
 	const u8 *prev_merkles = gen->state->pending->prev_merkles;
 
-	last = gen->state->pending->prev;
+	last = gen->state->longest_known;
 	sprintf(difficulty, "%u", get_difficulty(gen->state, last));
 	sprintf(prev_merkle_str, "%zu", tal_count(prev_merkles));
 	for (i = 0; i < sizeof(struct protocol_double_sha); i++)

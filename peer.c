@@ -477,9 +477,7 @@ receive_block(struct peer *peer, const struct protocol_req_new_block *req)
 			  new->blocknum);
 		tal_free(new);
 	} else {
-		if (block_add(peer->state, new))
-			restart_generating(peer->state);
-
+		block_add(peer->state, new);
 		save_block(peer->state, new);
 		/* Update mutual block if this was in main chain. */
 		if (new->main_chain) {

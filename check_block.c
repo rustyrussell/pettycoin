@@ -13,12 +13,50 @@
 #include "transaction_cmp.h"
 #include "hash_block.h"
 #include "prev_merkles.h"
+#include "generating.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/tal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 
+static void update_recursive(struct state *state, struct block *block)
+{
+	if (!block->prev->all_known || !block_full(block, NULL))
+		return;
+
+	assert(!block->all_known);
+	block->all_known = true;
+
+	/* New winner to start mining on? */
+	if (BN_cmp(&block->total_work, &state->longest_known->total_work) > 0)
+		state->longest_known = block;
+
+	/* Check descendents. */
+	if (block->blocknum + 1 < tal_count(state->block_depth)) {
+		struct block *b;
+
+		list_for_each(state->block_depth[block->blocknum + 1], b, list)
+			if (b->prev == block)
+				update_recursive(state, b);
+	}
+}
+
+static void update_all_known(struct state *state, struct block *block)
+{
+	struct block *prev_longest = state->longest_known;
+
+	update_recursive(state, block);
+
+	/* If that changed the longest known, we need to start mining there. */
+	if (state->longest_known != prev_longest) {
+		log_debug(state->log, "Longest known moved from %u to %u",
+			  prev_longest->blocknum,
+			  state->longest_known->blocknum);
+		restart_generating(state);
+	}
+}
+		
 /* Returns NULL if bad.  Not sufficient by itself: see check_batch_valid and
  * check_block_prev_merkles! */
 enum protocol_error
@@ -80,8 +118,9 @@ check_block_header(struct state *state,
 	block->merkles = merkles;
 	block->prev_merkles = prev_merkles;
 	block->tailer = tailer;
+	block->all_known = false;
 	/* Corner case for zero transactions. */
-	block->all_known = block->prev->all_known && block_full(block, NULL);
+	update_all_known(state, block);
 
 	return PROTOCOL_ERROR_NONE;
 
@@ -187,37 +226,6 @@ static void add_to_thash(struct state *state,
 	}
 }
 
-/* FIXME: Inefficient! */
-static void update_descendents_all_known(struct state *state,
-					 struct block *prev)
-{
-	struct block *i;
-
-	assert(prev->all_known);
-	if (block_in_main(prev)) {
-		for (i = list_next(&state->main_chain, prev, list);
-		     i;
-		     i = list_next(&state->main_chain, i, list)) {
-			if (block_full(i, NULL)) {
-				assert(!i->all_known);
-				i->all_known = true;
-			} else
-				break;
-		}
-	} else {
-		list_for_each(&state->off_main, i, list) {
-			if (i->prev != prev)
-				continue;
-			if (block_full(i, NULL)) {
-				assert(!i->all_known);
-				i->all_known = true;
-				/* FIXME: Oh, the horror! */
-				update_descendents_all_known(state, i);
-			}
-		}
-	}
-}
-		
 bool put_batch_in_block(struct state *state,
 			struct block *block,
 			struct transaction_batch *batch)
@@ -275,10 +283,7 @@ bool put_batch_in_block(struct state *state,
 
 	add_to_thash(state, block, block->batch[batchnum]);
 
-	if (block_full(block, NULL)) {
-		block->all_known = block->prev->all_known;
-		update_descendents_all_known(state, block);
-	}
+	update_all_known(state, block);
 
 	/* FIXME: re-check prev_merkles for any descendents. */
 	/* FIXME: re-check pending transactions with unknown inputs

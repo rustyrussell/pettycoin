@@ -24,7 +24,6 @@
 #include "pseudorand.h"
 #include "generating.h"
 #include "blockfile.h"
-#include "pending.h"
 
 /* Tal wrappers for opt and io. */
 static void *opt_allocfn(size_t size)
@@ -248,7 +247,6 @@ int main(int argc, char *argv[])
 	init_peer_cache(state);
 	make_listeners(state);
 	fill_peers(state);
-	state->pending = new_pending_block(state);
 	start_generating(state);
 
 	io_loop();

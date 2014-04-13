@@ -8,55 +8,17 @@
 #include "block.h"
 #include "peer.h"
 
-static bool known_in_full(const struct block *block)
-{
-	const struct block *i;
-
-	for (i = block; i; i = i->prev)
-		if (!block_full(i, NULL))
-			return false;
-	return true;
-}
-
-/* Find the deepest block that we know everything about. */
-static struct block *last_full(struct state *state)
-{
-	struct block *b, *best = (struct block *)genesis_block(state);
-	int i, num = tal_count(state->block_depth);
-
-	/* FIXME: insanely slow. */
-	for (i = num - 1; i >= 0; i--) {
-		list_for_each(state->block_depth[i], b, list) {
-			if (!known_in_full(b)) {
-				log_debug(state->log,
-					  "Block %u is not full, ignoring!", i);
-				continue;
-			}
-			if (BN_cmp(&b->total_work, &best->total_work) > 0) {
-				log_debug(state->log, "Work for block %u ", i);
-				log_add_struct(state->log,
-					       struct protocol_double_sha,
-					       &b->sha);
-				log_add(state->log, " = ");
-				log_add_struct(state->log, BIGNUM,
-					       &b->total_work);
-				best = b;
-			}
-		}
-	}
-	return best;
-}
-
 struct pending_block *new_pending_block(struct state *state)
 {
 	struct pending_block *b = tal(state, struct pending_block);
 
-	b->prev = last_full(state);
-	b->prev_merkles = make_prev_merkles(b, state, b->prev,
+	b->prev_merkles = make_prev_merkles(b, state, state->longest_known,
 					    generating_address(state));
 	b->t = tal_arr(b, const union protocol_transaction *, 0);
 	return b;
 }
+
+/* FIXME: Pending should track longest *known*, not main chain! */
 
 /* Block is no longer in main chain.  Dump all its transactions into pending:
  * followed up cleanup_pending to remove any which are in main due to other
@@ -83,13 +45,7 @@ void steal_pending_transactions(struct state *state, const struct block *block)
 
 void update_pending_transactions(struct state *state)
 {
-	size_t i, num;
-
-	/* Can happen if we're loading from disk. */
-	if (!state->pending)
-		return;
-
-	num = tal_count(state->pending->t);
+	size_t i, num = tal_count(state->pending->t);
 
 	log_debug(state->log, "Searching %zu pending transactions", num);
 	for (i = 0; i < num; i++) {
@@ -156,9 +112,9 @@ void update_pending_transactions(struct state *state)
 	/* Finally, recalculate prev_merkles. */
 	tal_free(state->pending->prev_merkles);
 
-	state->pending->prev = last_full(state);
 	state->pending->prev_merkles
-		= make_prev_merkles(state->pending, state, state->pending->prev,
+		= make_prev_merkles(state->pending, state,
+				    state->longest_known,
 				    generating_address(state));
 }
 

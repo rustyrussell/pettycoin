@@ -25,6 +25,9 @@ struct state {
 	/* Head of longest chain (most work). */
 	struct block *longest_chain;
 
+	/* Head of longest chain with all transactions known (for mining). */
+	struct block *longest_known;
+
 	/* Block we're working on now. */
 	struct pending_block *pending;
 
