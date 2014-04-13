@@ -8,21 +8,43 @@
 #include "block.h"
 #include "peer.h"
 
-/* Find the last block that we know everything about. */
+static bool known_in_full(const struct block *block)
+{
+	const struct block *i;
+
+	for (i = block; i; i = i->prev)
+		if (!block_full(i, NULL))
+			return false;
+	return true;
+}
+
+/* Find the deepest block that we know everything about. */
 static struct block *last_full(struct state *state)
 {
-	struct block *i, *prev;
+	struct block *b, *best = (struct block *)genesis_block(state);
+	int i, num = tal_count(state->block_depth);
 
-	/* FIXME: slow. */
-	list_for_each(&state->main_chain, i, list) {
-		if (!block_full(i, NULL)) {
-			log_debug(state->log, "Block %u is not full, using %u!",
-				  i->blocknum, prev->blocknum);
-			break;
+	/* FIXME: insanely slow. */
+	for (i = num - 1; i >= 0; i--) {
+		list_for_each(state->block_depth[i], b, list) {
+			if (!known_in_full(b)) {
+				log_debug(state->log,
+					  "Block %u is not full, ignoring!", i);
+				continue;
+			}
+			if (BN_cmp(&b->total_work, &best->total_work) > 0) {
+				log_debug(state->log, "Work for block %u ", i);
+				log_add_struct(state->log,
+					       struct protocol_double_sha,
+					       &b->sha);
+				log_add(state->log, " = ");
+				log_add_struct(state->log, BIGNUM,
+					       &b->total_work);
+				best = b;
+			}
 		}
-		prev = i;
 	}
-	return prev;
+	return best;
 }
 
 struct pending_block *new_pending_block(struct state *state)

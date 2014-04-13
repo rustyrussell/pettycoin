@@ -10,7 +10,7 @@ static size_t welcome_iter(const struct state *state,
 	const struct block *b, *last;
 	unsigned int n, step;
 
-	last = b = list_tail(&state->main_chain, struct block, list);
+	last = b = state->longest_chain;
 
 	if (block_arr)
 		block_arr[0] = b->sha;
@@ -24,7 +24,7 @@ static size_t welcome_iter(const struct state *state,
 			step *= 2;
 
 		for (i = 0; i < step; i++) {
-			b = list_prev(&state->main_chain, b, list);
+			b = b->prev;
 			if (!b)
 				goto out;
 		}

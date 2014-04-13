@@ -322,17 +322,33 @@ static struct io_plan response_sent(struct io_conn *conn, struct peer *peer)
 	return plan_output(conn, peer);
 }
 
-static struct block *find_main_incomplete(struct list_head *main_chain,
-					  unsigned int *batchnum)
+static struct block *find_incomplete(struct state *state,
+				     unsigned int *batchnum)
 {
-	struct block *i;
+	struct block *i, *last_incomplete = NULL;
 
-	/* FIXME: Inefficient, could use pending->prev to terminate. */
-	list_for_each_rev(main_chain, i, list) {
+	/* FIXME: Inefficient, but we want to ask forwards... */
+	for (i = state->longest_chain; i; i = i->prev) {
 		if (!block_full(i, batchnum))
-			return i;
+			last_incomplete = i;
 	}
-	return NULL;
+	return last_incomplete;
+}
+
+static struct block *get_next_mutual_block(struct peer *peer)
+{
+	struct block *b;
+
+	/* You have the longest chain we know about? */
+	if (peer->mutual == peer->state->longest_chain)
+		return NULL;
+
+	/* Search back for mutual (FIXME: inefficient!) */
+	b = peer->state->longest_chain;
+	while (b->prev != peer->mutual)
+		b = b->prev;
+
+	return b;
 }
 
 static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
@@ -367,7 +383,7 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 	}
 
 	/* Second, do we have any blocks to send? */
-	next = list_next(&peer->state->main_chain, peer->mutual, list);
+	next = get_next_mutual_block(peer);
 	if (next) {
 		log_debug(peer->log, "Sending block %u", next->blocknum);
 		peer->curr_out_req = PROTOCOL_REQ_NEW_BLOCK;
@@ -376,8 +392,9 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 		goto write;
 	}
 
-	/* Do we have a main chain block we don't know the transactions for? */
-	next = find_main_incomplete(&peer->state->main_chain, &batchnum);
+	/* Do we have a block in longest chain we don't know the
+	 * transactions for? */
+	next = find_incomplete(peer->state, &batchnum);
 	if (next) {
 		log_debug(peer->log, "Need batch %u for block %u",
 			  batchnum, next->blocknum);
@@ -479,7 +496,7 @@ receive_block(struct peer *peer, const struct protocol_req_new_block *req)
 	r = tal(peer, struct protocol_resp_new_block);
 	r->len = cpu_to_le32(sizeof(*r));
 	r->type = cpu_to_le32(PROTOCOL_RESP_NEW_BLOCK);
-	r->final = list_tail(&peer->state->main_chain, struct block, list)->sha;
+	r->final = peer->state->longest_chain->sha;
 
 	assert(!peer->response);
 	peer->response = r;

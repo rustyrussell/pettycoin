@@ -19,11 +19,11 @@ struct state {
 	/* Port number we're listening on. */
 	be16 listen_port;
 
-	/* Blocks in main chain, in increasing depth order. */
-	struct list_head main_chain;
+	/* Array of pointers to lists, one for each block depth. */
+	struct list_head **block_depth;
 
-	/* Non-main-chain blocks, unordered. */
-	struct list_head off_main;
+	/* Head of longest chain (most work). */
+	struct block *longest_chain;
 
 	/* Block we're working on now. */
 	struct pending_block *pending;

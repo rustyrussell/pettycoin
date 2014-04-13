@@ -16,29 +16,34 @@ bool block_in_main(const struct block *block)
 
 static void check_chains(const struct state *state)
 {
-	const struct block *i, *prev;
+	const struct block *i, *prev_main = NULL;
+	size_t n;
+	bool found_prev_main = true;
 
-	list_check(&state->main_chain, "bad main chain");
-	list_check(&state->off_main, "bad off_main chain");
+	for (n = 0; n < tal_count(state->block_depth); n++) {
+		bool found_main = false;
 
-	prev = NULL;
-	list_for_each(&state->main_chain, i, list) {
-		assert(i->main_chain);
-		assert(i->prev == prev);
-		if (prev) {
-			assert(i->blocknum == prev->blocknum + 1);
-			assert(memcmp(&i->hdr->prev_block, &prev->sha,
-				      sizeof(prev->sha)) == 0);
-		} else
-			assert(i->blocknum == 0);
-		prev = i;
-	}
-
-	list_for_each(&state->off_main, i, list) {
-		assert(!i->main_chain);
-		assert(i->blocknum == i->prev->blocknum + 1);
-		assert(memcmp(&i->hdr->prev_block, &i->prev->sha,
-			      sizeof(i->prev->sha)) == 0);
+		list_check(state->block_depth[n], "bad block depth");
+		list_for_each(state->block_depth[n], i, list) {
+			if (i->main_chain) {
+				/* Only one on main chain! */
+				assert(!found_main);
+				found_main = true;
+				if (n == 0)
+					assert(i == genesis_block(state));
+				assert(i->prev == prev_main);
+				prev_main = i;
+			}
+			assert(i->blocknum == n);
+			if (n != 0) {
+				assert(memcmp(&i->hdr->prev_block, &i->prev->sha,
+					      sizeof(i->prev->sha)) == 0);
+			}
+		}
+		/* You can't be in main if previous wasn't! */
+		if (found_main)
+			assert(found_prev_main);
+		found_prev_main = found_main;
 	}
 }
 
@@ -68,13 +73,9 @@ static void promote_to_main(struct state *state, struct block *b)
 
 	check_chains(state);
 
-	/* Find where we meet main chain, moving onto the to_main list. */
-	for (i = b; !block_in_main(i); i = i->prev) {
-		list_del_from(&state->off_main, &i->list);
-		/* Add to front, since we're going backwards. */
-		list_add(&to_main, &i->list);
+	/* Find where we meet (old) main chain, setting main flags. */
+	for (i = b; !block_in_main(i); i = i->prev)
 		i->main_chain = true;
-	}
 
 	/* This is where we meet the (old) main chain. */
 	common = i;
@@ -83,18 +84,13 @@ static void promote_to_main(struct state *state, struct block *b)
 	log_add_struct(state->log, struct protocol_double_sha, &common->sha);
 
 	/* Remove everything beyond that from the main chain. */
-	for (i = list_tail(&state->main_chain, struct block, list);
-	     i != common;
-	     i = i->prev) {
+	for (i = state->longest_chain; i != common; i = i->prev) {
 		assert(block_in_main(i));
-		list_del_from(&state->main_chain, &i->list);
 		i->main_chain = false;
-		list_add_tail(&from_main, &i->list);
-		steal_pending_transactions(state, i);
 	}
 
-	/* Append blocks which are now on the main chain. */
-	list_append_list(&state->main_chain, &to_main);
+	/* Now this block is the end of the longest chain */
+	state->longest_chain = b;
 	update_pending_transactions(state);
 
 	check_chains(state);
@@ -102,23 +98,30 @@ static void promote_to_main(struct state *state, struct block *b)
 
 bool block_add(struct state *state, struct block *block)
 {
-	struct block *tail = list_tail(&state->main_chain, struct block, list);
-
 	log_debug(state->log, "Adding block %u ", block->blocknum);
 	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
 
 	/* First we add to off_main. */
 	assert(!block->main_chain);
-	list_add_tail(&state->off_main, &block->list);
+	if (block->blocknum >= tal_count(state->block_depth)) {
+		/* We can only increment block depths. */
+		assert(block->blocknum == tal_count(state->block_depth));
+		tal_resize(&state->block_depth, block->blocknum + 1);
+		state->block_depth[block->blocknum]
+			= tal(state->block_depth, struct list_head);
+		list_head_init(state->block_depth[block->blocknum]);
+	}
+	list_add_tail(state->block_depth[block->blocknum], &block->list);
 
 	/* If this has more work than main chain, move to main chain. */
 	/* FIXME: if equal, do coinflip as per
 	 * http://arxiv.org/pdf/1311.0243v2.pdf ?  Or GHOST? */
-	if (BN_cmp(&block->total_work, &tail->total_work) > 0) {
+	if (BN_cmp(&block->total_work, &state->longest_chain->total_work) > 0) {
 		log_debug(state->log, "New block work ");
 		log_add_struct(state->log, BIGNUM, &block->total_work);
 		log_add(state->log, " exceeds old work ");
-		log_add_struct(state->log, BIGNUM, &tail->total_work);
+		log_add_struct(state->log, BIGNUM,
+			       &state->longest_chain->total_work);
 		promote_to_main(state, block);
 		return true;
 	}
@@ -126,20 +129,19 @@ bool block_add(struct state *state, struct block *block)
 	return false;
 }
 
-/* FIXME: get rid of off_chain, use hash table. */
+/* FIXME: use hash table. */
 struct block *block_find_any(struct state *state,
 			     const struct protocol_double_sha *sha)
 {
-	struct block *i;
+	int i, n = tal_count(state->block_depth);
+	struct block *b;
 
-	list_for_each_rev(&state->main_chain, i, list) {
-		if (memcmp(i->sha.sha, sha->sha, sizeof(sha->sha)) == 0)
-			return i;
-	}
-
-	list_for_each_rev(&state->off_main, i, list) {
-		if (memcmp(i->sha.sha, sha->sha, sizeof(sha->sha)) == 0)
-			return i;
+	/* Search recent blocks first. */
+	for (i = n - 1; i >= 0; i--) {
+		list_for_each(state->block_depth[i], b, list) {
+			if (memcmp(b->sha.sha, sha->sha, sizeof(sha->sha)) == 0)
+				return b;
+		}
 	}
 	return NULL;
 }

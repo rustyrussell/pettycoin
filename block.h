@@ -16,7 +16,7 @@ struct transaction_batch {
 };
 
 struct block {
-	/* As per state->main_chain or state->off_main. */
+	/* In state->block_depths[blocknum]. */
 	struct list_node list;
 
 	/* 0 == genesis block. */
@@ -65,7 +65,7 @@ bool block_in_main(const struct block *block);
 
 static inline const struct block *genesis_block(const struct state *state)
 {
-	return list_top(&state->main_chain, struct block, list);
+	return list_top(state->block_depth[0], struct block, list);
 }
 
 /* Add this new block into the state structure: true if we changed top block. */

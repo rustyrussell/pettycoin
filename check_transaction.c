@@ -63,69 +63,6 @@ out:
         return ok;
 }
 
-/* What does proof say the merkle should be? */
-static void proof_merkles_to(const union protocol_transaction *t,
-			     const struct protocol_proof *proof,
-			     struct protocol_double_sha *sha)
-{
-	unsigned int i;
-
-	/* Start with hash of transaction. */
-	hash_transaction(t, NULL, 0, sha);
-
-	for (i = 0; i < PETTYCOIN_BATCH_ORDER; i++) {
-		SHA256_CTX shactx;
-
-		SHA256_Init(&shactx);
-		if (le32_to_cpu(proof->num) & (1 << i)) {
-			/* We're on the right. */
-			SHA256_Update(&shactx, &proof->merkle[i],
-				      sizeof(proof->merkle[i]));
-			SHA256_Update(&shactx, sha->sha, sizeof(sha->sha));
-		} else {
-			/* We're on the left. */
-			SHA256_Update(&shactx, sha->sha, sizeof(sha->sha));
-			SHA256_Update(&shactx, &proof->merkle[i],
-				      sizeof(proof->merkle[i]));
-		}
-		SHA256_Double_Final(&shactx, sha);
-	}
-}
-
-/* This only examines the main chain: side chains don't count! */
-static bool check_merkle(struct state *state,
-			 const union protocol_transaction *t,
-			 const struct protocol_proof *proof)
-{
-	struct block *b;
-	struct protocol_double_sha merkle;
-
-	proof_merkles_to(t, proof, &merkle);
-
-	/* We could have multiple candidate blocks. */
-	b = list_tail(&state->main_chain, struct block, list);
-	for (b = block_find(b, proof->blocksig);
-	     b;
-	     b = block_find(b->prev, proof->blocksig)) {
-		u32 merkle_num;
-
-		/* Can't be the right one if not within num transactions */
-		if (le32_to_cpu(proof->num)
-		    >= le32_to_cpu(b->hdr->num_transactions))
-			continue;
-
-		merkle_num = (le32_to_cpu(proof->num) >> PETTYCOIN_BATCH_ORDER);
-		if (memcmp(&b->merkles[merkle_num].sha, merkle.sha,
-			   sizeof(merkle.sha)) != 0)
-			continue;
-
-		/* OK, you showed that some combination of shas based
-		 * on this transaction matches block.  Merkle magic! */
-		return true;
-	}
-	return false;
-}
-
 enum protocol_error
 check_trans_normal_basic(struct state *state,
 			 const struct protocol_transaction_normal *t)
@@ -282,6 +219,70 @@ bool find_output(union protocol_transaction *trans, u16 output_num,
 	}
 }
 
+#if 0
+/* What does proof say the merkle should be? */
+static void proof_merkles_to(const union protocol_transaction *t,
+			     const struct protocol_proof *proof,
+			     struct protocol_double_sha *sha)
+{
+	unsigned int i;
+
+	/* Start with hash of transaction. */
+	hash_transaction(t, NULL, 0, sha);
+
+	for (i = 0; i < PETTYCOIN_BATCH_ORDER; i++) {
+		SHA256_CTX shactx;
+
+		SHA256_Init(&shactx);
+		if (le32_to_cpu(proof->num) & (1 << i)) {
+			/* We're on the right. */
+			SHA256_Update(&shactx, &proof->merkle[i],
+				      sizeof(proof->merkle[i]));
+			SHA256_Update(&shactx, sha->sha, sizeof(sha->sha));
+		} else {
+			/* We're on the left. */
+			SHA256_Update(&shactx, sha->sha, sizeof(sha->sha));
+			SHA256_Update(&shactx, &proof->merkle[i],
+				      sizeof(proof->merkle[i]));
+		}
+		SHA256_Double_Final(&shactx, sha);
+	}
+}
+
+/* This only examines the main chain: side chains don't count! */
+static bool check_merkle(struct state *state,
+			 const union protocol_transaction *t,
+			 const struct protocol_proof *proof)
+{
+	struct block *b;
+	struct protocol_double_sha merkle;
+
+	proof_merkles_to(t, proof, &merkle);
+
+	/* We could have multiple candidate blocks. */
+	b = list_tail(&state->main_chain, struct block, list);
+	for (b = block_find(b, proof->blocksig);
+	     b;
+	     b = block_find(b->prev, proof->blocksig)) {
+		u32 merkle_num;
+
+		/* Can't be the right one if not within num transactions */
+		if (le32_to_cpu(proof->num)
+		    >= le32_to_cpu(b->hdr->num_transactions))
+			continue;
+
+		merkle_num = (le32_to_cpu(proof->num) >> PETTYCOIN_BATCH_ORDER);
+		if (memcmp(&b->merkles[merkle_num].sha, merkle.sha,
+			   sizeof(merkle.sha)) != 0)
+			continue;
+
+		/* OK, you showed that some combination of shas based
+		 * on this transaction matches block.  Merkle magic! */
+		return true;
+	}
+	return false;
+}
+
 /* Returns number successfully checked. */
 static bool check_chain(struct state *state,
 			union protocol_transaction ***trans,
@@ -398,6 +399,7 @@ bool check_transaction_proof(struct state *state,
 	/* Must consume all of it. */
 	return n == 0;
 }
+#endif
 
 enum protocol_error check_transaction(struct state *state,
 				      const union protocol_transaction *trans,
