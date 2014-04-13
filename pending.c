@@ -12,8 +12,6 @@ struct pending_block *new_pending_block(struct state *state)
 {
 	struct pending_block *b = tal(state, struct pending_block);
 
-	b->prev_merkles = make_prev_merkles(b, state, state->longest_known,
-					    generating_address(state));
 	b->t = tal_arr(b, const union protocol_transaction *, 0);
 	return b;
 }
@@ -108,14 +106,6 @@ void update_pending_transactions(struct state *state)
 	/* Make sure they're sorted into correct order! */
 	asort((union protocol_transaction **)state->pending->t,
 	      num, transaction_ptr_cmp, NULL);
-
-	/* Finally, recalculate prev_merkles. */
-	tal_free(state->pending->prev_merkles);
-
-	state->pending->prev_merkles
-		= make_prev_merkles(state->pending, state,
-				    state->longest_known,
-				    generating_address(state));
 }
 
 void add_pending_transaction(struct peer *peer,

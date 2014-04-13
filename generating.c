@@ -18,7 +18,7 @@
 #include <sys/wait.h>
 #include <errno.h>
 
-const struct protocol_address *generating_address(struct state *state)
+static const struct protocol_address *generating_address(struct state *state)
 {
 	/* FIXME: Invalid reward address. */
 	static struct protocol_address my_addr = { { 0 } };
@@ -273,6 +273,9 @@ static void exec_generator(struct generator *gen)
 	char log_prefix[40];
 	const u8 *prev_merkles = gen->state->pending->prev_merkles;
 
+	prev_merkles = make_prev_merkles(gen, gen->state,
+					 gen->state->longest_known,
+					 generating_address(gen->state));
 	last = gen->state->longest_known;
 	sprintf(difficulty, "%u", get_difficulty(gen->state, last));
 	sprintf(prev_merkle_str, "%zu", tal_count(prev_merkles));
