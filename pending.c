@@ -61,10 +61,15 @@ void steal_pending_transactions(struct state *state, const struct block *block)
 
 void update_pending_transactions(struct state *state)
 {
-	size_t i, num = tal_count(state->pending->t);
+	size_t i, num;
 
-	log_debug(state->log, "Searching %zu pending transactions",
-		  tal_count(state->pending->t));
+	/* Can happen if we're loading from disk. */
+	if (!state->pending)
+		return;
+
+	num = tal_count(state->pending->t);
+
+	log_debug(state->log, "Searching %zu pending transactions", num);
 	for (i = 0; i < num; i++) {
 		struct thash_elem *te;
 		struct protocol_double_sha sha;
