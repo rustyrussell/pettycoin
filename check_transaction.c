@@ -94,6 +94,8 @@ check_trans_normal_basic(struct state *state,
 /* Sets bad_input_num and bad_input if PROTOCOL_ERROR_TRANS_BAD_INPUT.
  *
  * Otherwise bad_input_num indicates an unknown input.
+ *
+ * FIXME: Detect double-spends!
  */
 enum protocol_error
 check_trans_normal_inputs(struct state *state,

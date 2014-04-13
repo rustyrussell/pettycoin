@@ -5,8 +5,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
-/* Returns < 0 if a before b, > 0 if a after b, 0 if equal (should not
- * happen unless a == b). */
+/* Returns < 0 if a before b, > 0 if a after b, 0 if equal. */
 int transaction_cmp(const union protocol_transaction *a,
 		    const union protocol_transaction *b)
 {
@@ -57,8 +56,6 @@ int transaction_cmp(const union protocol_transaction *a,
 			ret = 1;
 	} else {
 		ret = memcmp(a, b, lenb);
-		if (ret == 0)
-			assert(a == b);
 	}
 
 	return ret;

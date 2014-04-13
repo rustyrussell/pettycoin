@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <stdlib.h>
 
+/* FIXME: Use this just for signatures: use complete hash for tx hash */
 void hash_transaction(const union protocol_transaction *t,
 			     const void *hash_prefix,
 			     size_t hash_prefix_len,
