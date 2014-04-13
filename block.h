@@ -25,6 +25,9 @@ struct block {
 	/* Am I on the main chain? */
 	bool main_chain;
 
+	/* Do we know all transactions for this and ancestors? */
+	bool all_known;
+
 	/* Total work to get to this block. */
 	BIGNUM total_work;
 

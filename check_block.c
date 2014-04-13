@@ -80,6 +80,8 @@ check_block_header(struct state *state,
 	block->merkles = merkles;
 	block->prev_merkles = prev_merkles;
 	block->tailer = tailer;
+	/* Corner case for zero transactions. */
+	block->all_known = block->prev->all_known && block_full(block, NULL);
 
 	return PROTOCOL_ERROR_NONE;
 
@@ -185,6 +187,37 @@ static void add_to_thash(struct state *state,
 	}
 }
 
+/* FIXME: Inefficient! */
+static void update_descendents_all_known(struct state *state,
+					 struct block *prev)
+{
+	struct block *i;
+
+	assert(prev->all_known);
+	if (block_in_main(prev)) {
+		for (i = list_next(&state->main_chain, prev, list);
+		     i;
+		     i = list_next(&state->main_chain, i, list)) {
+			if (block_full(i, NULL)) {
+				assert(!i->all_known);
+				i->all_known = true;
+			} else
+				break;
+		}
+	} else {
+		list_for_each(&state->off_main, i, list) {
+			if (i->prev != prev)
+				continue;
+			if (block_full(i, NULL)) {
+				assert(!i->all_known);
+				i->all_known = true;
+				/* FIXME: Oh, the horror! */
+				update_descendents_all_known(state, i);
+			}
+		}
+	}
+}
+		
 bool put_batch_in_block(struct state *state,
 			struct block *block,
 			struct transaction_batch *batch)
@@ -241,6 +274,11 @@ bool put_batch_in_block(struct state *state,
 	block->batch[batchnum] = tal_steal(block, batch);
 
 	add_to_thash(state, block, block->batch[batchnum]);
+
+	if (block_full(block, NULL)) {
+		block->all_known = block->prev->all_known;
+		update_descendents_all_known(state, block);
+	}
 
 	/* FIXME: re-check prev_merkles for any descendents. */
 	/* FIXME: re-check pending transactions with unknown inputs
