@@ -219,26 +219,6 @@ static struct protocol_resp_err *protocol_resp_err(struct peer *peer,
 	return pkt;
 }
 
-static struct block *find_mutual_block(struct peer *peer,
-				       const struct protocol_double_sha *block)
-{
-	struct block *b = block_find_any(peer->state, block);
-
-	log_debug(peer->log, "Seeking mutual block ");
-	log_add_struct(peer->log, struct protocol_double_sha, block);
-
-	if (b) {
-		if (block_in_main(b)) {
-			log_add(peer->log, " found in main chain");
-			return b;
-		}
-		log_add(peer->log, "found off main chain.");
-	} else
-		log_add(peer->log, "not found.");
-
-	return NULL;
-}
-
 static struct block *mutual_block_search(struct peer *peer,
 					 const struct protocol_double_sha *block,
 					 u32 num_blocks)
@@ -246,9 +226,15 @@ static struct block *mutual_block_search(struct peer *peer,
 	int i;
 
 	for (i = 0; i < num_blocks; i++) {
-		struct block *b = find_mutual_block(peer, &block[i]);
-		if (b)
+		struct block *b = block_find_any(peer->state, &block[i]);
+
+		log_debug(peer->log, "Seeking mutual block ");
+		log_add_struct(peer->log, struct protocol_double_sha, &block[i]);
+		if (b) {
+			log_add(peer->log, " found.");
 			return b;
+		}
+		log_add(peer->log, " not found.");
 	}
 	return NULL;
 }
@@ -264,10 +250,6 @@ void update_peers_mutual(struct state *state)
 		/* Not set up yet?  OK. */
 		if (!p->mutual)
 			continue;
-
-		/* Move back to a mutual block we agree on. */
-		while (!block_in_main(p->mutual))
-			p->mutual = p->mutual->prev;
 
 		io_wake(p);
 	}
@@ -322,40 +304,16 @@ static struct io_plan response_sent(struct io_conn *conn, struct peer *peer)
 	return plan_output(conn, peer);
 }
 
-static struct block *find_incomplete(struct state *state,
-				     unsigned int *batchnum)
-{
-	struct block *i, *last_incomplete = NULL;
-
-	/* FIXME: Inefficient, but we want to ask forwards... */
-	for (i = state->longest_chain; i; i = i->prev) {
-		if (!block_full(i, batchnum))
-			last_incomplete = i;
-	}
-	return last_incomplete;
-}
-
+/* We tell everyone about our preferred chain. */
 static struct block *get_next_mutual_block(struct peer *peer)
 {
-	struct block *b;
-
-	/* You have the longest chain we know about? */
-	if (peer->mutual == peer->state->longest_chain)
-		return NULL;
-
-	/* Search back for mutual (FIXME: inefficient!) */
-	b = peer->state->longest_chain;
-	while (b->prev != peer->mutual)
-		b = b->prev;
-
-	return b;
+	return step_towards(peer->mutual, peer->state->longest_known_descendent);
 }
 
 static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 {
 	struct block *next;
 	struct pending_trans *pend;
-	unsigned int batchnum;
 	void *pkt;
 
 	/* There was an error?  Send that then close. */
@@ -392,11 +350,17 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 		goto write;
 	}
 
-	/* Do we have a block in longest chain we don't know the
-	 * transactions for? */
-	next = find_incomplete(peer->state, &batchnum);
+	/* Can we find more about longest known chain? */
+	next = step_towards(peer->state->longest_known,
+			    peer->state->longest_chain);
 	if (next) {
-		log_debug(peer->log, "Need batch %u for block %u",
+		unsigned int batchnum;
+
+		/* This must not be full, or it would be longest known. */
+		if (block_full(next, &batchnum))
+			abort();
+
+		log_debug(peer->log, "Need batch %u for block %u toward longest",
 			  batchnum, next->blocknum);
 		peer->curr_out_req = PROTOCOL_REQ_BATCH;
 		peer->batch_requested_block = next;
@@ -405,6 +369,26 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 		goto write;
 	}
 
+	/* Can we find more about longest descendent of known chain? */
+	next = step_towards(peer->state->longest_known,
+			    peer->state->longest_known_descendent);
+	if (next) {
+		unsigned int batchnum;
+
+		/* This must not be full, or it would be longest known. */
+		if (block_full(next, &batchnum))
+			abort();
+
+		log_debug(peer->log, "Need batch %u for block %u from known",
+			  batchnum, next->blocknum);
+		peer->curr_out_req = PROTOCOL_REQ_BATCH;
+		peer->batch_requested_block = next;
+		peer->batch_requested_num = batchnum;
+		pkt = batch_req(peer, next, batchnum);
+		goto write;
+	}
+
+	/* Tell them about transactions we know about */
 	pend = list_pop(&peer->pending, struct pending_trans, list);
 	if (pend) {
 		tal_del_destructor(pend, unlink_pend);
@@ -810,7 +794,7 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 			goto unexpected_resp;
 
 		/* If we know the block they know, update it. */
-		mutual = find_mutual_block(peer, &resp->final);
+		mutual = block_find_any(peer->state, &resp->final);
 		if (mutual)
 			peer->mutual = mutual;
 			
@@ -969,11 +953,13 @@ static struct io_plan check_welcome_ack(struct io_conn *conn,
 		return io_close();
 	}
 
-	/* Where do we disagree on main chain? */
+	/* Where do we disagree on chain? */
 	log_debug(peer->log, "Peer sent %u blocks",
 		  le32_to_cpu(peer->welcome->num_blocks));
 	peer->mutual = mutual_block_search(peer, peer->welcome->block,
 					   le32_to_cpu(peer->welcome->num_blocks));
+	/* We checked the genesis block in check_welcome! */
+	assert(peer->mutual);
 
 	log_info(peer->log, "Peer has mutual block %u", peer->mutual->blocknum);
 

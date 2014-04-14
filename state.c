@@ -21,6 +21,7 @@ struct state *new_state(bool test_net)
 	list_head_init(s->block_depth[0]);
 	s->longest_chain = &genesis;
 	s->longest_known = &genesis;
+	s->longest_known_descendent = &genesis;
 	thash_init(&s->thash);
 	s->num_peers = 0;
 	s->num_peers_connected = 0;

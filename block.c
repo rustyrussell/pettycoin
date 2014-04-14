@@ -224,6 +224,37 @@ static void update_recursive(struct state *state, struct block *block)
 	}
 }
 
+/* Search descendents to find if there's one with more work than *best. */
+static void find_longest_descendent(struct state *state,
+				    struct block *block,
+				    struct block **best)
+{
+	struct block *b;
+
+	if (block->blocknum + 1 >= tal_count(state->block_depth))
+		return;
+
+	list_for_each(state->block_depth[block->blocknum + 1], b, list) {
+		if (b->prev != block)
+			continue;
+
+		if (BN_cmp(&b->total_work, &(*best)->total_work) > 0) {
+			*best = b;
+			find_longest_descendent(state, b, best);
+		}
+	}
+}
+
+static void get_longest_known_descendent(struct state *state)
+{
+	/* Start with no known descendents. */
+	state->longest_known_descendent = state->longest_known;
+
+	/* Search for best one. */
+	find_longest_descendent(state, state->longest_known_descendent,
+				&state->longest_known_descendent);
+}
+
 void block_update_all_known(struct state *state, struct block *block)
 {
 	struct block *prev_longest = state->longest_known;
@@ -236,5 +267,46 @@ void block_update_all_known(struct state *state, struct block *block)
 			  prev_longest->blocknum,
 			  state->longest_known->blocknum);
 		restart_generating(state);
+		get_longest_known_descendent(state);
 	}
+}
+
+bool block_preceeds(const struct block *a, const struct block *b)
+{
+	if (a == b)
+		return true;
+
+	if (a->blocknum >= b->blocknum)
+		return false;
+
+	return block_preceeds(a, b->prev);
+}
+
+struct block *step_towards(const struct block *curr, const struct block *target)
+{
+	struct block *prev_target;
+
+	/* Move back towards target. */
+	while (curr->blocknum > target->blocknum)
+		curr = curr->prev;
+
+	/* Already past it, or equal to it */
+	if (curr == target)
+		return NULL;
+
+	/* Move target back towards curr. */
+	while (target->blocknum > curr->blocknum) {
+		prev_target = target;
+		target = target->prev;
+	}
+
+	/* Now move both back until they're at the common ancestor. */
+	while (curr != target) {
+		prev_target = target;
+		target = target->prev;
+		curr = curr->prev;
+	}
+
+	/* This is one step towards the target. */
+	return prev_target;
 }

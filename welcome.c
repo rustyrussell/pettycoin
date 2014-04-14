@@ -10,7 +10,10 @@ static size_t welcome_iter(const struct state *state,
 	const struct block *b, *last;
 	unsigned int n, step;
 
-	last = b = state->longest_chain;
+	/* We tell them about the best chain we know which we can offer
+	 * information.  If that's not the same as longest_chain, that's
+	 * because we can't get the transactions from that. */
+	last = b = state->longest_known_descendent;
 
 	if (block_arr)
 		block_arr[0] = b->sha;

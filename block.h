@@ -66,6 +66,13 @@ bool block_full(const struct block *block, unsigned int *batchnum);
 /* Is this block in the main chain? */
 bool block_in_main(const struct block *block);
 
+/* Is a in the chain before b? */
+bool block_preceeds(const struct block *a, const struct block *b);
+
+/* Find common ancestor of curr and target, then first descendent
+ * towards target.  NULL if curr == target (or a descendent). */
+struct block *step_towards(const struct block *curr, const struct block *target);
+
 static inline const struct block *genesis_block(const struct state *state)
 {
 	return list_top(state->block_depth[0], struct block, list);
