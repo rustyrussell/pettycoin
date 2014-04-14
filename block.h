@@ -74,6 +74,9 @@ static inline const struct block *genesis_block(const struct state *state)
 /* Add this new block into the state structure: true if we changed top block. */
 bool block_add(struct state *state, struct block *b);
 
+/* Set ->all_known (and possibly on descendents) */
+void block_update_all_known(struct state *state, struct block *block);
+
 static inline size_t batch_index(u32 trans_num)
 {
 	return trans_num >> PETTYCOIN_BATCH_ORDER;

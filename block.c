@@ -113,6 +113,9 @@ bool block_add(struct state *state, struct block *block)
 	}
 	list_add_tail(state->block_depth[block->blocknum], &block->list);
 
+	/* Corner case for zero transactions. */
+	block_update_all_known(state, block);
+
 	/* If this has more work than main chain, move to main chain. */
 	/* FIXME: if equal, do coinflip as per
 	 * http://arxiv.org/pdf/1311.0243v2.pdf ?  Or GHOST? */
@@ -197,4 +200,41 @@ union protocol_transaction *block_get_trans(const struct block *block,
 		return NULL;
 	return cast_const(union protocol_transaction *,
 			  b->t[trans_num % (1 << PETTYCOIN_BATCH_ORDER)]);
+}
+
+static void update_recursive(struct state *state, struct block *block)
+{
+	if (!block->prev->all_known || !block_full(block, NULL))
+		return;
+
+	assert(!block->all_known);
+	block->all_known = true;
+
+	/* New winner to start mining on? */
+	if (BN_cmp(&block->total_work, &state->longest_known->total_work) > 0)
+		state->longest_known = block;
+
+	/* Check descendents. */
+	if (block->blocknum + 1 < tal_count(state->block_depth)) {
+		struct block *b;
+
+		list_for_each(state->block_depth[block->blocknum + 1], b, list)
+			if (b->prev == block)
+				update_recursive(state, b);
+	}
+}
+
+void block_update_all_known(struct state *state, struct block *block)
+{
+	struct block *prev_longest = state->longest_known;
+
+	update_recursive(state, block);
+
+	/* If that changed the longest known, we need to start mining there. */
+	if (state->longest_known != prev_longest) {
+		log_debug(state->log, "Longest known moved from %u to %u",
+			  prev_longest->blocknum,
+			  state->longest_known->blocknum);
+		restart_generating(state);
+	}
 }
