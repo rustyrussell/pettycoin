@@ -73,7 +73,7 @@ struct protocol_req_welcome *make_welcome(const tal_t *ctx,
 	w->type = cpu_to_le32(PROTOCOL_REQ_WELCOME);
 	w->num_blocks = num_blocks;
 	w->version = cpu_to_le32(current_version());
-	memcpy(w->moniker, "Can't believe it's not bitcoin!", 32);
+	memcpy(w->moniker, "ICBINB! " VERSION "                        ", 32);
 	w->random = state->random_welcome;
 	w->you = *a;
 	w->listen_port = state->listen_port;
