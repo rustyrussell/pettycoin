@@ -120,6 +120,7 @@ check_trans_normal_inputs(struct state *state,
 		struct protocol_address addr;
 
 		/* FIXME: Search pending transactions too! */
+		/* FIXME: must be in predecessor! */
 		in = thash_gettrans(&state->thash, &t->input[i].input);
 		if (!in) {
 			*bad_input_num = i;

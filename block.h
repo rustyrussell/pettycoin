@@ -22,9 +22,6 @@ struct block {
 	/* 0 == genesis block. */
 	unsigned int blocknum;
 
-	/* Am I on the main chain? */
-	bool main_chain;
-
 	/* Do we know all transactions for this and ancestors? */
 	bool all_known;
 
@@ -65,9 +62,6 @@ bool batch_full(const struct block *block, const struct transaction_batch *batch
 
 /* Do we have everything in this block? */
 bool block_full(const struct block *block, unsigned int *batchnum);
-
-/* Is this block in the main chain? */
-bool block_in_main(const struct block *block);
 
 /* Is a in the chain before b (or == b)? */
 bool block_preceeds(const struct block *a, const struct block *b);

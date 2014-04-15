@@ -39,7 +39,6 @@ struct state *new_state(bool test_net)
 	BN_init(&genesis.total_work);
 	if (!BN_zero(&genesis.total_work))
 		errx(1, "Failed to initialize genesis block");
-	genesis.main_chain = true;
 	genesis.all_known = true;
 
 	list_add_tail(s->block_depth[0], &genesis.list);

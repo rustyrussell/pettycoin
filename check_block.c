@@ -76,7 +76,6 @@ check_block_header(struct state *state,
 	block->batch = tal_arrz(block, struct transaction_batch *,
 				num_merkles(le32_to_cpu(hdr->num_transactions)));
 
-	block->main_chain = false;
 	block->hdr = hdr;
 	block->merkles = merkles;
 	block->prev_merkles = prev_merkles;
