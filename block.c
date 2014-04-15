@@ -9,6 +9,12 @@
 #include "pending.h"
 #include <string.h>
 
+/* Is a more work than b? */
+static bool more_work(const struct block *a, const struct block *b)
+{
+	return BN_cmp(&a->total_work, &b->total_work) > 0;
+}
+
 bool block_in_main(const struct block *block)
 {
 	return block->main_chain;
@@ -183,7 +189,7 @@ bool block_add(struct state *state, struct block *block)
 	/* If this has more work than main chain, move to main chain. */
 	/* FIXME: if equal, do coinflip as per
 	 * http://arxiv.org/pdf/1311.0243v2.pdf ?  Or GHOST? */
-	if (BN_cmp(&block->total_work, &state->longest_chain->total_work) > 0) {
+	if (more_work(block, state->longest_chain)) {
 		log_debug(state->log, "New block work ");
 		log_add_struct(state->log, BIGNUM, &block->total_work);
 		log_add(state->log, " exceeds old work ");
@@ -277,7 +283,7 @@ static void update_recursive(struct state *state, struct block *block,
 	block->all_known = true;
 
 	/* New winner to start mining on? */
-	if (BN_cmp(&block->total_work, &(*best)->total_work) > 0)
+	if (more_work(block, *best))
 		*best = block;
 
 	/* Check descendents. */
@@ -304,7 +310,7 @@ static void find_longest_descendent(struct state *state,
 		if (b->prev != block)
 			continue;
 
-		if (BN_cmp(&b->total_work, &(*best)->total_work) > 0) {
+		if (more_work(b, *best)) {
 			*best = b;
 			find_longest_descendent(state, b, best);
 		}
