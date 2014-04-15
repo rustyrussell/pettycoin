@@ -88,12 +88,67 @@ static void promote_to_main(struct state *state, struct block *b)
 		assert(block_in_main(i));
 		i->main_chain = false;
 	}
+}
 
-	/* Now this block is the end of the longest chain */
-	state->longest_chain = b;
-	update_pending_transactions(state);
+/* Now this block is the end of the longest chain.
+ *
+ * This matters because we want to know all about that chain so we can
+ * mine it.  If everyone is sharing information normally, that should be
+ * easy.
+ */
+static void update_longest(struct state *state, struct block *block)
+{
+	log_debug(state->log, "Longest moved from %u to %u ",
+		  state->longest_chain->blocknum,
+		  block->blocknum);
+	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
 
-	check_chains(state);
+	state->longest_chain = block;
+
+	/* We want peers to ask about contents of these blocks. */
+	wake_peers(state);
+}
+
+/* Now this block is the end of the longest chain we know completely about.
+ *
+ * This is the best block to mine on.
+ */
+void update_longest_known(struct state *state, struct block *block)
+{
+	struct block *old = state->longest_known;
+
+	log_debug(state->log, "Longest known moved from %u to %u ",
+		  old->blocknum, block->blocknum);
+	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
+
+	state->longest_known = block;
+
+	/* Any transactions from old branch go into pending. */
+	steal_pending_transactions(state, old, block);
+
+	/* Restart generator on this block. */
+	restart_generating(state);
+
+	/* We want peers to tell others about contents of this block. */
+	wake_peers(state);
+}
+
+/* Now this block is the end of the longest chain from longest_known.
+ *
+ * If we can't get information about the longest chain, we'd like
+ * information about this chain.
+ */
+void update_longest_known_descendent(struct state *state, struct block *block)
+{
+	log_debug(state->log, "Longest known descendent moved from %u to %u ",
+		  state->longest_known_descendent->blocknum,
+		  block->blocknum);
+	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
+
+	state->longest_known_descendent = block;
+
+	/* We want peers to ask about contents of these blocks. */
+	wake_peers(state);
 }
 
 bool block_add(struct state *state, struct block *block)
@@ -113,8 +168,17 @@ bool block_add(struct state *state, struct block *block)
 	}
 	list_add_tail(state->block_depth[block->blocknum], &block->list);
 
-	/* Corner case for zero transactions. */
-	block_update_all_known(state, block);
+	/* Corner case for zero transactions (will update
+	 * longest_known_descendent if necessary). */
+	if (le32_to_cpu(block->hdr->num_transactions) == 0)
+		update_known(state, block);
+	else {
+		/* Have we just extended the longest known descendent? */
+		if (block->prev == state->longest_known_descendent) {
+			update_longest_known_descendent(state, block);
+			check_chains(state);
+		}
+	}
 
 	/* If this has more work than main chain, move to main chain. */
 	/* FIXME: if equal, do coinflip as per
@@ -126,9 +190,10 @@ bool block_add(struct state *state, struct block *block)
 		log_add_struct(state->log, BIGNUM,
 			       &state->longest_chain->total_work);
 		promote_to_main(state, block);
+		update_longest(state, block);
+		check_chains(state);
 		return true;
 	}
-	check_chains(state);
 	return false;
 }
 
@@ -202,7 +267,8 @@ union protocol_transaction *block_get_trans(const struct block *block,
 			  b->t[trans_num % (1 << PETTYCOIN_BATCH_ORDER)]);
 }
 
-static void update_recursive(struct state *state, struct block *block)
+static void update_recursive(struct state *state, struct block *block,
+			     struct block **best)
 {
 	if (!block->prev->all_known || !block_full(block, NULL))
 		return;
@@ -211,8 +277,8 @@ static void update_recursive(struct state *state, struct block *block)
 	block->all_known = true;
 
 	/* New winner to start mining on? */
-	if (BN_cmp(&block->total_work, &state->longest_known->total_work) > 0)
-		state->longest_known = block;
+	if (BN_cmp(&block->total_work, &(*best)->total_work) > 0)
+		*best = block;
 
 	/* Check descendents. */
 	if (block->blocknum + 1 < tal_count(state->block_depth)) {
@@ -220,7 +286,7 @@ static void update_recursive(struct state *state, struct block *block)
 
 		list_for_each(state->block_depth[block->blocknum + 1], b, list)
 			if (b->prev == block)
-				update_recursive(state, b);
+				update_recursive(state, b, best);
 	}
 }
 
@@ -245,29 +311,28 @@ static void find_longest_descendent(struct state *state,
 	}
 }
 
-static void get_longest_known_descendent(struct state *state)
+/* We now know complete contents of block; update all_known for this
+ * block (and maybe its descendents) and if necessary, update
+ * longest_known and longest_known_descendent and restart generator
+ * and wake peers (who might care). */
+void update_known(struct state *state, struct block *block)
 {
-	/* Start with no known descendents. */
-	state->longest_known_descendent = state->longest_known;
+	struct block *longest_known = state->longest_known;
 
-	/* Search for best one. */
-	find_longest_descendent(state, state->longest_known_descendent,
-				&state->longest_known_descendent);
-}
+	update_recursive(state, block, &longest_known);
+	if (longest_known != state->longest_known) {
+		struct block *longest_descendent;
 
-void block_update_all_known(struct state *state, struct block *block)
-{
-	struct block *prev_longest = state->longest_known;
+		update_longest_known(state, longest_known);
 
-	update_recursive(state, block);
-
-	/* If that changed the longest known, we need to start mining there. */
-	if (state->longest_known != prev_longest) {
-		log_debug(state->log, "Longest known moved from %u to %u",
-			  prev_longest->blocknum,
-			  state->longest_known->blocknum);
-		restart_generating(state);
-		get_longest_known_descendent(state);
+		/* Can't check chains until we've updated longest_descendent! */
+		longest_descendent = longest_known;
+		find_longest_descendent(state, longest_known,
+					&longest_descendent);
+		if (longest_descendent != state->longest_known_descendent)
+			update_longest_known_descendent(state,
+							longest_descendent);
+		check_chains(state);
 	}
 }
 
@@ -284,7 +349,7 @@ bool block_preceeds(const struct block *a, const struct block *b)
 
 struct block *step_towards(const struct block *curr, const struct block *target)
 {
-	struct block *prev_target;
+	const struct block *prev_target;
 
 	/* Move back towards target. */
 	while (curr->blocknum > target->blocknum)
@@ -308,5 +373,5 @@ struct block *step_towards(const struct block *curr, const struct block *target)
 	}
 
 	/* This is one step towards the target. */
-	return prev_target;
+	return cast_const(struct block *, prev_target);
 }

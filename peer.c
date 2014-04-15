@@ -219,6 +219,20 @@ static struct protocol_resp_err *protocol_resp_err(struct peer *peer,
 	return pkt;
 }
 
+/* They've told us about a block; this implies they know it. */
+static void update_mutual(struct peer *peer, struct block *block)
+{
+	/* Don't go backwards. */
+	if (block_preceeds(block, peer->mutual))
+		return;
+	   
+	/* Don't update if it would take us away from our preferred chain */
+	if (!block_preceeds(block, peer->state->longest_known_descendent))
+		return;
+
+	peer->mutual = block;
+}
+
 static struct block *mutual_block_search(struct peer *peer,
 					 const struct protocol_double_sha *block,
 					 u32 num_blocks)
@@ -242,17 +256,12 @@ static struct block *mutual_block_search(struct peer *peer,
 static struct io_plan plan_output(struct io_conn *conn, struct peer *peer);
 
 /* Blockchain has been extended/changed. */
-void update_peers_mutual(struct state *state)
+void wake_peers(struct state *state)
 {
 	struct peer *p;
 
-	list_for_each(&state->peers, p, list) {
-		/* Not set up yet?  OK. */
-		if (!p->mutual)
-			continue;
-
+	list_for_each(&state->peers, p, list)
 		io_wake(p);
-	}
 }
 
 static struct protocol_req_new_block *block_pkt(tal_t *ctx, struct block *b)
@@ -417,7 +426,7 @@ write:
 static struct protocol_resp_err *
 receive_block(struct peer *peer, const struct protocol_req_new_block *req)
 {
-	struct block *new;
+	struct block *new, *b;
 	enum protocol_error e;
 	const struct protocol_double_sha *merkles;
 	const u8 *prev_merkles;
@@ -456,21 +465,19 @@ receive_block(struct peer *peer, const struct protocol_req_new_block *req)
 
 	log_debug(peer->log, "New block %u is good!", new->blocknum);
 
-	if (block_find_any(peer->state, &new->sha)) {
+	if ((b = block_find_any(peer->state, &new->sha)) != NULL) {
 		log_debug(peer->log, "already knew about block %u",
 			  new->blocknum);
 		tal_free(new);
 	} else {
 		block_add(peer->state, new);
 		save_block(peer->state, new);
-		/* Update mutual block if this was in main chain. */
-		if (new->main_chain) {
-			peer->mutual = new;
-			/* We may need to revise what we consider
-			 * mutual blocks with other peers. */
-			update_peers_mutual(peer->state);
-		}
+		wake_peers(peer->state);
+		b = new;
 	}
+
+	/* They obviously know about this block. */
+	update_mutual(peer, new);
 
 	/* FIXME: Try to guess the batches */
 
@@ -572,6 +579,9 @@ receive_batch_req(struct peer *peer,
 		r->error = cpu_to_le32(PROTOCOL_ERROR_UNKNOWN_BLOCK);
 		return r;
 	}
+
+	/* Obviously they know about this block. */
+	update_mutual(peer, block);
 
 	/* This should never happen. */
 	num = le32_to_cpu(req->batchnum);
@@ -790,13 +800,14 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 		log_debug(peer->log, "Received PROTOCOL_RESP_NEW_BLOCK");
 		if (len != sizeof(*resp))
 			goto bad_resp_length;
+		/* FIXME: formalize this check & reset req pattern! */
 		if (peer->curr_out_req != PROTOCOL_REQ_NEW_BLOCK)
 			goto unexpected_resp;
 
 		/* If we know the block they know, update it. */
 		mutual = block_find_any(peer->state, &resp->final);
 		if (mutual)
-			peer->mutual = mutual;
+			update_mutual(peer, mutual);
 			
 		peer->curr_out_req = PROTOCOL_REQ_NONE;
 		break;

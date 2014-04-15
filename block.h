@@ -54,6 +54,9 @@ struct block *block_find(struct block *start, const u8 lower_sha[4]);
 struct block *block_find_any(struct state *state,
 			     const struct protocol_double_sha *sha);
 
+void update_longest_known(struct state *state, struct block *block);
+void update_longest_known_descendent(struct state *state, struct block *block);
+
 /* Maximum amount in batch (1 >> PETTYCOIN_BATCH_ORDER) except for last */
 u32 batch_max(const struct block *block, unsigned int batchnum);
 
@@ -66,7 +69,7 @@ bool block_full(const struct block *block, unsigned int *batchnum);
 /* Is this block in the main chain? */
 bool block_in_main(const struct block *block);
 
-/* Is a in the chain before b? */
+/* Is a in the chain before b (or == b)? */
 bool block_preceeds(const struct block *a, const struct block *b);
 
 /* Find common ancestor of curr and target, then first descendent
@@ -81,8 +84,8 @@ static inline const struct block *genesis_block(const struct state *state)
 /* Add this new block into the state structure: true if we changed top block. */
 bool block_add(struct state *state, struct block *b);
 
-/* Set ->all_known (and possibly on descendents) */
-void block_update_all_known(struct state *state, struct block *block);
+/* Block is full. */
+void update_known(struct state *state, struct block *block);
 
 static inline size_t batch_index(u32 trans_num)
 {

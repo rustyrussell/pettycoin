@@ -192,7 +192,7 @@ static struct io_plan got_trans(struct io_conn *conn, struct generator *gen)
 		save_transaction(gen->state, gen->new, i);
 
 	/* We may need to revise what we consider mutual blocks with peers. */
- 	update_peers_mutual(gen->state);
+ 	wake_peers(gen->state);
 
 	return io_close();
 }

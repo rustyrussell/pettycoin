@@ -13,9 +13,10 @@ struct peer;
 struct block;
 struct protocol_transaction_gateway;
 
-/* This block is no longer on main chain.  Get transactions out. */
-void steal_pending_transactions(struct state *state, const struct block *block);
-void update_pending_transactions(struct state *state);
+/* This block is no longer on favoured chain.  Get transactions out. */
+void steal_pending_transactions(struct state *state,
+				const struct block *old,
+				const struct block *new);
 
 /* Add a new transaction from peer to the current block. */
 void add_pending_transaction(struct peer *peer,

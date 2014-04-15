@@ -61,5 +61,5 @@ void add_trans_to_peers(struct state *state,
 void remove_trans_from_peers(struct state *state,
 			     const union protocol_transaction *t);
 
-void update_peers_mutual(struct state *state);
+void wake_peers(struct state *state);
 #endif /* PETTYCOIN_PEER_H */

@@ -16,12 +16,8 @@ struct pending_block *new_pending_block(struct state *state)
 	return b;
 }
 
-/* FIXME: Pending should track longest *known*, not main chain! */
-
-/* Block is no longer in main chain.  Dump all its transactions into pending:
- * followed up cleanup_pending to remove any which are in main due to other
- * blocks. */
-void steal_pending_transactions(struct state *state, const struct block *block)
+/* Transfer all transaction from this block into pending array. */
+static void block_to_pending(struct state *state, const struct block *block)
 {
 	size_t curr = tal_count(state->pending->t), num, added = 0, i;
 
@@ -41,7 +37,8 @@ void steal_pending_transactions(struct state *state, const struct block *block)
 	tal_resize(&state->pending->t, curr + added);
 }
 
-void update_pending_transactions(struct state *state)
+/* We've added a whole heap of transactions, recheck them. */
+static void recheck_pending_transactions(struct state *state)
 {
 	size_t i, num = tal_count(state->pending->t);
 
@@ -53,31 +50,29 @@ void update_pending_transactions(struct state *state)
 		unsigned int bad_input_num;
 		enum protocol_error e;
 		struct thash_iter iter;
-		bool in_main = false;
+		bool in_known_chain = false;
 
 		hash_transaction(state->pending->t[i], NULL, 0, &sha);
 
-		te = thash_firstval(&state->thash, &sha, &iter);
-		if (!te)
-			log_debug(state->log, "%zu is NOT FOUND", i);
-			
-		for (; te; te = thash_nextval(&state->thash, &sha, &iter)) {
-			if (te->block->main_chain)
-				in_main = true;
-			log_debug(state->log, "%zu is %s",
-				  i, te->block->main_chain ? "IN MAIN" 
-				  : "OFF MAIN");
+		for (te = thash_firstval(&state->thash, &sha, &iter);
+		     te;
+		     te = thash_nextval(&state->thash, &sha, &iter)) {
+			if (block_preceeds(te->block, state->longest_known))
+				in_known_chain = true;
 		}
 
-		/* Already in main chain?  Discard. */
-		if (in_main)
+		/* Already in known chain?  Discard. */
+		if (in_known_chain) {
+			log_debug(state->log, "  %zu is FOUND", i);
 			goto discard;
-
+		}
+		log_debug(state->log, "  %zu is NOT FOUND", i);
+			
 		/* Discard if no longer valid (inputs already spent) */
 		e = check_transaction(state, state->pending->t[i],
 				      &bad_input, &bad_input_num);
 		if (e) {
-			log_debug(state->log, "%zu is now ", i);
+			log_debug(state->log, "  %zu is now ", i);
 			log_add_enum(state->log, enum protocol_error, e);
 			if (e == PROTOCOL_ERROR_TRANS_BAD_INPUT) {
 				log_add(state->log,
@@ -106,6 +101,25 @@ void update_pending_transactions(struct state *state)
 	/* Make sure they're sorted into correct order! */
 	asort((union protocol_transaction **)state->pending->t,
 	      num, transaction_ptr_cmp, NULL);
+}
+
+/* We're moving longest_known from old to new.  Dump all its transactions into
+ * pending: followed up update_pending_transactions to remove any
+ * which are in main due to other blocks. */
+void steal_pending_transactions(struct state *state,
+				const struct block *old,
+				const struct block *new)
+{
+	const struct block *end, *b;
+
+	/* Traverse old path and take transactions */
+	end = step_towards(new, old);
+	if (end) {
+		for (b = old; b != end->prev; b = b->prev)
+			block_to_pending(state, b);
+	}
+
+	recheck_pending_transactions(state);
 }
 
 void add_pending_transaction(struct peer *peer,
