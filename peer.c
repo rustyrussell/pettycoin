@@ -689,7 +689,7 @@ receive_batch_resp(struct peer *peer, struct protocol_resp_batch *resp)
 	size = le32_to_cpu(resp->len) - sizeof(*resp);
 
 	/* Attach to response so we get freed with it on failure. */
-	batch = tal(resp, struct transaction_batch);
+	batch = talz(resp, struct transaction_batch);
 	batch->trans_start = (peer->batch_requested_num << PETTYCOIN_BATCH_ORDER);
 
 	for (batch->count = 0;
