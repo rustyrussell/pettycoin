@@ -192,6 +192,8 @@ void add_trans_to_peers(struct state *state,
 		pend->t = t;
 		list_add_tail(&peer->pending, &pend->list);
 		tal_add_destructor(pend, unlink_pend);
+		/* In case it's idle. */
+		io_wake(peer);
 	}
 }
 
