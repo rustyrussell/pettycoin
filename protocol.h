@@ -105,6 +105,7 @@ struct protocol_input {
 	/* This identifies the output.
 	 * For normal transactions, 0 == send_amount, 1 = change */
 	le16 output;
+	le16 unused;
 };
 
 /* Core of a transaction */

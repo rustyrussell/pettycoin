@@ -129,7 +129,8 @@ check_trans_normal_inputs(struct state *state,
 
 		(*inputs_known)++;
 
-		if (!find_output(in, t->input[i].output, &addr, &amount)) {
+		if (!find_output(in, le16_to_cpu(t->input[i].output),
+				 &addr, &amount)) {
 			*bad_input_num = i;
 			*bad_input = in;
 			return PROTOCOL_ERROR_TRANS_BAD_INPUT;
