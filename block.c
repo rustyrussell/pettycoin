@@ -15,7 +15,7 @@ static bool more_work(const struct block *a, const struct block *b)
 	return BN_cmp(&a->total_work, &b->total_work) > 0;
 }
 
-static void check_chains(const struct state *state)
+void check_chains(const struct state *state)
 {
 	const struct block *i;
 	size_t n;
@@ -119,7 +119,7 @@ void update_longest_known_descendent(struct state *state, struct block *block)
 	wake_peers(state);
 }
 
-bool block_add(struct state *state, struct block *block)
+void block_add(struct state *state, struct block *block)
 {
 	log_debug(state->log, "Adding block %u ", block->blocknum);
 	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
@@ -135,18 +135,6 @@ bool block_add(struct state *state, struct block *block)
 	}
 	list_add_tail(state->block_depth[block->blocknum], &block->list);
 
-	/* Corner case for zero transactions (will update
-	 * longest_known_descendent if necessary). */
-	if (le32_to_cpu(block->hdr->num_transactions) == 0)
-		update_known(state, block);
-	else {
-		/* Have we just extended the longest known descendent? */
-		if (block->prev == state->longest_known_descendent) {
-			update_longest_known_descendent(state, block);
-			check_chains(state);
-		}
-	}
-
 	/* Is this the longest? */
 	/* FIXME: if equal, do coinflip as per
 	 * http://arxiv.org/pdf/1311.0243v2.pdf ?  Or GHOST? */
@@ -157,10 +145,16 @@ bool block_add(struct state *state, struct block *block)
 		log_add_struct(state->log, BIGNUM,
 			       &state->longest_chain->total_work);
 		update_longest(state, block);
-		check_chains(state);
-		return true;
 	}
-	return false;
+
+	/* Corner case for zero transactions (will update
+	 * longest_known_descendent if necessary). */
+	if (le32_to_cpu(block->hdr->num_transactions) == 0)
+		update_known(state, block);
+	/* Have we just extended the longest known descendent? */
+	else if (block->prev == state->longest_known_descendent)
+		update_longest_known_descendent(state, block);
+	check_chains(state);
 }
 
 /* FIXME: use hash table. */

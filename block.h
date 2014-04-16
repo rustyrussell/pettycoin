@@ -75,8 +75,8 @@ static inline const struct block *genesis_block(const struct state *state)
 	return list_top(state->block_depth[0], struct block, list);
 }
 
-/* Add this new block into the state structure: true if we changed top block. */
-bool block_add(struct state *state, struct block *b);
+/* Add this new block into the state structure. */
+void block_add(struct state *state, struct block *b);
 
 /* Block is full. */
 void update_known(struct state *state, struct block *block);
@@ -90,4 +90,6 @@ static inline size_t batch_index(u32 trans_num)
 union protocol_transaction *block_get_trans(const struct block *block,
 					    u32 trans_num);
 
+/* Debugging check */
+void check_chains(const struct state *state);
 #endif /* PETTYCOIN_BLOCK_H */

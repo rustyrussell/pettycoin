@@ -243,8 +243,10 @@ bool put_batch_in_block(struct state *state,
 
 	add_to_thash(state, block, block->batch[batchnum]);
 
-	if (block_full(block, NULL))
+	if (block_full(block, NULL)) {
 		update_known(state, block);
+		check_chains(state);
+	}
 
 	/* FIXME: re-check prev_merkles for any descendents. */
 	/* FIXME: re-check pending transactions with unknown inputs
