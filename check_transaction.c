@@ -6,69 +6,18 @@
 #include "protocol.h"
 #include "addr.h"
 #include "shadouble.h"
+#include "signature.h"
 #include "state.h"
 #include "version.h"
 #include <assert.h>
 #include <ccan/endian/endian.h>
 #include <ccan/tal/tal.h>
-#include <openssl/bn.h>
-#include <openssl/ecdsa.h>
-#include <openssl/obj_mac.h>
 
 /* Check signature. */
-static bool check_trans_sign(const struct protocol_double_sha *sha,
-			     const struct protocol_pubkey *key,
-			     const struct protocol_signature *signature)
-{
-	bool ok = false;	
-	BIGNUM r, s;
-	ECDSA_SIG sig = { &r, &s };
-	EC_KEY *eckey = EC_KEY_new_by_curve_name(NID_secp256k1);
-	const unsigned char *k = key->key;
-
-	/* Unpack public key. */
-	if (!o2i_ECPublicKey(&eckey, &k, sizeof(key->key)))
-		goto out;
-
-	/* S must be even: https://github.com/sipa/bitcoin/commit/a81cd9680 */
-	if (signature->s[31] & 1)
-		goto out;
-
-	/* Unpack signature. */
-	BN_init(&r);
-	BN_init(&s);
-	if (!BN_bin2bn(signature->r, sizeof(signature->r), &r)
-	    || !BN_bin2bn(signature->s, sizeof(signature->s), &s))
-		goto free_bns;
-
-
-	/* Now verify hash with public key and signature. */
-	switch (ECDSA_do_verify(sha->sha, sizeof(sha->sha), &sig, eckey)) {
-	case 0:
-		/* Invalid signature */
-		goto free_bns;
-	case -1:
-		/* Malformed or other error. */
-		goto free_bns;
-	}
-
-	ok = true;
-
-free_bns:
-	BN_free(&r);
-	BN_free(&s);
-
-out:
-	EC_KEY_free(eckey);
-        return ok;
-}
-
 enum protocol_error
 check_trans_normal_basic(struct state *state,
 			 const struct protocol_transaction_normal *t)
 {
-	struct protocol_double_sha sha;
-
 	if (!version_ok(t->version))
 		return PROTOCOL_ERROR_HIGH_VERSION;
 
@@ -84,8 +33,8 @@ check_trans_normal_basic(struct state *state,
 	if (le32_to_cpu(t->num_inputs) == 0)
 		return PROTOCOL_ERROR_TOO_MANY_INPUTS;
 
-	hash_transaction((const union protocol_transaction *)t, NULL, 0, &sha);
-	if (!check_trans_sign(&sha, &t->input_key, &t->signature))
+	if (!check_trans_sign((const union protocol_transaction *)t,
+			      &t->input_key, &t->signature))
 		return PROTOCOL_ERROR_TRANS_BAD_SIG;
 
 	return PROTOCOL_ERROR_NONE;
@@ -167,7 +116,6 @@ enum protocol_error
 check_trans_from_gateway(struct state *state,
 			 const struct protocol_transaction_gateway *t)
 {
-	struct protocol_double_sha sha;
 	u32 i;
 	u32 the_shard;
 
@@ -188,8 +136,8 @@ check_trans_from_gateway(struct state *state,
 			return PROTOCOL_ERROR_TOO_LARGE;
 	}
 
-	hash_transaction((const union protocol_transaction *)t, NULL, 0, &sha);
-	if (!check_trans_sign(&sha, &t->gateway_key, &t->signature))
+	if (!check_trans_sign((const union protocol_transaction *)t,
+			      &t->gateway_key, &t->signature))
 		return PROTOCOL_ERROR_TRANS_BAD_SIG;
 	return PROTOCOL_ERROR_NONE;
 }
