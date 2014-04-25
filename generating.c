@@ -159,6 +159,7 @@ static struct io_plan got_trans(struct io_conn *conn, struct generator *gen)
 	for (i = 0; i < num_trans; i += (1 << PETTYCOIN_BATCH_ORDER)) {
 		struct transaction_batch *b;
 		u32 num = num_trans - i;
+		enum protocol_error err;
 
 		if (num > (1 << PETTYCOIN_BATCH_ORDER))
 			num = (1 << PETTYCOIN_BATCH_ORDER);
@@ -168,18 +169,37 @@ static struct io_plan got_trans(struct io_conn *conn, struct generator *gen)
 		b->count = num;
 		memcpy(b->t, gen->trans + i, num * sizeof(b->t[0]));
 
-		if (!check_batch_valid(gen->state, gen->new, b)) {
+		if (!batch_full(gen->new, b)) {
+			log_broken(gen->log,
+				   "Generator %u created short batch %u-%u",
+				   gen->pid, i, i+num);
+			return io_close();
+		}
+
+		if (!batch_belongs_in_block(gen->new, b)) {
 			log_broken(gen->log,
 				   "Generator %u created invalid batch %u-%u",
 				   gen->pid, i, i+num);
 			return io_close();
 		}
-		if (!put_batch_in_block(gen->state, gen->new, b)) {
+
+		err = batch_validate_transactions(gen->state, gen->log,
+						  gen->new, b);
+		if (err) {
 			log_broken(gen->log,
-				   "Generator %u created unusable batch %u-%u",
+				   "Generator %u gave invalid transaction",
+				   gen->pid);
+			return io_close();
+		}
+
+		if (!check_batch_order(gen->state, gen->new, b)) {
+			log_broken(gen->log,
+				   "Generator %u created invalid batch %u-%u",
 				   gen->pid, i, i+num);
 			return io_close();
 		}
+
+		put_batch_in_block(gen->state, gen->new, b);
 		log_debug(gen->log, "Added batch %u-%u", i, i+num);
 	}
 

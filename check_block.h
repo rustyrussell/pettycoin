@@ -11,6 +11,7 @@ struct protocol_double_sha;
 struct transaction_batch;
 struct state;
 struct block;
+struct log;
 
 struct protocol_block_header *unmarshall_block_header(void *buffer,
 						      size_t size);
@@ -25,13 +26,23 @@ check_block_header(struct state *state,
 		   const struct protocol_block_tailer *tailer,
 		   struct block **blockp);
 
-/* Is this batch valid?  Can be called even if it's not full. */
-bool check_batch_valid(struct state *state,
+/* Does merkle match? */
+bool batch_belongs_in_block(const struct block *block,
+			    const struct transaction_batch *batch);
+
+/* Is this batch ordering valid?  Can be called even if it's not full. */
+bool check_batch_order(struct state *state,
 		       const struct block *block,
 		       const struct transaction_batch *batch);
 
-/* If this batch matches block, block steals batch. */
-bool put_batch_in_block(struct state *state,
+/* Are all the transactions valid? */
+enum protocol_error batch_validate_transactions(struct state *state,
+						struct log *log,
+						struct block *block,
+						struct transaction_batch *b);
+
+/* Block steals batch. */
+void put_batch_in_block(struct state *state,
 			struct block *block,
 			struct transaction_batch *batch);
 

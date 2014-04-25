@@ -14,6 +14,7 @@
 #include "hash_block.h"
 #include "prev_merkles.h"
 #include "generating.h"
+#include "check_transaction.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/tal.h>
 #include <stdlib.h>
@@ -89,27 +90,54 @@ fail:
 	return e;
 }
 
-bool check_batch_valid(struct state *state,
+static const union protocol_transaction *
+last_trans(const struct transaction_batch *batch)
+{
+	int i;
+
+	for (i = ARRAY_SIZE(batch->t)-1; i >= 0; i--)
+		if (batch->t[i])
+			return batch->t[i];
+	abort();
+}
+
+static const union protocol_transaction *
+first_trans(const struct transaction_batch *batch)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(batch->t); i++)
+		if (batch->t[i])
+			return batch->t[i];
+	abort();
+}
+
+bool batch_belongs_in_block(const struct block *block,
+			    const struct transaction_batch *batch)
+{
+	struct protocol_double_sha merkle;
+	unsigned int batchnum = batch_index(batch->trans_start);
+
+	merkle_transactions(NULL, 0, batch->t, ARRAY_SIZE(batch->t), &merkle);
+	return memcmp(block->merkles[batchnum].sha, merkle.sha,
+		      sizeof(merkle.sha)) == 0;
+}
+
+/* FIXME: Return proof! */
+bool check_batch_order(struct state *state,
 		       const struct block *block,
 		       const struct transaction_batch *batch)
 {
-	unsigned int i;
+	int i;
 	union protocol_transaction *prev;
+	unsigned int batchnum = batch->trans_start << PETTYCOIN_BATCH_ORDER;
 
-	/* Does it make sense? */
-	if (batch->trans_start & ((1 << PETTYCOIN_BATCH_ORDER)-1))
-		return false;
-
-	if (batch->count > ARRAY_SIZE(batch->t))
-		return false;
-
-	/* Could it possibly be in block? */
-	if (add_overflows(batch->trans_start, batch->count))
-		return false;
-
-	if (batch->trans_start + batch->count
-	    > le32_to_cpu(block->hdr->num_transactions))
-		return false;
+	/* These should never happen, since we create batches. */
+	assert(!(batch->trans_start & ((1 << PETTYCOIN_BATCH_ORDER)-1)));
+	assert(batch->count <= ARRAY_SIZE(batch->t));
+	assert(!add_overflows(batch->trans_start, batch->count));
+	assert(batch->trans_start + batch->count <=
+	       le32_to_cpu(block->hdr->num_transactions));
 
 	/* Is it in order? */
 	prev = NULL;
@@ -124,27 +152,30 @@ bool check_batch_valid(struct state *state,
 		prev = t;
 	}
 
+	/* Is it in order wrt other known blocks?  If not, it may not
+	 * be this batch's fault, but it's still a problem. */
+	for (i = batchnum - 1; i >= 0; i--) {
+		if (!block->batch[i])
+			continue;
+
+		if (transaction_cmp(last_trans(block->batch[i]),
+				    first_trans(batch)) >= 0)
+			return false;
+	}
+
+	for (i = batchnum + 1;
+	     (i << PETTYCOIN_BATCH_ORDER) 
+		     < le32_to_cpu(block->hdr->num_transactions);
+	     i++) {
+		if (!block->batch[i])
+			continue;
+
+		if (transaction_cmp(last_trans(batch),
+				    first_trans(block->batch[i])) >= 0)
+			return false;
+	}
+
 	return true;
-}
-
-static union protocol_transaction *last_trans(struct transaction_batch *batch)
-{
-	int i;
-
-	for (i = ARRAY_SIZE(batch->t)-1; i >= 0; i--)
-		if (batch->t[i])
-			return batch->t[i];
-	abort();
-}
-
-static union protocol_transaction *first_trans(struct transaction_batch *batch)
-{
-	unsigned int i;
-
-	for (i = 0; i < ARRAY_SIZE(batch->t); i++)
-		if (batch->t[i])
-			return batch->t[i];
-	abort();
 }
 
 static void add_to_thash(struct state *state,
@@ -186,45 +217,15 @@ static void add_to_thash(struct state *state,
 	}
 }
 
-bool put_batch_in_block(struct state *state,
+void put_batch_in_block(struct state *state,
 			struct block *block,
 			struct transaction_batch *batch)
 {
-	struct protocol_double_sha merkle;
 	unsigned int batchnum = batch_index(batch->trans_start);
 
+	assert(batch_belongs_in_block(block, batch));
 	assert(batch_full(block, batch));
-	assert(check_batch_valid(state, block, batch));
-
-	/* Is it in order wrt other known blocks?  If not, it may not
-	 * be this batch's fault, but it's still a problem. */
-	if (batchnum != 0) {
-		struct transaction_batch *prev;
-
-		prev = block->batch[batchnum-1];
-		if (prev && transaction_cmp(last_trans(prev),
-					    first_trans(batch)) >= 0) {
-			return false;
-		}
-	}
-
-	if (batch->trans_start + batch->count
-	    < le32_to_cpu(block->hdr->num_transactions)) {
-		struct transaction_batch *next;
-
-		next = block->batch[batchnum+1];
-		if (next && transaction_cmp(last_trans(batch),
-					    first_trans(next)) >= 0) {
-			return false;
-		}
-	}
-
-	assert(batch_full(block, batch));
-	merkle_transactions(NULL, 0, batch->t, ARRAY_SIZE(batch->t), &merkle);
-	if (memcmp(block->merkles[batchnum].sha, merkle.sha,
-		   sizeof(merkle.sha)) != 0) {
-		return false;
-	}
+	assert(check_batch_order(state, block, batch));
 
 	/* If there are already some transactions, we should agree! */
 	if (block->batch[batchnum]) {
@@ -251,7 +252,35 @@ bool put_batch_in_block(struct state *state,
 	/* FIXME: re-check prev_merkles for any descendents. */
 	/* FIXME: re-check pending transactions with unknown inputs
 	 * now we know more, or which we already added. */
-	return true;
+}
+
+enum protocol_error batch_validate_transactions(struct state *state,
+						struct log *log,
+						struct block *block,
+						struct transaction_batch *batch)
+{
+	unsigned int i;
+	enum protocol_error err;
+	unsigned int bad_input_num;
+	union protocol_transaction *bad_input;
+
+	for (i = 0; i < ARRAY_SIZE(batch->t); i++) {
+		if (!batch->t[i])
+			continue;
+
+		/* Make sure transactions themselves are valid. */
+		err = check_transaction(state, batch->t[i],
+					&bad_input, &bad_input_num);
+		if (err) {
+			log_unusual(log, "Peer resp_batch transaction %u"
+				    " gave error ",
+				    batch->trans_start + i);
+			log_add_enum(log, enum protocol_error, err);
+			return err;
+		}
+	}
+
+	return PROTOCOL_ERROR_NONE;
 }
 
 /* Check what we can, using block->prev->...'s batch. */

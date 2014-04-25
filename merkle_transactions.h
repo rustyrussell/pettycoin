@@ -5,7 +5,7 @@
 
 /* Merkle together a batch of transactions */
 void merkle_transactions(const void *prefix, size_t prefix_len,
-			 union protocol_transaction **t,
+			 union protocol_transaction *const*t,
 			 size_t num_trans,
 			 struct protocol_double_sha *merkle);
 

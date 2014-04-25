@@ -638,14 +638,64 @@ receive_batch_req(struct peer *peer,
 	return NULL;
 }
 
+static enum protocol_error
+unmarshall_batch(struct log *log,
+		 const struct block *block,
+		 size_t batchnum,
+		 struct transaction_batch *batch,
+		 const struct protocol_resp_batch *resp)
+{
+	size_t max = batch_max(block, batchnum);
+	size_t size;
+	const char *buffer;
+
+	batch->trans_start = batchnum << PETTYCOIN_BATCH_ORDER;
+
+	/* We must agree on number (and you must send whole batch!). */
+	if (le32_to_cpu(resp->num) != max) {
+		log_unusual(log, "Peer returned %u not %zu for batch %zu of ",
+			    le32_to_cpu(resp->num), max, batchnum);
+		log_add_struct(log, struct protocol_double_sha, &block->sha);
+		return PROTOCOL_ERROR_DISAGREE_BATCHSIZE;
+	}
+
+	buffer = (char *)(resp + 1);
+	size = le32_to_cpu(resp->len) - sizeof(*resp);
+
+	for (batch->count = 0; batch->count < max; batch->count++) {
+		size_t used;
+		enum protocol_error err;
+
+		batch->t[batch->count] = (union protocol_transaction *)buffer;
+		err = unmarshall_transaction(buffer, size, &used);
+		if (err) {
+			log_unusual(log, "Peer resp_batch transaction %u/%zu"
+				    " for len %zu/%u gave error ",
+				    batch->count, max,
+				    le32_to_cpu(resp->len) - size,
+				    le32_to_cpu(resp->len));
+			log_add_enum(log, enum protocol_error, err);
+			return err;
+		}
+		size -= used;
+		buffer += used;
+	}
+
+	if (size) {
+		log_unusual(log, "Peer resp_batch leftover %zu bytes of %u",
+			    size, le32_to_cpu(resp->len));
+		return PROTOCOL_INVALID_LEN;
+	}
+
+	return PROTOCOL_ERROR_NONE;
+}
+
 static struct protocol_req_err *
 receive_batch_resp(struct peer *peer, struct protocol_resp_batch *resp)
 {
 	struct block *block = peer->batch_requested_block;
 	u32 batchnum = peer->batch_requested_num;
 	enum protocol_error err;
-	const char *buffer;
-	size_t size;
 	struct transaction_batch *batch;
 
 	if (le32_to_cpu(resp->len) < sizeof(*resp)) {
@@ -686,52 +736,28 @@ receive_batch_resp(struct peer *peer, struct protocol_resp_batch *resp)
 		return protocol_req_err(peer, PROTOCOL_INVALID_RESPONSE);
 	}
 
-	/* We must agree on number. */
-	if (le32_to_cpu(resp->num) != batch_max(block, batchnum)) {
-		log_unusual(peer->log, "Peer returned %u not %u for batch %u of ",
-			    le32_to_cpu(resp->num), batch_max(block, batchnum),
-			    peer->batch_requested_num);
-		log_add_struct(peer->log, struct protocol_double_sha,
-			       &block->sha);
-		return protocol_req_err(peer, PROTOCOL_ERROR_DISAGREE_BATCHSIZE);
-	}
-
-	/* Unmarshall batch. */
-	buffer = (char *)(resp + 1);
-	size = le32_to_cpu(resp->len) - sizeof(*resp);
-
 	/* Attach to response so we get freed with it on failure. */
 	batch = talz(resp, struct transaction_batch);
-	batch->trans_start = (peer->batch_requested_num << PETTYCOIN_BATCH_ORDER);
 
-	for (batch->count = 0;
-	     batch->count < le32_to_cpu(resp->num);
-	     batch->count++) {
-		size_t used;
+	/* Unmarshall batch. */
+	err = unmarshall_batch(peer->log, block, peer->batch_requested_num,
+			       batch, resp);
+	if (err)
+		return protocol_req_err(peer, err);
 
-		batch->t[batch->count] = (union protocol_transaction *)buffer;
-		err = unmarshall_transaction(buffer, size, &used);
-		if (err) {
-			log_unusual(peer->log, "Peer resp_batch transaction %u/%u"
-				    " for len %zu/%u gave error ",
-				    batch->count, le32_to_cpu(resp->num),
-				    le32_to_cpu(resp->len) - size,
-				    le32_to_cpu(resp->len));
-			log_add_enum(peer->log, enum protocol_error, err);
-			return protocol_req_err(peer, err);
-		}
-		size -= used;
-		buffer += used;
-	}
+	/* Peer should know better than to send invalid batch! */
+	if (!batch_belongs_in_block(block, batch))
+		return protocol_req_err(peer, PROTOCOL_INVALID_RESPONSE);
 
-	if (size) {
-		log_unusual(peer->log, "Peer resp_batch leftover %zu bytes of %u",
-			    size, le32_to_cpu(resp->num));
-		return protocol_req_err(peer, PROTOCOL_INVALID_LEN);
-	}
+	/* FIXME: Produce proof and taint block. */
+	err = batch_validate_transactions(peer->state, peer->log,
+					  peer->batch_requested_block, batch);
+	if (err)
+		return protocol_req_err(peer, err);
 
-	/* FIXME: Get exact error to report. */
-	if (!check_batch_valid(peer->state, peer->batch_requested_block, batch)) {
+	/* FIXME: Get exact error to report and taint block. */
+	if (!check_batch_order(peer->state, peer->batch_requested_block,
+			       batch)) {
 		log_unusual(peer->log, "Peer gave invalid batch %u for ",
 			    batchnum);
 		log_add_struct(peer->log, struct protocol_double_sha,
@@ -739,16 +765,10 @@ receive_batch_resp(struct peer *peer, struct protocol_resp_batch *resp)
 		return protocol_req_err(peer, PROTOCOL_INVALID_RESPONSE);
 	}
 
-	/* FIXME: Get exact error to report. */
-	if (!put_batch_in_block(peer->state, block, batch)) {
-		log_unusual(peer->log, "Peer gave wrong batch %u for ",
-			    batchnum);
-		log_add_struct(peer->log, struct protocol_double_sha,
-			       &block->sha);
-		return protocol_req_err(peer, PROTOCOL_INVALID_RESPONSE);
-	}
+	/* block will now own batch */
+	put_batch_in_block(peer->state, block, batch);
 
-	/* block now owns the packet */
+	/* batch now owns the packet */
 	tal_steal(batch, resp);
 
 	log_debug(peer->log, "Added batch %u to ", batchnum);
