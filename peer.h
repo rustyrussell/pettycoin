@@ -45,8 +45,11 @@ struct peer {
 	/* Last block it knows about. */
 	struct block *mutual;
 
-	/* Pending transactions. */
+	/* Pending transactions (to send to peer). */
 	struct list_head pending;
+
+	/* Complaints about transactions/blocks. */
+	struct list_head complaints;
 
 	/* What happened. */
 	struct log *log;

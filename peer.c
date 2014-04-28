@@ -197,6 +197,23 @@ void add_trans_to_peers(struct state *state,
 	}
 }
 
+struct complaint {
+	struct list_node list;
+	const struct protocol_net_hdr *pkt;
+};
+
+static void add_complaint(struct peer *peer,
+			  const struct protocol_net_hdr *pkt)
+{
+	struct complaint *c = tal(NULL, struct complaint);
+	list_add_tail(&peer->complaints, &c->list);
+
+	c->pkt = (void *)tal_dup(peer, char, (char *)pkt,
+				 le32_to_cpu(pkt->len), 0);
+	/* Free complaint structure when packet freed. */
+	tal_steal(c->pkt, c);
+}
+
 static struct protocol_req_err *protocol_req_err(struct peer *peer,
 						 enum protocol_error e)
 {
@@ -325,7 +342,8 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 {
 	struct block *next;
 	struct pending_trans *pend;
-	void *pkt;
+	struct complaint *complaint;
+	const void *pkt;
 
 	/* There was an error?  Send that then close. */
 	if (peer->error_pkt) {
@@ -349,6 +367,17 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 	if (peer->curr_out_req != PROTOCOL_REQ_NONE) {
 		log_debug(peer->log, "Awaiting response packet");
 		return io_wait(peer, plan_output, peer);
+	}
+
+	/* Have we found a problem, using knowledge of other trans? */
+	complaint = list_pop(&peer->complaints, struct complaint,list);
+	if (complaint) {
+		log_debug(peer->log, "Writing complaint packet ");
+		log_add_enum(peer->log, enum protocol_req_type,
+			     le32_to_cpu(complaint->pkt->type));
+		peer->curr_out_req = le32_to_cpu(complaint->pkt->type);
+		pkt = complaint->pkt;
+		goto write;
 	}
 
 	/* Second, do we have any blocks to send? */
@@ -1086,6 +1115,7 @@ void new_peer(struct state *state, int fd, const struct protocol_net_address *a)
 	peer->mutual = NULL;
 	peer->curr_in_req = peer->curr_out_req = PROTOCOL_REQ_NONE;
 	list_head_init(&peer->pending);
+	list_head_init(&peer->complaints);
 
 	/* If a, we need to connect to there. */
 	if (a) {
