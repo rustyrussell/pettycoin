@@ -518,8 +518,8 @@ receive_trans(struct peer *peer,
 
 	e = check_transaction(peer->state, &req->trans,
 			      &bad_input, &bad_input_num);
-	if (e == PROTOCOL_ERROR_TRANS_BAD_INPUT)
-		goto bad_input;
+	/* FIXME: Don't break connection on transactions which
+	 * could seem OK if node didn't have full knowledge */
 	if (e)
 		goto fail;
 
@@ -533,20 +533,6 @@ receive_trans(struct peer *peer,
 	return NULL;
 
 fail:
-	r->error = cpu_to_le32(e);
-	return r;
-
-bad_input:
-	/* We append information about the bad input transaction. */
-	assert(e == PROTOCOL_ERROR_TRANS_BAD_INPUT);
-	if (bad_input) {
-		tal_resize(&r, sizeof(*r) + sizeof(le32)
-			   + marshall_transaction_len(bad_input));
-		memcpy((char *)r + sizeof(le32),
-		       bad_input, marshall_transaction_len(bad_input));
-	} else
-		tal_resize(&r, sizeof(*r) + sizeof(le32));
-	*(le32 *)(r + 1) = cpu_to_le32(bad_input_num);
 	r->error = cpu_to_le32(e);
 	return r;
 }

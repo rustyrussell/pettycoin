@@ -167,11 +167,6 @@ struct protocol_resp_new_transaction {
 	le32 len; /* sizeof(struct protocol_resp_new_transaction) */
 	le32 type; /* PROTOCOL_RESP_NEW_TRANSACTION */
 	le32 error; /* Expect PROTOCOL_ERROR_NONE. */
-
-	/* If PROTOCOL_ERROR_TRANS_BAD_INPUT, followed by:
-	   le32 input;
-	   union protocol_transaction trans; (optional)
-	*/
 };
 
 /* Give me this batch. */
