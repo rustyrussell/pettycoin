@@ -18,6 +18,10 @@ enum protocol_req_type {
 	PROTOCOL_REQ_NEW_TRANSACTION,
 	/* Tell me about this batch in a block. */
 	PROTOCOL_REQ_BATCH,
+	/* This transaction has a bad input. */
+	PROTOCOL_REQ_BAD_TRANS_INPUT,
+	/* This transaction has bad inputs (total is wrong). */
+	PROTOCOL_REQ_BAD_TRANS_AMOUNT,
 	/* Tell me about this block. */
 	PROTOCOL_REQ_TRANSACTION_NUMS,
 	/* Tell me about this transaction in a block. */
@@ -36,6 +40,8 @@ enum protocol_resp_type {
 	PROTOCOL_RESP_NEW_BLOCK,
 	PROTOCOL_RESP_NEW_TRANSACTION,
 	PROTOCOL_RESP_BATCH,
+	PROTOCOL_RESP_BAD_TRANS_INPUT,
+	PROTOCOL_RESP_BAD_TRANS_AMOUNT,
 	PROTOCOL_RESP_TRANSACTION_NUMS,
 	PROTOCOL_RESP_TRANSACTION,
 
@@ -228,6 +234,42 @@ struct protocol_resp_transaction {
 	/* Marshalled transaction. */
 	union protocol_transaction trans;
 	/* ... */
+};
+
+struct protocol_req_bad_trans_input {
+	le32 len; /* sizeof(struct protocol_req_bad_trans_input) */
+	le32 type; /* PROTOCOL_REQ_BAD_TRANS_INPUT */
+
+	/* The input we're complaining about. */
+	le32 inputnum;
+
+	/* The transaction whose input was bad:
+	     union protocol_transaction trans;
+	   The bad input:
+	     union protocol_transaction input;
+	*/
+};
+
+struct protocol_resp_bad_trans_input {
+	le32 len; /* sizeof(struct protocol_resp_bad_trans_input) */
+	le32 type; /* PROTOCOL_RESP_BAD_TRANS_INPUT */
+	le32 error; /* Expect PROTOCOL_ERROR_NONE. */
+};
+
+struct protocol_req_bad_trans_amount {
+	le32 len; /* sizeof(struct protocol_req_bad_trans_amount) */
+	le32 type; /* PROTOCOL_REQ_BAD_TRANS_AMOUNT */
+
+	/* The transaction whose inputs were bad:
+	     union protocol_transaction t;
+	   The inputs:
+	     union protocol_transaction input[t->normal.num_inputs]; */
+};
+
+struct protocol_resp_bad_trans_amount {
+	le32 len; /* sizeof(struct protocol_resp_bad_trans_amount) */
+	le32 type; /* PROTOCOL_RESP_BAD_TRANS_AMOUNT */
+	le32 error; /* Expect PROTOCOL_ERROR_NONE. */
 };
 
 /* IPv4 addresses are represented as per rfc4291#section-2.5.5.2 */

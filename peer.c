@@ -526,6 +526,85 @@ fail:
 	return protocol_resp_err(peer, e);
 }
 
+/* Uses pkt->len as a counter. */
+static void append_trans(void *pkt,
+			 const union protocol_transaction *trans)
+{
+	struct protocol_net_hdr *hdr = pkt;
+	u32 len;
+
+	len = marshall_transaction_len(trans);
+	memcpy((char *)hdr + le32_to_cpu(hdr->len), trans, len);
+	hdr->len = cpu_to_le32(le32_to_cpu(hdr->len) + len);
+}
+
+static void
+complain_about_input(struct state *state,
+		     struct peer *peer,
+		     const union protocol_transaction *trans,
+		     const union protocol_transaction *bad_input,
+		     unsigned int bad_input_num)
+{
+	struct protocol_req_bad_trans_input *pkt;
+	u32 len;
+
+	/* FIXME: We do this since we expect perfect knowledge
+	   (unknown input).  We can't prove anything is wrong in this
+	   case though! */
+	if (!bad_input)
+		return;
+
+	len = sizeof(*pkt)
+		+ marshall_transaction_len(trans)
+		+ marshall_transaction_len(bad_input);
+	pkt = (void *)tal_arr(peer, char, len);
+	pkt->len = cpu_to_le32(sizeof(*pkt));
+	pkt->type = cpu_to_le32(PROTOCOL_REQ_BAD_TRANS_INPUT);
+	pkt->inputnum = cpu_to_le32(bad_input_num);
+
+	append_trans(pkt, trans);
+	append_trans(pkt, bad_input);
+	assert(le32_to_cpu(pkt->len) == len);
+
+	/* Makes copy. */
+	add_complaint(peer, (struct protocol_net_hdr *)pkt);
+	tal_free(pkt);
+}
+
+static void
+complain_about_inputs(struct state *state,
+		      struct peer *peer,
+		      const union protocol_transaction *trans)
+{
+	struct protocol_req_bad_trans_amount *pkt;
+	unsigned int i;
+	u32 len;
+	union protocol_transaction *input[TRANSACTION_MAX_INPUTS];
+
+	assert(le32_to_cpu(trans->hdr.type) == TRANSACTION_NORMAL);
+	len = sizeof(*pkt) + marshall_transaction_len(trans);
+
+	/* FIXME: What if input still pending, not in thash? */
+	for (i = 0; i < le32_to_cpu(trans->normal.num_inputs); i++) {
+		input[i] = thash_gettrans(&state->thash,
+					&trans->normal.input[i].input);
+		len += marshall_transaction_len(input[i]);
+	}
+
+	pkt = (void *)tal_arr(peer, char, len);
+	pkt->len = cpu_to_le32(sizeof(*pkt));
+	pkt->type = cpu_to_le32(PROTOCOL_REQ_BAD_TRANS_AMOUNT);
+
+	append_trans(pkt, trans);
+	for (i = 0; i < le32_to_cpu(trans->normal.num_inputs); i++)
+		append_trans(pkt, input[i]);
+	assert(le32_to_cpu(pkt->len) == len);
+
+	/* Makes copy. */
+	add_complaint(peer, (struct protocol_net_hdr *)pkt);
+	tal_free(pkt);
+}
+
 /* Returns an error packet if there was trouble. */
 static struct protocol_resp_new_transaction *
 receive_trans(struct peer *peer,
@@ -547,16 +626,27 @@ receive_trans(struct peer *peer,
 
 	e = check_transaction(peer->state, &req->trans,
 			      &bad_input, &bad_input_num);
-	/* FIXME: Don't break connection on transactions which
-	 * could seem OK if node didn't have full knowledge */
-	if (e)
+
+	r->error = cpu_to_le32(e);
+
+	if (e == PROTOCOL_ERROR_TRANS_BAD_INPUT) {
+		/* Complain, but don't hang up on them! */
+		complain_about_input(peer->state, peer, &req->trans,
+				     bad_input, bad_input_num);
+		goto ok;
+	} else if (e == PROTOCOL_ERROR_TRANS_BAD_AMOUNTS) {
+		complain_about_inputs(peer->state, peer, &req->trans);
+		goto ok;
+	} else if (e) {
+		/* Any other failure is something they should know */
 		goto fail;
+	}
 
 	/* OK, we own it now. */
 	tal_steal(peer->state, req);
-
 	add_pending_transaction(peer, &req->trans);
-	r->error = cpu_to_le32(PROTOCOL_ERROR_NONE);
+
+ok:
 	assert(!peer->response);
 	peer->response = r;
 	return NULL;
