@@ -161,10 +161,8 @@ union protocol_transaction {
 
 /* Proof that a transaction was in a block. */
 struct protocol_proof {
-	/* Bottom 32 bits of double SHA block hash */
-	u8 blocksig[4];
 	/* Transaction number within the block. */
-	le32 num;
+	le32 tnum;
 	/* This is the tree of double shas which proves it. */
 	struct protocol_double_sha merkle[PETTYCOIN_BATCH_ORDER];
 };
