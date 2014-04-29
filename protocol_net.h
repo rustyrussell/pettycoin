@@ -164,9 +164,7 @@ struct protocol_req_new_transaction {
 	le32 len; /* ... */
 	le32 type; /* PROTOCOL_REQ_NEW_TRANSACTION */
 
-	/* Marshalled transaction. */
-	union protocol_transaction trans;
-	/* ... */
+	/* union protocol_transaction trans ...; */
 };
 
 struct protocol_resp_new_transaction {
@@ -231,9 +229,7 @@ struct protocol_resp_transaction {
 	/* This is the tree of double shas which proves it. */
 	struct protocol_double_sha proof[PETTYCOIN_BATCH_ORDER];
 
-	/* Marshalled transaction. */
-	union protocol_transaction trans;
-	/* ... */
+	/* union protocol_transaction trans ...; */
 };
 
 struct protocol_req_bad_trans_input {
@@ -244,9 +240,9 @@ struct protocol_req_bad_trans_input {
 	le32 inputnum;
 
 	/* The transaction whose input was bad:
-	     union protocol_transaction trans;
+	     union protocol_transaction trans ...; 
 	   The bad input:
-	     union protocol_transaction input;
+	     union protocol_transaction input ...;
 	*/
 };
 
@@ -261,9 +257,9 @@ struct protocol_req_bad_trans_amount {
 	le32 type; /* PROTOCOL_REQ_BAD_TRANS_AMOUNT */
 
 	/* The transaction whose inputs were bad:
-	     union protocol_transaction t;
+	     union protocol_transaction t ...;
 	   The inputs:
-	     union protocol_transaction input[t->normal.num_inputs]; */
+	     union protocol_transaction input[t->normal.num_inputs] ...; */
 };
 
 struct protocol_resp_bad_trans_amount {

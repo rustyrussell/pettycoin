@@ -1,6 +1,7 @@
 #include "packet.h"
 #include "protocol_net.h"
 #include "peer.h"
+#include "marshall.h"
 #include <ccan/tal/tal.h>
 #include <string.h>
 #include <errno.h>
@@ -99,4 +100,36 @@ struct io_plan io_write_packet_(struct peer *peer, const void *pkt,
 	assert(le32_to_cpu(len) <= PROTOCOL_MAX_PACKET_LEN);
 
 	return io_write(pkt, le32_to_cpu(len), next, peer);
+}
+
+void *tal_packet_(const tal_t *ctx, size_t len, int type)
+{
+	struct protocol_net_hdr *hdr;
+
+	assert(len >= sizeof(*hdr));
+	assert(len < PROTOCOL_MAX_PACKET_LEN);
+
+	/* Must be a char array so that tal_count() is in bytes */
+	hdr = (void *)tal_arr(ctx, char, len);
+
+	hdr->len = cpu_to_le32(len);
+	hdr->type = cpu_to_le32(type);
+
+	return hdr;
+}
+
+void tal_packet_append(void *ppkt, const void *mem, size_t len)
+{
+	struct protocol_net_hdr **hdr = ppkt;
+	u32 orig_len = le32_to_cpu((*hdr)->len);
+
+	tal_resize((char **)ppkt, orig_len + len);
+	memcpy((char *)*hdr + orig_len, mem, len);
+	(*hdr)->len = cpu_to_le32(orig_len + len);
+}
+
+void tal_packet_append_trans(void *ppkt,
+			     const union protocol_transaction *trans)
+{
+	tal_packet_append(ppkt, trans, marshall_transaction_len(trans));
 }

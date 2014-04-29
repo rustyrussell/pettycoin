@@ -217,10 +217,9 @@ static void add_complaint(struct peer *peer,
 static struct protocol_req_err *protocol_req_err(struct peer *peer,
 						 enum protocol_error e)
 {
-	struct protocol_req_err *pkt = tal(peer, struct protocol_req_err);
+	struct protocol_req_err *pkt;
 
-	pkt->len = cpu_to_le32(sizeof(*pkt));
-	pkt->type = cpu_to_le32(PROTOCOL_REQ_ERR);
+	pkt = tal_packet(peer, struct protocol_req_err, PROTOCOL_REQ_ERR);
 	pkt->error = cpu_to_le32(e);
 
 	return pkt;
@@ -229,10 +228,9 @@ static struct protocol_req_err *protocol_req_err(struct peer *peer,
 static struct protocol_resp_err *protocol_resp_err(struct peer *peer,
 						   enum protocol_error e)
 {
-	struct protocol_resp_err *pkt = tal(peer, struct protocol_resp_err);
+	struct protocol_resp_err *pkt;
 
-	pkt->len = cpu_to_le32(sizeof(*pkt));
-	pkt->type = cpu_to_le32(PROTOCOL_RESP_ERR);
+	pkt = tal_packet(peer, struct protocol_resp_err, PROTOCOL_RESP_ERR);
 	pkt->error = cpu_to_le32(e);
 
 	return pkt;
@@ -298,9 +296,7 @@ static struct protocol_req_batch *batch_req(tal_t *ctx, struct block *b,
 {
 	struct protocol_req_batch *r;
  
-	r = tal(ctx, struct protocol_req_batch);
-	r->len = cpu_to_le32(sizeof(*r));
-	r->type = cpu_to_le32(PROTOCOL_REQ_BATCH);
+	r = tal_packet(ctx, struct protocol_req_batch, PROTOCOL_REQ_BATCH);
 	r->block = b->sha;
 	r->batchnum = cpu_to_le32(batchnum);
 
@@ -311,16 +307,10 @@ static struct protocol_req_new_transaction *
 trans_pkt(tal_t *ctx, const union protocol_transaction *t)
 {
 	struct protocol_req_new_transaction *r;
-	size_t mlen, len;
+	r = tal_packet(ctx, struct protocol_req_new_transaction,
+		       PROTOCOL_REQ_NEW_TRANSACTION);
 
-	mlen = marshall_transaction_len(t);
-	len = sizeof(struct protocol_net_hdr) + mlen;
-	
-	r = tal_alloc_(ctx, len, false, "struct protocol_req_new_trans");
-	r->len = cpu_to_le32(len);
-	r->type = cpu_to_le32(PROTOCOL_REQ_NEW_TRANSACTION);
-	memcpy(&r->trans, t, mlen);
-
+	tal_packet_append_trans(&r, t);
 	return r;
 }
 
@@ -513,9 +503,8 @@ receive_block(struct peer *peer, const struct protocol_req_new_block *req)
 	/* FIXME: Try to guess the batches */
 
 	/* Reply, tell them we're all good... */
-	r = tal(peer, struct protocol_resp_new_block);
-	r->len = cpu_to_le32(sizeof(*r));
-	r->type = cpu_to_le32(PROTOCOL_RESP_NEW_BLOCK);
+	r = tal_packet(peer, struct protocol_resp_new_block,
+		       PROTOCOL_RESP_NEW_BLOCK);
 	r->final = peer->state->longest_chain->sha;
 
 	assert(!peer->response);
@@ -526,18 +515,6 @@ fail:
 	return protocol_resp_err(peer, e);
 }
 
-/* Uses pkt->len as a counter. */
-static void append_trans(void *pkt,
-			 const union protocol_transaction *trans)
-{
-	struct protocol_net_hdr *hdr = pkt;
-	u32 len;
-
-	len = marshall_transaction_len(trans);
-	memcpy((char *)hdr + le32_to_cpu(hdr->len), trans, len);
-	hdr->len = cpu_to_le32(le32_to_cpu(hdr->len) + len);
-}
-
 static void
 complain_about_input(struct state *state,
 		     struct peer *peer,
@@ -546,7 +523,6 @@ complain_about_input(struct state *state,
 		     unsigned int bad_input_num)
 {
 	struct protocol_req_bad_trans_input *pkt;
-	u32 len;
 
 	/* FIXME: We do this since we expect perfect knowledge
 	   (unknown input).  We can't prove anything is wrong in this
@@ -554,17 +530,12 @@ complain_about_input(struct state *state,
 	if (!bad_input)
 		return;
 
-	len = sizeof(*pkt)
-		+ marshall_transaction_len(trans)
-		+ marshall_transaction_len(bad_input);
-	pkt = (void *)tal_arr(peer, char, len);
-	pkt->len = cpu_to_le32(sizeof(*pkt));
-	pkt->type = cpu_to_le32(PROTOCOL_REQ_BAD_TRANS_INPUT);
+	pkt = tal_packet(peer, struct protocol_req_bad_trans_input,
+			 PROTOCOL_REQ_BAD_TRANS_INPUT);
 	pkt->inputnum = cpu_to_le32(bad_input_num);
 
-	append_trans(pkt, trans);
-	append_trans(pkt, bad_input);
-	assert(le32_to_cpu(pkt->len) == len);
+	tal_packet_append_trans(&pkt, trans);
+	tal_packet_append_trans(&pkt, bad_input);
 
 	/* Makes copy. */
 	add_complaint(peer, (struct protocol_net_hdr *)pkt);
@@ -578,27 +549,21 @@ complain_about_inputs(struct state *state,
 {
 	struct protocol_req_bad_trans_amount *pkt;
 	unsigned int i;
-	u32 len;
-	union protocol_transaction *input[TRANSACTION_MAX_INPUTS];
 
 	assert(le32_to_cpu(trans->hdr.type) == TRANSACTION_NORMAL);
-	len = sizeof(*pkt) + marshall_transaction_len(trans);
+
+	pkt = tal_packet(peer, struct protocol_req_bad_trans_amount,
+			 PROTOCOL_REQ_BAD_TRANS_AMOUNT);
+
+	tal_packet_append_trans(&pkt, trans);
 
 	/* FIXME: What if input still pending, not in thash? */
 	for (i = 0; i < le32_to_cpu(trans->normal.num_inputs); i++) {
-		input[i] = thash_gettrans(&state->thash,
-					&trans->normal.input[i].input);
-		len += marshall_transaction_len(input[i]);
+		union protocol_transaction *input;
+		input = thash_gettrans(&state->thash,
+				       &trans->normal.input[i].input);
+		tal_packet_append_trans(&pkt, input);
 	}
-
-	pkt = (void *)tal_arr(peer, char, len);
-	pkt->len = cpu_to_le32(sizeof(*pkt));
-	pkt->type = cpu_to_le32(PROTOCOL_REQ_BAD_TRANS_AMOUNT);
-
-	append_trans(pkt, trans);
-	for (i = 0; i < le32_to_cpu(trans->normal.num_inputs); i++)
-		append_trans(pkt, input[i]);
-	assert(le32_to_cpu(pkt->len) == len);
 
 	/* Makes copy. */
 	add_complaint(peer, (struct protocol_net_hdr *)pkt);
@@ -612,30 +577,31 @@ receive_trans(struct peer *peer,
 {
 	enum protocol_error e;
 	struct protocol_resp_new_transaction *r;
-	u32 translen = le32_to_cpu(req->len) - sizeof(struct protocol_net_hdr);
+	union protocol_transaction *trans;
+	u32 translen = le32_to_cpu(req->len) - sizeof(*req);
 	union protocol_transaction *bad_input;
 	unsigned int bad_input_num;
 
-	r = tal(peer, struct protocol_resp_new_transaction);
-	r->len = cpu_to_le32(sizeof(*r));
-	r->type = cpu_to_le32(PROTOCOL_RESP_NEW_TRANSACTION);
+	r = tal_packet(peer, struct protocol_resp_new_transaction,
+		       PROTOCOL_RESP_NEW_TRANSACTION);
 
-	e = unmarshall_transaction(&req->trans, translen, NULL);
+	trans = (void *)(req + 1);
+	e = unmarshall_transaction(trans, translen, NULL);
 	if (e)
 		goto fail;
 
-	e = check_transaction(peer->state, &req->trans,
+	e = check_transaction(peer->state, trans,
 			      &bad_input, &bad_input_num);
 
 	r->error = cpu_to_le32(e);
 
 	if (e == PROTOCOL_ERROR_TRANS_BAD_INPUT) {
 		/* Complain, but don't hang up on them! */
-		complain_about_input(peer->state, peer, &req->trans,
+		complain_about_input(peer->state, peer, trans,
 				     bad_input, bad_input_num);
 		goto ok;
 	} else if (e == PROTOCOL_ERROR_TRANS_BAD_AMOUNTS) {
-		complain_about_inputs(peer->state, peer, &req->trans);
+		complain_about_inputs(peer->state, peer, trans);
 		goto ok;
 	} else if (e) {
 		/* Any other failure is something they should know */
@@ -644,7 +610,7 @@ receive_trans(struct peer *peer,
 
 	/* OK, we own it now. */
 	tal_steal(peer->state, req);
-	add_pending_transaction(peer, &req->trans);
+	add_pending_transaction(peer, trans);
 
 ok:
 	assert(!peer->response);
@@ -665,15 +631,12 @@ receive_batch_req(struct peer *peer,
 	struct block *block;
 	struct transaction_batch *batch;
 	unsigned int i, num;
-	size_t tlen;
-	char *p;
 
 	if (le32_to_cpu(req->len) != sizeof(*req))
 		return (void *)protocol_resp_err(peer, PROTOCOL_INVALID_LEN);
 
-	r = tal(peer, struct protocol_resp_batch);
-	r->len = cpu_to_le32(sizeof(*r));
-	r->type = cpu_to_le32(PROTOCOL_RESP_BATCH);
+	r = tal_packet(peer, struct protocol_resp_batch,
+		       PROTOCOL_RESP_BATCH);
 	r->num = 0;
 
 	/* This could happen, but is unusual. */
@@ -715,25 +678,12 @@ receive_batch_req(struct peer *peer,
 		return r;
 	}
 
-	/* Get size and resize. */
-	tlen = 0;
+	/* Now append transactions. */
 	for (i = 0; i < batch->count; i++)
-		tlen += marshall_transaction_len(batch->t[i]);
-	tal_resize(&r, sizeof(*r) + tlen);
-
-	/* Adjust patcket to reflect these transactions. */
+		tal_packet_append_trans(&r, batch->t[i]);
 	r->num = cpu_to_le32(batch->count);
-	r->len = cpu_to_le32(sizeof(*r) + tlen);
-
-	/* Now copy in transactions. */
-	p = (char *)(r + 1);
-	for (i = 0; i < batch->count; i++) {
-		tlen = marshall_transaction_len(batch->t[i]);
-		memcpy(p, batch->t[i], tlen);
-		p += tlen;
-	}
-
 	r->error = cpu_to_le32(PROTOCOL_ERROR_NONE);
+
 	assert(!peer->response);
 	peer->response = r;
 

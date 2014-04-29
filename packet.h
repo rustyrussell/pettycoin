@@ -1,6 +1,7 @@
 #ifndef PETTYCOIN_PACKET_H
 #define PETTYCOIN_PACKET_H
 #include <ccan/io/io.h>
+#include <ccan/tal/tal.h>
 
 /* All packets are "le32 len, type" then len bytes. */
 struct peer;
@@ -28,4 +29,16 @@ struct io_plan io_read_packet_(void *ppkt,
 struct io_plan io_write_packet_(struct peer *peer, const void *pkt,
 				struct io_plan (*next)(struct io_conn *,
 						       void *));
+
+#define tal_packet(ctx, type, enumtype) \
+	((type *)tal_packet_((ctx), sizeof(type), (enumtype)))
+
+void *tal_packet_(const tal_t *ctx, size_t len, int type);
+
+union protocol_transaction;
+void tal_packet_append_trans(void *ppkt,
+			     const union protocol_transaction *trans);
+
+void tal_packet_append(void *ppkt, const void *mem, size_t len);
+
 #endif
