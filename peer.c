@@ -657,7 +657,7 @@ receive_batch_req(struct peer *peer,
 	block = block_find_any(peer->state, &req->block);
 	if (!block) {
 		log_unusual(peer->log,
-			    "Peer asked PROTOCOL_RESP_BATCH for unknown block ");
+			    "Peer asked PROTOCOL_REQ_BATCH for unknown block ");
 		log_add_struct(peer->log, struct protocol_double_sha,
 			       &req->block);
 		r->error = cpu_to_le32(PROTOCOL_ERROR_UNKNOWN_BLOCK);
