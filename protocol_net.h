@@ -22,6 +22,15 @@ enum protocol_req_type {
 	PROTOCOL_REQ_BAD_TRANS_INPUT,
 	/* This transaction has bad inputs (total is wrong). */
 	PROTOCOL_REQ_BAD_TRANS_AMOUNT,
+	/* I have found a flaw in this transaction in block. */
+	PROTOCOL_REQ_BLOCK_TRANS_INVALID,
+	/* PROTOCOL_REQ_BAD_TRANS_INPUT (within block). */
+	PROTOCOL_REQ_BLOCK_BAD_TRANS_INPUT,
+	/* PROTOCOL_REQ_BAD_TRANS_AMOUNT (within block). */
+	PROTOCOL_REQ_BLOCK_BAD_TRANS_AMOUNT,
+	/* Two transactions in block are out of order. */
+	PROTOCOL_REQ_BLOCK_TRANS_MISORDER,
+
 	/* Tell me about this block. */
 	PROTOCOL_REQ_TRANSACTION_NUMS,
 	/* Tell me about this transaction in a block. */
@@ -42,6 +51,11 @@ enum protocol_resp_type {
 	PROTOCOL_RESP_BATCH,
 	PROTOCOL_RESP_BAD_TRANS_INPUT,
 	PROTOCOL_RESP_BAD_TRANS_AMOUNT,
+	PROTOCOL_RESP_BLOCK_TRANS_INVALID,
+	PROTOCOL_RESP_BLOCK_BAD_TRANS_INPUT,
+	PROTOCOL_RESP_BLOCK_BAD_TRANS_AMOUNT,
+	PROTOCOL_RESP_BLOCK_TRANS_MISORDER,
+
 	PROTOCOL_RESP_TRANSACTION_NUMS,
 	PROTOCOL_RESP_TRANSACTION,
 
@@ -272,4 +286,83 @@ struct protocol_resp_bad_trans_amount {
 struct protocol_net_addr {
 	u8 addr[16];
 };
+
+/* This block contains an invalid transaction. */
+struct protocol_req_block_trans_invalid {
+	le32 len; /* sizeof(struct protocol_req_block_trans_invalid) */
+	le32 type; /* PROTOCOL_REQ_BLOCK_TRANS_INVALID */
+
+	/* Which block I am referring to. */
+	struct protocol_double_sha block;
+
+	/* What is wrong with it (as per protocol_req_new_transaction).
+	 * One of:
+	 *  PROTOCOL_ERROR_TRANS_HIGH_VERSION
+	 *  PROTOCOL_ERROR_TRANS_LOW_VERSION
+	 *  PROTOCOL_ERROR_TRANS_UNKNOWN
+	 *  PROTOCOL_ERROR_TRANS_BAD_GATEWAY
+	 *  PROTOCOL_ERROR_TRANS_CROSS_SHARDS
+	 *  PROTOCOL_ERROR_TOO_LARGE
+	 *  PROTOCOL_ERROR_TRANS_BAD_SIG
+	 *  PROTOCOL_ERROR_TOO_MANY_INPUTS
+	 */
+	le32 error;
+
+	struct protocol_proof proof;
+
+	/* union protocol_transaction trans; */
+};
+
+/* This block contains an transaction with an invalid input,
+ * ie PROTOCOL_ERROR_TRANS_BAD_INPUT. */
+struct protocol_req_block_bad_trans_input {
+	le32 len; /* sizeof(struct protocol_req_block_bad_trans_input) */
+	le32 type; /* PROTOCOL_REQ_BLOCK_BAD_TRANS_INPUT */
+
+	/* Which block & input I am referring to. */
+	struct protocol_double_sha block;
+	le32 inputnum;
+
+	struct protocol_proof proof;
+
+	/* The transaction whose input was bad:
+	     union protocol_transaction trans;
+	   The bad input:
+	     union protocol_transaction input;
+	*/
+};
+
+/* This block contains an transaction with an invalid total,
+ * ie PROTOCOL_ERROR_TRANS_BAD_AMOUNTS. */
+struct protocol_req_block_bad_trans_amount {
+	le32 len; /* sizeof(struct protocol_req_block_bad_trans_amount) */
+	le32 type; /* PROTOCOL_REQ_BLOCK_BAD_TRANS_AMOUNT */
+
+	/* Which block & transaction I am referring to. */
+	struct protocol_double_sha block;
+
+	struct protocol_proof proof;
+
+	/* The transaction whose inputs were bad:
+	     union protocol_transaction t;
+	   The inputs:
+	     union protocol_transaction input[t->normal.num_inputs]; */
+};
+
+/* This block contains out-of-order transaction. */
+struct protocol_req_block_trans_misorder {
+	le32 len; /* sizeof(struct protocol_req_block_trans_misorder) */
+	le32 type; /* PROTOCOL_REQ_BLOCK_TRANS_MISORDER */
+
+	/* Which block & transactions I am referring to. */
+	struct protocol_double_sha block;
+
+	struct protocol_proof proof1;
+	struct protocol_proof proof2;
+
+	/* union protocol_transaction trans1;
+	   union protocol_transaction trans2;
+	*/
+};
+
 #endif /* PETTYCOIN_PROTOCOL_NET_H */

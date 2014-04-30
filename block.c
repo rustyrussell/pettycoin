@@ -7,6 +7,8 @@
 #include "log.h"
 #include "merkle_transactions.h"
 #include "pending.h"
+#include "packet.h"
+#include "proof.h"
 #include <string.h>
 
 /* Is a more work than b? */
@@ -29,9 +31,12 @@ void check_chains(const struct state *state)
 			else {
 				assert(memcmp(&i->hdr->prev_block, &i->prev->sha,
 					      sizeof(i->prev->sha)) == 0);
+				if (i->prev->complaint)
+					assert(i->complaint);
 			}
-			assert(!more_work(i, state->longest_chain));
-			if (i->all_known)
+			assert(i->complaint ||
+			       !more_work(i, state->longest_chain));
+			if (!i->complaint && i->all_known)
 				assert(!more_work(i, state->longest_known));
 		}
 	}
@@ -43,6 +48,11 @@ void check_chains(const struct state *state)
 		assert(i != genesis_block(state));
 		assert(!i->all_known);
 	}
+
+	/* We ignore blocks which have a problem. */
+	assert(!state->longest_known->complaint);
+	assert(!state->longest_known_descendent->complaint);
+	assert(!state->longest_chain->complaint);
 }
 
 struct block *block_find(struct block *start, const u8 lower_sha[4])
@@ -64,7 +74,7 @@ struct block *block_find(struct block *start, const u8 lower_sha[4])
  * mine it.  If everyone is sharing information normally, that should be
  * easy.
  */
-static void update_longest(struct state *state, struct block *block)
+static void update_longest(struct state *state, const struct block *block)
 {
 	log_debug(state->log, "Longest moved from %u to %u ",
 		  state->longest_chain->blocknum,
@@ -81,9 +91,9 @@ static void update_longest(struct state *state, struct block *block)
  *
  * This is the best block to mine on.
  */
-void update_longest_known(struct state *state, struct block *block)
+void update_longest_known(struct state *state, const struct block *block)
 {
-	struct block *old = state->longest_known;
+	const struct block *old = state->longest_known;
 
 	log_debug(state->log, "Longest known moved from %u to %u ",
 		  old->blocknum, block->blocknum);
@@ -106,7 +116,8 @@ void update_longest_known(struct state *state, struct block *block)
  * If we can't get information about the longest chain, we'd like
  * information about this chain.
  */
-void update_longest_known_descendent(struct state *state, struct block *block)
+void update_longest_known_descendent(struct state *state,
+				     const struct block *block)
 {
 	log_debug(state->log, "Longest known descendent moved from %u to %u ",
 		  state->longest_known_descendent->blocknum,
@@ -134,6 +145,13 @@ void block_add(struct state *state, struct block *block)
 		list_head_init(state->block_depth[block->blocknum]);
 	}
 	list_add_tail(state->block_depth[block->blocknum], &block->list);
+
+	/* This can happen if precedessor has complaint. */
+	if (block->complaint) {
+		check_chains(state);
+		/* It's not a candidate for real use. */
+		return;
+	}
 
 	/* Is this the longest? */
 	/* FIXME: if equal, do coinflip as per
@@ -227,14 +245,18 @@ union protocol_transaction *block_get_trans(const struct block *block,
 			  b->t[trans_num % (1 << PETTYCOIN_BATCH_ORDER)]);
 }
 
-static void update_recursive(struct state *state, struct block *block,
-			     struct block **best)
+static void update_recursive(struct state *state,
+			     struct block *block,
+			     const struct block **best)
 {
 	if (!block->prev->all_known || !block_full(block, NULL))
 		return;
 
-	assert(!block->all_known);
 	block->all_known = true;
+
+	/* Blocks which are flawed are not useful */
+	if (block->complaint)
+		return;
 
 	/* New winner to start mining on? */
 	if (more_work(block, *best))
@@ -252,8 +274,8 @@ static void update_recursive(struct state *state, struct block *block,
 
 /* Search descendents to find if there's one with more work than *best. */
 static void find_longest_descendent(struct state *state,
-				    struct block *block,
-				    struct block **best)
+				    const struct block *block,
+				    const struct block **best)
 {
 	struct block *b;
 
@@ -262,6 +284,9 @@ static void find_longest_descendent(struct state *state,
 
 	list_for_each(state->block_depth[block->blocknum + 1], b, list) {
 		if (b->prev != block)
+			continue;
+
+		if (b->complaint)
 			continue;
 
 		if (more_work(b, *best)) {
@@ -277,11 +302,11 @@ static void find_longest_descendent(struct state *state,
  * and wake peers (who might care). */
 void update_known(struct state *state, struct block *block)
 {
-	struct block *longest_known = state->longest_known;
+	const struct block *longest_known = state->longest_known;
 
 	update_recursive(state, block, &longest_known);
 	if (longest_known != state->longest_known) {
-		struct block *longest_descendent;
+		const struct block *longest_descendent;
 
 		update_longest_known(state, longest_known);
 
@@ -292,7 +317,6 @@ void update_known(struct state *state, struct block *block)
 		if (longest_descendent != state->longest_known_descendent)
 			update_longest_known_descendent(state,
 							longest_descendent);
-		check_chains(state);
 	}
 }
 
@@ -334,4 +358,238 @@ struct block *step_towards(const struct block *curr, const struct block *target)
 
 	/* This is one step towards the target. */
 	return cast_const(struct block *, prev_target);
+}
+
+/* Brute force calculation of longest_known and longest_known_descendent */
+static void recalc_longest_known(struct state *state)
+{
+	state->longest_known_descendent
+		= state->longest_known
+		= genesis_block(state);
+
+	update_known(state, cast_const(struct block *, genesis_block(state)));
+}
+
+/* Brute force calculation of longest_chain. */
+static void recalc_longest_chain(struct state *state)
+{
+	state->longest_chain = genesis_block(state);
+	find_longest_descendent(state, state->longest_chain,
+				&state->longest_chain);
+}
+
+static void invalidate_block(struct state *state,
+			     struct block *block,
+			     const void *complaint)
+{
+	unsigned int n;
+
+	/* Mark block. */
+	block->complaint = complaint;	
+
+	/* FIXME: Save complaint to blockfile! */
+
+	/* Mark descendents. */
+	for (n = block->blocknum; n < tal_count(state->block_depth); n++) {
+		struct block *i;
+		list_for_each(state->block_depth[n], i, list) {
+			if (i->prev->complaint)
+				i->complaint = i->prev->complaint;
+		}
+	}
+
+	if (block_preceeds(block, state->longest_chain))
+		recalc_longest_chain(state);
+
+	/* These blocks no longer qualify for longest or longest known. */
+	if (block_preceeds(block, state->longest_known_descendent))
+		recalc_longest_known(state);
+
+	check_chains(state);
+
+	/* Tell everyone... */
+	complain_to_peers(state, complaint);
+}
+
+static void
+invalidate_block_bad_input(struct state *state,
+			   struct block *block,
+			   const union protocol_transaction *trans,
+			   unsigned int bad_transnum,
+			   unsigned int bad_input,
+			   const union protocol_transaction *intrans)
+{
+	struct protocol_req_block_bad_trans_input *req;
+
+	assert(le32_to_cpu(trans->hdr.type) == TRANSACTION_NORMAL);
+	log_unusual(state->log, "Block %u ", block->blocknum);
+	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
+	log_add(state->log, " invalid due to trans %u ", bad_transnum);
+	log_add_struct(state->log, union protocol_transaction, trans);
+	log_add(state->log, " with bad input %u ", bad_input);
+	log_add_struct(state->log, union protocol_transaction, intrans);
+
+	req = tal_packet(block, struct protocol_req_block_bad_trans_input,
+			 PROTOCOL_REQ_BLOCK_BAD_TRANS_INPUT);
+	req->block = block->sha;
+	req->inputnum = cpu_to_le32(bad_input);
+	create_proof(&req->proof, block, bad_transnum);
+
+	tal_packet_append_trans(&req, trans);
+	tal_packet_append_trans(&req, intrans);
+
+	invalidate_block(state, block, req);
+}
+
+static void
+invalidate_block_bad_amounts(struct state *state,
+			     struct block *block,
+			     const union protocol_transaction *trans,
+			     unsigned int bad_transnum)
+{
+	struct protocol_req_block_bad_trans_amount *req;
+	union protocol_transaction *input[TRANSACTION_MAX_INPUTS];
+	unsigned int i;
+
+	assert(le32_to_cpu(trans->hdr.type) == TRANSACTION_NORMAL);
+	log_unusual(state->log, "Block %u ", block->blocknum);
+	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
+	log_add(state->log, " invalid amounts in trans %u ", bad_transnum);
+	log_add_struct(state->log, union protocol_transaction, trans);
+	log_add(state->log, " with inputs: ");
+	/* FIXME: What if input is pending? */
+	for (i = 0; i < le32_to_cpu(trans->normal.num_inputs); i++) {
+		input[i] = thash_gettrans(&state->thash,
+					  &trans->normal.input[i].input);
+		log_add_struct(state->log, union protocol_transaction, input[i]);
+		log_add(state->log, " (output %u)",
+			le16_to_cpu(trans->normal.input[i].output));
+	}
+
+	req = tal_packet(block, struct protocol_req_block_bad_trans_amount,
+			 PROTOCOL_REQ_BLOCK_BAD_TRANS_AMOUNT);
+	req->block = block->sha;
+	create_proof(&req->proof, block, bad_transnum);
+
+	tal_packet_append_trans(&req, trans);
+	for (i = 0; i < le32_to_cpu(trans->normal.num_inputs); i++)
+		tal_packet_append_trans(&req, input[i]);
+
+	invalidate_block(state, block, req);
+}
+
+static void
+invalidate_block_bad_transaction(struct state *state,
+				 struct block *block,
+				 enum protocol_error err,
+				 const union protocol_transaction *trans,
+				 unsigned int bad_transnum)
+{
+	struct protocol_req_block_trans_invalid *req;	
+
+	log_unusual(state->log, "Block %u ", block->blocknum);
+	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
+	log_add(state->log, " invalid due to trans %u ", bad_transnum);
+	log_add_struct(state->log, union protocol_transaction, trans);
+	log_add(state->log, " error ");
+	log_add_enum(state->log, enum protocol_error, err);
+
+	req = tal_packet(block, struct protocol_req_block_trans_invalid,
+			 PROTOCOL_REQ_BLOCK_TRANS_INVALID);
+	req->block = block->sha;
+	req->error = cpu_to_le32(err);
+	create_proof(&req->proof, block, bad_transnum);
+	
+	tal_packet_append_trans(&req, trans);
+
+	invalidate_block(state, block, req);
+}
+
+void invalidate_block_misorder(struct state *state,
+			       struct block *block,
+			       unsigned int bad_transnum1,
+			       unsigned int bad_transnum2)
+{
+	struct protocol_req_block_trans_misorder *req;	
+	const union protocol_transaction *trans1, *trans2;
+
+	trans1 = block_get_trans(block, bad_transnum1);
+	trans2 = block_get_trans(block, bad_transnum2);
+
+	log_unusual(state->log, "Block %u ", block->blocknum);
+	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
+	log_add(state->log, " invalid due to misorder trans %u vs %u ",
+		bad_transnum1, bad_transnum2);
+	log_add_struct(state->log, union protocol_transaction, trans1);
+	log_add(state->log, " vs ");
+	log_add_struct(state->log, union protocol_transaction, trans2);
+
+	req = tal_packet(block, struct protocol_req_block_trans_misorder,
+			 PROTOCOL_REQ_BLOCK_TRANS_MISORDER);
+	req->block = block->sha;
+	create_proof(&req->proof1, block, bad_transnum1);
+	create_proof(&req->proof2, block, bad_transnum2);
+
+	tal_packet_append_trans(&req, trans1);
+	tal_packet_append_trans(&req, trans2);
+
+	invalidate_block(state, block, req);
+}
+
+/* See check_trans_normal_inputs: bad_input and bad_intrans are valid
+ * iff err = PROTOCOL_ERROR_TRANS_BAD_INPUT. */
+void invalidate_block_badtrans(struct state *state,
+			       struct block *block,
+			       enum protocol_error err,
+			       unsigned int bad_transnum,
+			       unsigned int bad_input,
+			       union protocol_transaction *bad_intrans)
+{
+	union protocol_transaction *trans;
+
+	trans = block_get_trans(block, bad_transnum);
+
+	switch (err) {
+	case PROTOCOL_ERROR_TRANS_HIGH_VERSION:
+	case PROTOCOL_ERROR_TRANS_LOW_VERSION:
+	case PROTOCOL_ERROR_TRANS_UNKNOWN:
+	case PROTOCOL_ERROR_TOO_LARGE:
+	case PROTOCOL_ERROR_TRANS_BAD_SIG:
+		break;
+
+	case PROTOCOL_ERROR_TRANS_BAD_GATEWAY:
+	case PROTOCOL_ERROR_TRANS_CROSS_SHARDS:
+		assert(trans->hdr.type == TRANSACTION_FROM_GATEWAY);
+		break;
+
+	case PROTOCOL_ERROR_TOO_MANY_INPUTS:
+		assert(trans->hdr.type == TRANSACTION_NORMAL);
+		break;
+
+	case PROTOCOL_ERROR_TRANS_BAD_INPUT:
+		assert(trans->hdr.type == TRANSACTION_NORMAL);
+		/* FIXME: This means an unknown input.  We don't
+		 * complain. */
+		if (!bad_intrans)
+			return;
+		invalidate_block_bad_input(state, block,
+					   trans, bad_transnum,
+					   bad_input, bad_intrans);
+		return;
+
+	case PROTOCOL_ERROR_TRANS_BAD_AMOUNTS:
+		assert(trans->hdr.type == TRANSACTION_NORMAL);
+		invalidate_block_bad_amounts(state, block, trans, bad_transnum);
+		return;
+
+	default:
+		log_broken(state->log,
+			   "Unknown invalidate_block_badtrans error ");
+		log_add_enum(state->log, enum protocol_error, err);
+		abort();
+	}
+
+	/* Simple single-transaction error. */
+	invalidate_block_bad_transaction(state, block, err, trans,
+					 bad_transnum);
 }

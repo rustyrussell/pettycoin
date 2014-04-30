@@ -65,4 +65,6 @@ void remove_trans_from_peers(struct state *state,
 			     const union protocol_transaction *t);
 
 void wake_peers(struct state *state);
+
+void complain_to_peers(struct state *state, const struct protocol_net_hdr *pkt);
 #endif /* PETTYCOIN_PEER_H */

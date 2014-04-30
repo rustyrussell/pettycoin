@@ -24,16 +24,16 @@ struct state {
 
 	/* Head of overall longest chain (most work).
 	 * We'd like to know about entries in this chain. */
-	struct block *longest_chain;
+	const struct block *longest_chain;
 
 	/* Head of longest chain with all transactions known.
 	 * This is where we can mine. */
-	struct block *longest_known;
+	const struct block *longest_known;
 
 	/* Most work descendent of longest_known.  This is in effect
 	 * our preferred chain; the fallback if we can't get details
 	 * about longest_chain. */
-	struct block *longest_known_descendent;
+	const struct block *longest_known_descendent;
 
 	/* Block we're working on now. */
 	struct pending_block *pending;

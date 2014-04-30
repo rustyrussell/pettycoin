@@ -46,6 +46,9 @@ check_block_header(struct state *state,
 		goto fail;
 	}
 
+	/* If there's something wrong with the previous block, us too. */
+	block->complaint = block->prev->complaint;
+
 	/* We come after our predecessor, obviously. */
 	block->blocknum = block->prev->blocknum + 1;
 
@@ -91,24 +94,32 @@ fail:
 }
 
 static const union protocol_transaction *
-last_trans(const struct transaction_batch *batch)
+last_trans(const struct transaction_batch *batch, unsigned int *transnum)
 {
 	int i;
 
-	for (i = ARRAY_SIZE(batch->t)-1; i >= 0; i--)
-		if (batch->t[i])
+	for (i = ARRAY_SIZE(batch->t)-1; i >= 0; i--) {
+		if (batch->t[i]) {
+			if (transnum)
+				*transnum = batch->trans_start + i;
 			return batch->t[i];
+		}
+	}
 	abort();
 }
 
 static const union protocol_transaction *
-first_trans(const struct transaction_batch *batch)
+first_trans(const struct transaction_batch *batch, unsigned int *transnum)
 {
 	unsigned int i;
 
-	for (i = 0; i < ARRAY_SIZE(batch->t); i++)
-		if (batch->t[i])
+	for (i = 0; i < ARRAY_SIZE(batch->t); i++) {
+		if (batch->t[i]) {
+			if (transnum)
+				*transnum = batch->trans_start + i;
 			return batch->t[i];
+		}
+	}
 	abort();
 }
 
@@ -123,10 +134,10 @@ bool batch_belongs_in_block(const struct block *block,
 		      sizeof(merkle.sha)) == 0;
 }
 
-/* FIXME: Return proof! */
 bool check_batch_order(struct state *state,
 		       const struct block *block,
-		       const struct transaction_batch *batch)
+		       const struct transaction_batch *batch,
+		       unsigned int *bad_transnum1, unsigned int *bad_transnum2)
 {
 	int i;
 	union protocol_transaction *prev;
@@ -147,9 +158,14 @@ bool check_batch_order(struct state *state,
 		if (!t)
 			continue;
 
-		if (prev && transaction_cmp(prev, t) >= 0)
+		if (prev && transaction_cmp(prev, t) >= 0) {
+			if (bad_transnum2)
+				*bad_transnum2 = batch->trans_start + i;
 			return false;
+		}
 		prev = t;
+		if (bad_transnum1)
+			*bad_transnum1 = batch->trans_start + i;
 	}
 
 	/* Is it in order wrt other known blocks?  If not, it may not
@@ -158,8 +174,8 @@ bool check_batch_order(struct state *state,
 		if (!block->batch[i])
 			continue;
 
-		if (transaction_cmp(last_trans(block->batch[i]),
-				    first_trans(batch)) >= 0)
+		if (transaction_cmp(last_trans(block->batch[i], bad_transnum1),
+				    first_trans(batch, bad_transnum2)) >= 0)
 			return false;
 	}
 
@@ -170,8 +186,9 @@ bool check_batch_order(struct state *state,
 		if (!block->batch[i])
 			continue;
 
-		if (transaction_cmp(last_trans(batch),
-				    first_trans(block->batch[i])) >= 0)
+		if (transaction_cmp(last_trans(batch, bad_transnum1),
+				    first_trans(block->batch[i], bad_transnum2))
+		    >= 0)
 			return false;
 	}
 
@@ -225,7 +242,7 @@ void put_batch_in_block(struct state *state,
 
 	assert(batch_belongs_in_block(block, batch));
 	assert(batch_full(block, batch));
-	assert(check_batch_order(state, block, batch));
+	assert(check_batch_order(state, block, batch, NULL, NULL));
 
 	/* If there are already some transactions, we should agree! */
 	if (block->batch[batchnum]) {
@@ -254,15 +271,17 @@ void put_batch_in_block(struct state *state,
 	 * now we know more, or which we already added. */
 }
 
-enum protocol_error batch_validate_transactions(struct state *state,
-						struct log *log,
-						struct block *block,
-						struct transaction_batch *batch)
+enum protocol_error
+batch_validate_transactions(struct state *state,
+			    struct log *log,
+			    struct block *block,
+			    struct transaction_batch *batch,
+			    unsigned int *bad_trans,
+			    unsigned int *bad_input_num,
+			    union protocol_transaction **bad_input)
 {
 	unsigned int i;
 	enum protocol_error err;
-	unsigned int bad_input_num;
-	union protocol_transaction *bad_input;
 
 	for (i = 0; i < ARRAY_SIZE(batch->t); i++) {
 		if (!batch->t[i])
@@ -270,12 +289,13 @@ enum protocol_error batch_validate_transactions(struct state *state,
 
 		/* Make sure transactions themselves are valid. */
 		err = check_transaction(state, batch->t[i],
-					&bad_input, &bad_input_num);
+					bad_input, bad_input_num);
 		if (err) {
 			log_unusual(log, "Peer resp_batch transaction %u"
 				    " gave error ",
 				    batch->trans_start + i);
 			log_add_enum(log, enum protocol_error, err);
+			*bad_trans = batch->trans_start + i;
 			return err;
 		}
 	}

@@ -160,6 +160,8 @@ static struct io_plan got_trans(struct io_conn *conn, struct generator *gen)
 		struct transaction_batch *b;
 		u32 num = num_trans - i;
 		enum protocol_error err;
+		unsigned int bad_trans, bad_trans2, bad_input_num;
+		union protocol_transaction *bad_input;
 
 		if (num > (1 << PETTYCOIN_BATCH_ORDER))
 			num = (1 << PETTYCOIN_BATCH_ORDER);
@@ -184,18 +186,21 @@ static struct io_plan got_trans(struct io_conn *conn, struct generator *gen)
 		}
 
 		err = batch_validate_transactions(gen->state, gen->log,
-						  gen->new, b);
+						  gen->new, b, &bad_trans,
+						  &bad_input_num, &bad_input);
 		if (err) {
 			log_broken(gen->log,
 				   "Generator %u gave invalid transaction",
 				   gen->pid);
+			log_add_enum(gen->log, enum protocol_error, err);
 			return io_close();
 		}
 
-		if (!check_batch_order(gen->state, gen->new, b)) {
+		if (!check_batch_order(gen->state, gen->new, b, &bad_trans,
+				       &bad_trans2)) {
 			log_broken(gen->log,
-				   "Generator %u created invalid batch %u-%u",
-				   gen->pid, i, i+num);
+				   "Generator %u created bad order %u vs %u",
+				   gen->pid, bad_trans, bad_trans2);
 			return io_close();
 		}
 

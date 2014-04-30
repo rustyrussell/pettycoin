@@ -33,13 +33,19 @@ bool batch_belongs_in_block(const struct block *block,
 /* Is this batch ordering valid?  Can be called even if it's not full. */
 bool check_batch_order(struct state *state,
 		       const struct block *block,
-		       const struct transaction_batch *batch);
+		       const struct transaction_batch *batch,
+		       unsigned int *bad_transnum1,
+		       unsigned int *bad_transnum2);
 
 /* Are all the transactions valid? */
-enum protocol_error batch_validate_transactions(struct state *state,
-						struct log *log,
-						struct block *block,
-						struct transaction_batch *b);
+enum protocol_error
+batch_validate_transactions(struct state *state,
+			    struct log *log,
+			    struct block *block,
+			    struct transaction_batch *batch,
+			    unsigned int *bad_trans,
+			    unsigned int *bad_input_num,
+			    union protocol_transaction **bad_input);
 
 /* Block steals batch. */
 void put_batch_in_block(struct state *state,

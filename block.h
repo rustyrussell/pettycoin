@@ -1,6 +1,7 @@
 #ifndef PETTYCOIN_BLOCK_H
 #define PETTYCOIN_BLOCK_H
 #include "protocol.h"
+#include "protocol_net.h"
 #include "state.h"
 #include <stdbool.h>
 #include <ccan/list/list.h>
@@ -37,6 +38,9 @@ struct block {
 	const u8 *prev_merkles;
 	const struct protocol_block_tailer *tailer;
 
+	/* This is set if there's a problem with the block (or ancestor). */
+	const void *complaint;
+
 	/* Cache double SHA of block */
 	struct protocol_double_sha sha;
 	/* Transactions: may not be fully populated. */
@@ -51,8 +55,9 @@ struct block *block_find(struct block *start, const u8 lower_sha[4]);
 struct block *block_find_any(struct state *state,
 			     const struct protocol_double_sha *sha);
 
-void update_longest_known(struct state *state, struct block *block);
-void update_longest_known_descendent(struct state *state, struct block *block);
+void update_longest_known(struct state *state, const struct block *block);
+void update_longest_known_descendent(struct state *state,
+				     const struct block *block);
 
 /* Maximum amount in batch (1 >> PETTYCOIN_BATCH_ORDER) except for last */
 u32 batch_max(const struct block *block, unsigned int batchnum);
@@ -78,7 +83,7 @@ static inline const struct block *genesis_block(const struct state *state)
 /* Add this new block into the state structure. */
 void block_add(struct state *state, struct block *b);
 
-/* Block is full. */
+/* Block is full, set ->all_known if prev known (and maybe set descendents)  */
 void update_known(struct state *state, struct block *block);
 
 static inline size_t batch_index(u32 trans_num)
@@ -89,6 +94,18 @@ static inline size_t batch_index(u32 trans_num)
 /* Get this numbered transaction inside block. */
 union protocol_transaction *block_get_trans(const struct block *block,
 					    u32 trans_num);
+
+void invalidate_block_badtrans(struct state *state,
+			       struct block *block,
+			       enum protocol_error err,
+			       unsigned int bad_transnum,
+			       unsigned int bad_input,
+			       union protocol_transaction *bad_intrans);
+
+void invalidate_block_misorder(struct state *state,
+			       struct block *block,
+			       unsigned int bad_transnum1,
+			       unsigned int bad_transnum2);
 
 /* Debugging check */
 void check_chains(const struct state *state);

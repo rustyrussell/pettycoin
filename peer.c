@@ -214,6 +214,14 @@ static void add_complaint(struct peer *peer,
 	tal_steal(c->pkt, c);
 }
 
+void complain_to_peers(struct state *state, const struct protocol_net_hdr *pkt)
+{
+	struct peer *peer;
+
+	list_for_each(&state->peers, peer, list)
+		add_complaint(peer, pkt);
+}
+
 static struct protocol_req_err *protocol_req_err(struct peer *peer,
 						 enum protocol_error e)
 {
@@ -239,6 +247,12 @@ static struct protocol_resp_err *protocol_resp_err(struct peer *peer,
 /* They've told us about a block; this implies they know it. */
 static void update_mutual(struct peer *peer, struct block *block)
 {
+	/* If the block is known bad, tell them! */
+	if (block->complaint) {
+		add_complaint(peer, block->complaint);
+		return;
+	}
+
 	/* Don't go backwards. */
 	if (block_preceeds(block, peer->mutual))
 		return;
@@ -752,6 +766,8 @@ receive_batch_resp(struct peer *peer, struct protocol_resp_batch *resp)
 	u32 batchnum = peer->batch_requested_num;
 	enum protocol_error err;
 	struct transaction_batch *batch;
+	unsigned int bad_transnum, bad_input, bad_transnum2;
+	union protocol_transaction *bad_intrans;
 
 	if (le32_to_cpu(resp->len) < sizeof(*resp)) {
 		log_unusual(peer->log,
@@ -804,20 +820,29 @@ receive_batch_resp(struct peer *peer, struct protocol_resp_batch *resp)
 	if (!batch_belongs_in_block(block, batch))
 		return protocol_req_err(peer, PROTOCOL_INVALID_RESPONSE);
 
-	/* FIXME: Produce proof and taint block. */
 	err = batch_validate_transactions(peer->state, peer->log,
-					  peer->batch_requested_block, batch);
-	if (err)
-		return protocol_req_err(peer, err);
+					  peer->batch_requested_block, batch,
+					  &bad_transnum, &bad_input,
+					  &bad_intrans);
+	if (err) {
+		/* We tell *everyone* about bad block, not just this peer. */
+		invalidate_block_badtrans(peer->state, block, err,
+					  bad_transnum, bad_input,
+					  bad_intrans);
+		return NULL;
+	}
 
-	/* FIXME: Get exact error to report and taint block. */
 	if (!check_batch_order(peer->state, peer->batch_requested_block,
-			       batch)) {
+			       batch, &bad_transnum, &bad_transnum2)) {
 		log_unusual(peer->log, "Peer gave invalid batch %u for ",
 			    batchnum);
 		log_add_struct(peer->log, struct protocol_double_sha,
 			       &block->sha);
-		return protocol_req_err(peer, PROTOCOL_INVALID_RESPONSE);
+		log_add(peer->log, " %u vs %u", bad_transnum, bad_transnum2);
+		/* We tell *everyone* about bad block, not just this peer. */
+		invalidate_block_misorder(peer->state, block,
+					  bad_transnum, bad_transnum2);
+		return NULL;
 	}
 
 	/* block will now own batch */
@@ -829,6 +854,8 @@ receive_batch_resp(struct peer *peer, struct protocol_resp_batch *resp)
 	log_debug(peer->log, "Added batch %u to ", batchnum);
 	log_add_struct(peer->log, struct protocol_double_sha,
 			       &block->sha);
+
+	/* FIXME: If not on generating chain, steal transactions for pending */
 
 	/* FIXME: only do this if we gained something. */
 	restart_generating(peer->state);
