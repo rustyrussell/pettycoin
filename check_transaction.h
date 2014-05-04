@@ -19,8 +19,9 @@ enum protocol_error
 check_trans_normal_inputs(struct state *state,
 			  const struct protocol_transaction_normal *t,
 			  unsigned int *inputs_known,
-			  unsigned int *bad_input_num,
-			  union protocol_transaction **bad_input);
+			  union protocol_transaction *
+			  inputs[TRANSACTION_MAX_INPUTS],
+			  unsigned int *bad_input_num);
 
 enum protocol_error
 check_trans_from_gateway(struct state *state,
@@ -31,9 +32,13 @@ bool check_transaction_proof(struct state *state,
 			     union protocol_transaction **trans,
 			     struct protocol_proof *proof);
 
+/* Only normal transactions have inputs; 0 for others. */
+u32 num_inputs(const union protocol_transaction *t);
+
 enum protocol_error check_transaction(struct state *state,
 				      const union protocol_transaction *trans,
-				      union protocol_transaction **bad_input,
+				      union protocol_transaction *
+				      inputs[TRANSACTION_MAX_INPUTS],
 				      unsigned int *bad_input_num);
 
 /* Find the output_num'th output in trans */

@@ -46,7 +46,7 @@ static void recheck_pending_transactions(struct state *state)
 	for (i = 0; i < num; i++) {
 		struct thash_elem *te;
 		struct protocol_double_sha sha;
-		union protocol_transaction *bad_input;
+		union protocol_transaction *inputs[TRANSACTION_MAX_INPUTS];
 		unsigned int bad_input_num;
 		enum protocol_error e;
 		struct thash_iter iter;
@@ -70,7 +70,7 @@ static void recheck_pending_transactions(struct state *state)
 			
 		/* Discard if no longer valid (inputs already spent) */
 		e = check_transaction(state, state->pending->t[i],
-				      &bad_input, &bad_input_num);
+				      inputs, &bad_input_num);
 		if (e) {
 			log_debug(state->log, "  %zu is now ", i);
 			log_add_enum(state->log, enum protocol_error, e);
@@ -79,7 +79,7 @@ static void recheck_pending_transactions(struct state *state)
 					": input %u ", bad_input_num);
 				log_add_struct(state->log,
 					       union protocol_transaction,
-					       bad_input);
+					       inputs[bad_input_num]);
 			}
 			goto discard;
 		}

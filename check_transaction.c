@@ -50,8 +50,9 @@ enum protocol_error
 check_trans_normal_inputs(struct state *state,
 			  const struct protocol_transaction_normal *t,
 			  unsigned int *inputs_known,
-			  unsigned int *bad_input_num,
-			  union protocol_transaction **bad_input)
+			  union protocol_transaction *
+			  inputs[TRANSACTION_MAX_INPUTS],
+			  unsigned int *bad_input_num)
 {
 	unsigned int i, num;
 	u64 input_total = 0;
@@ -64,31 +65,28 @@ check_trans_normal_inputs(struct state *state,
 	*inputs_known = 0;
 
 	for (i = 0; i < num; i++) {
-		union protocol_transaction *in;
 		u32 amount;
 		struct protocol_address addr;
 
 		/* FIXME: Search pending transactions too! */
 		/* FIXME: must be in predecessor! */
-		in = thash_gettrans(&state->thash, &t->input[i].input);
-		if (!in) {
+		inputs[i] = thash_gettrans(&state->thash, &t->input[i].input);
+		if (!inputs[i]) {
 			*bad_input_num = i;
 			continue;
 		}
 
 		(*inputs_known)++;
 
-		if (!find_output(in, le16_to_cpu(t->input[i].output),
+		if (!find_output(inputs[i], le16_to_cpu(t->input[i].output),
 				 &addr, &amount)) {
 			*bad_input_num = i;
-			*bad_input = in;
 			return PROTOCOL_ERROR_TRANS_BAD_INPUT;
 		}
 
 		/* Check it was to this address. */
 		if (memcmp(&my_addr, &addr, sizeof(addr)) != 0) {
 			*bad_input_num = i;
-			*bad_input = in;
 			return PROTOCOL_ERROR_TRANS_BAD_INPUT;
 		}
 
@@ -292,7 +290,8 @@ bool check_transaction_proof(struct state *state,
 
 enum protocol_error check_transaction(struct state *state,
 				      const union protocol_transaction *trans,
-				      union protocol_transaction **bad_input,
+				      union protocol_transaction *
+				      inputs[TRANSACTION_MAX_INPUTS],
 				      unsigned int *bad_input_num)
 {
 	enum protocol_error e;
@@ -309,14 +308,11 @@ enum protocol_error check_transaction(struct state *state,
 			e = check_trans_normal_inputs(state,
 						      &trans->normal,
 						      &inputs_known,
-						      bad_input_num,
-						      bad_input);
+						      inputs,
+						      bad_input_num);
 			/* FIXME: We currently insist on complete knowledge. */
-			if (!e && (inputs_known
-				   != le32_to_cpu(trans->normal.num_inputs))) {
+			if (!e && inputs_known != num_inputs(trans))
 				e = PROTOCOL_ERROR_TRANS_BAD_INPUT;
-				*bad_input = NULL;
-			}
 		}
 		break;
 	default:
@@ -325,4 +321,15 @@ enum protocol_error check_transaction(struct state *state,
 	}
 
 	return e;
+}
+
+u32 num_inputs(const union protocol_transaction *t)
+{
+	switch (t->hdr.type) {
+	case TRANSACTION_NORMAL:
+		return le32_to_cpu(t->normal.num_inputs);
+	case TRANSACTION_FROM_GATEWAY:
+		return 0;
+	}
+	abort();
 }

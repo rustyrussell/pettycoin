@@ -278,7 +278,8 @@ batch_validate_transactions(struct state *state,
 			    struct transaction_batch *batch,
 			    unsigned int *bad_trans,
 			    unsigned int *bad_input_num,
-			    union protocol_transaction **bad_input)
+			    union protocol_transaction *
+			      inputs[TRANSACTION_MAX_INPUTS])
 {
 	unsigned int i;
 	enum protocol_error err;
@@ -289,7 +290,7 @@ batch_validate_transactions(struct state *state,
 
 		/* Make sure transactions themselves are valid. */
 		err = check_transaction(state, batch->t[i],
-					bad_input, bad_input_num);
+					inputs, bad_input_num);
 		if (err) {
 			log_unusual(log, "Peer resp_batch transaction %u"
 				    " gave error ",

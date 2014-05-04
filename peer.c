@@ -593,7 +593,7 @@ receive_trans(struct peer *peer,
 	struct protocol_resp_new_transaction *r;
 	union protocol_transaction *trans;
 	u32 translen = le32_to_cpu(req->len) - sizeof(*req);
-	union protocol_transaction *bad_input;
+	union protocol_transaction *inputs[TRANSACTION_MAX_INPUTS];
 	unsigned int bad_input_num;
 
 	r = tal_packet(peer, struct protocol_resp_new_transaction,
@@ -604,15 +604,14 @@ receive_trans(struct peer *peer,
 	if (e)
 		goto fail;
 
-	e = check_transaction(peer->state, trans,
-			      &bad_input, &bad_input_num);
+	e = check_transaction(peer->state, trans, inputs, &bad_input_num);
 
 	r->error = cpu_to_le32(e);
 
 	if (e == PROTOCOL_ERROR_TRANS_BAD_INPUT) {
 		/* Complain, but don't hang up on them! */
 		complain_about_input(peer->state, peer, trans,
-				     bad_input, bad_input_num);
+				     inputs[bad_input_num], bad_input_num);
 		goto ok;
 	} else if (e == PROTOCOL_ERROR_TRANS_BAD_AMOUNTS) {
 		complain_about_inputs(peer->state, peer, trans);
