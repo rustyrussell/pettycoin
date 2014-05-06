@@ -7,6 +7,7 @@
 #include "check_transaction.h"
 #include "block.h"
 #include "peer.h"
+#include "chain.h"
 
 struct pending_block *new_pending_block(struct state *state)
 {

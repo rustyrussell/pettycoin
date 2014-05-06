@@ -14,6 +14,7 @@
 #include "generating.h"
 #include "blockfile.h"
 #include "pending.h"
+#include "chain.h"
 #include "merkle_transactions.h"
 #include <ccan/io/io.h>
 #include <ccan/time/time.h>

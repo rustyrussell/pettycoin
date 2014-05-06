@@ -4,19 +4,8 @@
 #include "difficulty.h"
 #include "sslerrorstring.h"
 #include "block.h"
+#include "chain.h"
 #include "state.h"
-
-static const struct block *go_back(const struct block *b, u32 num)
-{
-	unsigned int i;
-	const struct block *start = b;
-
-	for (i = 0; i < num; i++)
-		b = b->prev;
-
-	assert(b->blocknum == start->blocknum - num);
-	return b;
-}
 
 /* Based on bitcoin's difficulty calculation, with two differences:
  * 1) We don't have a sign bit in the mantissa.
@@ -54,7 +43,7 @@ u32 get_difficulty(struct state *state, const struct block *prev)
 	/* We measure from start of interval, not end of last interval!
 	 * This avoids special casing the first interval. */
 	actual_time = (s64)le32_to_cpu(prev->tailer->timestamp)
-		- (s64)le32_to_cpu(go_back(prev, interval-1)->tailer->timestamp);
+		- (s64)le32_to_cpu(block_ancestor(prev, interval-1)->tailer->timestamp);
 
 	/* Don't change by more than a factor of 4. */
 	if (actual_time < ideal_time / 4)
