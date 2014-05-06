@@ -301,9 +301,6 @@ struct protocol_req_block_trans_invalid {
 	le32 len; /* sizeof(struct protocol_req_block_trans_invalid) */
 	le32 type; /* PROTOCOL_REQ_BLOCK_TRANS_INVALID */
 
-	/* Which block I am referring to. */
-	struct protocol_double_sha block;
-
 	/* What is wrong with it (as per protocol_req_new_transaction).
 	 * One of:
 	 *  PROTOCOL_ERROR_TRANS_HIGH_VERSION
@@ -318,10 +315,8 @@ struct protocol_req_block_trans_invalid {
 	 */
 	le32 error;
 
-	struct protocol_proof proof;
-
-	/* union protocol_transaction trans;
-	   struct protocol_input_ref ref[num_inputs(trans)];
+	/*
+	  struct protocol_trans_with_proof proof;
 	*/
 };
 
@@ -331,17 +326,12 @@ struct protocol_req_block_bad_trans_input {
 	le32 len; /* sizeof(struct protocol_req_block_bad_trans_input) */
 	le32 type; /* PROTOCOL_REQ_BLOCK_BAD_TRANS_INPUT */
 
-	/* Which block & input I am referring to. */
-	struct protocol_double_sha block;
+	/* Input I am referring to. */
 	le32 inputnum;
 
-	struct protocol_proof proof;
-
-	/* The transaction whose input was bad:
-	     union protocol_transaction trans;
-	     struct protocol_input_ref ref[num_inputs(trans)];
-	   The bad input:
-	     union protocol_transaction input;
+	/*
+	  struct protocol_trans_with_proof proof;
+	  union protocol_transaction input;
 	*/
 };
 
@@ -351,21 +341,12 @@ struct protocol_req_block_bad_input_ref_trans {
 	le32 len; /* sizeof(struct protocol_req_block_bad_input_ref_trans) */
 	le32 type; /* PROTOCOL_REQ_BLOCK_BAD_INPUT_REF_TRANS */
 
-	/* Which block & input I am referring to. */
-	struct protocol_double_sha block;
+	/* Input I am referring to. */
 	le32 inputnum;
 
-	/* Proof of the inputs & trans being in inputnum */
-	struct protocol_proof proof;
-
-	/* Proof that bad_input is where ref points. */
-	struct protocol_proof input_proof;
-
-	/* The transaction whose input was bad:
-	     union protocol_transaction trans;
-	     struct protocol_input_ref ref[num_inputs(trans)];
-	     union protocol_transaction bad_input;
-	     struct protocol_input_ref bad_inputref[num_inputs(bad_input)];
+	/*
+	  struct protocol_trans_with_proof trans;
+	  struct protocol_trans_with_proof input;
 	*/
 };
 
@@ -375,16 +356,11 @@ struct protocol_req_block_bad_trans_amount {
 	le32 len; /* sizeof(struct protocol_req_block_bad_trans_amount) */
 	le32 type; /* PROTOCOL_REQ_BLOCK_BAD_TRANS_AMOUNT */
 
-	/* Which block & transaction I am referring to. */
-	struct protocol_double_sha block;
-
-	struct protocol_proof proof;
-
-	/* The transaction whose inputs were bad:
-	     union protocol_transaction t;
-	     struct protocol_input_ref ref[num_inputs(trans)];
-	   The inputs:
-	     union protocol_transaction input[t->normal.num_inputs]; */
+	/*
+	  struct protocol_trans_with_proof proof;
+	  The inputs:
+	     union protocol_transaction input[t->normal.num_inputs];
+	*/
 };
 
 /* This block contains out-of-order transaction. */
@@ -392,16 +368,9 @@ struct protocol_req_block_trans_misorder {
 	le32 len; /* sizeof(struct protocol_req_block_trans_misorder) */
 	le32 type; /* PROTOCOL_REQ_BLOCK_TRANS_MISORDER */
 
-	/* Which block & transactions I am referring to. */
-	struct protocol_double_sha block;
-
-	struct protocol_proof proof1;
-	struct protocol_proof proof2;
-
-	/* union protocol_transaction trans1;
-	   struct protocol_input_ref ref1[num_inputs(trans1)];
-	   union protocol_transaction trans2;
-	   struct protocol_input_ref ref2[num_inputs(trans2)];
+	/* These must refer to the same block!
+	  struct protocol_trans_with_proof proof1;
+	  struct protocol_trans_with_proof proof2;
 	*/
 };
 

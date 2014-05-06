@@ -2,6 +2,8 @@
 #include "protocol_net.h"
 #include "peer.h"
 #include "marshall.h"
+#include "block.h"
+#include "proof.h"
 #include <ccan/tal/tal.h>
 #include <string.h>
 #include <errno.h>
@@ -140,4 +142,17 @@ void tal_packet_append_trans_with_refs(void *ppkt,
 {
 	tal_packet_append_trans(ppkt, trans);
 	tal_packet_append(ppkt, refs, marshall_input_ref_len(trans));
+}
+
+void tal_packet_append_proof(void *ppkt, const struct block *block, u32 txnum)
+{
+	struct protocol_trans_with_proof proof;
+
+	proof.block = block->sha;
+	proof.tnum = cpu_to_le32(txnum);
+	create_proof(&proof.proof, block, txnum);
+
+	tal_packet_append(ppkt, &proof, sizeof(proof));
+	tal_packet_append_trans_with_refs(ppkt, block_get_trans(block, txnum),
+					  block_get_refs(block, txnum));
 }

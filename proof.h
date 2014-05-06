@@ -13,6 +13,7 @@ void create_proof(struct protocol_proof *proof,
 
 bool check_proof(const struct protocol_proof *proof,
 		 const struct block *block,
-		 const union protocol_transaction *t);
+		 const union protocol_transaction *t,
+		 u32 tnum);
 
 #endif /* PETTYCOIN_PROOF_H */

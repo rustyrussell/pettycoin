@@ -12,8 +12,6 @@ void create_proof(struct protocol_proof *proof,
 	const union protocol_transaction **t;
 	const struct protocol_input_ref **refs;
 
-	proof->tnum = cpu_to_le32(tnum);
-
 	assert(block_full(block, NULL));
 	t = block->batch[batch_index(tnum)]->t;
 	refs = block->batch[batch_index(tnum)]->refs;
@@ -32,6 +30,7 @@ void create_proof(struct protocol_proof *proof,
 
 /* What does proof say the merkle should be? */
 static void proof_merkles_to(const union protocol_transaction *t,
+			     u32 tnum,
 			     const struct protocol_proof *proof,
 			     struct protocol_double_sha *sha)
 {
@@ -44,7 +43,7 @@ static void proof_merkles_to(const union protocol_transaction *t,
 		SHA256_CTX shactx;
 
 		SHA256_Init(&shactx);
-		if (le32_to_cpu(proof->tnum) & (1 << i)) {
+		if (tnum & (1 << i)) {
 			/* We're on the right. */
 			SHA256_Update(&shactx, &proof->merkle[i],
 				      sizeof(proof->merkle[i]));
@@ -61,17 +60,18 @@ static void proof_merkles_to(const union protocol_transaction *t,
 
 bool check_proof(const struct protocol_proof *proof,
 		 const struct block *b,
-		 const union protocol_transaction *t)
+		 const union protocol_transaction *t,
+		 u32 tnum)
 {
 	struct protocol_double_sha merkle;
 	u32 idx;
 
-	proof_merkles_to(t, proof, &merkle);
+	proof_merkles_to(t, tnum, proof, &merkle);
 
 	/* Can't be the right one if not within num transactions */
-	if (le32_to_cpu(proof->tnum) >= le32_to_cpu(b->hdr->num_transactions))
+	if (tnum >= le32_to_cpu(b->hdr->num_transactions))
 		return false;
 
-	idx = batch_index(le32_to_cpu(proof->tnum));
+	idx = batch_index(tnum);
 	return memcmp(b->merkles[idx].sha, merkle.sha, sizeof(merkle.sha)) == 0;
 }

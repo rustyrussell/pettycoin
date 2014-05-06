@@ -2,9 +2,11 @@
 #define PETTYCOIN_PACKET_H
 #include <ccan/io/io.h>
 #include <ccan/tal/tal.h>
+#include <ccan/short_types/short_types.h>
 
 /* All packets are "le32 len, type" then len bytes. */
 struct peer;
+struct block;
 
 /* Takes any pointer to pointer, fills it in. */
 #define io_read_packet(ppkt, cb, arg)					\
@@ -44,5 +46,7 @@ void tal_packet_append_trans_with_refs(void *ppkt,
 				       const struct protocol_input_ref *refs);
 
 void tal_packet_append(void *ppkt, const void *mem, size_t len);
+
+void tal_packet_append_proof(void *ppkt, const struct block *block, u32 txnum);
 
 #endif

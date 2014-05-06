@@ -166,12 +166,23 @@ union protocol_transaction {
 	struct protocol_transaction_gateway gateway;
 };
 
-/* Proof that a transaction was in a block. */
+/* Merkle proof, used to show tx (+ refs) is in a block. */
 struct protocol_proof {
+	struct protocol_double_sha merkle[PETTYCOIN_BATCH_ORDER];
+};
+
+/* Proof that a transaction (with inputs refs) was in a block. */
+struct protocol_trans_with_proof {
+	/* The block it's in. */
+	struct protocol_double_sha block;
 	/* Transaction number within the block. */
 	le32 tnum;
 	/* This is the tree of double shas which proves it. */
-	struct protocol_double_sha merkle[PETTYCOIN_BATCH_ORDER];
+	struct protocol_proof proof;
+
+	/* union protocol_transaction trans;
+	   struct protocol_input_ref ref[num_inputs(trans)];
+	*/
 };
 
 /* An amount, not a psuedonym! */
