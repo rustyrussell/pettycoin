@@ -129,7 +129,8 @@ bool batch_belongs_in_block(const struct block *block,
 	struct protocol_double_sha merkle;
 	unsigned int batchnum = batch_index(batch->trans_start);
 
-	merkle_transactions(NULL, 0, batch->t, ARRAY_SIZE(batch->t), &merkle);
+	merkle_transactions(NULL, 0, batch->t, batch->refs,
+			    ARRAY_SIZE(batch->t), &merkle);
 	return memcmp(block->merkles[batchnum].sha, merkle.sha,
 		      sizeof(merkle.sha)) == 0;
 }
@@ -140,7 +141,7 @@ bool check_batch_order(struct state *state,
 		       unsigned int *bad_transnum1, unsigned int *bad_transnum2)
 {
 	int i;
-	union protocol_transaction *prev;
+	const union protocol_transaction *prev;
 	unsigned int batchnum = batch->trans_start << PETTYCOIN_BATCH_ORDER;
 
 	/* These should never happen, since we create batches. */
@@ -153,7 +154,7 @@ bool check_batch_order(struct state *state,
 	/* Is it in order? */
 	prev = NULL;
 	for (i = 0; i < ARRAY_SIZE(batch->t); i++) {
-		union protocol_transaction *t = batch->t[i];
+		const union protocol_transaction *t = batch->t[i];
 
 		if (!t)
 			continue;
@@ -211,7 +212,7 @@ static void add_to_thash(struct state *state,
 		if (!batch->t[i])
 			continue;
 
-		hash_transaction(batch->t[i], NULL, 0, &sha);
+		hash_tx(batch->t[i], &sha);
 
 		/* It could already be there (alternate chain, or previous
 		 * partial batch which we just overwrote). */
@@ -249,7 +250,7 @@ void put_batch_in_block(struct state *state,
 		unsigned int i;
 
 		for (i = 0; i < ARRAY_SIZE(batch->t); i++) {
-			union protocol_transaction *t;
+			const union protocol_transaction *t;
 
 			t = block->batch[batchnum]->t[i];
 			if (t)
@@ -289,8 +290,8 @@ batch_validate_transactions(struct state *state,
 			continue;
 
 		/* Make sure transactions themselves are valid. */
-		err = check_transaction(state, batch->t[i],
-					inputs, bad_input_num);
+		err = check_transaction(state, batch->t[i], block,
+					batch->refs[i], inputs, bad_input_num);
 		if (err) {
 			log_unusual(log, "Peer resp_batch transaction %u"
 				    " gave error ",
@@ -336,6 +337,7 @@ bool check_block_prev_merkles(struct state *state,
 			merkle_transactions(&block->hdr->fees_to,
 					    sizeof(block->hdr->fees_to),
 					    prev->batch[j]->t,
+					    prev->batch[j]->refs,
 					    ARRAY_SIZE(prev->batch[j]->t),
 					    &merkle);
 

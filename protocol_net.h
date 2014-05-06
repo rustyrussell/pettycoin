@@ -30,6 +30,8 @@ enum protocol_req_type {
 	PROTOCOL_REQ_BLOCK_BAD_TRANS_AMOUNT,
 	/* Two transactions in block are out of order. */
 	PROTOCOL_REQ_BLOCK_TRANS_MISORDER,
+	/* A reference is to the wrong transaction. */
+	PROTOCOL_REQ_BLOCK_BAD_INPUT_REF_TRANS,
 
 	/* Tell me about this block. */
 	PROTOCOL_REQ_TRANSACTION_NUMS,
@@ -97,6 +99,9 @@ enum protocol_error {
 	PROTOCOL_ERROR_TOO_MANY_INPUTS, /* > TRANSACTION_MAX_INPUTS. */
 	PROTOCOL_ERROR_TRANS_BAD_INPUT, /* an input is bad. */
 	PROTOCOL_ERROR_TRANS_BAD_AMOUNTS, /* total inputs != outputs  */
+	/* These two only occur within a batch: */
+	PROTOCOL_ERROR_BATCH_BAD_INPUT_REF, /* input_ref is bad */
+	PROTOCOL_ERROR_BATCH_BAD_INPUT_REF_TRANS, /* input_ref points to bad trans */
 
 	/* protocol_req_batch: */
 	PROTOCOL_ERROR_UNKNOWN_BLOCK, /* I don't know that block? */
@@ -204,7 +209,11 @@ struct protocol_resp_batch {
 	le32 error; /* Expect PROTOCOL_ERROR_NONE. */
 	le32 num; /* Number of transactions in batch. */
 
-	/* Marshalled transactions... */
+	/* {
+		union protocol_transaction trans;
+		struct protocol_input_ref backref[num_inputs(trans)];
+	   }[num]
+	*/
 };
 
 /* Which transactions are interesting to me? */
@@ -305,12 +314,15 @@ struct protocol_req_block_trans_invalid {
 	 *  PROTOCOL_ERROR_TOO_LARGE
 	 *  PROTOCOL_ERROR_TRANS_BAD_SIG
 	 *  PROTOCOL_ERROR_TOO_MANY_INPUTS
+	 *  PROTOCOL_ERROR_BATCH_BAD_INPUT_REF
 	 */
 	le32 error;
 
 	struct protocol_proof proof;
 
-	/* union protocol_transaction trans; */
+	/* union protocol_transaction trans;
+	   struct protocol_input_ref ref[num_inputs(trans)];
+	*/
 };
 
 /* This block contains an transaction with an invalid input,
@@ -327,8 +339,33 @@ struct protocol_req_block_bad_trans_input {
 
 	/* The transaction whose input was bad:
 	     union protocol_transaction trans;
+	     struct protocol_input_ref ref[num_inputs(trans)];
 	   The bad input:
 	     union protocol_transaction input;
+	*/
+};
+
+/* This block contains an input ref with an invalid input (wrong trans!)
+ * ie PROTOCOL_ERROR_BATCH_BAD_REF_TRANS. */
+struct protocol_req_block_bad_input_ref_trans {
+	le32 len; /* sizeof(struct protocol_req_block_bad_input_ref_trans) */
+	le32 type; /* PROTOCOL_REQ_BLOCK_BAD_INPUT_REF_TRANS */
+
+	/* Which block & input I am referring to. */
+	struct protocol_double_sha block;
+	le32 inputnum;
+
+	/* Proof of the inputs & trans being in inputnum */
+	struct protocol_proof proof;
+
+	/* Proof that bad_input is where ref points. */
+	struct protocol_proof input_proof;
+
+	/* The transaction whose input was bad:
+	     union protocol_transaction trans;
+	     struct protocol_input_ref ref[num_inputs(trans)];
+	     union protocol_transaction bad_input;
+	     struct protocol_input_ref bad_inputref[num_inputs(bad_input)];
 	*/
 };
 
@@ -345,6 +382,7 @@ struct protocol_req_block_bad_trans_amount {
 
 	/* The transaction whose inputs were bad:
 	     union protocol_transaction t;
+	     struct protocol_input_ref ref[num_inputs(trans)];
 	   The inputs:
 	     union protocol_transaction input[t->normal.num_inputs]; */
 };
@@ -361,7 +399,9 @@ struct protocol_req_block_trans_misorder {
 	struct protocol_proof proof2;
 
 	/* union protocol_transaction trans1;
+	   struct protocol_input_ref ref1[num_inputs(trans1)];
 	   union protocol_transaction trans2;
+	   struct protocol_input_ref ref2[num_inputs(trans2)];
 	*/
 };
 

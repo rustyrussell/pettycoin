@@ -4,6 +4,8 @@
 #include <ccan/list/list.h>
 #include <stdbool.h>
 
+struct pending_trans;
+
 struct peer {
 	/* state->peers list */
 	struct list_node list;
@@ -33,7 +35,7 @@ struct peer {
 	struct protocol_net_address you;
 
 	/* For when we sent PROTOCOL_REQ_NEW_TRANS: */
-	const struct pending_trans *new_trans_pending;
+	const struct trans_for_peer *new_trans_pending;
 
 	/* For when we sent PROTOCOL_REQ_BATCH: */
 	struct block *batch_requested_block;

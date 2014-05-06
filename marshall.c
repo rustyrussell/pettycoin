@@ -3,6 +3,7 @@
 #include "protocol_net.h"
 #include "overflows.h"
 #include "merkle_transactions.h"
+#include "check_transaction.h"
 #include "version.h"
 #include "talv.h"
 #include "peer.h"
@@ -207,4 +208,23 @@ size_t marshall_transaction_len(const union protocol_transaction *t)
 			       output, le16_to_cpu(t->gateway.num_outputs));
 	}
 	abort();
+}
+
+enum protocol_error unmarshall_input_refs(const void *buffer, size_t size,
+					  const union protocol_transaction *t,
+					  size_t *used)
+{
+	size_t need = marshall_input_ref_len(t);
+
+	if (size < need)
+		return PROTOCOL_INVALID_LEN;
+	
+	*used = need;
+	return PROTOCOL_ERROR_NONE;
+}
+
+/* Input refs don't need marshalling */
+size_t marshall_input_ref_len(const union protocol_transaction *t)
+{
+	return num_inputs(t) * sizeof(struct protocol_input_ref);
 }

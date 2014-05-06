@@ -1,5 +1,6 @@
 #include "check_transaction.h"
 #include "block.h"
+#include "chain.h"
 #include "gateways.h"
 #include "hash_transaction.h"
 #include "overflows.h"
@@ -40,15 +41,50 @@ check_trans_normal_basic(struct state *state,
 	return PROTOCOL_ERROR_NONE;
 }
 
-/* Sets bad_input_num and bad_input if PROTOCOL_ERROR_TRANS_BAD_INPUT.
+/* We failed to find it in hash. */
+static enum protocol_error
+find_trans_for_ref(struct state *state,
+		   const struct block *block,
+		   const struct protocol_input_ref *ref,
+		   union protocol_transaction **trans)
+{
+	u32 bnum;
+	const struct block *b;
+
+	*trans = NULL;
+	if (le32_to_cpu(ref->blocks_ago) > block->blocknum)
+		return PROTOCOL_ERROR_BATCH_BAD_INPUT_REF;
+
+	/* FIXME: slow */
+	bnum = block->blocknum - le32_to_cpu(ref->blocks_ago);
+	for (b = block; b->blocknum != bnum; b = b->prev);
+
+	if (le32_to_cpu(ref->txnum) >= le32_to_cpu(b->hdr->num_transactions))
+		return PROTOCOL_ERROR_BATCH_BAD_INPUT_REF;
+
+	*trans = block_get_trans(b, le32_to_cpu(ref->txnum));
+	if (!*trans)
+		/* We just don't know it.  OK */
+		return PROTOCOL_ERROR_NONE;
+
+	/* Trans is actually not the correct one! */
+	return PROTOCOL_ERROR_BATCH_BAD_INPUT_REF_TRANS;
+}	
+
+/*
+ * Sets inputs[] if transaction has inputs.
+ * Sets bad_input_num if PROTOCOL_ERROR_TRANS_BAD_INPUT.
+ * If refs is non-NULL, ensures that Nth input tx matches ref[N].
  *
  * Otherwise bad_input_num indicates an unknown input.
  *
  * FIXME: Detect double-spends!
  */
-enum protocol_error
+static enum protocol_error
 check_trans_normal_inputs(struct state *state,
 			  const struct protocol_transaction_normal *t,
+			  const struct block *block,
+			  const struct protocol_input_ref *refs,
 			  unsigned int *inputs_known,
 			  union protocol_transaction *
 			  inputs[TRANSACTION_MAX_INPUTS],
@@ -67,12 +103,51 @@ check_trans_normal_inputs(struct state *state,
 	for (i = 0; i < num; i++) {
 		u32 amount;
 		struct protocol_address addr;
+		struct thash_iter it;
+		struct thash_elem *te;
 
-		/* FIXME: Search pending transactions too! */
-		/* FIXME: must be in predecessor! */
-		inputs[i] = thash_gettrans(&state->thash, &t->input[i].input);
-		if (!inputs[i]) {
+		for (te = thash_firstval(&state->thash,
+					 &t->input[i].input, &it);
+		     te;
+		     te = thash_nextval(&state->thash,
+					&t->input[i].input, &it)) {
+			inputs[i] = block_get_trans(te->block, te->tnum);
+
+			/* Not checking in block?  Any location will do. */
+			if (!refs)
+				break;
+
+			/* Can't be right if block number wrong. */
+			if (le32_to_cpu(te->block->blocknum)
+			    != block->blocknum
+			    - le32_to_cpu(refs[i].blocks_ago))
+				continue;
+
+			/* Can't be right if transaction number impossible. */
+			if (le32_to_cpu(refs[i].txnum)
+			    >= le32_to_cpu(te->block->hdr->num_transactions))
+				continue;
+
+			/* Must be predecessor */
+			if (!block_preceeds(te->block, block))
+				continue;
+
+			break;
+		}
+
+		/* Unknown transaction? */
+		if (!te) {
+			inputs[i] = NULL;
 			*bad_input_num = i;
+			if (refs) {
+				enum protocol_error err;
+				/* Do we know what was input_ref referred to? */
+				err = find_trans_for_ref(state, block, &refs[i],
+							 &inputs[i]);
+				if (err)
+					return err;
+			}
+			/* Partial knowledge... */
 			continue;
 		}
 
@@ -290,11 +365,16 @@ bool check_transaction_proof(struct state *state,
 
 enum protocol_error check_transaction(struct state *state,
 				      const union protocol_transaction *trans,
+				      const struct block *block,
+				      const struct protocol_input_ref *refs,
 				      union protocol_transaction *
 				      inputs[TRANSACTION_MAX_INPUTS],
 				      unsigned int *bad_input_num)
 {
 	enum protocol_error e;
+
+	/* If we're in a block, we must have refs. */
+	assert(!refs == !block);
 
 	switch (trans->hdr.type) {
 	case TRANSACTION_FROM_GATEWAY:
@@ -307,6 +387,7 @@ enum protocol_error check_transaction(struct state *state,
 
 			e = check_trans_normal_inputs(state,
 						      &trans->normal,
+						      block, refs,
 						      &inputs_known,
 						      inputs,
 						      bad_input_num);
@@ -321,15 +402,4 @@ enum protocol_error check_transaction(struct state *state,
 	}
 
 	return e;
-}
-
-u32 num_inputs(const union protocol_transaction *t)
-{
-	switch (t->hdr.type) {
-	case TRANSACTION_NORMAL:
-		return le32_to_cpu(t->normal.num_inputs);
-	case TRANSACTION_FROM_GATEWAY:
-		return 0;
-	}
-	abort();
 }

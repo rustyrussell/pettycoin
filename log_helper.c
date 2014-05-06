@@ -40,7 +40,7 @@ void log_add_struct_(struct log *log, const char *structname, const void *ptr)
 		const union protocol_transaction *t = ptr;
 		struct protocol_double_sha sha;
 
-		hash_transaction(t, NULL, 0, &sha);
+		hash_tx(t, &sha);
 		switch (t->hdr.type) {
 		case TRANSACTION_NORMAL:
 			log_add(log, "NORMAL %u inputs => %u (%u change) ",

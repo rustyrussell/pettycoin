@@ -148,7 +148,7 @@ void fill_peers(struct state *state)
 	}
 }
 
-struct pending_trans {
+struct trans_for_peer {
 	struct list_node list;
 	const union protocol_transaction *t;
 };
@@ -159,7 +159,7 @@ void remove_trans_from_peers(struct state *state,
 	struct peer *p;
 
 	list_for_each(&state->peers, p, list) {
-		struct pending_trans *pend;
+		struct trans_for_peer *pend;
 
 		list_for_each(&p->pending, pend, list) {
 			if (pend->t == t) {
@@ -171,7 +171,7 @@ void remove_trans_from_peers(struct state *state,
 	}
 }
 
-static void unlink_pend(struct pending_trans *pend)
+static void unlink_pend(struct trans_for_peer *pend)
 {
 	list_del(&pend->list);
 }
@@ -183,13 +183,13 @@ void add_trans_to_peers(struct state *state,
 	struct peer *peer;
 
 	list_for_each(&state->peers, peer, list) {
-		struct pending_trans *pend;
+		struct trans_for_peer *pend;
 
 		/* Avoid sending back to peer who told us. */
 		if (peer == exclude)
 			continue;
 
-		pend = tal(peer, struct pending_trans);
+		pend = tal(peer, struct trans_for_peer);
 		pend->t = t;
 		list_add_tail(&peer->pending, &pend->list);
 		tal_add_destructor(pend, unlink_pend);
@@ -346,7 +346,7 @@ static struct block *get_next_mutual_block(struct peer *peer)
 static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 {
 	struct block *next;
-	struct pending_trans *pend;
+	struct trans_for_peer *pend;
 	struct complaint *complaint;
 	const void *pkt;
 
@@ -434,7 +434,7 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 	}
 
 	/* Tell them about transactions we know about */
-	pend = list_pop(&peer->pending, struct pending_trans, list);
+	pend = list_pop(&peer->pending, struct trans_for_peer, list);
 	if (pend) {
 		tal_del_destructor(pend, unlink_pend);
 
@@ -605,7 +605,8 @@ receive_trans(struct peer *peer,
 	if (e)
 		goto fail;
 
-	e = check_transaction(peer->state, trans, inputs, &bad_input_num);
+	e = check_transaction(peer->state, trans, NULL, NULL,
+			      inputs, &bad_input_num);
 
 	r->error = cpu_to_le32(e);
 
@@ -692,9 +693,10 @@ receive_batch_req(struct peer *peer,
 		return r;
 	}
 
-	/* Now append transactions. */
+	/* Now append transactions and input backrefs  */
 	for (i = 0; i < batch->count; i++)
-		tal_packet_append_trans(&r, batch->t[i]);
+		tal_packet_append_trans_with_refs(&r, batch->t[i],
+						  batch->refs[i]);
 	r->num = cpu_to_le32(batch->count);
 	r->error = cpu_to_le32(PROTOCOL_ERROR_NONE);
 
@@ -741,6 +743,20 @@ unmarshall_batch(struct log *log,
 			log_unusual(log, "Peer resp_batch transaction %u/%zu"
 				    " for len %zu/%u gave error ",
 				    batch->count, max,
+				    le32_to_cpu(resp->len) - size,
+				    le32_to_cpu(resp->len));
+			log_add_enum(log, enum protocol_error, err);
+			return err;
+		}
+		size -= used;
+		buffer += used;
+		batch->refs[batch->count] = (struct protocol_input_ref *)buffer;
+		err = unmarshall_input_refs(buffer, size,
+					    batch->t[batch->count], &used);
+		if (err) {
+			log_unusual(log, "Peer resp_batch transaction %u/%u"
+				    " input refs for len %zu/%u gave error ",
+				    batch->count, le32_to_cpu(resp->num),
 				    le32_to_cpu(resp->len) - size,
 				    le32_to_cpu(resp->len));
 			log_add_enum(log, enum protocol_error, err);

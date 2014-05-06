@@ -48,6 +48,7 @@ u8 *make_prev_merkles(const tal_t *ctx,
 			 * can prove you know all the transactions. */
 			merkle_transactions(my_addr, sizeof(*my_addr),
 					    prev->batch[j]->t,
+					    prev->batch[j]->refs,
 					    ARRAY_SIZE(prev->batch[j]->t),
 					    &merkle);
 

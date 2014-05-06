@@ -38,6 +38,10 @@ void *tal_packet_(const tal_t *ctx, size_t len, int type);
 union protocol_transaction;
 void tal_packet_append_trans(void *ppkt,
 			     const union protocol_transaction *trans);
+struct protocol_input_ref;
+void tal_packet_append_trans_with_refs(void *ppkt,
+				       const union protocol_transaction *trans,
+				       const struct protocol_input_ref *refs);
 
 void tal_packet_append(void *ppkt, const void *mem, size_t len);
 

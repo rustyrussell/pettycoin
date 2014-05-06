@@ -133,3 +133,11 @@ void tal_packet_append_trans(void *ppkt,
 {
 	tal_packet_append(ppkt, trans, marshall_transaction_len(trans));
 }
+
+void tal_packet_append_trans_with_refs(void *ppkt,
+				       const union protocol_transaction *trans,
+				       const struct protocol_input_ref *refs)
+{
+	tal_packet_append_trans(ppkt, trans);
+	tal_packet_append(ppkt, refs, marshall_input_ref_len(trans));
+}

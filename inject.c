@@ -300,7 +300,7 @@ int main(int argc, char *argv[])
 
 	read_response(fd);
 
-	hash_transaction(t, NULL, 0, &sha);
+	hash_tx(t, &sha);
 	log_info(NULL, "%s", "");
 	log_add_struct(NULL, struct protocol_double_sha, &sha);
 	printf("\n");

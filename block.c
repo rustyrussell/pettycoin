@@ -238,12 +238,25 @@ union protocol_transaction *block_get_trans(const struct block *block,
 {
 	const struct transaction_batch *b;
 
-	assert(trans_num < block->hdr->num_transactions);
+	assert(trans_num < le32_to_cpu(block->hdr->num_transactions));
 	b = block->batch[batch_index(trans_num)];
 	if (!b)
 		return NULL;
 	return cast_const(union protocol_transaction *,
 			  b->t[trans_num % (1 << PETTYCOIN_BATCH_ORDER)]);
+}
+
+struct protocol_input_ref *block_get_refs(const struct block *block,
+					  u32 trans_num)
+{
+	const struct transaction_batch *b;
+
+	assert(trans_num < le32_to_cpu(block->hdr->num_transactions));
+	b = block->batch[batch_index(trans_num)];
+	if (!b)
+		return NULL;
+	return cast_const(struct protocol_input_ref *,
+			  b->refs[trans_num % (1 << PETTYCOIN_BATCH_ORDER)]);
 }
 
 static void update_recursive(struct state *state,
@@ -376,6 +389,7 @@ static void
 invalidate_block_bad_input(struct state *state,
 			   struct block *block,
 			   const union protocol_transaction *trans,
+			   const struct protocol_input_ref *refs,
 			   unsigned int bad_transnum,
 			   unsigned int bad_input,
 			   const union protocol_transaction *intrans)
@@ -396,7 +410,7 @@ invalidate_block_bad_input(struct state *state,
 	req->inputnum = cpu_to_le32(bad_input);
 	create_proof(&req->proof, block, bad_transnum);
 
-	tal_packet_append_trans(&req, trans);
+	tal_packet_append_trans_with_refs(&req, trans, refs);
 	tal_packet_append_trans(&req, intrans);
 
 	invalidate_block(state, block, req);
@@ -406,6 +420,7 @@ static void
 invalidate_block_bad_amounts(struct state *state,
 			     struct block *block,
 			     const union protocol_transaction *trans,
+			     const struct protocol_input_ref *refs,
 			     unsigned int bad_transnum)
 {
 	struct protocol_req_block_bad_trans_amount *req;
@@ -432,7 +447,7 @@ invalidate_block_bad_amounts(struct state *state,
 	req->block = block->sha;
 	create_proof(&req->proof, block, bad_transnum);
 
-	tal_packet_append_trans(&req, trans);
+	tal_packet_append_trans_with_refs(&req, trans, refs);
 	for (i = 0; i < le32_to_cpu(trans->normal.num_inputs); i++)
 		tal_packet_append_trans(&req, input[i]);
 
@@ -444,6 +459,7 @@ invalidate_block_bad_transaction(struct state *state,
 				 struct block *block,
 				 enum protocol_error err,
 				 const union protocol_transaction *trans,
+				 const struct protocol_input_ref *refs,
 				 unsigned int bad_transnum)
 {
 	struct protocol_req_block_trans_invalid *req;	
@@ -461,7 +477,7 @@ invalidate_block_bad_transaction(struct state *state,
 	req->error = cpu_to_le32(err);
 	create_proof(&req->proof, block, bad_transnum);
 	
-	tal_packet_append_trans(&req, trans);
+	tal_packet_append_trans_with_refs(&req, trans, refs);
 
 	invalidate_block(state, block, req);
 }
@@ -473,9 +489,12 @@ void invalidate_block_misorder(struct state *state,
 {
 	struct protocol_req_block_trans_misorder *req;	
 	const union protocol_transaction *trans1, *trans2;
+	const struct protocol_input_ref *refs1, *refs2;
 
 	trans1 = block_get_trans(block, bad_transnum1);
 	trans2 = block_get_trans(block, bad_transnum2);
+	refs1 = block_get_refs(block, bad_transnum1);
+	refs2 = block_get_refs(block, bad_transnum2);
 
 	log_unusual(state->log, "Block %u ", block->blocknum);
 	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
@@ -491,8 +510,52 @@ void invalidate_block_misorder(struct state *state,
 	create_proof(&req->proof1, block, bad_transnum1);
 	create_proof(&req->proof2, block, bad_transnum2);
 
-	tal_packet_append_trans(&req, trans1);
-	tal_packet_append_trans(&req, trans2);
+	tal_packet_append_trans_with_refs(&req, trans1, refs1);
+	tal_packet_append_trans_with_refs(&req, trans2, refs2);
+
+	invalidate_block(state, block, req);
+}
+
+static void
+invalidate_block_bad_input_ref_trans(struct state *state,
+				     struct block *block,
+				     const union protocol_transaction *trans,
+				     const struct protocol_input_ref *refs,
+				     unsigned int bad_transnum,
+				     unsigned int bad_input,
+				     const union protocol_transaction *bad_intrans)
+{
+	struct protocol_req_block_bad_input_ref_trans *req;	
+	const struct protocol_input_ref *bad_ref;
+	const struct block *input_block;
+	u32 in_txnum;
+
+	bad_ref = &refs[bad_input];
+	in_txnum = le32_to_cpu(bad_ref->txnum);
+
+	log_unusual(state->log, "Block %u ", block->blocknum);
+	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
+	log_unusual(state->log, " transaction %u ", bad_transnum);
+	log_add_struct(state->log, union protocol_transaction, trans);
+	log_add(state->log, 
+		" invalid due to wrong input %u reference %u ago tx %u ",
+		bad_input, le32_to_cpu(bad_ref->blocks_ago), in_txnum);
+	log_add_struct(state->log, union protocol_transaction, bad_intrans);
+
+	input_block = block_ancestor(block, le32_to_cpu(bad_ref->blocks_ago));
+
+	req = tal_packet(block, struct protocol_req_block_bad_input_ref_trans,
+			 PROTOCOL_REQ_BLOCK_BAD_INPUT_REF_TRANS);
+	req->block = block->sha;
+	req->inputnum = cpu_to_le32(bad_input);
+
+	create_proof(&req->proof, block, bad_transnum);
+	create_proof(&req->input_proof, input_block, in_txnum);
+
+	tal_packet_append_trans_with_refs(&req, trans, refs);
+	tal_packet_append_trans_with_refs(&req, bad_intrans,
+					  block_get_refs(input_block,
+							 in_txnum));
 
 	invalidate_block(state, block, req);
 }
@@ -507,8 +570,10 @@ void invalidate_block_badtrans(struct state *state,
 			       union protocol_transaction *bad_intrans)
 {
 	union protocol_transaction *trans;
+	const struct protocol_input_ref *refs;
 
 	trans = block_get_trans(block, bad_transnum);
+	refs = block_get_refs(block, bad_transnum);
 
 	switch (err) {
 	case PROTOCOL_ERROR_TRANS_HIGH_VERSION:
@@ -524,6 +589,7 @@ void invalidate_block_badtrans(struct state *state,
 		break;
 
 	case PROTOCOL_ERROR_TOO_MANY_INPUTS:
+	case PROTOCOL_ERROR_BATCH_BAD_INPUT_REF:
 		assert(trans->hdr.type == TRANSACTION_NORMAL);
 		break;
 
@@ -534,13 +600,21 @@ void invalidate_block_badtrans(struct state *state,
 		if (!bad_intrans)
 			return;
 		invalidate_block_bad_input(state, block,
-					   trans, bad_transnum,
+					   trans, refs, bad_transnum,
 					   bad_input, bad_intrans);
 		return;
 
 	case PROTOCOL_ERROR_TRANS_BAD_AMOUNTS:
 		assert(trans->hdr.type == TRANSACTION_NORMAL);
-		invalidate_block_bad_amounts(state, block, trans, bad_transnum);
+		invalidate_block_bad_amounts(state, block, trans, refs,
+					     bad_transnum);
+		return;
+
+	case PROTOCOL_ERROR_BATCH_BAD_INPUT_REF_TRANS:
+		assert(trans->hdr.type == TRANSACTION_NORMAL);
+		invalidate_block_bad_input_ref_trans(state, block, trans, refs,
+						   bad_transnum, bad_input,
+						   bad_intrans);
 		return;
 
 	default:
@@ -551,6 +625,6 @@ void invalidate_block_badtrans(struct state *state,
 	}
 
 	/* Simple single-transaction error. */
-	invalidate_block_bad_transaction(state, block, err, trans,
+	invalidate_block_bad_transaction(state, block, err, trans, refs,
 					 bad_transnum);
 }

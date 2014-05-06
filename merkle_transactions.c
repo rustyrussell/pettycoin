@@ -1,12 +1,15 @@
 #include "merkle_transactions.h"
+#include "check_transaction.h"
 #include "shadouble.h"
 #include "hash_transaction.h"
 #include "protocol.h"
 #include <assert.h>
 #include <string.h>
+#include <ccan/tal/tal.h>
 
 void merkle_transactions(const void *prefix, size_t prefix_len,
-			 union protocol_transaction *const*t,
+			 const union protocol_transaction *const*t,
+			 const struct protocol_input_ref *const*refs,
 			 size_t num_trans,
 			 struct protocol_double_sha *merkle)
 {
@@ -18,14 +21,16 @@ void merkle_transactions(const void *prefix, size_t prefix_len,
 		if (t[0] == NULL)
 			memset(merkle, 0, sizeof(*merkle));
 		else
-			hash_transaction(t[0], prefix, prefix_len, merkle);
+			hash_tx_for_block(t[0], prefix, prefix_len, *refs,
+					  *refs ? num_inputs(t[0]) : 0, merkle);
 	} else {
 		SHA256_CTX shactx;
 		struct protocol_double_sha sub[2];
 
 		num_trans /= 2;
-		merkle_transactions(prefix, prefix_len, t, num_trans, sub);
+		merkle_transactions(prefix, prefix_len, t, refs, num_trans, sub);
 		merkle_transactions(prefix, prefix_len, t + num_trans,
+				    refs + num_trans,
 				    num_trans, sub+1);
 		
 		SHA256_Init(&shactx);

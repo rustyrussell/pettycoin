@@ -9,20 +9,23 @@ void create_proof(struct protocol_proof *proof,
 		  u32 tnum)
 {
 	unsigned int i;
-	union protocol_transaction **t;
+	const union protocol_transaction **t;
+	const struct protocol_input_ref **refs;
 
 	proof->tnum = cpu_to_le32(tnum);
 
 	assert(block_full(block, NULL));
 	t = block->batch[batch_index(tnum)]->t;
+	refs = block->batch[batch_index(tnum)]->refs;
 
 	for (i = 0; i < PETTYCOIN_BATCH_ORDER; i++) {
 		if (tnum & (1 << i))
 			/* Hash the left side together. */
-			merkle_transactions(NULL, 0, t, 1 << i, 
+			merkle_transactions(NULL, 0, t, refs, 1 << i, 
 					    &proof->merkle[i]);
 		else
-			merkle_transactions(NULL, 0, t + (1 << i), 1 << i, 
+			merkle_transactions(NULL, 0, t + (1 << i),
+					    refs + (1 << i), 1 << i, 
 					    &proof->merkle[i]);
 	}
 }
@@ -35,7 +38,7 @@ static void proof_merkles_to(const union protocol_transaction *t,
 	unsigned int i;
 
 	/* Start with hash of transaction. */
-	hash_transaction(t, NULL, 0, sha);
+	hash_tx(t, sha);
 
 	for (i = 0; i < PETTYCOIN_BATCH_ORDER; i++) {
 		SHA256_CTX shactx;

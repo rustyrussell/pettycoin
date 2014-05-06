@@ -54,7 +54,8 @@ struct protocol_block_header {
 	struct protocol_address fees_to;
 };
 
-/* header is followed by array of double_shas:
+/* header is followed by array of double_shas which are the merkles of
+ * each transaction + input_refs:
  *	num_merkles = (hdr->num_transactions + (1<<PETTYCOIN_BATCH_ORDER)-1)
  *			>> PETTYCOIN_BATCH_ORDER;
  *	struct protocol_double_sha merkle[num_merkles];
@@ -127,6 +128,12 @@ struct protocol_transaction_normal {
 	struct protocol_signature signature;
 	/* The inputs */
 	struct protocol_input input[ /* num_inputs */ ];
+};
+
+/* Inside a block, a normal transaction is followed by num_inputs of these: */
+struct protocol_input_ref {
+	le32 blocks_ago;
+	le32 txnum;
 };
 
 /* From a gateway into the pettycoin network. */

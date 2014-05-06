@@ -13,6 +13,8 @@
 #include "blockfile.h"
 #include "generate.h"
 #include "pending.h"
+#include "chain.h"
+#include "check_transaction.h"
 #include <ccan/io/io.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -39,7 +41,7 @@ struct generator {
 	/* The block it found. */
 	struct block *new;
 	/* The transactions it included. */
-	union protocol_transaction **trans;
+	struct pending_trans **included;
 	pid_t pid;
 	/* Update list. */
 	struct list_head updates;
@@ -150,7 +152,7 @@ static struct io_plan send_go_byte(struct io_conn *conn, struct generator *gen)
 
 static struct io_plan got_trans(struct io_conn *conn, struct generator *gen)
 {
-	u32 i, num_trans;
+	u32 i, j, num_trans;
 
 	/* Break into batches, and add. */
 	num_trans = le32_to_cpu(gen->new->hdr->num_transactions);
@@ -169,7 +171,11 @@ static struct io_plan got_trans(struct io_conn *conn, struct generator *gen)
 		b = talz(gen, struct transaction_batch);
 		b->trans_start = i;
 		b->count = num;
-		memcpy(b->t, gen->trans + i, num * sizeof(b->t[0]));
+
+		for (j = 0; j < num; j++) {
+			b->t[j] = gen->included[i+j]->t;
+			b->refs[j] = tal_steal(b, gen->included[i+j]->refs);
+		}
 
 		if (!batch_full(gen->new, b)) {
 			log_broken(gen->log,
@@ -259,31 +265,39 @@ static struct io_plan got_solution(struct io_conn *conn, struct generator *gen)
 			   gen->pid, gen->new->blocknum);
 		return io_close();
 	}
-	/* Read transaction pointers back. */
-	gen->trans = tal_arr(gen, union protocol_transaction *,
+	/* Read cookies back (actually, struct pending_trans *). */
+	gen->included = tal_arr(gen, struct pending_trans *,
 			     le32_to_cpu(hdr->num_transactions));
 
-	return io_read(gen->trans, sizeof(union protocol_transaction *)
+	return io_read(gen->included, sizeof(struct pending_trans *)
 		       * le32_to_cpu(hdr->num_transactions), got_trans, gen);
+}
+
+static void add_update(struct state *state,
+		       struct pending_trans *t,
+		       u32 idx)
+{
+	struct pending_update *update;
+
+	update = tal(state->gen, struct pending_update);
+	update->update.features = t->t->hdr.features;
+	update->update.trans_idx = idx;
+	update->update.cookie = t;
+
+	hash_tx_for_block(t->t, NULL, 0, t->refs, num_inputs(t->t),
+			  &update->update.hash);
+	list_add_tail(&state->gen->updates, &update->list);
 }
 
 static void init_updates(struct generator *gen)
 {
 	size_t i;
-	const union protocol_transaction **t = gen->state->pending->t;
+	struct pending_trans **pend = gen->state->pending->pend;
 
 	list_head_init(&gen->updates);
 
-	for (i = 0; i < tal_count(t); i++) {
-		struct pending_update *update;
-
-		update = tal(gen, struct pending_update);
-		update->update.features = t[i]->hdr.features;
-		update->update.trans_idx = i;
-		update->update.cookie = t[i];
-		hash_transaction(t[i], NULL, 0, &update->update.hash);
-		list_add_tail(&gen->updates, &update->list);
-	}
+	for (i = 0; i < tal_count(pend); i++)
+		add_update(gen->state, pend[i], i);
 }
 
 static void exec_generator(struct generator *gen)
@@ -360,24 +374,14 @@ static void exec_generator(struct generator *gen)
 	io_set_finish(gen->answer, finish_answer, gen);
 }
 
+/* state->pending->t[num] has been added. */
 void tell_generator_new_pending(struct state *state, unsigned int num)
 {
-	struct pending_update *update;
-	const union protocol_transaction *t;
-
 	/* Tell generator about new transaction. */
 	if (!state->gen)
 		return;
 
-	/* This is the new transaction. */
-	t = state->pending->t[num];
-
-	update = tal(state->gen, struct pending_update);
-	update->update.features = t->hdr.features;
-	update->update.trans_idx = num;
-	update->update.cookie = t;
-	hash_transaction(t, NULL, 0, &update->update.hash);
-	list_add_tail(&state->gen->updates, &update->list);
+	add_update(state, state->pending->pend[num], num);
 	io_wake(state->gen);
 }
 

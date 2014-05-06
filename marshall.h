@@ -30,4 +30,10 @@ enum protocol_error unmarshall_transaction(const void *buffer, size_t size,
 /* Transactions don't need marshalling. */
 size_t marshall_transaction_len(const union protocol_transaction *t);
 
+enum protocol_error unmarshall_input_refs(const void *buffer, size_t size,
+					  const union protocol_transaction *t,
+					  size_t *used);
+/* Input refs don't need marshalling */
+size_t marshall_input_ref_len(const union protocol_transaction *t);
+
 #endif /* PETTYCOIN_MARSHALL_H */

@@ -13,7 +13,8 @@ struct transaction_batch {
 	unsigned int trans_start;
 	/* How many transactions do we have?  Faster than counting NULLs */
 	unsigned int count;
-	union protocol_transaction *t[1 << PETTYCOIN_BATCH_ORDER];
+	const union protocol_transaction *t[1 << PETTYCOIN_BATCH_ORDER];
+	const struct protocol_input_ref *refs[1 << PETTYCOIN_BATCH_ORDER];
 };
 
 struct block {
@@ -87,6 +88,10 @@ static inline size_t batch_index(u32 trans_num)
 /* Get this numbered transaction inside block. */
 union protocol_transaction *block_get_trans(const struct block *block,
 					    u32 trans_num);
+
+/* Get this numbered references inside block. */
+struct protocol_input_ref *block_get_refs(const struct block *block,
+					  u32 trans_num);
 
 void invalidate_block_badtrans(struct state *state,
 			       struct block *block,

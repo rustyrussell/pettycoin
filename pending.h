@@ -1,11 +1,18 @@
 #ifndef PETTYCOIN_PENDING_H
 #define PETTYCOIN_PENDING_H
 #include <ccan/short_types/short_types.h>
+#include "protocol.h"
+
+struct pending_trans {
+	const union protocol_transaction *t;
+	struct protocol_input_ref *refs; /* num_inputs(t) array */
+};
 
 /* aka state->pending */
 struct pending_block {
 	u8 *prev_merkles;
-	const union protocol_transaction **t;
+	/* Available for the next block. */
+	struct pending_trans **pend;
 };
 
 struct state;

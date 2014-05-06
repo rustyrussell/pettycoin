@@ -8,40 +8,110 @@
 #include "block.h"
 #include "peer.h"
 #include "chain.h"
+#include "talv.h"
 
 struct pending_block *new_pending_block(struct state *state)
 {
 	struct pending_block *b = tal(state, struct pending_block);
 
-	b->t = tal_arr(b, const union protocol_transaction *, 0);
+	b->pend = tal_arr(b, struct pending_trans *, 0);
 	return b;
 }
 
-/* Transfer all transaction from this block into pending array. */
-static void block_to_pending(struct state *state, const struct block *block)
+static bool resolve_input(struct state *state,
+			  const struct block *block,
+			  struct pending_trans *pend,
+			  u32 num)
 {
-	size_t curr = tal_count(state->pending->t), num, added = 0, i;
+	const struct protocol_double_sha *sha;
+	struct thash_iter iter;
+	struct thash_elem *te;
+
+	assert(pend->t->hdr.type == TRANSACTION_NORMAL);
+	assert(num < le32_to_cpu(pend->t->normal.num_inputs));
+
+	sha = &pend->t->normal.input[num].input;
+
+	for (te = thash_firstval(&state->thash, sha, &iter);
+	     te;
+	     te = thash_nextval(&state->thash, sha, &iter)) {
+		if (block_preceeds(te->block, block)) {
+			/* Add 1 since this will go into *next* block */
+			pend->refs[num].blocks_ago = 
+				cpu_to_le32(block->blocknum
+					    - te->block->blocknum + 1);
+			pend->refs[num].txnum = cpu_to_le32(te->tnum);
+			return true;
+		}
+	}
+	return false;
+}
+
+/* Try to find the inputs in block and its ancestors */
+static bool resolve_inputs(struct state *state,
+			   const struct block *block,
+			   struct pending_trans *pend)
+{
+	u32 i, num = num_inputs(pend->t);
+
+	for (i = 0; i < num; i++)
+		if (!resolve_input(state, block, pend, i))
+			return false;
+
+	return true;
+}
+
+static struct pending_trans *new_pending_trans(const tal_t *ctx,
+					       const union protocol_transaction *t)
+{
+	struct pending_trans *pend;
+
+	pend = tal(ctx, struct pending_trans);
+	pend->t = t;
+	pend->refs = tal_arr(pend, struct protocol_input_ref, num_inputs(t));
+
+	return pend;
+}
+
+/* Transfer all transaction from this block into pending array. */
+static void block_to_pending(struct state *state,
+			     const struct block *block)
+{
+	size_t curr = tal_count(state->pending->pend), num, added = 0, i;
 
 	num = le32_to_cpu(block->hdr->num_transactions);
 
 	/* Worst case. */
-	tal_resize(&state->pending->t, curr + num);
+	tal_resize(&state->pending->pend, curr + num);
 
 	for (i = 0; i < num; i++) {
+		struct pending_trans *pend;
 		union protocol_transaction *t = block_get_trans(block, i);
-		if (t)
-			state->pending->t[curr + added++] = t;
+
+		if (!t)
+			continue;
+
+		/* FIXME: Transfer block->refs directly! */
+		pend = new_pending_trans(state->pending, t);
+		state->pending->pend[curr + added++] = pend;
 	}
 
 	log_debug(state->log, "Added %zu transactions from old block",
 		  added);
-	tal_resize(&state->pending->t, curr + added);
+	tal_resize(&state->pending->pend, curr + added);
 }
 
-/* We've added a whole heap of transactions, recheck them. */
+static int pending_trans_cmp(struct pending_trans *const *a,
+			     struct pending_trans *const *b,
+			     void *unused)
+{
+	return transaction_cmp((*a)->t, (*b)->t);
+}
+
+/* We've added a whole heap of transactions, recheck them and set input refs. */
 static void recheck_pending_transactions(struct state *state)
 {
-	size_t i, num = tal_count(state->pending->t);
+	size_t i, num = tal_count(state->pending->pend);
 
 	log_debug(state->log, "Searching %zu pending transactions", num);
 	for (i = 0; i < num; i++) {
@@ -53,7 +123,7 @@ static void recheck_pending_transactions(struct state *state)
 		struct thash_iter iter;
 		bool in_known_chain = false;
 
-		hash_transaction(state->pending->t[i], NULL, 0, &sha);
+		hash_tx(state->pending->pend[i]->t, &sha);
 
 		for (te = thash_firstval(&state->thash, &sha, &iter);
 		     te;
@@ -68,10 +138,10 @@ static void recheck_pending_transactions(struct state *state)
 			goto discard;
 		}
 		log_debug(state->log, "  %zu is NOT FOUND", i);
-			
+
 		/* Discard if no longer valid (inputs already spent) */
-		e = check_transaction(state, state->pending->t[i],
-				      inputs, &bad_input_num);
+		e = check_transaction(state, state->pending->pend[i]->t,
+				      NULL, NULL, inputs, &bad_input_num);
 		if (e) {
 			log_debug(state->log, "  %zu is now ", i);
 			log_add_enum(state->log, enum protocol_error, e);
@@ -84,29 +154,36 @@ static void recheck_pending_transactions(struct state *state)
 			}
 			goto discard;
 		}
+
+		/* FIXME: Usually this is a simple increment to
+		 * ->refs[].blocks_ago. */
+		if (!resolve_inputs(state, state->longest_known,
+				    state->pending->pend[i])) {
+			/* FIXME: put this into pending-awaiting list! */
+			log_debug(state->log, "  inputs no longer known");
+			goto discard;
+		}
 		continue;
 
 	discard:
-		remove_trans_from_peers(state, state->pending->t[i]);
-		memmove(state->pending->t + i,
-			state->pending->t + i + 1,
-			(num - i - 1) * sizeof(*state->pending->t));
+		remove_trans_from_peers(state, state->pending->pend[i]->t);
+		memmove(state->pending->pend + i,
+			state->pending->pend + i + 1,
+			(num - i - 1) * sizeof(*state->pending->pend));
 		num--;
 		i--;
 	}
 	log_debug(state->log, "Cleaned up %zu of %zu pending transactions",
-		  tal_count(state->pending->t) - num,
-		  tal_count(state->pending->t));
-	tal_resize(&state->pending->t, num);
+		  tal_count(state->pending->pend) - num,
+		  tal_count(state->pending->pend));
+	tal_resize(&state->pending->pend, num);
 
 	/* Make sure they're sorted into correct order! */
-	asort((union protocol_transaction **)state->pending->t,
-	      num, transaction_ptr_cmp, NULL);
+	asort(state->pending->pend, num, pending_trans_cmp, NULL);
 }
 
 /* We're moving longest_known from old to new.  Dump all its transactions into
- * pending: followed up update_pending_transactions to remove any
- * which are in main due to other blocks. */
+ * pending, then check their validity in the new chain. */
 void steal_pending_transactions(struct state *state,
 				const struct block *old,
 				const struct block *new)
@@ -120,6 +197,7 @@ void steal_pending_transactions(struct state *state,
 			block_to_pending(state, b);
 	}
 
+	/* FIXME: Transfer any awaiting which are now known. */
 	recheck_pending_transactions(state);
 }
 
@@ -127,14 +205,15 @@ void add_pending_transaction(struct peer *peer,
 			     const union protocol_transaction *t)
 {
 	struct pending_block *pending = peer->state->pending;
-	size_t start = 0, num = tal_count(pending->t), end = num;
+	struct pending_trans *pend;
+	size_t start = 0, num = tal_count(pending->pend), end = num;
 
 	/* Assumes tal_count < max-size_t / 2 */
 	while (start < end) {
 		size_t halfway = (start + end) / 2;
 		int c;
 
-		c = transaction_cmp(t, pending->t[halfway]);
+		c = transaction_cmp(t, pending->pend[halfway]->t);
 		if (c < 0)
 			end = halfway;
 		else if (c > 0)
@@ -148,12 +227,19 @@ void add_pending_transaction(struct peer *peer,
 		}
 	}
 
+	pend = new_pending_trans(peer->state, t);
+	if (!resolve_inputs(peer->state, peer->state->longest_known, pend)) {
+		/* FIXME: put this into pending-awaiting list! */
+		tal_free(pend);
+		return;
+	}
+
 	/* Move down to make room, and insert */
-	tal_resize(&pending->t, num + 1);
-	memmove(pending->t + start + 1,
-		pending->t + start,
-		(num - start) * sizeof(*pending->t));
-	pending->t[start] = t;
+	tal_resize(&pending->pend, num + 1);
+	memmove(pending->pend + start + 1,
+		pending->pend + start,
+		(num - start) * sizeof(*pending->pend));
+	pending->pend[start] = pend;
 
 	tell_generator_new_pending(peer->state, start);
 	add_trans_to_peers(peer->state, peer, t);
