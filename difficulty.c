@@ -23,16 +23,11 @@ u32 get_difficulty(struct state *state, const struct block *prev)
 	BIGNUM target_base, target;
 	u32 prev_difficulty, exp, base;
 	u32 genesis_exp, genesis_base;
-	const struct block *genesis;
+	const struct block *genesis = genesis_block(), *start;
 
 	/* We update difficulty every 2016 blocks, just like bitcoin. */
 	const u32 interval = 2016;
-#ifdef BITCOIN_COMPAT
-	/* Bitcoin has this out-by-one error, but nice to test against it. */
 	const u64 ideal_time = 600 * interval;
-#else
-	const u64 ideal_time = 600 * (interval - 1);
-#endif
 
 	prev_difficulty = le32_to_cpu(prev->tailer->difficulty);
 
@@ -40,10 +35,19 @@ u32 get_difficulty(struct state *state, const struct block *prev)
 	if ((prev->blocknum + 1) % interval)
 		return prev_difficulty;
 
-	/* We measure from start of interval, not end of last interval!
-	 * This avoids special casing the first interval. */
+	/* This creates an out-by-one error for genesis period: that's OK */
+	if (prev->blocknum == interval - 1)
+		start = genesis;
+	else
+	/* Bitcoin has this out-by-one error, but nice to test against it. */
+#ifdef BITCOIN_COMPAT
+		start = block_ancestor(prev, interval-1);
+#else
+		start = block_ancestor(prev, interval);
+#endif
+
 	actual_time = (s64)le32_to_cpu(prev->tailer->timestamp)
-		- (s64)le32_to_cpu(block_ancestor(prev, interval-1)->tailer->timestamp);
+		- (s64)le32_to_cpu(start->tailer->timestamp);
 
 	/* Don't change by more than a factor of 4. */
 	if (actual_time < ideal_time / 4)
@@ -80,7 +84,6 @@ u32 get_difficulty(struct state *state, const struct block *prev)
 	BN_free(&target_base);
 
 	/* Don't go below genesis block difficulty! */
-	genesis = genesis_block(state);
 	genesis_exp = le32_to_cpu(genesis->tailer->difficulty) >> 24;
 	genesis_base = le32_to_cpu(genesis->tailer->difficulty) & 0x00FFFFFF;
 
