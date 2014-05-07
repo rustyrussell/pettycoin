@@ -17,6 +17,9 @@
 /* Maximum inputs in a single transaction. */
 #define TRANSACTION_MAX_INPUTS 4
 
+/* How long (seconds) until transactions are obsolete (30 days) */
+#define TRANSACTION_HORIZON_SECS	(60 * 60 * 24 * 30)
+
 struct protocol_double_sha {
 	u8 sha[SHA256_DIGEST_LENGTH /* 32 */ ];
 };

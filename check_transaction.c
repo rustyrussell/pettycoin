@@ -62,6 +62,10 @@ find_trans_for_ref(struct state *state,
 	if (le32_to_cpu(ref->txnum) >= le32_to_cpu(b->hdr->num_transactions))
 		return PROTOCOL_ERROR_BATCH_BAD_INPUT_REF;
 
+	if (le32_to_cpu(b->tailer->timestamp) + TRANSACTION_HORIZON_SECS
+	    < le32_to_cpu(block->tailer->timestamp))
+		return PROTOCOL_ERROR_BATCH_BAD_INPUT_REF;
+
 	*trans = block_get_trans(b, le32_to_cpu(ref->txnum));
 	if (!*trans)
 		/* We just don't know it.  OK */

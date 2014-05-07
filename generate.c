@@ -24,6 +24,7 @@
 #include "difficulty.h"
 #include "marshall.h"
 #include "generate.h"
+#include "timestamp.h"
 #include <assert.h>
 
 static volatile bool input = true;
@@ -130,7 +131,7 @@ new_working_block(const tal_t *ctx,
 	w->hdr.num_prev_merkles = cpu_to_le32(num_prev_merkles);
 	w->hdr.fees_to = *fees_to;
 
-	w->tailer.timestamp = cpu_to_le32(time(NULL));
+	w->tailer.timestamp = cpu_to_le32(current_time());
 	w->tailer.nonce1 = cpu_to_le32(0);
 	w->tailer.difficulty = cpu_to_le32(difficulty);
 

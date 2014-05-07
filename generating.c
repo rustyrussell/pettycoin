@@ -273,6 +273,7 @@ static struct io_plan got_solution(struct io_conn *conn, struct generator *gen)
 		       * le32_to_cpu(hdr->num_transactions), got_trans, gen);
 }
 
+/* FIXME: If transaction may go over horizon, time out generation */
 static void add_update(struct state *state,
 		       struct pending_trans *t,
 		       u32 idx)

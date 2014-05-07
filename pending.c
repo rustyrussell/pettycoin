@@ -8,7 +8,11 @@
 #include "block.h"
 #include "peer.h"
 #include "chain.h"
+#include "timestamp.h"
 #include "talv.h"
+
+/* We don't include transactions which are close to being timed out. */
+#define CLOSE_TO_HORIZON 3600
 
 struct pending_block *new_pending_block(struct state *state)
 {
@@ -35,14 +39,20 @@ static bool resolve_input(struct state *state,
 	for (te = thash_firstval(&state->thash, sha, &iter);
 	     te;
 	     te = thash_nextval(&state->thash, sha, &iter)) {
-		if (block_preceeds(te->block, block)) {
-			/* Add 1 since this will go into *next* block */
-			pend->refs[num].blocks_ago = 
-				cpu_to_le32(block->blocknum
-					    - te->block->blocknum + 1);
-			pend->refs[num].txnum = cpu_to_le32(te->tnum);
-			return true;
-		}
+		if (!block_preceeds(te->block, block))
+			continue;
+
+		/* Don't include any transactions within 1 hour of cutoff. */
+		if (le32_to_cpu(te->block->tailer->timestamp)
+		    + TRANSACTION_HORIZON_SECS - CLOSE_TO_HORIZON
+		    < current_time())
+			return false;
+
+		/* Add 1 since this will go into *next* block */
+		pend->refs[num].blocks_ago = 
+			cpu_to_le32(block->blocknum - te->block->blocknum + 1);
+		pend->refs[num].txnum = cpu_to_le32(te->tnum);
+		return true;
 	}
 	return false;
 }
