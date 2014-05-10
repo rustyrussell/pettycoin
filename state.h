@@ -47,6 +47,9 @@ struct state {
 	struct list_head peers;
 	u64 random_welcome;
 
+	/* Features we've warned about. */
+	u8 upcoming_features;
+
 	/* Set if we're allowed to get more. */
 	bool refill_peers;
 

@@ -26,6 +26,7 @@ struct state *new_state(bool test_net)
 	s->num_peers = 0;
 	s->num_peers_connected = 0;
 	list_head_init(&s->peers);
+	s->upcoming_features = 0;
 	s->refill_peers = true;
 	s->peer_seeding = false;
 	s->peer_cache = NULL;

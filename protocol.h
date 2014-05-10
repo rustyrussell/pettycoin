@@ -20,6 +20,18 @@
 /* How long (seconds) until transactions are obsolete (30 days) */
 #define TRANSACTION_HORIZON_SECS	(60 * 60 * 24 * 30)
 
+/* How long between blocks (seconds) */
+#define BLOCK_TARGET_TIME	600
+
+/* How many blocks form a difficulty set (1 fortnight, a-la bitcoin) */
+#define DIFFICULTY_UPDATE_BLOCKS	2016
+
+/* How many blocks to join together to count features >= 75%. */
+#define FEATURE_VOTE_BLOCKS	2016
+
+/* How many blocks after feature vote to increment version number. */
+#define FEATURE_CONFIRM_DELAY	2016
+
 struct protocol_double_sha {
 	u8 sha[SHA256_DIGEST_LENGTH /* 32 */ ];
 };

@@ -11,6 +11,7 @@
 #include "packet.h"
 #include "proof.h"
 #include "check_transaction.h"
+#include "features.h"
 #include <string.h>
 
 /* Is a more work than b? */
@@ -85,6 +86,23 @@ static void update_longest(struct state *state, const struct block *block)
 
 	state->longest_chain = block;
 
+	if (block->pending_features && !state->upcoming_features) {
+		/* Be conservative, halve estimate of time to confirm feature */
+		time_t impact = le32_to_cpu(block->tailer->timestamp)
+			+ FEATURE_CONFIRM_DELAY * BLOCK_TARGET_TIME / 2;
+		struct tm *when;
+
+		when = localtime(&impact);
+
+		/* FIXME: More prominent warning! */
+		log_unusual(state->log,
+			    "WARNING: unknown features 0x%02x voted in!",
+			    block->pending_features);
+		log_add(state->log, " Update your client! (Before %u-%u-%u)",
+			when->tm_year, when->tm_mon, when->tm_mday);
+		state->upcoming_features = block->pending_features;
+	}
+
 	/* We want peers to ask about contents of these blocks. */
 	wake_peers(state);
 }
@@ -147,6 +165,8 @@ void block_add(struct state *state, struct block *block)
 		list_head_init(state->block_depth[block->blocknum]);
 	}
 	list_add_tail(state->block_depth[block->blocknum], &block->list);
+
+	block->pending_features = pending_features(block);
 
 	/* This can happen if precedessor has complaint. */
 	if (block->complaint) {

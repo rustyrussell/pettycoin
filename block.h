@@ -21,6 +21,9 @@ struct block {
 	/* In state->block_depths[blocknum]. */
 	struct list_node list;
 
+	/* What features have been locked in for next fortnight? */
+	u8 pending_features;
+
 	/* 0 == genesis block. */
 	unsigned int blocknum;
 

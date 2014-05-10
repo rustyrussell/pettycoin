@@ -23,11 +23,10 @@ u32 get_difficulty(struct state *state, const struct block *prev)
 	BIGNUM target_base, target;
 	u32 prev_difficulty, exp, base;
 	u32 genesis_exp, genesis_base;
-	const struct block *genesis = genesis_block(), *start;
+	const struct block *genesis = genesis_block(state), *start;
 
-	/* We update difficulty every 2016 blocks, just like bitcoin. */
-	const u32 interval = 2016;
-	const u64 ideal_time = 600 * interval;
+	const u32 interval = DIFFICULTY_UPDATE_BLOCKS;
+	const u64 ideal_time = BLOCK_TARGET_TIME * interval;
 
 	prev_difficulty = le32_to_cpu(prev->tailer->difficulty);
 
