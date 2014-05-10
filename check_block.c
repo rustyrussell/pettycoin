@@ -202,12 +202,11 @@ static void add_to_thash(struct state *state,
 {
 	u32 i;
 
-	for (i = batch->trans_start;
-	     i < batch->trans_start + ARRAY_SIZE(batch->t);
-	     i++) {
+	for (i = 0; i < ARRAY_SIZE(batch->t); i++) {
 		struct thash_elem *te;
 		struct protocol_double_sha sha;
 		struct thash_iter iter;
+		unsigned tnum = batch->trans_start + i;
 
 		if (!batch->t[i])
 			continue;
@@ -220,7 +219,7 @@ static void add_to_thash(struct state *state,
 		     te;
 		     te = thash_nextval(&state->thash, &sha, &iter)) {
 			/* Previous partial batch which we just overwrote? */
-			if (te->block == block && te->tnum == i)
+			if (te->block == block && te->tnum == tnum)
 				break;
 		}
 
@@ -228,7 +227,7 @@ static void add_to_thash(struct state *state,
 			/* Add a new one for this block. */
 			te = tal(state, struct thash_elem);
 			te->block = block;
-			te->tnum = i;
+			te->tnum = tnum;
 			te->sha = sha;
 			thash_add(&state->thash, te);
 		}
