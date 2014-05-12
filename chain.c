@@ -65,7 +65,7 @@ static bool more_work(const struct block *a, const struct block *b)
 void check_chains(const struct state *state)
 {
 	const struct block *i;
-	size_t n;
+	size_t n, num_next_level = 1;
 
 	/* If multiple longest chains, all should have same work! */
 	for (n = 1; n < tal_count(state->longest_chains); n++)
@@ -78,9 +78,14 @@ void check_chains(const struct state *state)
 			      &state->longest_knowns[0]->total_work) == 0);
 
 	for (n = 0; n < tal_count(state->block_depth); n++) {
+		size_t num_this_level = num_next_level;
 		list_check(state->block_depth[n], "bad block depth");
+		num_next_level = 0;
 		list_for_each(state->block_depth[n], i, list) {
+			const struct block *b;
 			assert(i->blocknum == n);
+			assert(num_this_level);
+			num_this_level--;
 			if (n == 0)
 				assert(i == genesis_block(state));
 			else {
@@ -93,8 +98,15 @@ void check_chains(const struct state *state)
 			       !more_work(i, state->longest_chains[0]));
 			if (!i->complaint && i->all_known)
 				assert(!more_work(i, state->longest_knowns[0]));
+
+			list_for_each(&i->children, b, sibling) {
+				num_next_level++;
+				assert(b->prev == i);
+			}
 		}
+		assert(num_this_level == 0);
 	}
+	assert(num_next_level == 0);
 
 	/* longest_known_descendents should be a descendent of longest_knowns */
 	assert(tal_count(state->longest_knowns)

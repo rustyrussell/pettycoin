@@ -21,6 +21,12 @@ struct block {
 	/* In state->block_depths[blocknum]. */
 	struct list_node list;
 
+	/* Links through sibling. */
+	struct list_head children;
+
+	/* In prev->children list. */
+	struct list_node sibling;
+
 	/* What features have been locked in for next fortnight? */
 	u8 pending_features;
 

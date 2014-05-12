@@ -44,6 +44,7 @@ struct state *new_state(bool test_net)
 	if (!BN_zero(&genesis.total_work))
 		errx(1, "Failed to initialize genesis block");
 	genesis.all_known = true;
+	list_head_init(&genesis.children);
 
 	list_add_tail(s->block_depth[0], &genesis.list);
 	s->pending = new_pending_block(s);

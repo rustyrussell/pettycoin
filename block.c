@@ -41,9 +41,14 @@ void block_add(struct state *state, struct block *block)
 			= tal(state->block_depth, struct list_head);
 		list_head_init(state->block_depth[block->blocknum]);
 	}
+	/* We give some priority to blocks hear about first. */
 	list_add_tail(state->block_depth[block->blocknum], &block->list);
 
 	block->pending_features = pending_features(block);
+
+	/* Link us into parent's children list. */
+	list_head_init(&block->children);
+	list_add_tail(&block->prev->children, &block->sibling);
 
 	/* This can happen if precedessor has complaint. */
 	if (block->complaint) {
@@ -139,26 +144,28 @@ struct protocol_input_ref *block_get_refs(const struct block *block,
 			  b->refs[trans_num % (1 << PETTYCOIN_BATCH_ORDER)]);
 }
 
+static void complaint_on_all(struct block *block, const void *complaint)
+{
+	struct block *b;
+
+	/* Mark block. */
+	block->complaint = complaint;
+
+	/* Mark descendents. */
+	list_for_each(&block->children, b, sibling)
+		complaint_on_all(b, complaint);
+}
+	
 static void invalidate_block(struct state *state,
 			     struct block *block,
 			     const void *complaint)
 {
-	unsigned int n;
-
-	/* Mark block. */
-	block->complaint = complaint;	
-
 	/* FIXME: Save complaint to blockfile! */
 
-	/* Mark descendents. */
-	for (n = block->blocknum; n < tal_count(state->block_depth); n++) {
-		struct block *i;
-		list_for_each(state->block_depth[n], i, list) {
-			if (i->prev->complaint)
-				i->complaint = i->prev->complaint;
-		}
-	}
+	/* If it's invalid, so are any descendents. */
+	complaint_on_all(block, complaint);
 
+	/* Recalc everything.  Slow, but should be rare. */
 	update_block_ptrs_invalidated(state, block);
 
 	/* Tell everyone... */
