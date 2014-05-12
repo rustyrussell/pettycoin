@@ -97,29 +97,6 @@ fail:
 	errx(1, "SSL error: %s", ssl_error_string());
 }
 
-/* Note that SHA from openssl is little endian, not bigendian as
- * blockchain.info et al tend to present. */
-bool beats_target(const struct protocol_double_sha *sha, u32 difficulty)
-{
-	unsigned int i;
-	u32 exp = (difficulty >> 24);
-	u32 base;
-
-	assert(exp <= SHA256_DIGEST_LENGTH);
-	assert(exp >= 3);
-
-	/* You need enough trailing zeroes to even have a chance. */
-	for (i = exp; i < SHA256_DIGEST_LENGTH; i++)
-		if (sha->sha[i])
-			return false;
-
-	base = (((u32)sha->sha[exp-1]) << 16
-		| ((u32)sha->sha[exp-2]) << 8
-		| sha->sha[exp-3]);
-
-	return base < (difficulty & 0x00FFFFFF);
-}
-
 void total_work_done(u32 difficulty, const BIGNUM *prev, BIGNUM *work)
 {
 	BIGNUM target;

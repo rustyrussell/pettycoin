@@ -80,9 +80,6 @@ static inline const struct block *genesis_block(const struct state *state)
 /* Add this new block into the state structure. */
 void block_add(struct state *state, struct block *b);
 
-/* Block is full, set ->all_known if prev known (and maybe set descendents)  */
-void update_known(struct state *state, struct block *block);
-
 static inline size_t batch_index(u32 trans_num)
 {
 	return trans_num >> PETTYCOIN_BATCH_ORDER;
@@ -107,7 +104,4 @@ void invalidate_block_misorder(struct state *state,
 			       struct block *block,
 			       unsigned int bad_transnum1,
 			       unsigned int bad_transnum2);
-
-/* Debugging check */
-void check_chains(const struct state *state);
 #endif /* PETTYCOIN_BLOCK_H */

@@ -15,6 +15,7 @@
 #include "prev_merkles.h"
 #include "generating.h"
 #include "check_transaction.h"
+#include "chain.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/tal.h>
 #include <stdlib.h>
@@ -261,10 +262,7 @@ void put_batch_in_block(struct state *state,
 
 	add_to_thash(state, block, block->batch[batchnum]);
 
-	if (block_full(block, NULL)) {
-		update_known(state, block);
-		check_chains(state);
-	}
+	update_block_ptrs_new_batch(state, block);
 
 	/* FIXME: re-check prev_merkles for any descendents. */
 	/* FIXME: re-check pending transactions with unknown inputs
