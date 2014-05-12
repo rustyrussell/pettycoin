@@ -19,9 +19,12 @@ struct state *new_state(bool test_net)
 	s->block_depth = tal_arr(s, struct list_head *, 1);
 	s->block_depth[0] = tal(s->block_depth, struct list_head);
 	list_head_init(s->block_depth[0]);
-	s->longest_chain = &genesis;
-	s->longest_known = &genesis;
-	s->longest_known_descendent = &genesis;
+	s->longest_chains = tal_arr(s, const struct block *, 1);
+	s->longest_chains[0] = &genesis;
+	s->longest_knowns = tal_arr(s, const struct block *, 1);
+	s->longest_knowns[0] = &genesis;
+	s->longest_known_descendents = tal_arr(s, const struct block *, 1);
+	s->longest_known_descendents[0] = &genesis;
 	thash_init(&s->thash);
 	s->num_peers = 0;
 	s->num_peers_connected = 0;

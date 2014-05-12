@@ -138,7 +138,7 @@ static void recheck_pending_transactions(struct state *state)
 		for (te = thash_firstval(&state->thash, &sha, &iter);
 		     te;
 		     te = thash_nextval(&state->thash, &sha, &iter)) {
-			if (block_preceeds(te->block, state->longest_known))
+			if (block_preceeds(te->block, state->longest_knowns[0]))
 				in_known_chain = true;
 		}
 
@@ -167,7 +167,7 @@ static void recheck_pending_transactions(struct state *state)
 
 		/* FIXME: Usually this is a simple increment to
 		 * ->refs[].blocks_ago. */
-		if (!resolve_inputs(state, state->longest_known,
+		if (!resolve_inputs(state, state->longest_knowns[0],
 				    state->pending->pend[i])) {
 			/* FIXME: put this into pending-awaiting list! */
 			log_debug(state->log, "  inputs no longer known");
@@ -238,7 +238,7 @@ void add_pending_transaction(struct peer *peer,
 	}
 
 	pend = new_pending_trans(peer->state, t);
-	if (!resolve_inputs(peer->state, peer->state->longest_known, pend)) {
+	if (!resolve_inputs(peer->state, peer->state->longest_knowns[0], pend)) {
 		/* FIXME: put this into pending-awaiting list! */
 		tal_free(pend);
 		return;

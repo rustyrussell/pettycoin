@@ -314,9 +314,9 @@ static void exec_generator(struct generator *gen)
 	const u8 *prev_merkles = gen->state->pending->prev_merkles;
 
 	prev_merkles = make_prev_merkles(gen, gen->state,
-					 gen->state->longest_known,
+					 gen->state->longest_knowns[0],
 					 generating_address(gen->state));
-	last = gen->state->longest_known;
+	last = gen->state->longest_knowns[0];
 	sprintf(difficulty, "%u", get_difficulty(gen->state, last));
 	sprintf(prev_merkle_str, "%zu", tal_count(prev_merkles));
 	for (i = 0; i < sizeof(struct protocol_double_sha); i++)

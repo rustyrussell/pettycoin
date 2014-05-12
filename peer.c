@@ -257,9 +257,9 @@ static void update_mutual(struct peer *peer, struct block *block)
 	/* Don't go backwards. */
 	if (block_preceeds(block, peer->mutual))
 		return;
-	   
+
 	/* Don't update if it would take us away from our preferred chain */
-	if (!block_preceeds(block, peer->state->longest_known_descendent))
+	if (!block_preceeds(block, peer->state->longest_known_descendents[0]))
 		return;
 
 	peer->mutual = block;
@@ -340,7 +340,8 @@ static struct io_plan response_sent(struct io_conn *conn, struct peer *peer)
 /* We tell everyone about our preferred chain. */
 static struct block *get_next_mutual_block(struct peer *peer)
 {
-	return step_towards(peer->mutual, peer->state->longest_known_descendent);
+	return step_towards(peer->mutual,
+			    peer->state->longest_known_descendents[0]);
 }
 
 static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
@@ -396,8 +397,8 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 	}
 
 	/* Can we find more about longest known chain? */
-	next = step_towards(peer->state->longest_known,
-			    peer->state->longest_chain);
+	next = step_towards(peer->state->longest_knowns[0],
+			    peer->state->longest_chains[0]);
 	if (next) {
 		unsigned int batchnum;
 
@@ -415,8 +416,8 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 	}
 
 	/* Can we find more about longest descendent of known chain? */
-	next = step_towards(peer->state->longest_known,
-			    peer->state->longest_known_descendent);
+	next = step_towards(peer->state->longest_knowns[0],
+			    peer->state->longest_known_descendents[0]);
 	if (next) {
 		unsigned int batchnum;
 
@@ -520,7 +521,7 @@ receive_block(struct peer *peer, const struct protocol_req_new_block *req)
 	/* Reply, tell them we're all good... */
 	r = tal_packet(peer, struct protocol_resp_new_block,
 		       PROTOCOL_RESP_NEW_BLOCK);
-	r->final = peer->state->longest_chain->sha;
+	r->final = peer->state->longest_chains[0]->sha;
 
 	assert(!peer->response);
 	peer->response = r;

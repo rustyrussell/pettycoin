@@ -22,18 +22,18 @@ struct state {
 	/* Array of pointers to lists, one for each block depth. */
 	struct list_head **block_depth;
 
-	/* Head of overall longest chain (most work).
-	 * We'd like to know about entries in this chain. */
-	const struct block *longest_chain;
+	/* Heads of overall longest chains (most work).
+	 * We'd like to know about entries in these chains. */
+	const struct block **longest_chains;
 
-	/* Head of longest chain with all transactions known.
+	/* Heads of longest chains with all transactions known.
 	 * This is where we can mine. */
-	const struct block *longest_known;
+	const struct block **longest_knowns;
 
-	/* Most work descendent of longest_known.  This is in effect
+	/* Most work descendent of each longest_known.  This is in effect
 	 * our preferred chain; the fallback if we can't get details
 	 * about longest_chain. */
-	const struct block *longest_known_descendent;
+	const struct block **longest_known_descendents;
 
 	/* Block we're working on now. */
 	struct pending_block *pending;
