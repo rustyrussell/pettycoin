@@ -65,10 +65,6 @@ struct block *block_find(struct block *start, const u8 lower_sha[4]);
 struct block *block_find_any(struct state *state,
 			     const struct protocol_double_sha *sha);
 
-void update_longest_known(struct state *state, const struct block *block);
-void update_longest_known_descendent(struct state *state,
-				     const struct block *block);
-
 /* Maximum amount in batch (1 >> PETTYCOIN_BATCH_ORDER) except for last */
 u32 batch_max(const struct block *block, unsigned int batchnum);
 

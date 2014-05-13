@@ -23,8 +23,7 @@ struct state *new_state(bool test_net)
 	s->longest_chains[0] = &genesis;
 	s->longest_knowns = tal_arr(s, const struct block *, 1);
 	s->longest_knowns[0] = &genesis;
-	s->longest_known_descendents = tal_arr(s, const struct block *, 1);
-	s->longest_known_descendents[0] = &genesis;
+	s->preferred_chain = &genesis;
 	thash_init(&s->thash);
 	s->num_peers = 0;
 	s->num_peers_connected = 0;

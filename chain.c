@@ -6,6 +6,20 @@
 #include <time.h>
 #include <ccan/cast/cast.h>
 
+/* Simply block array helpers */
+static void set_single(const struct block ***arr, const struct block *b)
+{
+	tal_resize(arr, 1);
+	(*arr)[0] = b;
+}
+
+static void add_single(const struct block ***arr, const struct block *b)
+{
+	size_t num = tal_count(*arr);
+	tal_resize(arr, num+1);
+	(*arr)[num] = b;
+}
+
 bool block_preceeds(const struct block *a, const struct block *b)
 {
 	if (a == b)
@@ -57,9 +71,28 @@ struct block *block_ancestor(const struct block *a, unsigned int count)
 }
 
 /* Is a more work than b? */
-static bool more_work(const struct block *a, const struct block *b)
+static int cmp_work(const struct block *a, const struct block *b)
 {
-	return BN_cmp(&a->total_work, &b->total_work) > 0;
+	return BN_cmp(&a->total_work, &b->total_work);
+}
+
+/* Find a link between a known and a longest chain. */
+static bool find_connected_pair(const struct state *state,
+				size_t *chain_num, size_t *known_num)
+{
+	unsigned int i, j;
+
+	for (i = 0; i < tal_count(state->longest_chains); i++) {
+		for (j = 0; j < tal_count(state->longest_knowns); j++) {
+			if (block_preceeds(state->longest_knowns[j],
+					   state->longest_chains[i])) {
+				*chain_num = i;
+				*known_num = j;
+				return true;
+			}
+		}
+	}
+	return false;
 }
 
 void check_chains(const struct state *state)
@@ -69,13 +102,13 @@ void check_chains(const struct state *state)
 
 	/* If multiple longest chains, all should have same work! */
 	for (n = 1; n < tal_count(state->longest_chains); n++)
-		assert(BN_cmp(&state->longest_chains[n]->total_work,
-			      &state->longest_chains[0]->total_work) == 0);
+		assert(cmp_work(state->longest_chains[n],
+				state->longest_chains[0]) == 0);
 
 	/* If multiple longest known, all should have same work! */
 	for (n = 1; n < tal_count(state->longest_knowns); n++)
-		assert(BN_cmp(&state->longest_knowns[n]->total_work,
-			      &state->longest_knowns[0]->total_work) == 0);
+		assert(cmp_work(state->longest_knowns[n],
+				state->longest_knowns[0]) == 0);
 
 	for (n = 0; n < tal_count(state->block_depth); n++) {
 		size_t num_this_level = num_next_level;
@@ -95,9 +128,9 @@ void check_chains(const struct state *state)
 					assert(i->complaint);
 			}
 			assert(i->complaint ||
-			       !more_work(i, state->longest_chains[0]));
+			       cmp_work(i, state->longest_chains[0]) <= 0);
 			if (!i->complaint && i->all_known)
-				assert(!more_work(i, state->longest_knowns[0]));
+				assert(cmp_work(i, state->longest_knowns[0]) <= 0);
 
 			list_for_each(&i->children, b, sibling) {
 				num_next_level++;
@@ -108,24 +141,176 @@ void check_chains(const struct state *state)
 	}
 	assert(num_next_level == 0);
 
-	/* longest_known_descendents should be a descendent of longest_knowns */
-	assert(tal_count(state->longest_knowns)
-	       == tal_count(state->longest_known_descendents));
-	for (n = 0; n < tal_count(state->longest_knowns); n++) {
-		for (i = state->longest_known_descendents[n];
-		     i != state->longest_knowns[n];
-		     i = i->prev) {
-			assert(i != genesis_block(state));
-			assert(!i->all_known);
-		}
-
-		/* We ignore blocks which have a problem. */
-		assert(!state->longest_knowns[n]->complaint);
-		assert(!state->longest_known_descendents[n]->complaint);
+	/* preferred_chain should be a descendent of longest_knowns[0] */
+	for (i = state->preferred_chain;
+	     i != state->longest_knowns[0];
+	     i = i->prev) {
+		assert(i != genesis_block(state));
+		assert(!i->all_known);
 	}
+
+	/*
+	 * preferred_chain is *not* state->longest_chains[0], then no
+	 * chain should connect any longest_knowns to longest_chains.
+	 */
+	if (state->preferred_chain != state->longest_chains[0]) {
+		size_t a, b;
+		assert(!find_connected_pair(state, &a, &b));
+	}
+
+	/* We ignore blocks which have a problem. */
+	assert(!state->preferred_chain->complaint);
+
+	for (n = 0; n < tal_count(state->longest_knowns); n++)
+		assert(!state->longest_knowns[n]->complaint);
 
 	for (n = 0; n < tal_count(state->longest_chains); n++)
 		assert(!state->longest_chains[n]->complaint);
+}
+
+static void swap_blockptr(const struct block **a, const struct block **b)
+{
+	const struct block *tmp = *a;
+	*a = *b;
+	*b = tmp;
+}
+
+/* Search descendents to find if there's one with more work than bests. */
+static void find_longest_descendents(struct state *state,
+				     const struct block *block,
+				     const struct block ***bests)
+{
+	struct block *b;
+
+	switch (cmp_work(block, (*bests)[0])) {
+	case 1:
+		/* Ignore previous bests, this is the best. */
+		set_single(bests, block);
+		break;
+	case 0:
+		/* Add to bests. */
+		add_single(bests, block);
+		break;
+	}
+
+	list_for_each(&block->children, b, sibling)
+		find_longest_descendents(state, b, bests);
+}
+
+/* Returns true if it updated state->preferred_chain. */
+static bool update_preferred_chain(struct state *state)
+{
+	const struct block **arr;
+
+	/* Set up temporary array so we can use find_longest_descendents */
+	arr = tal_arr(state, const struct block *, 1);
+	arr[0] = state->longest_knowns[0];
+
+	find_longest_descendents(state, arr[0], &arr);
+	if (arr[0] == state->preferred_chain) {
+		tal_free(arr);
+		return false;
+	}
+	state->preferred_chain = arr[0];
+	tal_free(arr);
+	return true;
+}
+
+/*
+ * If we have a choice of multiple "best" known blocks, we prefer the
+ * one which leads to the longest known block.  Similarly, we prefer
+ * longest chains if they're lead to by our longest known blocks.
+ *
+ * So, if we find such a pair, move them to the front.  Returns true
+ * if they changed.
+ */
+static bool order_block_pointers(struct state *state)
+{
+	size_t chain, known;
+
+	if (!find_connected_pair(state, &chain, &known))
+		return false;
+
+	if (chain == 0 && known == 0)
+		return false;
+
+	/* Swap these both to the front. */
+	swap_blockptr(&state->longest_chains[0], &state->longest_chains[chain]);
+	swap_blockptr(&state->longest_knowns[0], &state->longest_knowns[known]);
+	return true;
+}
+
+/* Returns true if we changed state->longest_knowns. */
+static bool update_known_recursive(struct state *state, struct block *block)
+{
+	struct block *b;
+	bool knowns_changed;
+
+	if (!block->prev->all_known || !block_full(block, NULL))
+		return false;
+
+	/* FIXME: Hack avoids writing to read-only genesis block. */
+	if (!block->all_known)
+		block->all_known = true;
+
+	/* Blocks which are flawed are not useful */
+	if (block->complaint)
+		return false;
+
+	switch (cmp_work(block, state->longest_knowns[0])) {
+	case 1:
+		log_debug(state->log, "New known block work ");
+		log_add_struct(state->log, BIGNUM, &block->total_work);
+		log_add(state->log, " exceeds old known work ");
+		log_add_struct(state->log, BIGNUM,
+			       &state->longest_knowns[0]->total_work);
+		/* They're no longer longest, we are. */
+		set_single(&state->longest_knowns, block);
+		knowns_changed = true;
+		break;
+	case 0:
+		add_single(&state->longest_knowns, block);
+		knowns_changed = true;
+		break;
+	case -1:
+		knowns_changed = false;
+		break;
+	}
+
+	/* Check descendents. */
+	list_for_each(&block->children, b, sibling) {
+		if (update_known_recursive(state, b))
+			knowns_changed = true;
+	}
+	return knowns_changed;
+}
+
+/* We now know complete contents of block; update all_known for this
+ * block (and maybe its descendents) and if necessary, update
+ * longest_known and longest_known_descendent and restart generator.
+ * Caller should wake_peers() if this returns true, in case they care.
+ */
+static bool update_known(struct state *state, struct block *block)
+{
+	const struct block *prev_known = state->longest_knowns[0];
+
+	if (!update_known_recursive(state, block))
+		return false;
+
+	order_block_pointers(state);
+	update_preferred_chain(state);
+	check_chains(state);
+
+	if (state->longest_knowns[0] != prev_known) {
+		/* Any transactions from old branch go into pending. */
+		steal_pending_transactions(state,
+					   prev_known, state->longest_knowns[0]);
+
+		/* Restart generator on this block. */
+		restart_generating(state);
+	}
+
+	return true;
 }
 
 /* Now this block is the end of the longest chain.
@@ -134,15 +319,8 @@ void check_chains(const struct state *state)
  * mine it.  If everyone is sharing information normally, that should be
  * easy.
  */
-static void update_longest(struct state *state, const struct block *block)
+static void new_longest(struct state *state, const struct block *block)
 {
-	log_debug(state->log, "Longest moved from %u to %u ",
-		  state->longest_chains[0]->blocknum,
-		  block->blocknum);
-	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
-
-	state->longest_chains[0] = block;
-
 	if (block->pending_features && !state->upcoming_features) {
 		/* Be conservative, halve estimate of time to confirm feature */
 		time_t impact = le32_to_cpu(block->tailer->timestamp)
@@ -160,192 +338,71 @@ static void update_longest(struct state *state, const struct block *block)
 		state->upcoming_features = block->pending_features;
 	}
 
-	/* We want peers to ask about contents of these blocks. */
-	wake_peers(state);
-}
-
-/* Now this block is the end of the longest chain we know completely about.
- *
- * This is the best block to mine on.
- */
-void update_longest_known(struct state *state, const struct block *block)
-{
-	const struct block *old = state->longest_knowns[0];
-
-	log_debug(state->log, "Longest known moved from %u to %u ",
-		  old->blocknum, block->blocknum);
-	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
-
-	state->longest_knowns[0] = block;
-
-	/* Any transactions from old branch go into pending. */
-	steal_pending_transactions(state, old, block);
-
-	/* Restart generator on this block. */
-	restart_generating(state);
-
-	/* We want peers to tell others about contents of this block. */
-	wake_peers(state);
-}
-
-/* Now this block is the end of the longest chain from longest_known.
- *
- * If we can't get information about the longest chain, we'd like
- * information about this chain.
- */
-void update_longest_known_descendent(struct state *state,
-				     const struct block *block)
-{
-	log_debug(state->log, "Longest known descendent moved from %u to %u ",
-		  state->longest_known_descendents[0]->blocknum,
-		  block->blocknum);
-	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
-
-	state->longest_known_descendents[0] = block;
+	/* We may prefer a different known (which leads to longest) now. */
+	order_block_pointers(state);
+	update_preferred_chain(state);
 
 	/* We want peers to ask about contents of these blocks. */
 	wake_peers(state);
-}
-
-static void update_recursive(struct state *state,
-			     struct block *block,
-			     const struct block **best)
-{
-	if (!block->prev->all_known || !block_full(block, NULL))
-		return;
-
-	block->all_known = true;
-
-	/* Blocks which are flawed are not useful */
-	if (block->complaint)
-		return;
-
-	/* New winner to start mining on? */
-	if (more_work(block, *best))
-		*best = block;
-
-	/* Check descendents. */
-	if (block->blocknum + 1 < tal_count(state->block_depth)) {
-		struct block *b;
-
-		list_for_each(state->block_depth[block->blocknum + 1], b, list)
-			if (b->prev == block)
-				update_recursive(state, b, best);
-	}
-}
-
-/* Search descendents to find if there's one with more work than *best. */
-static void find_longest_descendent(struct state *state,
-				    const struct block *block,
-				    const struct block **best)
-{
-	struct block *b;
-
-	if (block->blocknum + 1 >= tal_count(state->block_depth))
-		return;
-
-	list_for_each(state->block_depth[block->blocknum + 1], b, list) {
-		if (b->prev != block)
-			continue;
-
-		if (b->complaint)
-			continue;
-
-		if (more_work(b, *best)) {
-			*best = b;
-			find_longest_descendent(state, b, best);
-		}
-	}
-}
-
-/* We now know complete contents of block; update all_known for this
- * block (and maybe its descendents) and if necessary, update
- * longest_known and longest_known_descendent and restart generator
- * and wake peers (who might care). */
-static void update_known(struct state *state, struct block *block)
-{
-	const struct block *longest_known = state->longest_knowns[0];
-
-	update_recursive(state, block, &longest_known);
-	if (longest_known != state->longest_knowns[0]) {
-		const struct block *longest_descendent;
-
-		update_longest_known(state, longest_known);
-
-		/* Can't check chains until we've updated longest_descendent! */
-		longest_descendent = longest_known;
-		find_longest_descendent(state, longest_known,
-					&longest_descendent);
-		if (longest_descendent != state->longest_known_descendents[0])
-			update_longest_known_descendent(state,
-							longest_descendent);
-	}
-}
-
-/* Brute force calculation of longest_known and longest_known_descendent */
-static void recalc_longest_known(struct state *state)
-{
-	state->longest_known_descendents[0]
-		= state->longest_knowns[0]
-		= genesis_block(state);
-
-	update_known(state, cast_const(struct block *, genesis_block(state)));
-}
-
-/* Brute force calculation of longest_chain. */
-static void recalc_longest_chain(struct state *state)
-{
-	state->longest_chains[0] = genesis_block(state);
-	find_longest_descendent(state, state->longest_chains[0],
-				&state->longest_chains[0]);
 }
 
 /* We've added a new block; update state->longest_chains, state->longest_knowns,
    state->longest_known_descendents as required. */
 void update_block_ptrs_new_block(struct state *state, struct block *block)
 {
-	/* Is this the longest? */
-	/* FIXME: if equal, do coinflip as per
-	 * http://arxiv.org/pdf/1311.0243v2.pdf ?  Or GHOST? */
-	if (more_work(block, state->longest_chains[0])) {
+	switch (cmp_work(block, state->longest_chains[0])) {
+	case 1:
 		log_debug(state->log, "New block work ");
 		log_add_struct(state->log, BIGNUM, &block->total_work);
 		log_add(state->log, " exceeds old work ");
 		log_add_struct(state->log, BIGNUM,
 			       &state->longest_chains[0]->total_work);
-		update_longest(state, block);
+		set_single(&state->longest_chains, block);
+		new_longest(state, block);
+		break;
+	case 0:
+		add_single(&state->longest_chains, block);
+		new_longest(state, block);
+		break;
 	}
 
 	/* Corner case for zero transactions (will update
 	 * longest_known_descendent if necessary). */
 	if (le32_to_cpu(block->hdr->num_transactions) == 0)
-		update_known(state, block);
-	/* Have we just extended the longest known descendent? */
-	else if (block->prev == state->longest_known_descendents[0])
-		update_longest_known_descendent(state, block);
+		update_block_ptrs_new_batch(state, block);
+	else
+		/* FIXME: Only needed if a descendent of known[0] */
+		update_preferred_chain(state);
 
 	check_chains(state);
+
+	/* FIXME: Overkill to do this always? */
+	wake_peers(state);
 }
 
 /* We've added a new batch; update state->longest_chains, state->longest_knowns,
    state->longest_known_descendents as required. */
 void update_block_ptrs_new_batch(struct state *state, struct block *block)
 {
-	if (block_full(block, NULL)) {
-		update_known(state, block);
-		check_chains(state);
-	}
+	if (block_full(block, NULL))
+		if (update_known(state, block))
+			wake_peers(state);
 }
 
 void update_block_ptrs_invalidated(struct state *state,
 				   const struct block *block)
 {
-	if (block_preceeds(block, state->longest_chains[0]))
-		recalc_longest_chain(state);
+	const struct block *g = genesis_block(state);
+	/* Brute force recalculation. */
+	set_single(&state->longest_chains, g);
+	set_single(&state->longest_knowns, g);
+	state->preferred_chain = g;
 
-	/* These blocks no longer qualify for longest or longest known. */
-	if (block_preceeds(block, state->longest_known_descendents[0]))
-		recalc_longest_known(state);
+	find_longest_descendents(state, g, &state->longest_chains);
+	update_known(state, cast_const(struct block *, g));
 
 	check_chains(state);
+
+	/* Tell peers everything changed. */
+	wake_peers(state);
 }

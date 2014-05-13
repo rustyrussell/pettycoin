@@ -259,7 +259,7 @@ static void update_mutual(struct peer *peer, struct block *block)
 		return;
 
 	/* Don't update if it would take us away from our preferred chain */
-	if (!block_preceeds(block, peer->state->longest_known_descendents[0]))
+	if (!block_preceeds(block, peer->state->preferred_chain))
 		return;
 
 	peer->mutual = block;
@@ -340,8 +340,7 @@ static struct io_plan response_sent(struct io_conn *conn, struct peer *peer)
 /* We tell everyone about our preferred chain. */
 static struct block *get_next_mutual_block(struct peer *peer)
 {
-	return step_towards(peer->mutual,
-			    peer->state->longest_known_descendents[0]);
+	return step_towards(peer->mutual, peer->state->preferred_chain);
 }
 
 static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
@@ -417,7 +416,7 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 
 	/* Can we find more about longest descendent of known chain? */
 	next = step_towards(peer->state->longest_knowns[0],
-			    peer->state->longest_known_descendents[0]);
+			    peer->state->preferred_chain);
 	if (next) {
 		unsigned int batchnum;
 

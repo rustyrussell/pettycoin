@@ -86,6 +86,7 @@ check_block_header(struct state *state,
 	block->prev_merkles = prev_merkles;
 	block->tailer = tailer;
 	block->all_known = false;
+	list_head_init(&block->children);
 
 	return PROTOCOL_ERROR_NONE;
 

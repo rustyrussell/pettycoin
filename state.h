@@ -27,13 +27,14 @@ struct state {
 	const struct block **longest_chains;
 
 	/* Heads of longest chains with all transactions known.
-	 * This is where we can mine. */
+	 * This is where we can mine (we use the first one, which
+	 * will be an ancestor of longest_chains[0] if possible). */
 	const struct block **longest_knowns;
 
-	/* Most work descendent of each longest_known.  This is in effect
+	/* A most work descendent of longest_knowns[0].  This is in effect
 	 * our preferred chain; the fallback if we can't get details
-	 * about longest_chain. */
-	const struct block **longest_known_descendents;
+	 * about longest_chains. */
+	const struct block *preferred_chain;
 
 	/* Block we're working on now. */
 	struct pending_block *pending;
