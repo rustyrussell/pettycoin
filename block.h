@@ -87,6 +87,18 @@ static inline size_t batch_index(u32 trans_num)
 	return trans_num >> PETTYCOIN_BATCH_ORDER;
 }
 
+/* Given this number of transactions, how many merkle hashes/batches? */
+static inline u32 num_batches(u64 num_transactions)
+{
+	return (num_transactions + (1<<PETTYCOIN_BATCH_ORDER) - 1)
+		>> PETTYCOIN_BATCH_ORDER;
+}
+
+static inline u32 num_batches_for_block(const struct block *block)
+{
+	return num_batches(le32_to_cpu(block->hdr->num_transactions));
+}
+
 /* Get this numbered transaction inside block. */
 union protocol_transaction *block_get_trans(const struct block *block,
 					    u32 trans_num);

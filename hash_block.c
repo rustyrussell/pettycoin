@@ -1,5 +1,5 @@
 #include "hash_block.h"
-#include "merkle_transactions.h"
+#include "block.h"
 #include "shadouble.h"
 #include <stdio.h>
 
@@ -22,7 +22,7 @@ void hash_block(const struct protocol_block_header *hdr,
 	/* Now hash the merkles of this block's transactions. */
 	SHA256_Init(&shactx);
 	SHA256_Update(&shactx, merkles,
-		      num_merkles(le32_to_cpu(hdr->num_transactions))
+		      num_batches(le32_to_cpu(hdr->num_transactions))
 		      * sizeof(merkles[0]));
 	SHA256_Double_Final(&shactx, &hash_of_merkles);
 

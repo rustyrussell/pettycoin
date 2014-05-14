@@ -105,7 +105,7 @@ bool block_full(const struct block *block, unsigned int *batchnum)
 {
 	unsigned int i, num;
 
-	num = num_merkles(le32_to_cpu(block->hdr->num_transactions));
+	num = num_batches_for_block(block);
 	for (i = 0; i < num; i++) {
 		const struct transaction_batch *b = block->batch[i];
 		if (batchnum)

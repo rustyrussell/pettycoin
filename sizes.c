@@ -1,5 +1,5 @@
 #include "protocol.h"
-#include "merkle_transactions.h"
+#include "block.h"
 #include <ccan/err/err.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
 	       AVERAGE_INPUTS, tsize);
 	trans_per_block = tps * 600;
 	printf("Transactions per block: %llu\n", trans_per_block);
-	merkles_per_block = num_merkles(trans_per_block);
+	merkles_per_block = num_batches(trans_per_block);
 	blocksize = sizeof(struct protocol_block_header)
 		+ merkles_per_block * sizeof(struct protocol_double_sha)
 		+ merkles_per_block * PETTYCOIN_PREV_BLOCK_MERKLES

@@ -13,7 +13,7 @@ size_t num_prev_merkles(const struct block *prev)
 	for (i = 0;
 	     i < PETTYCOIN_PREV_BLOCK_MERKLES && prev;
 	     i++, prev = prev->prev) {
-		num += num_merkles(le32_to_cpu(prev->hdr->num_transactions));
+		num += num_batches_for_block(prev);
 	}
 
 	return num;
@@ -34,9 +34,8 @@ u8 *make_prev_merkles(const tal_t *ctx,
 	     i < PETTYCOIN_PREV_BLOCK_MERKLES && prev;
 	     i++, prev = prev->prev) {
 		unsigned int j;
-		u32 prev_trans = le32_to_cpu(prev->hdr->num_transactions);
 
-		for (j = 0; j < num_merkles(prev_trans); j++) {
+		for (j = 0; j < num_batches_for_block(prev); j++) {
 			struct protocol_double_sha merkle;
 
 			/* We need to know everything in batch to check

@@ -670,11 +670,10 @@ receive_batch_req(struct peer *peer,
 
 	/* This should never happen. */
 	num = le32_to_cpu(req->batchnum);
-	if (num >= num_merkles(le32_to_cpu(block->hdr->num_transactions))) {
+	if (num >= num_batches_for_block(block)) {
 		log_unusual(peer->log,
-			    "Peer sent PROTOCOL_RESP_BATCH for batch %u/%zu of ",
-			num,
-			num_merkles(le32_to_cpu(block->hdr->num_transactions)));
+			    "Peer sent PROTOCOL_RESP_BATCH for batch %u/%u of ",
+			num, num_batches_for_block(block));
 		log_add_struct(peer->log, struct protocol_double_sha,
 			       &req->block);
 		r->error = cpu_to_le32(PROTOCOL_ERROR_BAD_BATCHNUM);

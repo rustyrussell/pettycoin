@@ -79,7 +79,7 @@ check_block_header(struct state *state,
 			&block->total_work);
 
 	block->batch = tal_arrz(block, struct transaction_batch *,
-				num_merkles(le32_to_cpu(hdr->num_transactions)));
+				num_batches(le32_to_cpu(hdr->num_transactions)));
 
 	block->hdr = hdr;
 	block->merkles = merkles;
@@ -315,14 +315,13 @@ bool check_block_prev_merkles(struct state *state,
 	     i < PETTYCOIN_PREV_BLOCK_MERKLES && prev;
 	     i++, prev = prev->prev) {
 		unsigned int j;
-		u32 prev_trans = le32_to_cpu(prev->hdr->num_transactions);
 
 		/* It's bad if we don't have that many prev merkles. */
-		if (off + num_merkles(prev_trans)
+		if (off + num_batches_for_block(prev)
 		    > le32_to_cpu(block->hdr->num_prev_merkles))
 			return false;
 
-		for (j = 0; j < num_merkles(prev_trans); j++) {
+		for (j = 0; j < num_batches_for_block(prev); j++) {
 			struct protocol_double_sha merkle;
 
 			/* We need to know everything in batch to check

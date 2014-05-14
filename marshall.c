@@ -2,7 +2,7 @@
 #include "marshall.h"
 #include "protocol_net.h"
 #include "overflows.h"
-#include "merkle_transactions.h"
+#include "block.h"
 #include "check_transaction.h"
 #include "version.h"
 #include "talv.h"
@@ -42,7 +42,7 @@ unmarshall_block(struct log *log,
 	/* Merkles come after header. */
 	*merkles = (struct protocol_double_sha *)(hdr + 1);
 
-	merkle_len = num_merkles(le32_to_cpu(hdr->num_transactions));
+	merkle_len = num_batches(le32_to_cpu(hdr->num_transactions));
 
 	/* This can't actually happen, due to shift, but be thorough. */
 	if (mul_overflows(merkle_len, sizeof(struct protocol_double_sha))) {
@@ -101,7 +101,7 @@ marshall_block(const tal_t *ctx,
 	size_t len, merkle_len, prev_merkle_len;
 
 	merkle_len = sizeof(*merkles)
-		* num_merkles(le32_to_cpu(hdr->num_transactions));
+		* num_batches(le32_to_cpu(hdr->num_transactions));
 	prev_merkle_len = sizeof(*prev_merkles)
 		* le32_to_cpu(hdr->num_prev_merkles);
 

@@ -18,6 +18,7 @@
 #include "features.h"
 #include "protocol.h"
 #include "merkle_transactions.h"
+#include "block.h"
 #include "shadouble.h"
 #include "version.h"
 #include "transaction_cmp.h"
@@ -70,7 +71,7 @@ static void merkle_hash_transactions(struct working_block *w)
 	const struct protocol_double_sha **hashes;
 
 	num_trans = le32_to_cpu(w->hdr.num_transactions);
-	num_merk = num_merkles(num_trans);
+	num_merk = num_batches(num_trans);
 
 	if (tal_count(w->merkles) != num_merk << PETTYCOIN_BATCH_ORDER)
 		tal_resize(&w->merkles, num_merk << PETTYCOIN_BATCH_ORDER);
@@ -119,7 +120,7 @@ new_working_block(const tal_t *ctx,
 	memset(w->feature_counts, 0, sizeof(w->feature_counts));
 
 	w->trans_hashes = tal_arr(w, struct protocol_double_sha *, 0);
-	w->merkles = tal_arr(w, struct protocol_double_sha, num_merkles(0));
+	w->merkles = tal_arr(w, struct protocol_double_sha, num_batches(0));
 	if (!w->trans_hashes || !w->merkles)
 		return tal_free(w);
 
@@ -160,7 +161,7 @@ static bool add_transaction(struct working_block *w, struct update *update)
 	assert(num_trans != 0);
 	assert(update->trans_idx < num_trans);
 
-	num_merk = num_merkles(num_trans);
+	num_merk = num_batches(num_trans);
 
 	/* We always keep whole number of batches of hashes. */
 	hash_count = tal_count(w->trans_hashes);
