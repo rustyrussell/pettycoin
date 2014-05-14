@@ -263,7 +263,7 @@ void put_batch_in_block(struct state *state,
 
 	add_to_thash(state, block, block->batch[batchnum]);
 
-	update_block_ptrs_new_batch(state, block);
+	update_block_ptrs_new_batch(state, block, batchnum);
 
 	/* FIXME: re-check prev_merkles for any descendents. */
 	/* FIXME: re-check pending transactions with unknown inputs
@@ -273,7 +273,7 @@ void put_batch_in_block(struct state *state,
 enum protocol_error
 batch_validate_transactions(struct state *state,
 			    struct log *log,
-			    struct block *block,
+			    const struct block *block,
 			    struct transaction_batch *batch,
 			    unsigned int *bad_trans,
 			    unsigned int *bad_input_num,

@@ -3,6 +3,7 @@
 #include "peer.h"
 #include "pending.h"
 #include "generating.h"
+#include "todo.h"
 #include <time.h>
 #include <ccan/cast/cast.h>
 
@@ -285,6 +286,28 @@ static bool update_known_recursive(struct state *state, struct block *block)
 	return knowns_changed;
 }
 
+/* FIXME: Ask only the shards we care about. */
+static void ask_about_block(struct state *state, const struct block *block)
+{
+	u32 i;
+
+	for (i = 0; i < num_batches_for_block(block); i++) {
+		if (!batch_full(block, block->batch[i]))
+			add_block_batch_todo(state, block, i);
+	}
+}
+
+static void ask_about_children(struct state *state, const struct block *block)
+{
+	const struct block *b;
+
+	list_for_each(&block->children, b, sibling) {
+		ask_about_block(state, b);
+		ask_about_children(state, b);
+	}
+}
+
+
 /* We now know complete contents of block; update all_known for this
  * block (and maybe its descendents) and if necessary, update
  * longest_known and longest_known_descendent and restart generator.
@@ -293,6 +316,7 @@ static bool update_known_recursive(struct state *state, struct block *block)
 static bool update_known(struct state *state, struct block *block)
 {
 	const struct block *prev_known = state->longest_knowns[0];
+	size_t i;
 
 	if (!update_known_recursive(state, block))
 		return false;
@@ -300,6 +324,10 @@ static bool update_known(struct state *state, struct block *block)
 	order_block_pointers(state);
 	update_preferred_chain(state);
 	check_chains(state);
+
+	/* Ask about any children who aren't completely known. */ 
+	for (i = 0; i < tal_count(state->longest_knowns); i++)
+		ask_about_children(state, state->longest_knowns[i]);
 
 	if (state->longest_knowns[0] != prev_known) {
 		/* Any transactions from old branch go into pending. */
@@ -341,9 +369,6 @@ static void new_longest(struct state *state, const struct block *block)
 	/* We may prefer a different known (which leads to longest) now. */
 	order_block_pointers(state);
 	update_preferred_chain(state);
-
-	/* We want peers to ask about contents of these blocks. */
-	wake_peers(state);
 }
 
 /* We've added a new block; update state->longest_chains, state->longest_knowns,
@@ -369,30 +394,56 @@ void update_block_ptrs_new_block(struct state *state, struct block *block)
 	/* Corner case for zero transactions (will update
 	 * longest_known_descendent if necessary). */
 	if (le32_to_cpu(block->hdr->num_transactions) == 0)
-		update_block_ptrs_new_batch(state, block);
+		update_known(state, block);
 	else
 		/* FIXME: Only needed if a descendent of known[0] */
 		update_preferred_chain(state);
 
 	check_chains(state);
 
-	/* FIXME: Overkill to do this always? */
-	wake_peers(state);
+	/* Now, if it's as long as the best we know about, want to know more */
+	if (cmp_work(block, state->longest_knowns[0]) >= 0) {
+		const struct block *b;
+
+		for (b = block; !b->all_known; b = b->prev)
+			ask_about_block(state, b);
+	}
 }
 
 /* We've added a new batch; update state->longest_chains, state->longest_knowns,
    state->longest_known_descendents as required. */
-void update_block_ptrs_new_batch(struct state *state, struct block *block)
+void update_block_ptrs_new_batch(struct state *state, struct block *block,
+				 unsigned int batchnum)
 {
+	remove_block_batch_todo(state, block, batchnum);
 	if (block_full(block, NULL))
-		if (update_known(state, block))
-			wake_peers(state);
+		update_known(state, block);
+}
+
+static void forget_about_block(struct state *state, const struct block *block)
+{
+	u32 i;
+
+	for (i = 0; i < num_batches_for_block(block); i++) {
+		if (!batch_full(block, block->batch[i]))
+			remove_block_batch_todo(state, block, i);
+	}
+}
+
+static void forget_about_all(struct state *state, const struct block *block)
+{
+	const struct block *b;
+
+	forget_about_block(state, block);
+	list_for_each(&block->children, b, sibling)
+		forget_about_all(state, b);
 }
 
 void update_block_ptrs_invalidated(struct state *state,
 				   const struct block *block)
 {
 	const struct block *g = genesis_block(state);
+
 	/* Brute force recalculation. */
 	set_single(&state->longest_chains, g);
 	set_single(&state->longest_knowns, g);
@@ -402,6 +453,9 @@ void update_block_ptrs_invalidated(struct state *state,
 	update_known(state, cast_const(struct block *, g));
 
 	check_chains(state);
+
+	/* We don't need to know anything about this or any decendents. */
+	forget_about_all(state, block);
 
 	/* Tell peers everything changed. */
 	wake_peers(state);

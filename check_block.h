@@ -41,7 +41,7 @@ bool check_batch_order(struct state *state,
 enum protocol_error
 batch_validate_transactions(struct state *state,
 			    struct log *log,
-			    struct block *block,
+			    const struct block *block,
 			    struct transaction_batch *batch,
 			    unsigned int *bad_trans,
 			    unsigned int *bad_input_num,

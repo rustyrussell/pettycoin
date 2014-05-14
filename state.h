@@ -38,6 +38,9 @@ struct state {
 	 * about longest_chains. */
 	const struct block *preferred_chain;
 
+	/* These are our known unknowns. */
+	struct list_head todo;
+
 	/* Block we're working on now. */
 	struct pending_block *pending;
 

@@ -22,7 +22,8 @@ void update_block_ptrs_new_block(struct state *state, struct block *block);
 
 /* We've added a new batch; update state->longest_chains, state->longest_knowns,
    state->longest_known_descendents as required. */
-void update_block_ptrs_new_batch(struct state *state, struct block *block);
+void update_block_ptrs_new_batch(struct state *state, struct block *block,
+				 unsigned int blocknum);
 
 /* We've invalidated a block. */
 void update_block_ptrs_invalidated(struct state *state, const struct block *block);

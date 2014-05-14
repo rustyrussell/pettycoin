@@ -16,12 +16,14 @@
 #include "pending.h"
 #include "chain.h"
 #include "merkle_transactions.h"
+#include "todo.h"
 #include <ccan/io/io.h>
 #include <ccan/time/time.h>
 #include <ccan/tal/tal.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/err/err.h>
 #include <ccan/build_assert/build_assert.h>
+#include <ccan/cast/cast.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <stdio.h>
@@ -306,7 +308,7 @@ static struct protocol_req_new_block *block_pkt(tal_t *ctx, struct block *b)
 	return blk;
 }
 
-static struct protocol_req_batch *batch_req(tal_t *ctx, struct block *b,
+static struct protocol_req_batch *batch_req(tal_t *ctx, const struct block *b,
 					    unsigned int batchnum)
 {
 	struct protocol_req_batch *r;
@@ -348,6 +350,7 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 	struct block *next;
 	struct trans_for_peer *pend;
 	struct complaint *complaint;
+	struct todo *todo;
 	const void *pkt;
 
 	/* There was an error?  Send that then close. */
@@ -395,41 +398,16 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 		goto write;
 	}
 
-	/* Can we find more about longest known chain? */
-	next = step_towards(peer->state->longest_knowns[0],
-			    peer->state->longest_chains[0]);
-	if (next) {
-		unsigned int batchnum;
-
-		/* This must not be full, or it would be longest known. */
-		if (block_full(next, &batchnum))
-			abort();
-
+	/* Can we find out more about blocks? */
+	todo = get_todo(peer->state, peer);
+	if (todo) {
 		log_debug(peer->log, "Need batch %u for block %u toward longest",
-			  batchnum, next->blocknum);
+			  todo->batchnum, todo->block->blocknum);
 		peer->curr_out_req = PROTOCOL_REQ_BATCH;
-		peer->batch_requested_block = next;
-		peer->batch_requested_num = batchnum;
-		pkt = batch_req(peer, next, batchnum);
-		goto write;
-	}
-
-	/* Can we find more about longest descendent of known chain? */
-	next = step_towards(peer->state->longest_knowns[0],
-			    peer->state->preferred_chain);
-	if (next) {
-		unsigned int batchnum;
-
-		/* This must not be full, or it would be longest known. */
-		if (block_full(next, &batchnum))
-			abort();
-
-		log_debug(peer->log, "Need batch %u for block %u from known",
-			  batchnum, next->blocknum);
-		peer->curr_out_req = PROTOCOL_REQ_BATCH;
-		peer->batch_requested_block = next;
-		peer->batch_requested_num = batchnum;
-		pkt = batch_req(peer, next, batchnum);
+		peer->batch_requested_block
+			= cast_const(struct block *, todo->block);
+		peer->batch_requested_num = todo->batchnum;
+		pkt = batch_req(peer, todo->block, todo->batchnum);
 		goto write;
 	}
 
