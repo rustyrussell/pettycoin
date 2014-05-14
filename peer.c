@@ -1248,6 +1248,7 @@ static struct io_plan setup_peer(struct io_conn *conn, struct state *state)
 {
 	struct peer *peer = tal(conn, struct peer);
 
+	/* FIXME: Disable nagle if we can use TCP_CORK */
 	peer->state = state;
 	if (!get_fd_addr(io_conn_fd(conn), &peer->you)) {
 		log_unusual(state->log, "Could not get address for peer: %s",
