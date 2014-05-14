@@ -1173,6 +1173,7 @@ static void destroy_peer(struct peer *peer)
 	}
 
 	peer->state->num_peers--;
+	bitmap_clear_bit(peer->state->peer_map, peer->peer_num);
 	fill_peers(peer->state);
 }
 
@@ -1183,11 +1184,31 @@ static struct io_plan setup_welcome(struct io_conn *unused, struct peer *peer)
 			       welcome_sent);
 }
 
-void new_peer(struct state *state, int fd, const struct protocol_net_address *a)
+static unsigned int get_peernum(const bitmap bits[])
 {
-	struct peer *peer = tal(state, struct peer);
-	char name[INET6_ADDRSTRLEN + strlen(":65000:")];
+	unsigned int i;
 
+	/* FIXME: ffz in ccan/bitmap? */
+	for (i = 0; i < MAX_PEERS; i++) {
+		if (!bitmap_test_bit(bits, i))
+			break;
+	}
+	return i;
+}
+
+static struct peer *alloc_peer(const tal_t *ctx, struct state *state)
+{
+	struct peer *peer;
+	unsigned int peernum;
+
+	peernum = get_peernum(state->peer_map);
+	if (peernum == MAX_PEERS) {
+		log_info(state->log, "Too many peers, closing incoming");
+		return NULL;
+	}
+
+	peer = tal(ctx, struct peer);
+	bitmap_set_bit(state->peer_map, peernum);
 	list_add(&state->peers, &peer->list);
 	peer->state = state;
 	peer->error_pkt = NULL;
@@ -1199,6 +1220,24 @@ void new_peer(struct state *state, int fd, const struct protocol_net_address *a)
 	peer->curr_in_req = peer->curr_out_req = PROTOCOL_REQ_NONE;
 	list_head_init(&peer->pending);
 	list_head_init(&peer->complaints);
+	peer->peer_num = peernum;
+
+	state->num_peers++;
+	tal_add_destructor(peer, destroy_peer);
+
+	return peer;
+}
+
+void new_peer(struct state *state, int fd, const struct protocol_net_address *a)
+{
+	struct peer *peer;
+	char name[INET6_ADDRSTRLEN + strlen(":65000:")];
+
+	peer = alloc_peer(NULL, state);
+	if (!peer) {
+		close(fd);
+		return;
+	}
 
 	/* If a, we need to connect to there. */
 	if (a) {
@@ -1237,30 +1276,26 @@ void new_peer(struct state *state, int fd, const struct protocol_net_address *a)
 	peer->log = new_log(peer, state->log,
 			    name, state->log_level, PEER_LOG_MAX);
 
-	state->num_peers++;
-	tal_add_destructor(peer, destroy_peer);
-
 	/* Conn owns us: we vanish when it does. */
 	tal_steal(peer->w, peer);
 }
 
 static struct io_plan setup_peer(struct io_conn *conn, struct state *state)
 {
-	struct peer *peer = tal(conn, struct peer);
+	struct peer *peer = alloc_peer(conn, state);
+
+	if (!peer)
+		return io_close();
 
 	/* FIXME: Disable nagle if we can use TCP_CORK */
-	peer->state = state;
 	if (!get_fd_addr(io_conn_fd(conn), &peer->you)) {
 		log_unusual(state->log, "Could not get address for peer: %s",
 			    strerror(errno));
 		return io_close();
 	}
 
-	log_info(state->log, "Set up --connect peer %zu at ", state->num_peers);
+	log_info(state->log, "Set up --connect peer %u at ", peer->peer_num);
 	log_add_struct(state->log, struct protocol_net_address, &peer->you);
-
-	state->num_peers++;
-	tal_add_destructor(peer, destroy_peer);
 
 	return setup_welcome(conn, peer);
 }

@@ -4,6 +4,8 @@
 #include <ccan/list/list.h>
 #include <stdbool.h>
 
+#define MAX_PEERS 64
+
 struct pending_trans;
 
 struct peer {
@@ -12,6 +14,9 @@ struct peer {
 
 	/* Global state. */
 	struct state *state;
+
+	/* Who am I? (Useful for bitmaps of peers) */
+	unsigned int peer_num;
 
 	/* Connection to the peer. */
 	struct io_conn *w, *r;

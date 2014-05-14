@@ -5,6 +5,8 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/endian/endian.h>
 #include <ccan/compiler/compiler.h>
+#include <ccan/bitmap/bitmap.h>
+#include "peer.h"
 #include "thash.h"
 #include "log.h"
 
@@ -47,6 +49,7 @@ struct state {
 	size_t num_peers_connected;
 	struct list_head peers;
 	u64 random_welcome;
+	BITMAP_DECLARE(peer_map, MAX_PEERS);
 
 	/* Features we've warned about. */
 	u8 upcoming_features;
