@@ -326,7 +326,7 @@ bool check_block_prev_merkles(struct state *state,
 
 			/* We need to know everything in batch to check
 			 * previous merkle. */
-			if (!prev->batch[j] || !batch_full(prev, prev->batch[j]))
+			if (!batch_full(prev, prev->batch[j]))
 				continue;
 
 			/* Merkle has block reward address prepended, so you

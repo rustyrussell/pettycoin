@@ -661,7 +661,7 @@ receive_batch_req(struct peer *peer,
 	batch = block->batch[num];
 	/* This could happen easily: we might be asking for it
 	 * ourselves, right now. */
-	if (!batch || !batch_full(block, batch)) {
+	if (!batch_full(block, batch)) {
 		log_debug(peer->log,
 			  "We don't know batch %u of ", num);
 		log_add_struct(peer->log, struct protocol_double_sha,

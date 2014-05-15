@@ -97,7 +97,12 @@ u32 batch_max(const struct block *block, unsigned int batchnum)
 bool batch_full(const struct block *block,
 		const struct transaction_batch *batch)
 {
-	unsigned int batchnum = batch->trans_start >> PETTYCOIN_BATCH_ORDER;
+	unsigned int batchnum;
+
+	/* Common usage is batch_full(block, block->batch[i]) */
+	if (!batch)
+		return NULL;
+	batchnum = batch->trans_start >> PETTYCOIN_BATCH_ORDER;
 	return batch->count == batch_max(block, batchnum);
 }
 
@@ -110,8 +115,6 @@ bool block_full(const struct block *block, unsigned int *batchnum)
 		const struct transaction_batch *b = block->batch[i];
 		if (batchnum)
 			*batchnum = i;
-		if (!b)
-			return false;
 		if (!batch_full(block, b))
 			return false;
 	}
