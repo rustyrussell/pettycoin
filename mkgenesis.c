@@ -114,7 +114,8 @@ solve(const tal_t *ctx,
 			ret = talv(ctx, struct protocol_req_new_block,
 				   block[le32_to_cpu(hdr.len)]);
 			memcpy(ret, &hdr, sizeof(hdr));
-			if (!read_all(i, ret->block, le32_to_cpu(hdr.len))) {
+			if (!read_all(i, ret->block,
+				      le32_to_cpu(hdr.len) - sizeof(hdr))) {
 				tal_free(ctx);
 				err(1, "reading transaction from child");
 			}

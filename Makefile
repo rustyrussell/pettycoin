@@ -36,7 +36,7 @@ sizes: $(SIZES_OBJS) $(CCAN_OBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(SIZES_OBJS) $(CCAN_OBJS) $(LDLIBS)
 
 genesis.c:
-	$(MAKE) mkgenesis generate && ./mkgenesis 4 $(INITIAL_DIFFICULTY) "Some NYT Head" > $@
+	$(MAKE) mkgenesis generate && ./mkgenesis 4 $(INITIAL_DIFFICULTY) "Some NYT Head" > $@.tmp; STATUS=$$?; if [ $$STATUS = 0 ]; then mv $@.tmp $@; else rm -f $@.tmp; exit $$STATUS; fi
 
 check:
 	$(MAKE) -C test check
@@ -49,6 +49,7 @@ TAGS:
 	etags *.[ch]
 
 distclean: clean
+	$(RM) genesis.c
 
 ccan-asort.o: $(CCANDIR)/ccan/asort/asort.c
 	$(CC) $(CFLAGS) -c -o $@ $<
