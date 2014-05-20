@@ -124,14 +124,18 @@ void base58_get_checksum(u8 csum[4], const u8 buf[], size_t buflen)
 	memcpy(csum, sha_result, 4);
 }
 
-char *pettycoin_to_base58(const tal_t *ctx, struct state *state,
-			  const struct protocol_address *addr)
+char *pettycoin_to_base58(const tal_t *ctx, bool test_net,
+			  const struct protocol_address *addr,
+			  bool bitcoin_style)
 {
 	u8 buf[1 + RIPEMD160_DIGEST_LENGTH + 4];
-	char out[BASE58_ADDR_MAX_LEN], *p;
+	char out[BASE58_ADDR_MAX_LEN + 2], *p;
 
-	/* Version is different for testnet */
-	buf[0] = state->test_net ? 'Q' : 'P';
+	if (bitcoin_style)
+		buf[0] = test_net ? 111 : 0;
+	else
+		buf[0] = test_net ? 'Q' : 'P';
+
 	BUILD_ASSERT(sizeof(*addr) == RIPEMD160_DIGEST_LENGTH);
 	memcpy(buf+1, addr, RIPEMD160_DIGEST_LENGTH);
 
@@ -139,8 +143,12 @@ char *pettycoin_to_base58(const tal_t *ctx, struct state *state,
 	base58_get_checksum(buf + 1 + RIPEMD160_DIGEST_LENGTH,
 			    buf, 1 + RIPEMD160_DIGEST_LENGTH);
 
-	p = encode_base58(out, sizeof(out), buf, sizeof(buf));
-	return tal_strdup(ctx, p);
+	p = encode_base58(out, BASE58_ADDR_MAX_LEN, buf, sizeof(buf));
+
+	if (bitcoin_style)
+		return tal_fmt(ctx, "P-%s", p);
+	else
+		return tal_strdup(ctx, out);
 }
 
 bool pettycoin_from_base58(bool *test_net,

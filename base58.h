@@ -13,11 +13,11 @@
  * plus 1 terminator.
  */
 #define BASE58_ADDR_MAX_LEN 36
-struct state;
 
 /* Pettycoin address encoded in base58, with version and checksum */
-char *pettycoin_to_base58(const tal_t *ctx, struct state *state,
-			  const struct protocol_address *addr);
+char *pettycoin_to_base58(const tal_t *ctx, bool test_net,
+			  const struct protocol_address *addr,
+			  bool bitcoin_style);
 bool pettycoin_from_base58(bool *test_net,
 			   struct protocol_address *addr,
 			   const char *base58);
