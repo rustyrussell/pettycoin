@@ -2,6 +2,8 @@
 #include "protocol.h"
 #include "protocol_net.h"
 #include "hash_transaction.h"
+#include "base58.h"
+#include "addr.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -36,9 +38,19 @@ void log_add_struct_(struct log *log, const char *structname, const void *ptr)
 		else
 			log_add(log, "%s", str);
 		log_add(log, ":%u", be16_to_cpu(addr->port));
+	} else if (streq(structname, "struct protocol_address")) {
+		char *addr = pettycoin_to_base58(NULL, true, ptr, true);
+		log_add(log, "%s", addr);
+		tal_free(addr);
+	} else if (streq(structname, "struct protocol_gateway_payment")) {
+		const struct protocol_gateway_payment *gp = ptr;
+		log_add(log, "%u to ", le32_to_cpu(gp->send_amount));
+		log_add_struct(log, struct protocol_address, &gp->output_addr);
 	} else if (streq(structname, "union protocol_transaction")) {
 		const union protocol_transaction *t = ptr;
 		struct protocol_double_sha sha;
+		struct protocol_address input_addr;
+		u32 i;
 
 		hash_tx(t, &sha);
 		switch (t->hdr.type) {
@@ -47,10 +59,22 @@ void log_add_struct_(struct log *log, const char *structname, const void *ptr)
 				le32_to_cpu(t->normal.num_inputs),
 				le32_to_cpu(t->normal.send_amount),
 				le32_to_cpu(t->normal.change_amount));
+			pubkey_to_addr(&t->normal.input_key, &input_addr);
+			log_add(log, " from ");
+			log_add_struct(log, struct protocol_address, &input_addr);
+			log_add(log, " to ");
+			log_add_struct(log, struct protocol_address,
+				       &t->normal.output_addr);
 			break;
 		case TRANSACTION_FROM_GATEWAY:
-			log_add(log, "GATEWAY %u outputs ",
+			log_add(log, "GATEWAY %u outputs",
 				le32_to_cpu(t->gateway.num_outputs));
+			for (i = 0; i < le32_to_cpu(t->gateway.num_outputs);i++){
+				log_add(log, " %u:", i);
+				log_add_struct(log,
+					       struct protocol_gateway_payment,
+					       &t->gateway.output[i]);
+			}
 			break;
 		default:
 			log_add(log, "UNKNOWN(%u) ", t->hdr.type);

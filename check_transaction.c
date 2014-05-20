@@ -166,6 +166,9 @@ check_trans_normal_inputs(struct state *state,
 		/* Check it was to this address. */
 		if (memcmp(&my_addr, &addr, sizeof(addr)) != 0) {
 			*bad_input_num = i;
+			log_debug(state->log, "Address mismatch against output %i of ", le16_to_cpu(t->input[i].output));
+			log_add_struct(state->log, union protocol_transaction,
+				       inputs[i]);
 			return PROTOCOL_ERROR_TRANS_BAD_INPUT;
 		}
 
@@ -380,6 +383,9 @@ enum protocol_error check_transaction(struct state *state,
 	/* If we're in a block, we must have refs. */
 	assert(!refs == !block);
 
+	log_debug(state->log, "Checking trans ");
+	log_add_struct(state->log, union protocol_transaction, trans);
+
 	switch (trans->hdr.type) {
 	case TRANSACTION_FROM_GATEWAY:
 		e = check_trans_from_gateway(state, &trans->gateway);
@@ -405,5 +411,9 @@ enum protocol_error check_transaction(struct state *state,
 		break;
 	}
 
+	if (e) {
+		log_debug(state->log, "It was bad: ");
+		log_add_enum(state->log, enum protocol_error, e);
+	}
 	return e;
 }

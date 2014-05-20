@@ -28,6 +28,7 @@
 #include "netaddr.h"
 #include "addr.h"
 #include "hash_transaction.h"
+#include "hash_block.h"
 #include "log.h"
 #include <string.h>
 #include <assert.h>
@@ -173,17 +174,83 @@ static void exchange_welcome(int fd, const struct protocol_net_address *netaddr)
 
 }
 
+static void ignore_new_block(int fd, struct protocol_net_hdr *hdr)
+{
+	size_t len = le32_to_cpu(hdr->len);
+	struct protocol_req_new_block *nb;
+	const struct protocol_double_sha *merkles;
+	const u8 *prev_merkles;
+	const struct protocol_block_tailer *tailer;
+	struct protocol_block_header *bhdr;
+	struct protocol_resp_new_block resp;
+
+	nb = malloc(len);
+	memcpy(nb, hdr, sizeof(*hdr));
+	bhdr = (void *)nb->block;
+	len -= sizeof(*hdr);
+	if (!read_all(fd, bhdr, len))
+		err(1, "Reading new block");
+	if (unmarshall_block(NULL, len, bhdr, &merkles, &prev_merkles, &tailer))
+		err(1, "Unmarshalling block");
+
+	/* If we don't tell it that's our latest, it will keep sending. */
+	resp.len = cpu_to_le32(sizeof(resp));
+	resp.type = cpu_to_le32(PROTOCOL_RESP_NEW_BLOCK);
+	hash_block(bhdr, merkles, prev_merkles, tailer, &resp.final);
+
+	log_unusual(NULL, "Ignoring new block ");
+	log_add_struct(NULL, struct protocol_double_sha, &resp.final);
+	if (!write_all(fd, &resp, sizeof(resp)))
+		err(1, "Writing new block response");
+}
+
+static void ignore_batch_request(int fd, struct protocol_net_hdr *hdr)
+{
+	struct protocol_req_batch req;
+	struct protocol_resp_batch resp;
+
+	assert(le32_to_cpu(hdr->len) == sizeof(req));
+	if (!read_all(fd, (char *)&req + sizeof(*hdr), sizeof(req) - sizeof(*hdr)))
+		err(1, "Reading req batch");
+
+	resp.len = cpu_to_le32(sizeof(resp));
+	resp.type = cpu_to_le32(PROTOCOL_RESP_BATCH);
+	resp.error = cpu_to_le32(PROTOCOL_ERROR_UNKNOWN_BLOCK);
+	resp.num = cpu_to_le32(0);
+
+	log_unusual(NULL, "Ignoring batch request");
+	if (!write_all(fd, &resp, sizeof(resp)))
+		err(1, "Writing batch response");
+}
+
 static void read_response(int fd)
 {
+	struct protocol_net_hdr hdr;
 	struct protocol_resp_new_transaction resp;
 
-	if (!read_all(fd, &resp, sizeof(resp)))
+again:
+	if (!read_all(fd, &hdr, sizeof(hdr)))
 		err(1, "Reading response");
 
-	if (resp.type != cpu_to_le32(PROTOCOL_RESP_NEW_TRANSACTION))
+	switch (le32_to_cpu(hdr.type)) {
+	case PROTOCOL_REQ_NEW_BLOCK:
+		ignore_new_block(fd, &hdr);
+		goto again;
+	case PROTOCOL_REQ_BATCH:
+		ignore_batch_request(fd, &hdr);
+		goto again;
+	}
+
+	if (hdr.type != cpu_to_le32(PROTOCOL_RESP_NEW_TRANSACTION))
 		log_enum_and_exit("Unexpected response type ",
 				  enum protocol_resp_type,
-				  le32_to_cpu(resp.type));
+				  le32_to_cpu(hdr.type));
+
+	/* Read the rest */
+	memcpy(&resp, &hdr, sizeof(resp));
+	if (!read_all(fd, (char *)&resp + sizeof(hdr),
+		      sizeof(resp) - sizeof(hdr)))
+		err(1, "Reading remaining response");
 
 	if (resp.error != cpu_to_le32(PROTOCOL_ERROR_NONE))
 		log_enum_and_exit("Response gave error ", enum protocol_error,
@@ -251,6 +318,10 @@ int main(int argc, char *argv[])
 		if (!test_net)
 			errx(1, "dstaddr is not on test net!");
 
+		log_unusual(NULL, "Destination address is: ");
+		log_add_struct(NULL, struct protocol_address,
+			       &payment.output_addr);
+
 		t = create_gateway_transaction(NULL, &gkey, 1, 0, &payment, key);
 	} else if (tx) {
 		struct protocol_pubkey destkey;
@@ -262,15 +333,34 @@ int main(int argc, char *argv[])
 		if (argc < 9)
 			usage();
 
+		if (!pettycoin_from_base58(&test_net, &destaddr, argv[5]))
+			errx(1, "Invalid dstaddr %s", argv[5]);
+		if (!test_net)
+			errx(1, "dstaddr is not on test net!");
+
 		key = get_privkey(argv[2], &destkey);
-		pubkey_to_addr(&destkey, &destaddr);
 		for (i = 0; i < argc - 8; i++) {
 			input[i].input = parse_sha(argv[8+i]);
-			input[i].output = atoi(argv[8+i] + 64);
+			if (argv[8+i][64] == '/')
+				input[i].output = cpu_to_le32(atoi(argv[8+i] + 65));
+			else
+				input[i].output = cpu_to_le32(0);
 		}
 		t = create_normal_transaction(NULL, &destaddr, atoi(argv[6]),
 					      atoi(argv[7]), argc - 8, input,
 					      key);
+		{
+			struct protocol_pubkey pubkey;
+			unsigned char *p = (void *)&pubkey;
+			struct protocol_address addr;
+
+			if (i2o_ECPublicKey(key, &p) != sizeof(pubkey))
+				abort();
+
+			pubkey_to_addr(&pubkey, &addr);
+			log_unusual(NULL, "Our address is: ");
+			log_add_struct(NULL, struct protocol_address, &addr);
+		}
 	}
 
 	len = marshall_transaction_len(t);
