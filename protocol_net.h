@@ -205,7 +205,7 @@ struct protocol_req_batch {
 /* Here's a batch for you. */
 struct protocol_resp_batch {
 	le32 len; /* sizeof(struct protocol_resp_batch + ...) */
-	le32 type; /* PROTOCOL_RESP_WELCOME */
+	le32 type; /* PROTOCOL_RESP_BATCH */
 	le32 error; /* Expect PROTOCOL_ERROR_NONE. */
 	le32 num; /* Number of transactions in batch. */
 
