@@ -41,7 +41,7 @@ struct protocol_pubkey {
 	u8 key[33];
 } __attribute__((aligned(1)));
 
-/* An address is the RIPEMD160 of the 33-byte public key. */
+/* An address is the RIPEMD160 of the SHA of the 33-byte public key. */
 struct protocol_address {
 	u8 addr[RIPEMD160_DIGEST_LENGTH]; /* 20 */
 };
