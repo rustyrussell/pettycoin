@@ -53,18 +53,18 @@ find_trans_for_ref(struct state *state,
 
 	*trans = NULL;
 	if (le32_to_cpu(ref->blocks_ago) > block->blocknum)
-		return PROTOCOL_ERROR_BATCH_BAD_INPUT_REF;
+		return PROTOCOL_ERROR_PRIV_BATCH_BAD_INPUT_REF;
 
 	/* FIXME: slow */
 	bnum = block->blocknum - le32_to_cpu(ref->blocks_ago);
 	for (b = block; b->blocknum != bnum; b = b->prev);
 
 	if (le32_to_cpu(ref->txnum) >= le32_to_cpu(b->hdr->num_transactions))
-		return PROTOCOL_ERROR_BATCH_BAD_INPUT_REF;
+		return PROTOCOL_ERROR_PRIV_BATCH_BAD_INPUT_REF;
 
 	if (le32_to_cpu(b->tailer->timestamp) + TRANSACTION_HORIZON_SECS
 	    < le32_to_cpu(block->tailer->timestamp))
-		return PROTOCOL_ERROR_BATCH_BAD_INPUT_REF;
+		return PROTOCOL_ERROR_PRIV_BATCH_BAD_INPUT_REF;
 
 	*trans = block_get_trans(b, le32_to_cpu(ref->txnum));
 	if (!*trans)
@@ -72,12 +72,12 @@ find_trans_for_ref(struct state *state,
 		return PROTOCOL_ERROR_NONE;
 
 	/* Trans is actually not the correct one! */
-	return PROTOCOL_ERROR_BATCH_BAD_INPUT_REF_TRANS;
+	return PROTOCOL_ERROR_PRIV_BATCH_BAD_INPUT_REF_TRANS;
 }	
 
 /*
  * Sets inputs[] if transaction has inputs.
- * Sets bad_input_num if PROTOCOL_ERROR_TRANS_BAD_INPUT.
+ * Sets bad_input_num if PROTOCOL_ERROR_PRIV_TRANS_BAD_INPUT.
  * If refs is non-NULL, ensures that Nth input tx matches ref[N].
  *
  * Otherwise bad_input_num indicates an unknown input.
@@ -160,7 +160,7 @@ check_trans_normal_inputs(struct state *state,
 		if (!find_output(inputs[i], le16_to_cpu(t->input[i].output),
 				 &addr, &amount)) {
 			*bad_input_num = i;
-			return PROTOCOL_ERROR_TRANS_BAD_INPUT;
+			return PROTOCOL_ERROR_PRIV_TRANS_BAD_INPUT;
 		}
 
 		/* Check it was to this address. */
@@ -169,7 +169,7 @@ check_trans_normal_inputs(struct state *state,
 			log_debug(state->log, "Address mismatch against output %i of ", le16_to_cpu(t->input[i].output));
 			log_add_struct(state->log, union protocol_transaction,
 				       inputs[i]);
-			return PROTOCOL_ERROR_TRANS_BAD_INPUT;
+			return PROTOCOL_ERROR_PRIV_TRANS_BAD_INPUT;
 		}
 
 		input_total += amount;
@@ -178,7 +178,7 @@ check_trans_normal_inputs(struct state *state,
 	if (*inputs_known == num) {
 		if (input_total != (le32_to_cpu(t->send_amount)
 				    + le32_to_cpu(t->change_amount))) {
-			return PROTOCOL_ERROR_TRANS_BAD_AMOUNTS;
+			return PROTOCOL_ERROR_PRIV_TRANS_BAD_AMOUNTS;
 		}
 	}
 	return PROTOCOL_ERROR_NONE;
@@ -403,7 +403,7 @@ enum protocol_error check_transaction(struct state *state,
 						      bad_input_num);
 			/* FIXME: We currently insist on complete knowledge. */
 			if (!e && inputs_known != num_inputs(trans))
-				e = PROTOCOL_ERROR_TRANS_BAD_INPUT;
+				e = PROTOCOL_ERROR_PRIV_TRANS_BAD_INPUT;
 		}
 		break;
 	default:

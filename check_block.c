@@ -40,6 +40,18 @@ check_block_header(struct state *state,
 		goto fail;
 	}
 
+	/* We check work *first*: if it meets its target we can spend
+	 * resources on it, since it's not cheap to produce (eg. we could
+	 * keep it around, or ask others about its predecessors, etc) */
+
+	/* Get SHA: should have enough leading zeroes to beat target. */
+	hash_block(hdr, merkles, prev_merkles, tailer, &block->sha);
+
+	if (!beats_target(&block->sha, le32_to_cpu(tailer->difficulty))) {
+		e = PROTOCOL_ERROR_INSUFFICIENT_WORK;
+		goto fail;
+	}
+
 	/* Don't just search on main chain! */
 	block->prev = block_find_any(state, &hdr->prev_block);
 	if (!block->prev) {
@@ -63,14 +75,6 @@ check_block_header(struct state *state,
 	if (le32_to_cpu(tailer->difficulty)
 	    != get_difficulty(state, block->prev)) {
 		e = PROTOCOL_ERROR_BAD_DIFFICULTY;
-		goto fail;
-	}
-
-	/* Get SHA: should have enough leading zeroes to beat target. */
-	hash_block(hdr, merkles, prev_merkles, tailer, &block->sha);
-
-	if (!beats_target(&block->sha, le32_to_cpu(tailer->difficulty))) {
-		e = PROTOCOL_ERROR_INSUFFICIENT_WORK;
 		goto fail;
 	}
 

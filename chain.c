@@ -293,7 +293,7 @@ static void ask_about_block(struct state *state, const struct block *block)
 
 	for (i = 0; i < num_batches_for_block(block); i++) {
 		if (!batch_full(block, block->batch[i]))
-			add_block_batch_todo(state, block, i);
+			todo_add_get_batch(state, &block->sha, i);
 	}
 }
 
@@ -415,7 +415,6 @@ void update_block_ptrs_new_block(struct state *state, struct block *block)
 void update_block_ptrs_new_batch(struct state *state, struct block *block,
 				 unsigned int batchnum)
 {
-	remove_block_batch_todo(state, block, batchnum);
 	if (block_full(block, NULL))
 		update_known(state, block);
 }
@@ -426,7 +425,7 @@ static void forget_about_block(struct state *state, const struct block *block)
 
 	for (i = 0; i < num_batches_for_block(block); i++) {
 		if (!batch_full(block, block->batch[i]))
-			remove_block_batch_todo(state, block, i);
+			todo_forget_about_batch(state, &block->sha, i);
 	}
 }
 

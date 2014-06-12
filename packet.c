@@ -120,6 +120,15 @@ void *tal_packet_(const tal_t *ctx, size_t len, int type)
 	return hdr;
 }
 
+void *tal_packet_dup(const tal_t *ctx, const void *pkt)
+{
+	const struct protocol_net_hdr *hdr = pkt;
+	size_t len = le32_to_cpu(hdr->len);
+
+	assert(len >= sizeof(*hdr));
+	return tal_dup(ctx, char, (char *)pkt, len, 0);
+}
+
 void tal_packet_append(void *ppkt, const void *mem, size_t len)
 {
 	struct protocol_net_hdr **hdr = ppkt;
@@ -143,6 +152,20 @@ void tal_packet_append_trans_with_refs(void *ppkt,
 {
 	tal_packet_append_trans(ppkt, trans);
 	tal_packet_append(ppkt, refs, marshall_input_ref_len(trans));
+}
+
+void tal_packet_append_block(void *ppkt, const struct block *block)
+{
+	struct protocol_net_hdr **hdr = ppkt;
+	u32 orig_len = le32_to_cpu((*hdr)->len);
+	size_t len = marshall_block_len(block->hdr);
+
+	tal_resize((char **)ppkt, orig_len + len);
+	hdr = ppkt;
+	marshall_block_into((char *)*hdr + orig_len,
+			    block->hdr, block->merkles, block->prev_merkles,
+			    block->tailer);
+	(*hdr)->len = cpu_to_le32(orig_len + len);
 }
 
 void tal_packet_append_proof(void *ppkt, const struct block *block, u32 txnum)

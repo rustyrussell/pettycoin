@@ -11,6 +11,8 @@ struct block;
 
 u32 get_difficulty(struct state *state, const struct block *prev);
 
+bool decode_difficulty(u32 difficulty, BIGNUM *n);
+
 void total_work_done(u32 difficulty, const BIGNUM *prev, BIGNUM *work);
 
 /* Note that SHA from openssl is little endian, not bigendian as

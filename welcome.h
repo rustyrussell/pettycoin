@@ -4,11 +4,11 @@
 #include "protocol_net.h"
 
 struct state;
-struct protocol_req_welcome *make_welcome(const tal_t *ctx,
+struct protocol_pkt_welcome *make_welcome(const tal_t *ctx,
 					  const struct state *state,
 					  const struct protocol_net_address *a);
 
 enum protocol_error check_welcome(const struct state *state,
-				  const struct protocol_req_welcome *w);
+				  const struct protocol_pkt_welcome *w);
 
 #endif /* PETTYCOIN_WELCOME_H */

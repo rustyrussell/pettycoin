@@ -16,12 +16,22 @@ unmarshall_block(struct log *log,
 		 const struct protocol_block_tailer **tailer);
 
 /* Marshall block for wire transfer. */
-struct protocol_req_new_block *
+struct protocol_pkt_block *
 marshall_block(const tal_t *ctx,
 	       const struct protocol_block_header *hdr,
 	       const struct protocol_double_sha *merkles,
 	       const u8 *prev_merkles,
 	       const struct protocol_block_tailer *tailer);
+
+/* How long is this block when marshalled? */
+size_t marshall_block_len(const struct protocol_block_header *hdr);
+
+/* Store block into dst, which must be at least marshall_block_len. */
+void marshall_block_into(void *dst,
+			 const struct protocol_block_header *hdr,
+			 const struct protocol_double_sha *merkles,
+			 const u8 *prev_merkles,
+			 const struct protocol_block_tailer *tailer);
 
 /* Unmarshall transaction: does version and simple sanity checking. */
 enum protocol_error unmarshall_transaction(const void *buffer, size_t size,

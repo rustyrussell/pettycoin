@@ -315,7 +315,7 @@ static bool from_hex(const char *str, u8 *buf, size_t bufsize)
 /* 32 bit length, then block: caller knows transactions already. */
 static void write_block(int fd, const struct working_block *w)
 {
-	struct protocol_req_new_block *b;
+	struct protocol_pkt_block *b;
 	u32 i;
 
 	b = marshall_block(w, &w->hdr, w->merkles, w->prev_merkles, &w->tailer);

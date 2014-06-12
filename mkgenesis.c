@@ -44,7 +44,7 @@ solve(const tal_t *ctx,
 	unsigned int i, maxfd = 0;
 	fd_set set;
 	tal_t *children = tal(ctx, char);
-	struct protocol_req_new_block *ret;
+	struct protocol_pkt_block *ret;
 	const struct protocol_double_sha *merkles;
 	const u8 *prev_merkles;
 	const struct protocol_block_header *hdr;
@@ -105,16 +105,15 @@ solve(const tal_t *ctx,
 	select(maxfd+1, &set, NULL, NULL, NULL);
 	for (i = 0; i < maxfd+1; i++) {
 		if (FD_ISSET(i, &set)) {
-			struct protocol_net_hdr hdr;
+			struct protocol_pkt_block hdr;
 
 			if (read(i, &hdr, sizeof(hdr)) != sizeof(hdr)) {
 				tal_free(ctx);
 				err(1, "reading from child");
 			}
-			ret = talv(ctx, struct protocol_req_new_block,
-				   block[le32_to_cpu(hdr.len)]);
-			memcpy(ret, &hdr, sizeof(hdr));
-			if (!read_all(i, ret->block,
+			ret = (void *)tal_arr(ctx, char, le32_to_cpu(hdr.len));
+			*ret = hdr;
+			if (!read_all(i, ret + 1,
 				      le32_to_cpu(hdr.len) - sizeof(hdr))) {
 				tal_free(ctx);
 				err(1, "reading transaction from child");
@@ -126,10 +125,10 @@ solve(const tal_t *ctx,
 	/* Kill off children. */
 	tal_free(children);
 
-	hdr = (struct protocol_block_header *)&ret->block;
+	hdr = (struct protocol_block_header *)(&ret + 1);
 	/* merkles and prev_merkles will be empty. */
 	unmarshall_block(NULL,
-			 le32_to_cpu(ret->len)-sizeof(struct protocol_net_hdr),
+			 le32_to_cpu(ret->len) - sizeof(*ret),
 			 hdr, &merkles, &prev_merkles, tailer);
 
 	return hdr;

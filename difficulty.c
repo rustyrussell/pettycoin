@@ -10,6 +10,50 @@
 /* Based on bitcoin's difficulty calculation, with two differences:
  * 1) We don't have a sign bit in the mantissa.
  * 2) We don't have an out-by-one error in the difficulty timing calculation.
+ *
+ * The hash must be lower than this value to win.
+ */
+
+/*
+ * Top 8 bits are exponent, in *bytes* (ie. multiply by 8 to get bits).
+ * Botton 24 bits are value.
+ */
+bool decode_difficulty(u32 difficulty, BIGNUM *n)
+{
+	BN_init(n);
+	if (!BN_set_word(n, difficulty & 0x00FFFFFF)
+	    || !BN_lshift(n, n, ((difficulty >> 24) - 3) * 8))
+		return false;
+	return true;
+}
+		
+static bool encode_difficulty(u32 *exp, u32 *mantissa, BIGNUM *target)
+{
+	BIGNUM n;
+
+	/* Get exponent. */
+	*exp = BN_num_bytes(target);
+
+	/* Impossibly tiny numbers imply SHA256 has been broken. */
+	if (*exp <= 3)
+		return false;
+
+	BN_init(&n);
+	if (!BN_rshift(&n, target, 8 * (*exp - 3))) {
+		BN_free(&n);
+		return false;
+	}
+
+	*mantissa = BN_get_word(&n);
+	assert(*mantissa < 0x00FFFFFF);
+
+	BN_free(&n);
+	return true;
+}
+
+/* Based on bitcoin's difficulty calculation, with two differences:
+ * 1) We don't have a sign bit in the mantissa.
+ * 2) We don't have an out-by-one error in the difficulty timing calculation.
  *    FIXME: Does this help prevent timejacking?  Think harder!
  *
  * Top 8 bits are exponent, in *bytes* (ie. multiply by 8 to get bits).
@@ -20,7 +64,7 @@
 u32 get_difficulty(struct state *state, const struct block *prev)
 {
 	s64 actual_time;
-	BIGNUM target_base, target;
+	BIGNUM target;
 	u32 prev_difficulty, exp, base;
 	u32 genesis_exp, genesis_base;
 	const struct block *genesis = genesis_block(state), *start;
@@ -56,12 +100,9 @@ u32 get_difficulty(struct state *state, const struct block *prev)
 
 	/* Expand compact form difficulty number into bignum to work with. */
 	BN_init(&target);
-	BN_init(&target_base);
 
 	/* Top 8 bits are exponent, in bytes */
-	if (!BN_set_word(&target_base, prev_difficulty & 0x00FFFFFF)
-	    || !BN_lshift(&target, &target_base,
-			  ((prev_difficulty >> 24) - 3) * 8))
+	if (!decode_difficulty(prev_difficulty, &target))
 		goto fail;
 
 	/* Now scale target by how long it actually took. */
@@ -69,18 +110,10 @@ u32 get_difficulty(struct state *state, const struct block *prev)
 	    || BN_div_word(&target, ideal_time) == (BN_ULONG)-1)
 		goto fail;
 
-	/* Get exponent. */
-	exp = BN_num_bytes(&target);
-
-	/* Impossibly tiny numbers imply SHA256 has been broken. */
-	assert(exp > 3);
-		
-	BN_rshift(&target_base, &target, 8 * (exp - 3));
-	base = BN_get_word(&target_base);
-	assert(base < 0x00FFFFFF);
+	if (!encode_difficulty(&exp, &base, &target))
+		goto fail;
 
 	BN_free(&target);
-	BN_free(&target_base);
 
 	/* Don't go below genesis block difficulty! */
 	genesis_exp = le32_to_cpu(genesis->tailer->difficulty) >> 24;

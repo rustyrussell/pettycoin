@@ -33,18 +33,8 @@
 #include <string.h>
 #include <assert.h>
 #include <openssl/obj_mac.h>
-
-#define log_enum_and_exit(message, enumtype, val) \
-	log_enum_and_exit_((message), stringify(enumtype), (val))
-
-static void log_enum_and_exit_(const char *message, const char *enumtype,
-			       unsigned int val)
-{
-	log_broken(NULL, "%s", message);
-	log_add_enum_(NULL, enumtype, val);
-	fprintf(stderr, "\n");
-	exit(1);
-}
+#include <signal.h>
+#include <unistd.h>
 
 // Thus function based on bitcoin's key.cpp:
 // Copyright (c) 2009-2012 The Bitcoin developers
@@ -126,11 +116,48 @@ static EC_KEY *get_privkey(const char *arg, struct protocol_pubkey *gkey)
 	return priv;
 }
 
-static void exchange_welcome(int fd, const struct protocol_net_address *netaddr)
+static void discard_remainder(int fd, struct protocol_net_hdr *hdr)
+{
+	size_t len = le32_to_cpu(hdr->len) - sizeof(*hdr);
+
+	while (len) {
+		char buf[128];
+		size_t rlen = sizeof(buf);
+
+		if (rlen > len)
+			rlen = len;
+		if (!read_all(fd, buf, rlen))
+			err(1, "Reading discarding packet");
+		len -= rlen;
+	}
+}
+
+static void discard_packet(int fd, enum protocol_pkt_type type)
 {
 	struct protocol_net_hdr hdr;
-	struct protocol_req_welcome *w;
-	struct protocol_resp_err wresp;
+
+	if (!read_all(fd, &hdr, sizeof(hdr)))
+		err(1, "Reading discarding header");
+
+	if (le32_to_cpu(hdr.type) != type) {
+		log_broken(NULL, "Unexpected response, len %u type ",
+			   le32_to_cpu(hdr.len));
+		log_add_enum(NULL, enum protocol_pkt_type, le32_to_cpu(hdr.type));
+		log_broken(NULL, "(expecting ");
+		log_add_enum(NULL, enum protocol_pkt_type, type);
+		fprintf(stderr, "\n");
+		errx(1, "Discarding packet");
+	}
+
+	discard_remainder(fd, &hdr);
+}
+
+static void welcome_and_init(int fd, const struct protocol_net_address *netaddr)
+{
+	struct protocol_net_hdr hdr;
+	struct protocol_pkt_welcome *w;
+	struct protocol_pkt_sync *sync;
+	struct protocol_pkt_set_filter filter;
 
 	if (!read_all(fd, &hdr, sizeof(hdr)))
 		err(1, "Reading welcome header");
@@ -150,30 +177,35 @@ static void exchange_welcome(int fd, const struct protocol_net_address *netaddr)
 	if (!write_all(fd, w, le32_to_cpu(hdr.len)))
 		err(1, "Writing welcome");
 
-	/* Now send response to them. */
-	wresp.len = cpu_to_le32(sizeof(wresp));
-	wresp.type = cpu_to_le32(PROTOCOL_RESP_ERR);
-	wresp.error = cpu_to_le32(PROTOCOL_ERROR_NONE);
-	if (!write_all(fd, &wresp, sizeof(wresp)))
-		err(1, "Writing welcome response");
+	/* They should send us sync. */
+	if (!read_all(fd, &hdr, sizeof(hdr)))
+		err(1, "Reading sync header");
 
-	if (!read_all(fd, &wresp, sizeof(wresp)))
-		err(1, "Reading welcome response");
+	sync = (void *)tal_arr(NULL, char, le32_to_cpu(hdr.len));
+	sync->len = hdr.len;
+	sync->type = hdr.type;
+	if (!read_all(fd, (char *)sync + sizeof(hdr),
+		      le32_to_cpu(hdr.len) - sizeof(hdr)))
+		err(1, "Reading sync");
 
-	if (wresp.type != cpu_to_le32(PROTOCOL_RESP_ERR))
-		log_enum_and_exit("Bad response type ", enum protocol_resp_type,
-				  le32_to_cpu(wresp.type));
+	/* Now send sync back to them. */
+	if (!write_all(fd, sync, le32_to_cpu(sync->len)))
+		err(1, "Writing sync");
 
-	if (wresp.error != cpu_to_le32(PROTOCOL_ERROR_NONE))
-		log_enum_and_exit("Response error ", enum protocol_error,
-				  le32_to_cpu(wresp.error));
+	filter.len = cpu_to_le32(sizeof(filter));
+	filter.type = cpu_to_le32(PROTOCOL_PKT_SET_FILTER);
+	/* FIXME: Allow 0?  Then we won't get traffic. */
+	filter.filter = cpu_to_le64(0xFFFFFFFFFFFFFFFFULL);
+	filter.offset = cpu_to_le64(0);
 
-	if (wresp.len != cpu_to_le32(sizeof(wresp)))
-		errx(1, "Bad welcome response length %u",
-		     le32_to_cpu(wresp.len));
+	if (!write_all(fd, &filter, sizeof(filter)))
+		err(1, "Writing filter");
 
+	/* They should send their filter, ignore. */
+	discard_packet(fd, PROTOCOL_PKT_SET_FILTER);
 }
 
+#if 0
 static void ignore_new_block(int fd, struct protocol_net_hdr *hdr)
 {
 	size_t len = le32_to_cpu(hdr->len);
@@ -222,42 +254,38 @@ static void ignore_batch_request(int fd, struct protocol_net_hdr *hdr)
 	if (!write_all(fd, &resp, sizeof(resp)))
 		err(1, "Writing batch response");
 }
+#endif
+
+static volatile int closing_fd;
+
+/* This will stop read. */
+static void close_fd(int signum)
+{
+	close(closing_fd);
+	closing_fd = -1;
+}
 
 static void read_response(int fd)
 {
 	struct protocol_net_hdr hdr;
-	struct protocol_resp_new_transaction resp;
 
-again:
-	if (!read_all(fd, &hdr, sizeof(hdr)))
+	/* We wait for up to a second, in case it sends courtesy error */
+	closing_fd = fd;
+	signal(SIGALRM, close_fd);
+	alarm(1);
+
+	if (!read_all(fd, &hdr, sizeof(hdr))) {
+		if (closing_fd == -1)
+			return;
 		err(1, "Reading response");
-
-	switch (le32_to_cpu(hdr.type)) {
-	case PROTOCOL_REQ_NEW_BLOCK:
-		ignore_new_block(fd, &hdr);
-		goto again;
-	case PROTOCOL_REQ_BATCH:
-		ignore_batch_request(fd, &hdr);
-		goto again;
 	}
 
-	if (hdr.type != cpu_to_le32(PROTOCOL_RESP_NEW_TRANSACTION))
-		log_enum_and_exit("Unexpected response type ",
-				  enum protocol_resp_type,
-				  le32_to_cpu(hdr.type));
-
-	/* Read the rest */
-	memcpy(&resp, &hdr, sizeof(resp));
-	if (!read_all(fd, (char *)&resp + sizeof(hdr),
-		      sizeof(resp) - sizeof(hdr)))
-		err(1, "Reading remaining response");
-
-	if (resp.error != cpu_to_le32(PROTOCOL_ERROR_NONE))
-		log_enum_and_exit("Response gave error ", enum protocol_error,
-				  le32_to_cpu(resp.error));
-
-	if (resp.len != cpu_to_le32(sizeof(resp)))
-		errx(1, "Unexpected response len %u", le32_to_cpu(resp.len));
+	/* FIXME: Handle non-error responses! */
+	log_broken(NULL, "Unexpected response, len %u type ",
+		   le32_to_cpu(hdr.len));
+	log_add_enum(NULL, enum protocol_pkt_type, le32_to_cpu(hdr.type));
+	fprintf(stderr, "\n");
+	err(1, "Got response");
 }
 
 static void usage(void)
@@ -379,10 +407,10 @@ int main(int argc, char *argv[])
 		err(1, "Failed to connect to %s:%s", argv[3], argv[4]);
 	freeaddrinfo(a);
 
-	exchange_welcome(fd, &netaddr);
+	welcome_and_init(fd, &netaddr);
 
 	hdr.len = cpu_to_le32(len + sizeof(struct protocol_net_hdr));
-	hdr.type = cpu_to_le32(PROTOCOL_REQ_NEW_TRANSACTION);
+	hdr.type = cpu_to_le32(PROTOCOL_PKT_TX);
 	if (!write_all(fd, &hdr, sizeof(hdr)))
 		err(1, "Failed writing header");
 	if (!write_all(fd, t, len))

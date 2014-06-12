@@ -61,16 +61,16 @@ static void welcome_blocks(const struct state *state,
 	welcome_iter(state, block);
 }
 
-struct protocol_req_welcome *make_welcome(const tal_t *ctx,
+struct protocol_pkt_welcome *make_welcome(const tal_t *ctx,
 					  const struct state *state,
 					  const struct protocol_net_address *a)
 {
-	struct protocol_req_welcome *w;
+	struct protocol_pkt_welcome *w;
 	size_t num_blocks = num_welcome_blocks(state);
 
-	w = talv(ctx, struct protocol_req_welcome, block[num_blocks]);
+	w = talv(ctx, struct protocol_pkt_welcome, block[num_blocks]);
 	w->len = cpu_to_le32(sizeof(*w) + sizeof(w->block[0]) * num_blocks);
-	w->type = cpu_to_le32(PROTOCOL_REQ_WELCOME);
+	w->type = cpu_to_le32(PROTOCOL_PKT_WELCOME);
 	w->num_blocks = num_blocks;
 	w->version = cpu_to_le32(current_version());
 	memcpy(w->moniker, "ICBINB! " VERSION "                        ", 32);
@@ -94,22 +94,22 @@ static size_t popcount(const u8 *bits, size_t num)
 }
 
 enum protocol_error check_welcome(const struct state *state,
-				  const struct protocol_req_welcome *w)
+				  const struct protocol_pkt_welcome *w)
 {
 	size_t len = le32_to_cpu(w->len);
 	const struct block *genesis = genesis_block(state);
 
 	if (len < sizeof(*w))
 		return PROTOCOL_INVALID_LEN;
-	if (w->type != cpu_to_le32(PROTOCOL_REQ_WELCOME))
-		return PROTOCOL_UNKNOWN_COMMAND;
+	if (w->type != cpu_to_le32(PROTOCOL_PKT_WELCOME))
+		return PROTOCOL_ERROR_UNKNOWN_COMMAND;
 	if (w->version != cpu_to_le32(current_version()))
 		return PROTOCOL_ERROR_HIGH_VERSION;
 	if (popcount(w->interests, sizeof(w->interests)) < 2)
 		return PROTOCOL_ERROR_NO_INTEREST;
 
 	/* At least one block. */
-	if (w->num_blocks < 1)
+	if (le32_to_cpu(w->num_blocks) < 1)
 		return PROTOCOL_INVALID_LEN;
 	len -= sizeof(*w);
 	if (len != le32_to_cpu(w->num_blocks) * sizeof(w->block[0]))

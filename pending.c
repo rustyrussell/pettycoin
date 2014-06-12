@@ -155,7 +155,7 @@ static void recheck_pending_transactions(struct state *state)
 		if (e) {
 			log_debug(state->log, "  %zu is now ", i);
 			log_add_enum(state->log, enum protocol_error, e);
-			if (e == PROTOCOL_ERROR_TRANS_BAD_INPUT) {
+			if (e == PROTOCOL_ERROR_PRIV_TRANS_BAD_INPUT) {
 				log_add(state->log,
 					": input %u ", bad_input_num);
 				log_add_struct(state->log,
@@ -176,7 +176,9 @@ static void recheck_pending_transactions(struct state *state)
 		continue;
 
 	discard:
-		remove_trans_from_peers(state, state->pending->pend[i]->t);
+		/* FIXME:
+		 * remove_trans_from_peers(state, state->pending->pend[i]->t);
+		 */
 		memmove(state->pending->pend + i,
 			state->pending->pend + i + 1,
 			(num - i - 1) * sizeof(*state->pending->pend));
@@ -252,5 +254,5 @@ void add_pending_transaction(struct peer *peer,
 	pending->pend[start] = pend;
 
 	tell_generator_new_pending(peer->state, start);
-	add_trans_to_peers(peer->state, peer, t);
+	send_trans_to_peers(peer->state, peer, t);
 }

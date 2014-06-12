@@ -37,6 +37,8 @@ struct io_plan io_write_packet_(struct peer *peer, const void *pkt,
 
 void *tal_packet_(const tal_t *ctx, size_t len, int type);
 
+void *tal_packet_dup(const tal_t *ctx, const void *pkt);
+
 union protocol_transaction;
 void tal_packet_append_trans(void *ppkt,
 			     const union protocol_transaction *trans);
@@ -46,6 +48,8 @@ void tal_packet_append_trans_with_refs(void *ppkt,
 				       const struct protocol_input_ref *refs);
 
 void tal_packet_append(void *ppkt, const void *mem, size_t len);
+
+void tal_packet_append_block(void *ppkt, const struct block *block);
 
 void tal_packet_append_proof(void *ppkt, const struct block *block, u32 txnum);
 

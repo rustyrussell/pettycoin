@@ -7,6 +7,7 @@
 #include "welcome.h"
 #include "peer_cache.h"
 #include "block.h"
+#include "hash_block.h"
 #include "log.h"
 #include "marshall.h"
 #include "check_block.h"
@@ -17,6 +18,8 @@
 #include "chain.h"
 #include "merkle_transactions.h"
 #include "todo.h"
+#include "sync.h"
+#include "difficulty.h"
 #include <ccan/io/io.h>
 #include <ccan/time/time.h>
 #include <ccan/tal/tal.h>
@@ -150,121 +153,79 @@ void fill_peers(struct state *state)
 	}
 }
 
-struct trans_for_peer {
-	struct list_node list;
-	const union protocol_transaction *t;
-};
-
-void remove_trans_from_peers(struct state *state,
-			     const union protocol_transaction *t)
-{
-	struct peer *p;
-
-	list_for_each(&state->peers, p, list) {
-		struct trans_for_peer *pend;
-
-		list_for_each(&p->pending, pend, list) {
-			if (pend->t == t) {
-				/* Destructor removes from list. */
-				tal_free(pend);
-				break;
-			}
-		}
-	}
-}
-
-static void unlink_pend(struct trans_for_peer *pend)
-{
-	list_del(&pend->list);
-}
-	
-void add_trans_to_peers(struct state *state,
-			struct peer *exclude,
-			const union protocol_transaction *t)
+void send_trans_to_peers(struct state *state,
+			 struct peer *exclude,
+			 const union protocol_transaction *t)
 {
 	struct peer *peer;
 
 	list_for_each(&state->peers, peer, list) {
-		struct trans_for_peer *pend;
+		struct protocol_pkt_tx *tx;
 
 		/* Avoid sending back to peer who told us. */
 		if (peer == exclude)
 			continue;
 
-		pend = tal(peer, struct trans_for_peer);
-		pend->t = t;
-		list_add_tail(&peer->pending, &pend->list);
-		tal_add_destructor(pend, unlink_pend);
-		/* In case it's idle. */
-		io_wake(peer);
+		/* Don't send trans to peers still starting up. */
+		/* FIXME: Piggyback! */
+		if (peer->they_are_syncing)
+			continue;
+
+		/* FIXME: Respect filter! */
+		tx = tal_packet(peer, struct protocol_pkt_tx, PROTOCOL_PKT_TX);
+		tal_packet_append_trans(tx, t);
+		todo_for_peer(peer, tx);
 	}
 }
 
-struct complaint {
-	struct list_node list;
-	const struct protocol_net_hdr *pkt;
-};
-
-static void add_complaint(struct peer *peer,
-			  const struct protocol_net_hdr *pkt)
+static struct protocol_pkt_block *block_pkt(tal_t *ctx, const struct block *b)
 {
-	struct complaint *c = tal(NULL, struct complaint);
-	list_add_tail(&peer->complaints, &c->list);
+	struct protocol_pkt_block *blk;
+ 
+	blk = marshall_block(ctx,
+			     b->hdr, b->merkles, b->prev_merkles, b->tailer);
 
-	c->pkt = (void *)tal_dup(peer, char, (char *)pkt,
-				 le32_to_cpu(pkt->len), 0);
-	/* Free complaint structure when packet freed. */
-	tal_steal(c->pkt, c);
+	return blk;
 }
 
-void complain_to_peers(struct state *state, const struct protocol_net_hdr *pkt)
+static void send_block_to_peers(struct state *state,
+				struct peer *exclude,
+				const struct block *block)
+{
+	struct peer *peer;
+
+	list_for_each(&state->peers, peer, list) {
+		/* Avoid sending back to peer who told us. */
+		if (peer == exclude)
+			continue;
+
+		/* Don't send block to peers still starting up. */
+		/* FIXME: Piggyback! */
+		if (peer->they_are_syncing)
+			continue;
+
+		/* FIXME: Respect filter! */
+		todo_for_peer(peer, block_pkt(peer, block));
+	}
+}
+
+void broadcast_to_peers(struct state *state, const struct protocol_net_hdr *pkt)
 {
 	struct peer *peer;
 
 	list_for_each(&state->peers, peer, list)
-		add_complaint(peer, pkt);
+		todo_for_peer(peer, tal_packet_dup(peer, pkt));
 }
 
-static struct protocol_req_err *protocol_req_err(struct peer *peer,
-						 enum protocol_error e)
+static struct protocol_pkt_err *err_pkt(struct peer *peer,
+					enum protocol_error e)
 {
-	struct protocol_req_err *pkt;
+	struct protocol_pkt_err *pkt;
 
-	pkt = tal_packet(peer, struct protocol_req_err, PROTOCOL_REQ_ERR);
+	pkt = tal_packet(peer, struct protocol_pkt_err, PROTOCOL_PKT_ERR);
 	pkt->error = cpu_to_le32(e);
 
 	return pkt;
-}
-
-static struct protocol_resp_err *protocol_resp_err(struct peer *peer,
-						   enum protocol_error e)
-{
-	struct protocol_resp_err *pkt;
-
-	pkt = tal_packet(peer, struct protocol_resp_err, PROTOCOL_RESP_ERR);
-	pkt->error = cpu_to_le32(e);
-
-	return pkt;
-}
-
-/* They've told us about a block; this implies they know it. */
-static void update_mutual(struct peer *peer, struct block *block)
-{
-	/* If the block is known bad, tell them! */
-	if (block->complaint) {
-		add_complaint(peer, block->complaint);
-		return;
-	}
-
-	/* Don't go backwards. */
-	if (block_preceeds(block, peer->mutual))
-		return;
-
-	/* Don't update if it would take us away from our preferred chain */
-	if (!block_preceeds(block, peer->state->preferred_chain))
-		return;
-
-	peer->mutual = block;
 }
 
 static struct block *mutual_block_search(struct peer *peer,
@@ -287,8 +248,6 @@ static struct block *mutual_block_search(struct peer *peer,
 	return NULL;
 }
 
-static struct io_plan plan_output(struct io_conn *conn, struct peer *peer);
-
 /* Blockchain has been extended/changed. */
 void wake_peers(struct state *state)
 {
@@ -298,37 +257,36 @@ void wake_peers(struct state *state)
 		io_wake(p);
 }
 
-static struct protocol_req_new_block *block_pkt(tal_t *ctx, struct block *b)
-{
-	struct protocol_req_new_block *blk;
- 
-	blk = marshall_block(ctx,
-			     b->hdr, b->merkles, b->prev_merkles, b->tailer);
+#if 0 /* FIXME */
 
-	return blk;
-}
-
-static struct protocol_req_batch *batch_req(tal_t *ctx, const struct block *b,
-					    unsigned int batchnum)
-{
-	struct protocol_req_batch *r;
- 
-	r = tal_packet(ctx, struct protocol_req_batch, PROTOCOL_REQ_BATCH);
-	r->block = b->sha;
-	r->batchnum = cpu_to_le32(batchnum);
-
-	return r;
-}
-
-static struct protocol_req_new_transaction *
+static struct protocol_pkt_tx *
 trans_pkt(tal_t *ctx, const union protocol_transaction *t)
 {
-	struct protocol_req_new_transaction *r;
-	r = tal_packet(ctx, struct protocol_req_new_transaction,
-		       PROTOCOL_REQ_NEW_TRANSACTION);
+	struct protocol_pkt_tx *r;
+	r = tal_packet(ctx, struct protocol_pkt_tx, PROTOCOL_PKT_TX);
 
 	tal_packet_append_trans(&r, t);
 	return r;
+}
+
+/* They've told us about a block; this implies they know it. */
+static void update_mutual(struct peer *peer, struct block *block)
+{
+	/* If the block is known bad, tell them! */
+	if (block->complaint) {
+		todo_for_peer(peer, tal_packet_dup(peer, block->complaint));
+		return;
+	}
+
+	/* Don't go backwards. */
+	if (block_preceeds(block, peer->mutual))
+		return;
+
+	/* Don't update if it would take us away from our preferred chain */
+	if (!block_preceeds(block, peer->state->preferred_chain))
+		return;
+
+	peer->mutual = block;
 }
 
 static struct io_plan response_sent(struct io_conn *conn, struct peer *peer)
@@ -378,10 +336,10 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 	}
 
 	/* Have we found a problem, using knowledge of other trans? */
-	complaint = list_pop(&peer->complaints, struct complaint,list);
+	complaint = list_pop(&peer->complaints, struct complaint, list);
 	if (complaint) {
 		log_debug(peer->log, "Writing complaint packet ");
-		log_add_enum(peer->log, enum protocol_req_type,
+		log_add_enum(peer->log, enum protocol_pkt_type,
 			     le32_to_cpu(complaint->pkt->type));
 		peer->curr_out_req = le32_to_cpu(complaint->pkt->type);
 		pkt = complaint->pkt;
@@ -430,7 +388,7 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 
 write:
 	log_debug(peer->log, "Sending ");
-	log_add_enum(peer->log, enum protocol_req_type,
+	log_add_enum(peer->log, enum protocol_pkt_type,
 		     ((struct protocol_net_hdr *)pkt)->type);
 	assert(peer->curr_out_req);
 	return io_write_packet(peer, pkt, plan_output);
@@ -486,7 +444,7 @@ receive_block(struct peer *peer, const struct protocol_req_new_block *req)
 	} else {
 		block_add(peer->state, new);
 		save_block(peer->state, new);
-		wake_peers(peer->state);
+		add_block_to_peers(peer->state, new, peer);
 		b = new;
 	}
 
@@ -506,113 +464,6 @@ receive_block(struct peer *peer, const struct protocol_req_new_block *req)
 
 fail:
 	return protocol_resp_err(peer, e);
-}
-
-static void
-complain_about_input(struct state *state,
-		     struct peer *peer,
-		     const union protocol_transaction *trans,
-		     const union protocol_transaction *bad_input,
-		     unsigned int bad_input_num)
-{
-	struct protocol_req_bad_trans_input *pkt;
-
-	/* FIXME: We do this since we expect perfect knowledge
-	   (unknown input).  We can't prove anything is wrong in this
-	   case though! */
-	if (!bad_input)
-		return;
-
-	pkt = tal_packet(peer, struct protocol_req_bad_trans_input,
-			 PROTOCOL_REQ_BAD_TRANS_INPUT);
-	pkt->inputnum = cpu_to_le32(bad_input_num);
-
-	tal_packet_append_trans(&pkt, trans);
-	tal_packet_append_trans(&pkt, bad_input);
-
-	/* Makes copy. */
-	add_complaint(peer, (struct protocol_net_hdr *)pkt);
-	tal_free(pkt);
-}
-
-static void
-complain_about_inputs(struct state *state,
-		      struct peer *peer,
-		      const union protocol_transaction *trans)
-{
-	struct protocol_req_bad_trans_amount *pkt;
-	unsigned int i;
-
-	assert(le32_to_cpu(trans->hdr.type) == TRANSACTION_NORMAL);
-
-	pkt = tal_packet(peer, struct protocol_req_bad_trans_amount,
-			 PROTOCOL_REQ_BAD_TRANS_AMOUNT);
-
-	tal_packet_append_trans(&pkt, trans);
-
-	/* FIXME: What if input still pending, not in thash? */
-	for (i = 0; i < le32_to_cpu(trans->normal.num_inputs); i++) {
-		union protocol_transaction *input;
-		input = thash_gettrans(&state->thash,
-				       &trans->normal.input[i].input);
-		tal_packet_append_trans(&pkt, input);
-	}
-
-	/* Makes copy. */
-	add_complaint(peer, (struct protocol_net_hdr *)pkt);
-	tal_free(pkt);
-}
-
-/* Returns an error packet if there was trouble. */
-static struct protocol_resp_new_transaction *
-receive_trans(struct peer *peer,
-	      const struct protocol_req_new_transaction *req)
-{
-	enum protocol_error e;
-	struct protocol_resp_new_transaction *r;
-	union protocol_transaction *trans;
-	u32 translen = le32_to_cpu(req->len) - sizeof(*req);
-	union protocol_transaction *inputs[TRANSACTION_MAX_INPUTS];
-	unsigned int bad_input_num;
-
-	r = tal_packet(peer, struct protocol_resp_new_transaction,
-		       PROTOCOL_RESP_NEW_TRANSACTION);
-
-	trans = (void *)(req + 1);
-	e = unmarshall_transaction(trans, translen, NULL);
-	if (e)
-		goto fail;
-
-	e = check_transaction(peer->state, trans, NULL, NULL,
-			      inputs, &bad_input_num);
-
-	r->error = cpu_to_le32(e);
-
-	if (e == PROTOCOL_ERROR_TRANS_BAD_INPUT) {
-		/* Complain, but don't hang up on them! */
-		complain_about_input(peer->state, peer, trans,
-				     inputs[bad_input_num], bad_input_num);
-		goto ok;
-	} else if (e == PROTOCOL_ERROR_TRANS_BAD_AMOUNTS) {
-		complain_about_inputs(peer->state, peer, trans);
-		goto ok;
-	} else if (e) {
-		/* Any other failure is something they should know */
-		goto fail;
-	}
-
-	/* OK, we own it now. */
-	tal_steal(peer->state, req);
-	add_pending_transaction(peer, trans);
-
-ok:
-	assert(!peer->response);
-	peer->response = r;
-	return NULL;
-
-fail:
-	r->error = cpu_to_le32(e);
-	return r;
 }
 
 /* Returns an error packet if there was trouble. */
@@ -867,7 +718,7 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 	type = le32_to_cpu(hdr->type);
 
 	log_debug(peer->log, "Received ");
-	log_add_enum(peer->log, enum protocol_req_type, type);
+	log_add_enum(peer->log, enum protocol_pkt_type, type);
 
 	/* Recipient function should steal this if it should outlive function. */
 	tal_steal(ctx, peer->incoming);
@@ -1014,6 +865,7 @@ send_error:
 	tal_free(ctx);
 	return io_wait(peer, io_close_cb, NULL);
 }
+#endif
 
 static void close_writer(struct io_conn *conn, struct peer *peer)
 {
@@ -1031,47 +883,340 @@ static void close_reader(struct io_conn *conn, struct peer *peer)
 		io_close_other(peer->w);
 }
 
-static struct io_plan check_welcome_ack(struct io_conn *conn,
-					struct peer *peer)
+static struct protocol_pkt_set_filter *set_filter_pkt(struct peer *peer)
 {
-	struct protocol_resp_err *wresp = peer->incoming;
-	void *errpkt;
+	struct protocol_pkt_set_filter *pkt;
 
-	assert(conn == peer->w);
+	pkt = tal_packet(peer, struct protocol_pkt_set_filter,
+			 PROTOCOL_PKT_SET_FILTER);
+	/* FIXME: use filter! */
+	pkt->filter = cpu_to_le64(0xFFFFFFFFFFFFFFFFULL);
+	pkt->offset = cpu_to_le64(0);
 
-	if (wresp->len != cpu_to_le32(sizeof(*wresp))) {
-		log_unusual(peer->log, "Bad welcome ack len %u",
-			    le32_to_cpu(wresp->len));
-		errpkt = protocol_req_err(peer, PROTOCOL_INVALID_LEN);
-		goto fail;
+	return pkt;
+}
+
+static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
+{
+	void *pkt;
+
+	/* There was an error?  Send that then close. */
+	if (peer->error_pkt) {
+		log_debug(peer->log, "Writing error packet ");
+		log_add_enum(peer->log, enum protocol_error,
+			     peer->error_pkt->error);
+		return io_write_packet(peer, peer->error_pkt, io_close_cb);
 	}
 
-	if (wresp->type != cpu_to_le32(PROTOCOL_RESP_ERR)) {
-		log_unusual(peer->log, "Peer responded to welcome with %u",
-			    le32_to_cpu(wresp->type));
-		errpkt = protocol_req_err(peer, PROTOCOL_UNKNOWN_COMMAND);
-		goto fail;
+	/* We're entirely TODO-driven at this point. */
+	pkt = get_todo_pkt(peer->state, peer);
+	if (pkt)
+		return io_write_packet(peer, pkt, plan_output);
+
+	/* FIXME: Timeout! */
+	if (peer->we_are_syncing && peer->requests_outstanding == 0) {
+		/* We're synced (or as far as we can get).  Start
+		 * normal operation. */
+		log_debug(peer->log, "Syncing finished, setting filter");
+		peer->we_are_syncing = false;
+		return io_write_packet(peer, set_filter_pkt(peer), plan_output);
 	}
 
-	/* It doesn't like us. */
-	if (wresp->error != cpu_to_le32(PROTOCOL_ERROR_NONE)) {
-		log_unusual(peer->log, "Peer responded to welcome with error %u",
-			    le32_to_cpu(wresp->error));
-		peer_cache_del(peer->state, &peer->you, true);
+	log_debug(peer->log, "Awaiting responses");
+	return io_wait(peer, plan_output, peer);
+}
+
+static enum protocol_error
+recv_set_filter(struct peer *peer, const struct protocol_pkt_set_filter *pkt)
+{
+	if (le32_to_cpu(pkt->len) != sizeof(*pkt))
+		return PROTOCOL_INVALID_LEN;
+
+	if (le64_to_cpu(pkt->filter) == 0)
+		return PROTOCOL_ERROR_FILTER_INVALID;
+
+	if (le64_to_cpu(pkt->offset) > 19)
+		return PROTOCOL_ERROR_FILTER_INVALID;
+
+#if 0 /* FIXME: Implement! */
+	peer->filter = le64_to_cpu(pkt->filter);
+	peer->filter_offset = le64_to_cpu(pkt->offset);
+#endif
+
+	/* This is our indication to send them unsolicited txs from now on */
+	peer->they_are_syncing = false;
+	return PROTOCOL_ERROR_NONE;
+}
+
+/* Don't let them flood us with cheap, random blocks. */
+static void seek_predecessor(struct state *state, 
+			     const struct protocol_block_header *hdr,
+			     const struct protocol_double_sha *merkles,
+			     const u8 *prev_merkles,
+			     const struct protocol_block_tailer *tailer)
+{
+	struct protocol_double_sha sha;
+	u32 diff;
+
+	hash_block(hdr, merkles, prev_merkles, tailer, &sha);
+
+	/* Make sure they did at least 1/4 current work. */
+	diff = le32_to_cpu(state->preferred_chain->tailer->difficulty);
+	diff = ((diff & 0xFF000000) - 1) | ((diff & 0x00FFFFFF) >> 6);
+
+	if (!beats_target(&sha, diff)) {
+		log_debug(state->log, "Ignoring unknown prev in easy block");
+		return;
+	}
+
+	log_debug(state->log, "Seeking block prev ");
+	log_add_struct(state->log, struct protocol_double_sha,
+		       &hdr->prev_block);
+	todo_add_get_block(state, &hdr->prev_block);
+}
+
+static enum protocol_error
+recv_block(struct peer *peer, const struct protocol_pkt_block *pkt)
+{
+	struct block *new, *b;
+	enum protocol_error e;
+	const struct protocol_double_sha *merkles;
+	const u8 *prev_merkles;
+	const struct protocol_block_tailer *tailer;
+	const struct protocol_block_header *hdr = (void *)(pkt + 1);
+	u32 blocklen = le32_to_cpu(pkt->len) - sizeof(*pkt);
+
+	e = unmarshall_block(peer->log, blocklen, hdr,
+			     &merkles, &prev_merkles, &tailer);
+	if (e != PROTOCOL_ERROR_NONE) {
+		log_unusual(peer->log, "unmarshalling new block gave %u", e);
+		return e;
+	}
+
+	log_debug(peer->log, "version = %u, features = %u, num_transactions = %u",
+		  hdr->version, hdr->features_vote, hdr->num_transactions);
+
+	e = check_block_header(peer->state, hdr, merkles, prev_merkles,
+			       tailer, &new);
+	if (e != PROTOCOL_ERROR_NONE) {
+		log_unusual(peer->log, "checking new block gave ");
+		log_add_enum(peer->log, enum protocol_error, e);
+
+		/* If it was due to unknown prev, ask about that. */
+		if (e == PROTOCOL_ERROR_UNKNOWN_PREV)
+			/* FIXME: Keep it around! */
+			seek_predecessor(peer->state, hdr, merkles,
+					 prev_merkles, tailer);
+		return e;
+	}
+
+	/* Now new block owns the packet. */
+	tal_steal(new, pkt);
+
+	/* Actually check the previous merkles are correct. */
+	if (!check_block_prev_merkles(peer->state, new)) {
+		log_unusual(peer->log, "new block has bad prev merkles");
+		/* FIXME: provide proof. */
+		tal_free(new);
+		return PROTOCOL_ERROR_BAD_PREV_MERKLES;
+	}
+
+	log_debug(peer->log, "New block %u is good!", new->blocknum);
+
+	if ((b = block_find_any(peer->state, &new->sha)) != NULL) {
+		log_debug(peer->log, "already knew about block %u",
+			  new->blocknum);
+		tal_free(new);
+	} else {
+		block_add(peer->state, new);
+		save_block(peer->state, new);
+		if (!peer->we_are_syncing)
+			send_block_to_peers(peer->state, peer, new);
+		b = new;
+	}
+
+	/* If the block is known bad, tell them! */
+	if (b->complaint)
+		todo_for_peer(peer, tal_packet_dup(peer, b->complaint));
+
+	/* FIXME: Try to guess the batches */
+
+	return PROTOCOL_ERROR_NONE;
+}
+
+static void
+complain_about_input(struct state *state,
+		     struct peer *peer,
+		     const union protocol_transaction *trans,
+		     const union protocol_transaction *bad_input,
+		     unsigned int bad_input_num)
+{
+	struct protocol_pkt_tx_bad_input *pkt;
+
+	/* FIXME: We do this since we expect perfect knowledge
+	   (unknown input).  We can't prove anything is wrong in this
+	   case though! */
+	if (!bad_input)
+		return;
+
+	pkt = tal_packet(peer, struct protocol_pkt_tx_bad_input,
+			 PROTOCOL_PKT_TX_BAD_INPUT);
+	pkt->inputnum = cpu_to_le32(bad_input_num);
+
+	tal_packet_append_trans(&pkt, trans);
+	tal_packet_append_trans(&pkt, bad_input);
+
+	todo_for_peer(peer, pkt);
+}
+
+static void
+complain_about_inputs(struct state *state,
+		      struct peer *peer,
+		      const union protocol_transaction *trans)
+{
+	struct protocol_pkt_tx_bad_amount *pkt;
+	unsigned int i;
+
+	assert(le32_to_cpu(trans->hdr.type) == TRANSACTION_NORMAL);
+
+	pkt = tal_packet(peer, struct protocol_pkt_tx_bad_amount,
+			 PROTOCOL_PKT_TX_BAD_AMOUNT);
+
+	tal_packet_append_trans(&pkt, trans);
+
+	/* FIXME: What if input still pending, not in thash? */
+	for (i = 0; i < le32_to_cpu(trans->normal.num_inputs); i++) {
+		union protocol_transaction *input;
+		input = thash_gettrans(&state->thash,
+				       &trans->normal.input[i].input);
+		tal_packet_append_trans(&pkt, input);
+	}
+
+	todo_for_peer(peer, pkt);
+}
+
+static enum protocol_error
+recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
+{
+	enum protocol_error e;
+	union protocol_transaction *trans;
+	u32 translen = le32_to_cpu(pkt->len) - sizeof(*pkt);
+	union protocol_transaction *inputs[TRANSACTION_MAX_INPUTS];
+	unsigned int bad_input_num;
+
+	trans = (void *)(pkt + 1);
+	e = unmarshall_transaction(trans, translen, NULL);
+	if (e)
+		return e;
+
+	e = check_transaction(peer->state, trans, NULL, NULL,
+			      inputs, &bad_input_num);
+
+	/* These two complaints are not fatal. */
+	if (e == PROTOCOL_ERROR_PRIV_TRANS_BAD_INPUT) {
+		complain_about_input(peer->state, peer, trans,
+				     inputs[bad_input_num], bad_input_num);
+	} else if (e == PROTOCOL_ERROR_PRIV_TRANS_BAD_AMOUNTS) {
+		complain_about_inputs(peer->state, peer, trans);
+	} else if (e) {
+		/* Any other failure is something they should have known */
+		return e;
+	} else {
+		/* OK, we own it now. */
+		tal_steal(peer->state, pkt);
+		add_pending_transaction(peer, trans);
+	}
+
+	return PROTOCOL_ERROR_NONE;
+}
+
+static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
+{
+	const struct protocol_net_hdr *hdr = peer->incoming;
+	tal_t *ctx = tal_arr(peer, char, 0);
+	u32 len, type;
+	enum protocol_error err;
+	void *reply = NULL;
+
+	len = le32_to_cpu(hdr->len);
+	type = le32_to_cpu(hdr->type);
+
+	log_debug(peer->log, "pkt_in: received ");
+	log_add_enum(peer->log, enum protocol_pkt_type, type);
+
+	/* Recipient function should steal this if it should outlive us. */
+	tal_steal(ctx, peer->incoming);
+
+	switch (type) {
+	case PROTOCOL_PKT_ERR:
+		if (len == sizeof(struct protocol_pkt_err)) {
+			struct protocol_pkt_err *p = peer->incoming;
+			log_unusual(peer->log, "Received PROTOCOL_PKT_ERR ");
+			log_add_enum(peer->log, enum protocol_error,
+				     cpu_to_le32(p->error));
+		} else {
+			log_unusual(peer->log,
+				    "Received PROTOCOL_PKT_ERR len %u", len);
+		}
 		return io_close();
+
+	case PROTOCOL_PKT_GET_CHILDREN:
+		err = recv_get_children(peer, peer->incoming, &reply);
+		break;
+	case PROTOCOL_PKT_CHILDREN:
+		err = recv_children(peer, peer->incoming);
+		break;
+	case PROTOCOL_PKT_SET_FILTER:
+		err = recv_set_filter(peer, peer->incoming);
+		break;
+	case PROTOCOL_PKT_BLOCK:
+		err = recv_block(peer, peer->incoming);
+		break;
+	case PROTOCOL_PKT_TX:
+		err = recv_tx(peer, peer->incoming);
+		break;
+	default:
+		err = PROTOCOL_ERROR_UNKNOWN_COMMAND;
 	}
 
-	/* Where do we disagree on chain? */
-	log_debug(peer->log, "Peer sent %u blocks",
-		  le32_to_cpu(peer->welcome->num_blocks));
-	peer->mutual = mutual_block_search(peer, peer->welcome->block,
-					   le32_to_cpu(peer->welcome->num_blocks));
-	/* We checked the genesis block in check_welcome! */
-	assert(peer->mutual);
+	if (err) {
+		peer->error_pkt = err_pkt(peer, err);
 
-	log_info(peer->log, "Peer has mutual block %u", peer->mutual->blocknum);
+		/* In case writer is waiting. */
+		io_wake(peer);
+
+		/* Wait for writer to send error. */
+		tal_free(ctx);
+		return io_wait(peer, io_close_cb, NULL);
+	}
+
+	/* If we want to send something, queue it for plan_output */
+	if (reply)
+		todo_for_peer(peer, reply);
+
+	tal_free(ctx);
+	return io_read_packet(&peer->incoming, pkt_in, peer);
+}
+
+static struct io_plan check_sync_or_horizon(struct io_conn *conn,
+					    struct peer *peer)
+{
+	const struct protocol_net_hdr *hdr = peer->incoming;
+	enum protocol_error err;
+
+	if (le32_to_cpu(hdr->type) == PROTOCOL_PKT_HORIZON)
+		err = recv_horizon_pkt(peer, peer->incoming);
+	else if (le32_to_cpu(hdr->type) == PROTOCOL_PKT_SYNC)
+		err = recv_sync_pkt(peer, peer->incoming);
+	else {
+		err = PROTOCOL_ERROR_UNKNOWN_COMMAND;
+	}
+
+	if (err != PROTOCOL_ERROR_NONE)
+		return io_write_packet(peer, err_pkt(peer, err), io_close_cb);
 
 	/* Time to go duplex on this connection. */
+	assert(conn == peer->w);
 	peer->r = io_duplex(peer->w,
 			    io_read_packet(&peer->incoming, pkt_in, peer));
 
@@ -1080,23 +1225,21 @@ static struct io_plan check_welcome_ack(struct io_conn *conn,
 	io_set_finish(peer->w, close_writer, peer);
 	tal_steal(peer->state, peer);
 
+	/* Now we sync any children. */
 	return plan_output(conn, peer);
-
-fail:
-	return io_write_packet(peer, errpkt, io_close_cb); 
 }
 
-static struct io_plan receive_welcome_ack(struct io_conn *conn,
-					  struct peer *peer)
+static struct io_plan recv_sync_or_horizon(struct io_conn *conn,
+					   struct peer *peer)
 {
-	log_debug(peer->log, "Welcome ack sent: receiving theirs");
-	return io_read_packet(&peer->incoming, check_welcome_ack, peer);
+	return io_read_packet(&peer->incoming, check_sync_or_horizon, peer);
 }
 
 static struct io_plan welcome_received(struct io_conn *conn, struct peer *peer)
 {
-	struct protocol_resp_err *resp;
 	struct state *state = peer->state;
+	enum protocol_error e;
+	const struct block *mutual;
 
 	log_debug(peer->log, "Their welcome received");
 
@@ -1110,23 +1253,26 @@ static struct io_plan welcome_received(struct io_conn *conn, struct peer *peer)
 		return io_close();
 	}
 
-	resp = protocol_resp_err(peer, check_welcome(state, peer->welcome));
-	if (resp->error != cpu_to_le32(PROTOCOL_ERROR_NONE)) {
-		log_unusual(peer->log, "Peer welcome was invalid (%u)",
-			    le32_to_cpu(resp->error));
-		return io_write_packet(peer, resp, io_close_cb);
+	e = check_welcome(state, peer->welcome);
+	if (e != PROTOCOL_ERROR_NONE) {
+		log_unusual(peer->log, "Peer welcome was invalid:");
+		log_add_enum(peer->log, enum protocol_error, e);
+		return io_write_packet(peer, err_pkt(peer, e), io_close_cb);
 	}
 
 	log_info(peer->log, "Welcome received: listen port is %u",
 		 be16_to_cpu(peer->welcome->listen_port));
 
-	/* Replace port with see with port they want us to connect to. */
+	/* Replace port we see with port they want us to connect to. */
 	peer->you.port = peer->welcome->listen_port;
 
 	/* Create/update time for this peer. */
 	peer_cache_update(state, &peer->you, time_now().ts.tv_sec);
 
-	return io_write_packet(peer, resp, receive_welcome_ack);
+	mutual = mutual_block_search(peer, peer->welcome->block,
+				     le32_to_cpu(peer->welcome->num_blocks));
+	return io_write_packet(peer, sync_or_horizon_pkt(peer, mutual),
+			       recv_sync_or_horizon);
 }
 
 static struct io_plan welcome_sent(struct io_conn *conn, struct peer *peer)
@@ -1142,6 +1288,12 @@ static void destroy_peer(struct peer *peer)
 		peer->state->num_peers_connected--;
 		log_info(peer->log, "Closing connected peer (%zu left)",
 			 peer->state->num_peers_connected);
+
+		if (peer->we_are_syncing) {
+			log_add(peer->log, " (didn't finish syncing)");
+			/* Don't delete on disk, just in memory. */
+			peer_cache_del(peer->state, &peer->you, false);
+		}
 	} else {
 		log_debug(peer->log, "Failed connect to peer %p", peer);
 		/* Only delete from disk cache if we have *some* networking. */
@@ -1151,6 +1303,7 @@ static void destroy_peer(struct peer *peer)
 
 	peer->state->num_peers--;
 	bitmap_clear_bit(peer->state->peer_map, peer->peer_num);
+	remove_peer_from_todo(peer->state, peer);
 	fill_peers(peer->state);
 }
 
@@ -1188,15 +1341,16 @@ static struct peer *alloc_peer(const tal_t *ctx, struct state *state)
 	bitmap_set_bit(state->peer_map, peernum);
 	list_add(&state->peers, &peer->list);
 	peer->state = state;
+	peer->we_are_syncing = true;
+	peer->they_are_syncing = true;
 	peer->error_pkt = NULL;
 	peer->welcome = NULL;
 	peer->outgoing = NULL;
 	peer->incoming = NULL;
 	peer->response = NULL;
 	peer->mutual = NULL;
-	peer->curr_in_req = peer->curr_out_req = PROTOCOL_REQ_NONE;
-	list_head_init(&peer->pending);
-	list_head_init(&peer->complaints);
+	peer->requests_outstanding = 0;
+	list_head_init(&peer->todo);
 	peer->peer_num = peernum;
 
 	state->num_peers++;

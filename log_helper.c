@@ -92,89 +92,74 @@ void log_add_struct_(struct log *log, const char *structname, const void *ptr)
 void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 {
 	const char *name = NULL;
-	if (streq(enumname, "enum protocol_req_type")
-	    || streq(enumname, "enum protocol_resp_type")) {
-		/* These are treated as synonyms, but separate so gcc warns
-		 * about missing ones. */
-		switch ((enum protocol_req_type)val) {
-		case PROTOCOL_REQ_NONE:
-		case PROTOCOL_REQ_MAX:
+	if (streq(enumname, "enum protocol_pkt_type")) {
+		switch ((enum protocol_pkt_type)val) {
+		case PROTOCOL_PKT_NONE:
+		case PROTOCOL_PKT_MAX:
 			break; /* Shouldn't happen! */ 
-		case PROTOCOL_REQ_WELCOME:
-			name = "PROTOCOL_REQ_WELCOME"; break;
-		case PROTOCOL_REQ_ERR:
-			name = "PROTOCOL_REQ_ERR"; break;
-		case PROTOCOL_REQ_NEW_BLOCK:
-			name = "PROTOCOL_REQ_NEW_BLOCK"; break;
-		case PROTOCOL_REQ_NEW_TRANSACTION:
-			name = "PROTOCOL_REQ_NEW_TRANSACTION"; break;
-		case PROTOCOL_REQ_BATCH:
-			name = "PROTOCOL_REQ_BATCH"; break;
-		case PROTOCOL_REQ_TRANSACTION_NUMS:
-			name = "PROTOCOL_REQ_TRANSACTION_NUMS"; break;
-		case PROTOCOL_REQ_TRANSACTION:
-			name = "PROTOCOL_REQ_TRANSACTION"; break;
-		case PROTOCOL_REQ_BAD_TRANS_INPUT:
-			name = "PROTOCOL_REQ_BAD_TRANS_INPUT"; break;
-		case PROTOCOL_REQ_BAD_TRANS_AMOUNT:
-			name = "PROTOCOL_REQ_BAD_TRANS_AMOUNT"; break;
-		case PROTOCOL_REQ_BLOCK_TRANS_INVALID:
-			name = "PROTOCOL_REQ_BLOCK_TRANS_INVALID"; break;
-		case PROTOCOL_REQ_BLOCK_BAD_TRANS_INPUT:
-			name = "PROTOCOL_REQ_BLOCK_BAD_TRANS_INPUT"; break;
-		case PROTOCOL_REQ_BLOCK_BAD_TRANS_AMOUNT:
-			name = "PROTOCOL_REQ_BLOCK_BAD_TRANS_AMOUNT"; break;
-		case PROTOCOL_REQ_BLOCK_TRANS_MISORDER:
-			name = "PROTOCOL_REQ_BLOCK_TRANS_MISORDER"; break;
-		case PROTOCOL_REQ_BLOCK_BAD_INPUT_REF_TRANS:
-			name = "PROTOCOL_REQ_BLOCK_BAD_INPUT_REF_TRANS"; break;
-		}
 
-		if (!name) {
-			switch ((enum protocol_resp_type)val) {
-			case PROTOCOL_RESP_NONE:
-			case PROTOCOL_RESP_MAX:
-				break; /* Shouldn't happen! */ 
-			case PROTOCOL_RESP_WELCOME:
-				name = "PROTOCOL_RESP_WELCOME"; break;
-			case PROTOCOL_RESP_ERR:
-				name = "PROTOCOL_RESP_ERR"; break;
-			case PROTOCOL_RESP_NEW_BLOCK:
-				name = "PROTOCOL_RESP_NEW_BLOCK"; break;
-			case PROTOCOL_RESP_NEW_TRANSACTION:
-				name = "PROTOCOL_RESP_NEW_TRANSACTION"; break;
-			case PROTOCOL_RESP_BATCH:
-				name = "PROTOCOL_RESP_BATCH"; break;
-			case PROTOCOL_RESP_TRANSACTION_NUMS:
-				name = "PROTOCOL_RESP_TRANSACTION_NUMS"; break;
-			case PROTOCOL_RESP_TRANSACTION:
-				name = "PROTOCOL_RESP_TRANSACTION"; break;
-			case PROTOCOL_RESP_BAD_TRANS_INPUT:
-				name = "PROTOCOL_RESP_BAD_TRANS_INPUT"; break;
-			case PROTOCOL_RESP_BAD_TRANS_AMOUNT:
-				name = "PROTOCOL_RESP_BAD_TRANS_AMOUNT"; break;
-			case PROTOCOL_RESP_BLOCK_TRANS_INVALID:
-				name = "PROTOCOL_RESP_BLOCK_TRANS_INVALID"; break;
-			case PROTOCOL_RESP_BLOCK_BAD_TRANS_INPUT:
-				name = "PROTOCOL_RESP_BLOCK_BAD_TRANS_INPUT"; break;
-			case PROTOCOL_RESP_BLOCK_BAD_TRANS_AMOUNT:
-				name = "PROTOCOL_RESP_BLOCK_BAD_TRANS_AMOUNT"; break;
-			case PROTOCOL_RESP_BLOCK_TRANS_MISORDER:
-				name = "PROTOCOL_RESP_BLOCK_TRANS_MISORDER"; break;
-			}
+		case PROTOCOL_PKT_ERR:
+			name = "PROTOCOL_PKT_ERR"; break;
+		case PROTOCOL_PKT_WELCOME:
+			name = "PROTOCOL_PKT_WELCOME"; break;
+		case PROTOCOL_PKT_HORIZON:
+			name = "PROTOCOL_PKT_HORIZON"; break;
+		case PROTOCOL_PKT_SYNC:
+			name = "PROTOCOL_PKT_SYNC"; break;
+		case PROTOCOL_PKT_GET_CHILDREN:
+			name = "PROTOCOL_PKT_GET_CHILDREN"; break;
+		case PROTOCOL_PKT_CHILDREN:
+			name = "PROTOCOL_PKT_CHILDREN"; break;
+		case PROTOCOL_PKT_GET_BLOCK:
+			name = "PROTOCOL_PKT_GET_BLOCK"; break;
+		case PROTOCOL_PKT_BLOCK:
+			name = "PROTOCOL_PKT_BLOCK"; break;
+		case PROTOCOL_PKT_GET_BATCH:
+			name = "PROTOCOL_PKT_GET_BATCH"; break;
+		case PROTOCOL_PKT_BATCH:
+			name = "PROTOCOL_PKT_BATCH"; break;
+
+		case PROTOCOL_PKT_SET_FILTER:
+			name = "PROTOCOL_PKT_SET_FILTER"; break;
+		case PROTOCOL_PKT_TX:
+			name = "PROTOCOL_PKT_TX"; break;
+		case PROTOCOL_PKT_TX_IN_BLOCK:
+			name = "PROTOCOL_PKT_TX_IN_BLOCK"; break;
+		case PROTOCOL_PKT_GET_TX:
+			name = "PROTOCOL_PKT_GET_TX"; break;
+		case PROTOCOL_PKT_GET_TX_IN_BLOCK:
+			name = "PROTOCOL_PKT_GET_TX_IN_BLOCK"; break;
+		case PROTOCOL_PKT_GET_TXMAP:
+			name = "PROTOCOL_PKT_GET_TXMAP"; break;
+		case PROTOCOL_PKT_TXMAP:
+			name = "PROTOCOL_PKT_TXMAP"; break;
+		case PROTOCOL_PKT_TX_BAD_INPUT:
+			name = "PROTOCOL_PKT_TX_BAD_INPUT"; break;
+		case PROTOCOL_PKT_TX_BAD_AMOUNT:
+			name = "PROTOCOL_PKT_TX_BAD_AMOUNT"; break;
+		case PROTOCOL_PKT_BLOCK_TX_MISORDER:
+			name = "PROTOCOL_PKT_BLOCK_TX_MISORDER"; break;
+		case PROTOCOL_PKT_BLOCK_TX_INVALID:
+			name = "PROTOCOL_PKT_BLOCK_TX_INVALID"; break;
+		case PROTOCOL_PKT_BLOCK_TX_BAD_INPUT:
+			name = "PROTOCOL_PKT_BLOCK_TX_BAD_INPUT"; break;
+		case PROTOCOL_PKT_BLOCK_BAD_INPUT_REF:
+			name = "PROTOCOL_PKT_BLOCK_BAD_INPUT_REF"; break;
+		case PROTOCOL_PKT_BLOCK_TX_BAD_AMOUNT:
+			name = "PROTOCOL_PKT_BLOCK_TX_BAD_AMOUNT"; break;
+		case PROTOCOL_PKT_PIGGYBACK:
+			name = "PROTOCOL_PKT_PIGGYBACK"; break;
 		}
 	} else if (streq(enumname, "enum protocol_error")) {
 		switch ((enum protocol_error)val) {
 		case PROTOCOL_ERROR_NONE:
 			name = "PROTOCOL_ERROR_NONE"; break;
-		case PROTOCOL_UNKNOWN_COMMAND:
-			name = "PROTOCOL_UNKNOWN_COMMAND"; break;
+		case PROTOCOL_ERROR_UNKNOWN_COMMAND:
+			name = "PROTOCOL_ERROR_UNKNOWN_COMMAND"; break;
 		case PROTOCOL_INVALID_LEN:
 			name = "PROTOCOL_INVALID_LEN"; break;
-		case PROTOCOL_SHOULD_BE_WAITING:
-			name = "PROTOCOL_SHOULD_BE_WAITING"; break;
-		case PROTOCOL_INVALID_RESPONSE:
-			name = "PROTOCOL_INVALID_RESPONSE"; break;
+		case PROTOCOL_ERROR_SHOULD_BE_WAITING:
+			name = "PROTOCOL_ERROR_SHOULD_BE_WAITING"; break;
 		case PROTOCOL_ERROR_HIGH_VERSION:
 			name = "PROTOCOL_ERROR_HIGH_VERSION"; break;
 		case PROTOCOL_ERROR_LOW_VERSION:
@@ -183,6 +168,18 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "PROTOCOL_ERROR_NO_INTEREST"; break;
 		case PROTOCOL_ERROR_WRONG_GENESIS:
 			name = "PROTOCOL_ERROR_WRONG_GENESIS"; break;
+		case PROTOCOL_ERROR_NO_MUTUAL:
+			name = "PROTOCOL_ERROR_NO_MUTUAL"; break;
+		case PROTOCOL_ERROR_FILTER_INVALID:
+			name = "PROTOCOL_ERROR_FILTER_INVALID"; break;
+		case PROTOCOL_ERROR_UNKNOWN_BLOCK:
+			name = "PROTOCOL_ERROR_UNKNOWN_BLOCK"; break;
+		case PROTOCOL_ERROR_UNKNOWN_TX:
+			name = "PROTOCOL_ERROR_UNKNOWN_TX"; break;
+		case PROTOCOL_ERROR_BAD_TXPOS:
+			name = "PROTOCOL_ERROR_BAD_TXPOS"; break;
+		case PROTOCOL_ERROR_BAD_BATCHNUM:
+			name = "PROTOCOL_ERROR_BAD_BATCHNUM"; break;
 		case PROTOCOL_ERROR_BLOCK_HIGH_VERSION:
 			name = "PROTOCOL_ERROR_BLOCK_HIGH_VERSION"; break;
 		case PROTOCOL_ERROR_BLOCK_LOW_VERSION:
@@ -213,24 +210,15 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "PROTOCOL_ERROR_TRANS_BAD_SIG"; break;
 		case PROTOCOL_ERROR_TOO_MANY_INPUTS:
 			name = "PROTOCOL_ERROR_TOO_MANY_INPUTS"; break;
-		case PROTOCOL_ERROR_UNKNOWN_BLOCK:
-			name = "PROTOCOL_ERROR_UNKNOWN_BLOCK"; break;
-		case PROTOCOL_ERROR_BAD_BATCHNUM:
-			name = "PROTOCOL_ERROR_BAD_BATCHNUM"; break;
-		case PROTOCOL_ERROR_UNKNOWN_BATCH:
-			name = "PROTOCOL_ERROR_UNKNOWN_BATCH"; break;
-		case PROTOCOL_ERROR_DISAGREE_BATCHNUM:
-			name = "PROTOCOL_ERROR_DISAGREE_BATCHNUM"; break;
-		case PROTOCOL_ERROR_DISAGREE_BATCHSIZE:
-			name = "PROTOCOL_ERROR_DISAGREE_BATCHSIZE"; break;
-		case PROTOCOL_ERROR_TRANS_BAD_INPUT:
-			name = "PROTOCOL_ERROR_TRANS_BAD_INPUT"; break;
-		case PROTOCOL_ERROR_TRANS_BAD_AMOUNTS:
-			name = "PROTOCOL_ERROR_TRANS_BAD_AMOUNTS"; break;
-		case PROTOCOL_ERROR_BATCH_BAD_INPUT_REF:
-			name = "PROTOCOL_ERROR_BATCH_BAD_INPUT_REF"; break;
-		case PROTOCOL_ERROR_BATCH_BAD_INPUT_REF_TRANS:
-			name = "PROTOCOL_ERROR_BATCH_BAD_INPUT_REF_TRANS"; break;
+		case PROTOCOL_ERROR_PRIV_TRANS_BAD_INPUT:
+			name = "PROTOCOL_ERROR_PRIV_TRANS_BAD_INPUT"; break;
+		case PROTOCOL_ERROR_PRIV_TRANS_BAD_AMOUNTS:
+			name = "PROTOCOL_ERROR_PRIV_TRANS_BAD_AMOUNTS"; break;
+		case PROTOCOL_ERROR_PRIV_BATCH_BAD_INPUT_REF:
+			name = "PROTOCOL_ERROR_PRIV_BATCH_BAD_INPUT_REF"; break;
+		case PROTOCOL_ERROR_PRIV_BATCH_BAD_INPUT_REF_TRANS:
+			name = "PROTOCOL_ERROR_PRIV_BATCH_BAD_INPUT_REF_TRANS";
+			break;
 		case PROTOCOL_ERROR_MAX:
 			break; /* Shouldn't happen! */
 		}

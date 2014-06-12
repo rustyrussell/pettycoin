@@ -109,14 +109,14 @@ void load_blocks(struct state *state)
 		}
 
 		switch (le32_to_cpu(pkt->type)) {
-		case PROTOCOL_REQ_NEW_BLOCK:
+		case PROTOCOL_PKT_BLOCK:
 			if (!load_block(state, pkt)) {
 				log_unusual(state->log,
 					    "blockfile partial block");
 				goto truncate;
 			}
 			break;
-		case PROTOCOL_REQ_NEW_TRANSACTION:
+		case PROTOCOL_PKT_TX:
 			if (!load_transaction(state, pkt)) {
 				log_unusual(state->log,
 					    "blockfile partial transaction");
@@ -141,7 +141,7 @@ truncate:
 
 void save_block(struct state *state, struct block *new)
 {
-	struct protocol_req_new_block *blk;
+	struct protocol_pkt_block *blk;
 	size_t len;
 
 	blk = marshall_block(state,
@@ -164,7 +164,7 @@ void save_transaction(struct state *state, struct block *b, u32 i)
 
 	len = marshall_transaction_len(t);
 	hdr.len = cpu_to_le32(sizeof(hdr) + len);
-	hdr.type = PROTOCOL_REQ_NEW_TRANSACTION;
+	hdr.type = PROTOCOL_PKT_TX;
 	hdr.block = b->sha;
 	hdr.num = cpu_to_le32(i);
 
