@@ -1124,7 +1124,7 @@ static struct io_plan welcome_received(struct io_conn *conn, struct peer *peer)
 	peer->you.port = peer->welcome->listen_port;
 
 	/* Create/update time for this peer. */
-	peer_cache_update(state, &peer->you, time_to_sec(time_now()));
+	peer_cache_update(state, &peer->you, time_now().ts.tv_sec);
 
 	return io_write_packet(peer, resp, receive_welcome_ack);
 }

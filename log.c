@@ -8,7 +8,7 @@
 
 struct log_entry {
 	struct list_node list;
-	struct timespec time;
+	struct timeabs time;
 	enum log_level level;
 	unsigned int skipped;
 	char *log;
@@ -142,7 +142,7 @@ void log_to_file(int fd, const struct log *log)
 {
 	const struct log_entry *i;
 	char buf[100];
-	struct timespec prev;
+	struct timeabs prev;
 	time_t start;
 	const char *prefix;
 
@@ -156,8 +156,8 @@ void log_to_file(int fd, const struct log *log)
 
 	/* ctime only does seconds, so start log from 0ns past the second. */
 	prev = i->time;
-	prev.tv_nsec = 0;
-	start = prev.tv_sec;
+	prev.ts.tv_nsec = 0;
+	start = prev.ts.tv_sec;
 	sprintf(buf, " %zu bytes, %s", log->mem_used, ctime(&start));
 	write_all(fd, buf, strlen(buf));
 
@@ -165,17 +165,18 @@ void log_to_file(int fd, const struct log *log)
 	prefix = "";
 
 	list_for_each(&log->log, i, list) {
-		struct timespec diff;
+		struct timerel diff;
 
 		if (i->skipped) {
 			sprintf(buf, "%s... %u skipped...", prefix, i->skipped);
 			write_all(fd, buf, strlen(buf));
 			prefix = "\n";
 		}
-		diff = time_sub(i->time, prev);
+		diff = time_between(i->time, prev);
 		sprintf(buf, "%s+%lu.%09u %s: ",
 			prefix,
-			(unsigned long)diff.tv_sec, (unsigned)diff.tv_nsec,
+			(unsigned long)diff.ts.tv_sec,
+			(unsigned)diff.ts.tv_nsec,
 			i->level == LOG_DBG ? "DEBUG"
 			: i->level == LOG_INFORM ? "INFO"
 			: i->level == LOG_UNUSUAL ? "UNUSUAL"

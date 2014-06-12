@@ -114,7 +114,7 @@ static bool is_zero_addr(const struct protocol_net_address *addr)
 static bool check_peer_cache(struct state *state, const struct peer_cache *pc)
 {
 	unsigned int i;
-	u32 time = time_to_sec(time_now());
+	u32 time = time_now().ts.tv_sec;
 
 	for (i = 0; i < ARRAY_SIZE(pc->file.h); i++) {
 		if (is_zero_addr(&pc->file.h[i].addr))
