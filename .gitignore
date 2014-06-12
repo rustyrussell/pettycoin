@@ -1,9 +1,11 @@
 *.o
 *.d
 *~
+vgcore.*
 generate
 mkgenesis
 pettycoin
 TAGS
-gateway_inject
+inject
 mkpriv
+sizes
