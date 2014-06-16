@@ -126,6 +126,7 @@ void tal_packet_append(void *ppkt, const void *mem, size_t len)
 	u32 orig_len = le32_to_cpu((*hdr)->len);
 
 	tal_resize((char **)ppkt, orig_len + len);
+	hdr = ppkt;
 	memcpy((char *)*hdr + orig_len, mem, len);
 	(*hdr)->len = cpu_to_le32(orig_len + len);
 }
