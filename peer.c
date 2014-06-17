@@ -188,9 +188,9 @@ static struct protocol_pkt_block *block_pkt(tal_t *ctx, const struct block *b)
 	return blk;
 }
 
-static void send_block_to_peers(struct state *state,
-				struct peer *exclude,
-				const struct block *block)
+void send_block_to_peers(struct state *state,
+			 struct peer *exclude,
+			 const struct block *block)
 {
 	struct peer *peer;
 
@@ -950,29 +950,23 @@ recv_set_filter(struct peer *peer, const struct protocol_pkt_set_filter *pkt)
 
 /* Don't let them flood us with cheap, random blocks. */
 static void seek_predecessor(struct state *state, 
-			     const struct protocol_block_header *hdr,
-			     const struct protocol_double_sha *merkles,
-			     const u8 *prev_merkles,
-			     const struct protocol_block_tailer *tailer)
+			     const struct protocol_double_sha *sha,
+			     const struct protocol_double_sha *prev)
 {
-	struct protocol_double_sha sha;
 	u32 diff;
-
-	hash_block(hdr, merkles, prev_merkles, tailer, &sha);
 
 	/* Make sure they did at least 1/4 current work. */
 	diff = le32_to_cpu(state->preferred_chain->tailer->difficulty);
 	diff = ((diff & 0xFF000000) - 1) | ((diff & 0x00FFFFFF) >> 6);
 
-	if (!beats_target(&sha, diff)) {
+	if (!beats_target(sha, diff)) {
 		log_debug(state->log, "Ignoring unknown prev in easy block");
 		return;
 	}
 
 	log_debug(state->log, "Seeking block prev ");
-	log_add_struct(state->log, struct protocol_double_sha,
-		       &hdr->prev_block);
-	todo_add_get_block(state, &hdr->prev_block);
+	log_add_struct(state->log, struct protocol_double_sha, prev);
+	todo_add_get_block(state, prev);
 }
 
 static enum protocol_error
@@ -985,6 +979,7 @@ recv_block(struct peer *peer, const struct protocol_pkt_block *pkt)
 	const struct protocol_block_tailer *tailer;
 	const struct protocol_block_header *hdr = (void *)(pkt + 1);
 	u32 blocklen = le32_to_cpu(pkt->len) - sizeof(*pkt);
+	struct protocol_double_sha sha;
 
 	e = unmarshall_block(peer->log, blocklen, hdr,
 			     &merkles, &prev_merkles, &tailer);
@@ -997,7 +992,10 @@ recv_block(struct peer *peer, const struct protocol_pkt_block *pkt)
 		  hdr->version, hdr->features_vote, hdr->num_transactions);
 
 	e = check_block_header(peer->state, hdr, merkles, prev_merkles,
-			       tailer, &new);
+			       tailer, &new, &sha);
+	/* In case we were asking for this, we're not any more. */
+	todo_done_get_block(peer, &sha, true);
+
 	if (e != PROTOCOL_ERROR_NONE) {
 		log_unusual(peer->log, "checking new block gave ");
 		log_add_enum(peer->log, enum protocol_error, e);
@@ -1005,8 +1003,7 @@ recv_block(struct peer *peer, const struct protocol_pkt_block *pkt)
 		/* If it was due to unknown prev, ask about that. */
 		if (e == PROTOCOL_ERROR_UNKNOWN_PREV)
 			/* FIXME: Keep it around! */
-			seek_predecessor(peer->state, hdr, merkles,
-					 prev_merkles, tailer);
+			seek_predecessor(peer->state, &sha, &hdr->prev_block);
 		return e;
 	}
 
@@ -1030,8 +1027,13 @@ recv_block(struct peer *peer, const struct protocol_pkt_block *pkt)
 	} else {
 		block_add(peer->state, new);
 		save_block(peer->state, new);
-		if (!peer->we_are_syncing)
+		/* If we're syncing, ask about children */
+		if (peer->we_are_syncing)
+			todo_add_get_children(peer->state, &new->sha);
+		else
+			/* Otherwise, tell peers about new block. */
 			send_block_to_peers(peer->state, peer, new);
+			
 		b = new;
 	}
 
@@ -1130,6 +1132,18 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 	return PROTOCOL_ERROR_NONE;
 }
 
+static enum protocol_error
+recv_unknown_block(struct peer *peer,
+		   const struct protocol_pkt_unknown_block *pkt)
+{
+	if (le32_to_cpu(pkt->len) != sizeof(*pkt))
+		return PROTOCOL_INVALID_LEN;
+
+	/* In case we were asking for this, ask someone else. */
+	todo_done_get_block(peer, &pkt->block, false);
+
+	return PROTOCOL_ERROR_NONE;
+}
 static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 {
 	const struct protocol_net_hdr *hdr = peer->incoming;
@@ -1174,6 +1188,12 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 		break;
 	case PROTOCOL_PKT_TX:
 		err = recv_tx(peer, peer->incoming);
+		break;
+	case PROTOCOL_PKT_GET_BLOCK:
+		err = recv_get_block(peer, peer->incoming, &reply);
+		break;
+	case PROTOCOL_PKT_UNKNOWN_BLOCK:
+		err = recv_unknown_block(peer, peer->incoming);
 		break;
 	default:
 		err = PROTOCOL_ERROR_UNKNOWN_COMMAND;

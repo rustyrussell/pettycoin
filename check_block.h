@@ -17,14 +17,17 @@ struct protocol_block_header *unmarshall_block_header(void *buffer,
 						      size_t size);
 
 /* Returns error if bad, otherwise *blockp is placed in chain.
-   Not sufficient by itself: see check_block_prev_merkles! */
+   Not sufficient by itself: see check_block_prev_merkles! 
+   sha is set if not NULL (even if error occurs).
+*/
 enum protocol_error
 check_block_header(struct state *state,
 		   const struct protocol_block_header *hdr,
 		   const struct protocol_double_sha *merkles,
 		   const u8 *prev_merkles,
 		   const struct protocol_block_tailer *tailer,
-		   struct block **blockp);
+		   struct block **blockp,
+		   struct protocol_double_sha *sha);
 
 /* Does merkle match? */
 bool batch_belongs_in_block(const struct block *block,

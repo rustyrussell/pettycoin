@@ -7,6 +7,7 @@ struct protocol_pkt_sync;
 struct protocol_pkt_horizon;
 struct protocol_pkt_children;
 struct protocol_pkt_get_children;
+struct protocol_pkt_get_block;
 
 /* Create sync packet for this peer (which will own it) */
 void *sync_or_horizon_pkt(struct peer *peer, const struct block *mutual);
@@ -29,4 +30,9 @@ recv_get_children(struct peer *peer,
 enum protocol_error recv_children(struct peer *peer,
 				  const struct protocol_pkt_children *pkt);
 
+/* Process protocol_pkt_get_block */
+enum protocol_error
+recv_get_block(struct peer *peer,
+	       const struct protocol_pkt_get_block *pkt,
+	       void **reply);
 #endif /* PETTYCOIN_SYNC_H */

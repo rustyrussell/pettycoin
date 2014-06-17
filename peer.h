@@ -81,6 +81,10 @@ void remove_trans_from_peers(struct state *state,
 
 void wake_peers(struct state *state);
 
+void send_block_to_peers(struct state *state,
+			 struct peer *exclude,
+			 const struct block *block);
+
 void broadcast_to_peers(struct state *state,
 			const struct protocol_net_hdr *pkt);
 #endif /* PETTYCOIN_PEER_H */

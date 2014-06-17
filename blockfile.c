@@ -37,7 +37,7 @@ static bool load_block(struct state *state, struct protocol_net_hdr *pkt)
 		return false;
 
 	e = check_block_header(state, hdr, merkles, prev_merkles,
-			       tailer, &new);
+			       tailer, &new, NULL);
 	if (e != PROTOCOL_ERROR_NONE)
 		return false;
 

@@ -231,17 +231,61 @@ recv_get_children(struct peer *peer,
 	/* If we don't know it, that's OK. */
 	b = block_find_any(peer->state, &pkt->block);
 	if (!b) {
+		log_debug(peer->log, "unknown get_children block ");
+		log_add_struct(peer->log, struct protocol_double_sha,
+			       &pkt->block);
 		r->err = cpu_to_le32(PROTOCOL_ERROR_UNKNOWN_BLOCK);
 		return PROTOCOL_ERROR_NONE;
 	}
 	r->err = cpu_to_le32(PROTOCOL_ERROR_NONE);
 
+	log_debug(peer->log, "Creating children block for ");
+	log_add_struct(peer->log, struct protocol_double_sha,
+			       &pkt->block);
 	list_for_each(&b->children, i, sibling) {
 		struct protocol_net_syncblock s;
 
 		s.block = i->sha;
 		s.children = cpu_to_le32(num_children(i, NULL, 0));
 		tal_packet_append(&r, &s, sizeof(s));
+		*reply = r;
+
+		log_debug(peer->log, "Adding %u children ",
+			  le32_to_cpu(s.children));
+		log_add_struct(peer->log, struct protocol_double_sha,
+			       &s.block);
+		assert(block_find_any(peer->state, &s.block));
+	}
+
+	return PROTOCOL_ERROR_NONE;
+}
+
+enum protocol_error
+recv_get_block(struct peer *peer,
+	       const struct protocol_pkt_get_block *pkt,
+	       void **reply)
+{
+	struct block *b;
+
+	if (le32_to_cpu(pkt->len) != sizeof(*pkt))
+		return PROTOCOL_INVALID_LEN;
+
+	b = block_find_any(peer->state, &pkt->block);
+	if (b) {
+		struct protocol_pkt_block *r;
+		r = tal_packet(peer, struct protocol_pkt_block,
+					PROTOCOL_PKT_BLOCK);
+		tal_packet_append_block(&r, b);
+		*reply = r;
+	} else {
+		/* If we don't know it, that's OK. */
+		struct protocol_pkt_unknown_block *r;
+		log_debug(peer->log, "unknown get_block block ");
+		log_add_struct(peer->log, struct protocol_double_sha,
+			       &pkt->block);
+		r = tal_packet(peer, struct protocol_pkt_unknown_block,
+					PROTOCOL_PKT_UNKNOWN_BLOCK);
+		r->block = pkt->block;
 		*reply = r;
 	}
 
@@ -273,7 +317,7 @@ enum protocol_error recv_children(struct peer *peer,
 
 	len = le32_to_cpu(pkt->len) - sizeof(*pkt);
 	num = len / sizeof(struct protocol_net_syncblock);
-	if (len % sizeof(struct protocol_net_syncblock) || num == 0)
+	if (len % sizeof(struct protocol_net_syncblock))
 		return PROTOCOL_INVALID_LEN;
 
 	s = (void *)(pkt + 1);

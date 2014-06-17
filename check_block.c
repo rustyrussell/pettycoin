@@ -30,13 +30,16 @@ check_block_header(struct state *state,
 		   const struct protocol_double_sha *merkles,
 		   const u8 *prev_merkles,
 		   const struct protocol_block_tailer *tailer,
-		   struct block **blockp)
+		   struct block **blockp,
+		   struct protocol_double_sha *sha)
 {
 	struct block *block = (*blockp) = tal(state, struct block);
 	enum protocol_error e;
 
+	/* Shouldn't happen, since we check in unmarshall. */
 	if (!version_ok(hdr->version)) {
 		e = PROTOCOL_ERROR_BLOCK_HIGH_VERSION;
+		memset(sha, 0, sizeof(*sha));
 		goto fail;
 	}
 
@@ -46,6 +49,8 @@ check_block_header(struct state *state,
 
 	/* Get SHA: should have enough leading zeroes to beat target. */
 	hash_block(hdr, merkles, prev_merkles, tailer, &block->sha);
+	if (sha)
+		*sha = block->sha;
 
 	if (!beats_target(&block->sha, le32_to_cpu(tailer->difficulty))) {
 		e = PROTOCOL_ERROR_INSUFFICIENT_WORK;

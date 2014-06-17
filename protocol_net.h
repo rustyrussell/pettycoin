@@ -32,7 +32,9 @@ enum protocol_pkt_type {
 	PROTOCOL_PKT_CHILDREN,
 	/* Please tell me about this block */
 	PROTOCOL_PKT_GET_BLOCK,
-	/* Here's a block (may be response to above, or spontaneous) */
+	/* Response to the above */
+	PROTOCOL_PKT_UNKNOWN_BLOCK,
+	/* Here's a block (may be response to GET_BLOCK, or spontaneous) */
 	PROTOCOL_PKT_BLOCK,
 	/* Please tell me about this batch */
 	PROTOCOL_PKT_GET_BATCH,
@@ -294,6 +296,14 @@ struct protocol_pkt_get_block {
 
 	struct protocol_double_sha block;
 };
+
+struct protocol_pkt_unknown_block {
+	le32 len; /* sizeof(struct protocol_pkt_unknown_block) */
+	le32 type; /* PROTOCOL_PKT_UNKNOWN_BLOCK */
+
+	struct protocol_double_sha block;
+};
+
 
 /* Ask for a specific transaction (reply will be PROTOCOL_PKT_TX). */
 struct protocol_pkt_get_tx {

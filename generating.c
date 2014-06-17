@@ -223,7 +223,7 @@ static struct io_plan got_trans(struct io_conn *conn, struct generator *gen)
 		save_transaction(gen->state, gen->new, i);
 
 	/* We may need to revise what we consider mutual blocks with peers. */
- 	wake_peers(gen->state);
+	send_block_to_peers(gen->state, NULL, gen->new);
 
 	return io_close();
 }
@@ -247,7 +247,7 @@ static struct io_plan got_solution(struct io_conn *conn, struct generator *gen)
 	}
 
 	e = check_block_header(gen->state, hdr, merkles, prev_merkles,
-			       tailer, &gen->new);
+			       tailer, &gen->new, NULL);
 	if (e != PROTOCOL_ERROR_NONE) {
 		log_broken(gen->log, "Generator %u block error %u",
 			   gen->pid, e);
