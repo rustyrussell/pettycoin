@@ -173,7 +173,7 @@ void send_trans_to_peers(struct state *state,
 
 		/* FIXME: Respect filter! */
 		tx = tal_packet(peer, struct protocol_pkt_tx, PROTOCOL_PKT_TX);
-		tal_packet_append_trans(tx, t);
+		tal_packet_append_trans(&tx, t);
 		todo_for_peer(peer, tx);
 	}
 }

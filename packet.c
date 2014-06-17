@@ -129,7 +129,7 @@ void *tal_packet_dup(const tal_t *ctx, const void *pkt)
 	return tal_dup(ctx, char, (char *)pkt, len, 0);
 }
 
-void tal_packet_append(void *ppkt, const void *mem, size_t len)
+void tal_packet_append_(void *ppkt, const void *mem, size_t len)
 {
 	struct protocol_net_hdr **hdr = ppkt;
 	u32 orig_len = le32_to_cpu((*hdr)->len);
@@ -140,21 +140,21 @@ void tal_packet_append(void *ppkt, const void *mem, size_t len)
 	(*hdr)->len = cpu_to_le32(orig_len + len);
 }
 
-void tal_packet_append_trans(void *ppkt,
-			     const union protocol_transaction *trans)
+void tal_packet_append_trans_(void *ppkt,
+			      const union protocol_transaction *trans)
 {
-	tal_packet_append(ppkt, trans, marshall_transaction_len(trans));
+	tal_packet_append_(ppkt, trans, marshall_transaction_len(trans));
 }
 
-void tal_packet_append_trans_with_refs(void *ppkt,
-				       const union protocol_transaction *trans,
-				       const struct protocol_input_ref *refs)
+void tal_packet_append_trans_with_refs_(void *ppkt,
+					const union protocol_transaction *trans,
+					const struct protocol_input_ref *refs)
 {
-	tal_packet_append_trans(ppkt, trans);
-	tal_packet_append(ppkt, refs, marshall_input_ref_len(trans));
+	tal_packet_append_trans_(ppkt, trans);
+	tal_packet_append_(ppkt, refs, marshall_input_ref_len(trans));
 }
 
-void tal_packet_append_block(void *ppkt, const struct block *block)
+void tal_packet_append_block_(void *ppkt, const struct block *block)
 {
 	struct protocol_net_hdr **hdr = ppkt;
 	u32 orig_len = le32_to_cpu((*hdr)->len);
@@ -168,7 +168,7 @@ void tal_packet_append_block(void *ppkt, const struct block *block)
 	(*hdr)->len = cpu_to_le32(orig_len + len);
 }
 
-void tal_packet_append_proof(void *ppkt, const struct block *block, u32 txnum)
+void tal_packet_append_proof_(void *ppkt, const struct block *block, u32 txnum)
 {
 	struct protocol_trans_with_proof proof;
 
@@ -176,7 +176,7 @@ void tal_packet_append_proof(void *ppkt, const struct block *block, u32 txnum)
 	proof.tnum = cpu_to_le32(txnum);
 	create_proof(&proof.proof, block, txnum);
 
-	tal_packet_append(ppkt, &proof, sizeof(proof));
-	tal_packet_append_trans_with_refs(ppkt, block_get_trans(block, txnum),
-					  block_get_refs(block, txnum));
+	tal_packet_append_(ppkt, &proof, sizeof(proof));
+	tal_packet_append_trans_with_refs_(ppkt, block_get_trans(block, txnum),
+					   block_get_refs(block, txnum));
 }
