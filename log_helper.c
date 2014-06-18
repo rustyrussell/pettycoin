@@ -168,6 +168,8 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "PROTOCOL_ERROR_LOW_VERSION"; break;
 		case PROTOCOL_ERROR_NO_INTEREST:
 			name = "PROTOCOL_ERROR_NO_INTEREST"; break;
+		case PROTOCOL_ERROR_BAD_NUM_SHARDS:
+			name = "PROTOCOL_ERROR_BAD_NUM_SHARDS"; break;
 		case PROTOCOL_ERROR_WRONG_GENESIS:
 			name = "PROTOCOL_ERROR_WRONG_GENESIS"; break;
 		case PROTOCOL_ERROR_NO_MUTUAL:

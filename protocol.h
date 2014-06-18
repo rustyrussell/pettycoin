@@ -11,8 +11,8 @@
 /* How many previous blocks do we record a merkle for? */
 #define PETTYCOIN_PREV_BLOCK_MERKLES	10
 
-/* How many bits do we care about. */
-#define PROTOCOL_SHARD_BITS 12
+/* How many shards for initial blocks. */
+#define PROTOCOL_INITIAL_SHARDS 4
 
 /* Maximum inputs in a single transaction. */
 #define TRANSACTION_MAX_INPUTS 4

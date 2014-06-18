@@ -230,7 +230,7 @@ static struct protocol_pkt_err *err_pkt(struct peer *peer,
 
 static struct block *mutual_block_search(struct peer *peer,
 					 const struct protocol_double_sha *block,
-					 u32 num_blocks)
+					 u16 num_blocks)
 {
 	int i;
 
@@ -1273,7 +1273,7 @@ static struct io_plan welcome_received(struct io_conn *conn, struct peer *peer)
 		return io_close();
 	}
 
-	e = check_welcome(state, peer->welcome);
+	e = check_welcome(state, peer->welcome, &peer->welcome_blocks);
 	if (e != PROTOCOL_ERROR_NONE) {
 		log_unusual(peer->log, "Peer welcome was invalid:");
 		log_add_enum(peer->log, enum protocol_error, e);
@@ -1289,8 +1289,8 @@ static struct io_plan welcome_received(struct io_conn *conn, struct peer *peer)
 	/* Create/update time for this peer. */
 	peer_cache_update(state, &peer->you, time_now().ts.tv_sec);
 
-	mutual = mutual_block_search(peer, peer->welcome->block,
-				     le32_to_cpu(peer->welcome->num_blocks));
+	mutual = mutual_block_search(peer, peer->welcome_blocks,
+				     le16_to_cpu(peer->welcome->num_blocks));
 	return io_write_packet(peer, sync_or_horizon_pkt(peer, mutual),
 			       recv_sync_or_horizon);
 }

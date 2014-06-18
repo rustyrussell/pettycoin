@@ -19,6 +19,7 @@ check_trans_normal_basic(struct state *state,
 
 enum protocol_error
 check_trans_from_gateway(struct state *state,
+			 const struct block *block,
 			 const struct protocol_transaction_gateway *t);
 
 /* True if OK. */

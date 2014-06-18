@@ -9,6 +9,7 @@ struct protocol_pkt_welcome *make_welcome(const tal_t *ctx,
 					  const struct protocol_net_address *a);
 
 enum protocol_error check_welcome(const struct state *state,
-				  const struct protocol_pkt_welcome *w);
+				  const struct protocol_pkt_welcome *w,
+				  const struct protocol_double_sha **blocks);
 
 #endif /* PETTYCOIN_WELCOME_H */

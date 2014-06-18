@@ -9,6 +9,7 @@
 #include "shadouble.h"
 #include "signature.h"
 #include "state.h"
+#include "shard.h"
 #include "version.h"
 #include <assert.h>
 #include <ccan/endian/endian.h>
@@ -184,20 +185,14 @@ check_trans_normal_inputs(struct state *state,
 	return PROTOCOL_ERROR_NONE;
 }
 
-static u32 shard_of(const struct protocol_address *addr)
-{
-	be32 shard;
-
-	memcpy(&shard, addr->addr, sizeof(shard));
-	return be32_to_cpu(shard) & ((1 << PROTOCOL_SHARD_BITS) - 1);
-}
-
+/* block is NULL if we're not in a block (ie. pending tx) */
 enum protocol_error
 check_trans_from_gateway(struct state *state,
+			 const struct block *block,
 			 const struct protocol_transaction_gateway *t)
 {
 	u32 i;
-	u32 the_shard;
+	u32 shards, the_shard;
 
 	if (!version_ok(t->version))
 		return PROTOCOL_ERROR_TRANS_HIGH_VERSION;
@@ -206,10 +201,15 @@ check_trans_from_gateway(struct state *state,
 		return PROTOCOL_ERROR_TRANS_BAD_GATEWAY;
 
 	/* Each output must be in the same shard. */
+	if (!block)
+		shards = num_shards(state->preferred_chain);
+	else
+		shards = num_shards(block);
+
 	for (i = 0; i < le16_to_cpu(t->num_outputs); i++) {
 		if (i == 0)
-			the_shard = shard_of(&t->output[i].output_addr);
-		else if (shard_of(&t->output[i].output_addr) != the_shard)
+			the_shard = shard_of(&t->output[i].output_addr, shards);
+		else if (shard_of(&t->output[i].output_addr, shards) != the_shard)
 			return PROTOCOL_ERROR_TRANS_CROSS_SHARDS;
 
 		if (le32_to_cpu(t->output[i].send_amount) > MAX_SATOSHI)
@@ -388,7 +388,7 @@ enum protocol_error check_transaction(struct state *state,
 
 	switch (trans->hdr.type) {
 	case TRANSACTION_FROM_GATEWAY:
-		e = check_trans_from_gateway(state, &trans->gateway);
+		e = check_trans_from_gateway(state, block, &trans->gateway);
 		break;
 	case TRANSACTION_NORMAL:
 		e = check_trans_normal_basic(state, &trans->normal);

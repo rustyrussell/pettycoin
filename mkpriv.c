@@ -5,6 +5,7 @@
 #include <string.h>
 #include <assert.h>
 #include "addr.h"
+#include "shard.h"
 
 static void do_error(const char *func)
 {
@@ -19,13 +20,11 @@ static void do_error(const char *func)
 
 static u32 shard_of_key(const struct protocol_pubkey *key)
 {
-	be32 shard;
 	struct protocol_address addr;
 
 	pubkey_to_addr(key, &addr);
 
-	memcpy(&shard, addr.addr, sizeof(shard));
-	return be32_to_cpu(shard) & ((1 << PROTOCOL_SHARD_BITS) - 1);
+	return shard_of(&addr, num_shards(NULL));
 }
 
 int main(int argc, char *argv[])

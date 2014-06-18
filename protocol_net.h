@@ -87,12 +87,15 @@ struct protocol_pkt_welcome {
 	/* Port you can connect to us at (if != 0) */
 	be16 listen_port;
 	/* How many block hashes at end. */
-	le32 num_blocks;
-	/* We are interested in certain addresses, based on their
-	 * lower bits.  We must be interested in more than 1. */
-	u8 interests[(1 << PROTOCOL_SHARD_BITS) / 8];
-	/* Blocks we know about: 10, then power of 2 back. */
-	struct protocol_double_sha block[ /* num_blocks */ ];
+	le16 num_blocks;
+	/* Our num_shards (must be power of 2). */
+	le16 num_shards;
+	/* Followed by:
+	   What addresses we're interested in (based on lower bits)
+	     u8 interests[(num_shards + 31) / 32 * 4];
+	   Blocks we know about: 10, then power of 2 back.
+	     struct protocol_double_sha block[num_blocks];
+	*/
 };
 
 /* If you're behind the horizon, this gets you there quickly. */
@@ -380,6 +383,7 @@ enum protocol_error {
 	/* protocol_pkt_welcome: */
 	PROTOCOL_ERROR_HIGH_VERSION, /* version is unknown. */
 	PROTOCOL_ERROR_LOW_VERSION, /* version is old. */
+	PROTOCOL_ERROR_BAD_NUM_SHARDS, /* num_shards is wrong. */
 	PROTOCOL_ERROR_NO_INTEREST, /* not enough interest bits. */
 	PROTOCOL_ERROR_WRONG_GENESIS, /* your inital block is wrong. */
 

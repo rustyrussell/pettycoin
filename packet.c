@@ -168,6 +168,11 @@ void tal_packet_append_block_(void *ppkt, const struct block *block)
 	(*hdr)->len = cpu_to_le32(orig_len + len);
 }
 
+void tal_packet_append_sha_(void *ppkt, const struct protocol_double_sha *sha)
+{
+	tal_packet_append_(ppkt, sha, sizeof(*sha));
+}
+
 void tal_packet_append_proof_(void *ppkt, const struct block *block, u32 txnum)
 {
 	struct protocol_trans_with_proof proof;
