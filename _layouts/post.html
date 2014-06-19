@@ -7,12 +7,12 @@
 <hr>
 {% if page.previous %} 
 <div style="float: left;">
-<a rel="prev" href="{{ page.previous.url }}">&larr; Previous Entry </a>
+<a rel="prev" href="{{ site.baseurl }}{{ page.previous.url }}">&larr; Previous Entry </a>
 </div>
 {% endif %}
 {% if page.next %} 
 <div style="float: right;">
-<a rel="next" href="{{ page.next.url }}">Next Entry &rarr;</a>
+<a rel="next" href="{{ site.baseurl }}{{ page.next.url }}">Next Entry &rarr;</a>
 </div>
 {% endif %}
 </section>
