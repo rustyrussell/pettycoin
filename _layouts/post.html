@@ -1,0 +1,20 @@
+{% include header.html %}
+<section>
+<h1> {{ page.title }} </h1>
+<em> {{page.date | date_to_string }} </em><br>
+{{ content }}
+
+<hr>
+{% if page.previous %} 
+<div style="float: left;">
+<a rel="prev" href="{{ page.previous.url }}">&larr; Previous Entry </a>
+</div>
+{% endif %}
+{% if page.next %} 
+<div style="float: right;">
+<a rel="next" href="{{ page.next.url }}">Next Entry &rarr;</a>
+</div>
+{% endif %}
+</section>
+
+{% include footer.html %}
