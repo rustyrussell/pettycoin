@@ -1,1 +1,4 @@
 baseurl: /pettycoin
+name: Pettycoin Development Blog
+description: Details of pettycoin's development
+url: http://rustyrussell.github.io/pettycoin/
