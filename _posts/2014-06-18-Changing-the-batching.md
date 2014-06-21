@@ -15,6 +15,7 @@ shard of the input(s) (which must be the same), so all spending from
 one shard is bunched together, and spending to a shard is scattered.
 
 This sorting has two advantages:
+
 1. It makes it easy to grab half of the transactions you care about
    all at once.
 2. In future it should allow efficient guessing of what transactions
