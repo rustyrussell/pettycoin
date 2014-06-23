@@ -75,6 +75,7 @@ create_normal_transaction(struct state *state,
 	union protocol_transaction *ut;
 	struct protocol_transaction_normal *t;
 	unsigned char *p;
+	unsigned int i;
 
 	ut = alloc_transaction(state, TRANSACTION_NORMAL, num_inputs);
 	t = &ut->normal;
@@ -89,6 +90,9 @@ create_normal_transaction(struct state *state,
 	t->change_amount = cpu_to_le32(change_amount);
 
 	t->num_inputs = cpu_to_le32(num_inputs);
+	/* Make sure they don't leave junk here! */
+	for (i = 0; i < num_inputs; i++)
+		assert(inputs[i].unused == 0);
 	memcpy(t->input, inputs, sizeof(t->input[0]) * num_inputs);
 
 	if (!sign_transaction(ut, private_key))

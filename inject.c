@@ -370,9 +370,10 @@ int main(int argc, char *argv[])
 		for (i = 0; i < argc - 8; i++) {
 			input[i].input = parse_sha(argv[8+i]);
 			if (argv[8+i][64] == '/')
-				input[i].output = cpu_to_le32(atoi(argv[8+i] + 65));
+				input[i].output = cpu_to_le16(atoi(argv[8+i] + 65));
 			else
-				input[i].output = cpu_to_le32(0);
+				input[i].output = cpu_to_le16(0);
+			input[i].unused = cpu_to_le16(0);
 		}
 		t = create_normal_transaction(NULL, &destaddr, atoi(argv[6]),
 					      atoi(argv[7]), argc - 8, input,
