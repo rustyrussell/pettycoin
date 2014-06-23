@@ -1,6 +1,7 @@
 #include "transaction_cmp.h"
 #include "protocol.h"
 #include "marshall.h"
+#include "addr.h"
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -10,13 +11,15 @@ int transaction_cmp(const union protocol_transaction *a,
 		    const union protocol_transaction *b)
 {
 	const struct protocol_address *addra, *addrb;
+	struct protocol_address tmpa, tmpb;
 	int ret;
 	size_t lena, lenb;
 
 	/* We order by upper bits of output. */
 	switch (a->hdr.type) {
 	case TRANSACTION_NORMAL:
-		addra = &a->normal.output_addr;
+		pubkey_to_addr(&a->normal.input_key, &tmpa);
+		addra = &tmpa;
 		break;
 	case TRANSACTION_FROM_GATEWAY:
 		addra = &a->gateway.output[0].output_addr;
@@ -27,7 +30,8 @@ int transaction_cmp(const union protocol_transaction *a,
 
 	switch (b->hdr.type) {
 	case TRANSACTION_NORMAL:
-		addrb = &b->normal.output_addr;
+		pubkey_to_addr(&b->normal.input_key, &tmpb);
+		addrb = &tmpb;
 		break;
 	case TRANSACTION_FROM_GATEWAY:
 		addrb = &b->gateway.output[0].output_addr;
