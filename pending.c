@@ -5,14 +5,12 @@
 #include "generating.h"
 #include "transaction_cmp.h"
 #include "check_transaction.h"
+#include "create_refs.h"
 #include "block.h"
 #include "peer.h"
 #include "chain.h"
 #include "timestamp.h"
 #include "talv.h"
-
-/* We don't include transactions which are close to being timed out. */
-#define CLOSE_TO_HORIZON 3600
 
 struct pending_block *new_pending_block(struct state *state)
 {
@@ -22,54 +20,6 @@ struct pending_block *new_pending_block(struct state *state)
 	return b;
 }
 
-static bool resolve_input(struct state *state,
-			  const struct block *block,
-			  struct pending_trans *pend,
-			  u32 num)
-{
-	const struct protocol_double_sha *sha;
-	struct thash_iter iter;
-	struct thash_elem *te;
-
-	assert(pend->t->hdr.type == TRANSACTION_NORMAL);
-	assert(num < le32_to_cpu(pend->t->normal.num_inputs));
-
-	sha = &pend->t->normal.input[num].input;
-
-	for (te = thash_firstval(&state->thash, sha, &iter);
-	     te;
-	     te = thash_nextval(&state->thash, sha, &iter)) {
-		if (!block_preceeds(te->block, block))
-			continue;
-
-		/* Don't include any transactions within 1 hour of cutoff. */
-		if (le32_to_cpu(te->block->tailer->timestamp)
-		    + TRANSACTION_HORIZON_SECS - CLOSE_TO_HORIZON
-		    < current_time())
-			return false;
-
-		/* Add 1 since this will go into *next* block */
-		pend->refs[num].blocks_ago = 
-			cpu_to_le32(block->blocknum - te->block->blocknum + 1);
-		pend->refs[num].txnum = cpu_to_le32(te->tnum);
-		return true;
-	}
-	return false;
-}
-
-/* Try to find the inputs in block and its ancestors */
-static bool resolve_inputs(struct state *state,
-			   const struct block *block,
-			   struct pending_trans *pend)
-{
-	u32 i, num = num_inputs(pend->t);
-
-	for (i = 0; i < num; i++)
-		if (!resolve_input(state, block, pend, i))
-			return false;
-
-	return true;
-}
 
 static struct pending_trans *new_pending_trans(const tal_t *ctx,
 					       const union protocol_transaction *t)
@@ -78,7 +28,6 @@ static struct pending_trans *new_pending_trans(const tal_t *ctx,
 
 	pend = tal(ctx, struct pending_trans);
 	pend->t = t;
-	pend->refs = tal_arr(pend, struct protocol_input_ref, num_inputs(t));
 
 	return pend;
 }
@@ -167,8 +116,11 @@ static void recheck_pending_transactions(struct state *state)
 
 		/* FIXME: Usually this is a simple increment to
 		 * ->refs[].blocks_ago. */
-		if (!resolve_inputs(state, state->longest_knowns[0],
-				    state->pending->pend[i])) {
+		tal_free(state->pending->pend[i]->refs);
+		state->pending->pend[i]->refs
+			= create_refs(state, state->longest_knowns[0],
+				      state->pending->pend[i]->t);
+		if (!state->pending->pend[i]->refs) {
 			/* FIXME: put this into pending-awaiting list! */
 			log_debug(state->log, "  inputs no longer known");
 			goto discard;
@@ -240,7 +192,9 @@ void add_pending_transaction(struct peer *peer,
 	}
 
 	pend = new_pending_trans(peer->state, t);
-	if (!resolve_inputs(peer->state, peer->state->longest_knowns[0], pend)) {
+	pend->refs = create_refs(peer->state, peer->state->longest_knowns[0],
+				 t);
+	if (!pend->refs) {
 		/* FIXME: put this into pending-awaiting list! */
 		tal_free(pend);
 		return;
