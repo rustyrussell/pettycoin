@@ -89,8 +89,10 @@ struct protocol_pkt_welcome {
 	be16 listen_port;
 	/* How many block hashes at end. */
 	le16 num_blocks;
-	/* Our num_shards (must be power of 2). */
-	le16 num_shards;
+	/* Our shard_order. */
+	u8 shard_order;
+	/* Pad to 32 bits */
+	u8 unused;
 	/* Followed by:
 	   What addresses we're interested in (based on lower bits)
 	     u8 interests[(num_shards + 31) / 32 * 4];

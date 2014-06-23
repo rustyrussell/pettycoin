@@ -49,14 +49,14 @@ out:
 
 static void add_interests(const struct state *state,
 			  struct protocol_pkt_welcome **w,
-			  u16 num_shards)
+			  u8 shard_order)
 {
-	size_t maplen = (num_shards + 31) / 32 * 4;
+	size_t maplen = ((1 << shard_order) + 31) / 32 * 4;
 	u8 *map = tal_arr(*w, u8, maplen);
 
 	/* FIXME: We tell them we want everything. */
 	memset(map, 0xff, maplen);
-	(*w)->num_shards = cpu_to_le16(num_shards);
+	(*w)->shard_order = shard_order;
 	tal_packet_append(w, map, maplen);
 	tal_free(map);
 }
@@ -74,7 +74,7 @@ struct protocol_pkt_welcome *make_welcome(const tal_t *ctx,
 	w->random = state->random_welcome;
 	w->you = *a;
 	w->listen_port = state->listen_port;
-	add_interests(state, &w, num_shards(state->preferred_chain));
+	add_interests(state, &w, shard_order(state->preferred_chain));
 	add_welcome_blocks(state, &w);
 
 	return w;
@@ -107,19 +107,19 @@ enum protocol_error check_welcome(const struct state *state,
 
 	len -= sizeof(*w);
 
-	/* Check num_shards and shard interest bitmap */
-	if (le16_to_cpu(w->num_shards) < PROTOCOL_INITIAL_SHARDS)
-		return PROTOCOL_ERROR_BAD_NUM_SHARDS;
-	/* Must be a power of 2. */
-	if (le16_to_cpu(w->num_shards) & (le16_to_cpu(w->num_shards)-1))
-		return PROTOCOL_ERROR_BAD_NUM_SHARDS;
+	/* Check number of shards and shard interest bitmap */
+	if (w->shard_order < PROTOCOL_INITIAL_SHARD_ORDER)
+		return PROTOCOL_ERROR_BAD_SHARD_ORDER;
+	/* Must be reasonable. */
+	if (w->shard_order > PROTOCOL_MAX_SHARD_ORDER)
+		return PROTOCOL_ERROR_BAD_SHARD_ORDER;
 
 	/* Interest map follows base welcome struct. */
 	interest = (u8 *)(w + 1);
-	interest_len = ((size_t)le16_to_cpu(w->num_shards) + 31) / 32 * 4;
+	interest_len = (((size_t)1 << w->shard_order) + 31) / 32 * 4;
 	if (len < interest_len)
 		return PROTOCOL_INVALID_LEN;
-	if (popcount(interest, le16_to_cpu(w->num_shards)) < 2)
+	if (popcount(interest, (size_t)1 << w->shard_order) < 2)
 		return PROTOCOL_ERROR_NO_INTEREST;
 
 	len -= interest_len;

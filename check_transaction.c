@@ -192,7 +192,8 @@ check_trans_from_gateway(struct state *state,
 			 const struct protocol_transaction_gateway *t)
 {
 	u32 i;
-	u32 shards, the_shard;
+	u32 the_shard;
+	u8 shard_ord;
 
 	if (!version_ok(t->version))
 		return PROTOCOL_ERROR_TRANS_HIGH_VERSION;
@@ -202,14 +203,14 @@ check_trans_from_gateway(struct state *state,
 
 	/* Each output must be in the same shard. */
 	if (!block)
-		shards = num_shards(state->preferred_chain);
+		shard_ord = shard_order(state->preferred_chain);
 	else
-		shards = num_shards(block);
+		shard_ord = shard_order(block);
 
 	for (i = 0; i < le16_to_cpu(t->num_outputs); i++) {
 		if (i == 0)
-			the_shard = shard_of(&t->output[i].output_addr, shards);
-		else if (shard_of(&t->output[i].output_addr, shards) != the_shard)
+			the_shard = shard_of(&t->output[i].output_addr, shard_ord);
+		else if (shard_of(&t->output[i].output_addr, shard_ord) != the_shard)
 			return PROTOCOL_ERROR_TRANS_CROSS_SHARDS;
 
 		if (le32_to_cpu(t->output[i].send_amount) > MAX_SATOSHI)

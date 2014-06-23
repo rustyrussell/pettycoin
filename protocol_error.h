@@ -12,7 +12,7 @@ enum protocol_error {
 	/* protocol_pkt_welcome: */
 	PROTOCOL_ERROR_HIGH_VERSION, /* version is unknown. */
 	PROTOCOL_ERROR_LOW_VERSION, /* version is old. */
-	PROTOCOL_ERROR_BAD_NUM_SHARDS, /* num_shards is wrong. */
+	PROTOCOL_ERROR_BAD_SHARD_ORDER, /* shard_order is wrong. */
 	PROTOCOL_ERROR_NO_INTEREST, /* not enough interest bits. */
 	PROTOCOL_ERROR_WRONG_GENESIS, /* your inital block is wrong. */
 

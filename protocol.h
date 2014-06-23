@@ -11,8 +11,11 @@
 /* How many previous blocks do we record a merkle for? */
 #define PETTYCOIN_PREV_BLOCK_MERKLES	10
 
-/* How many shards for initial blocks. */
-#define PROTOCOL_INITIAL_SHARDS 4
+/* How many shards for initial blocks == 1 << PROTOCOL_INITIAL_SHARD_ORDER */
+#define PROTOCOL_INITIAL_SHARD_ORDER 2
+
+/* Sanity checking, assume < 1 million shards. */
+#define PROTOCOL_MAX_SHARD_ORDER 16
 
 /* Maximum inputs in a single transaction. */
 #define TRANSACTION_MAX_INPUTS 4
