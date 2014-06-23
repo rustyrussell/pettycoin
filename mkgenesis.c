@@ -1,3 +1,5 @@
+/* FIXME: Exclude genesis from difficulty check, so we can base on a
+ * bitcoin block and be done. */
 /* This calculates the genesis block values.  Supply 8 bytes of nonce:
  *
  * ./genesis 4 0x1dffffff "NYT Head"
