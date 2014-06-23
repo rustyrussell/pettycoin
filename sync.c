@@ -171,7 +171,7 @@ void *sync_or_horizon_pkt(struct peer *peer, const struct block *mutual)
 	const struct block *horizon = find_horizon(peer->state);
 
 	/* If they're below horizon, get them to horizon. */
-	if (mutual->blocknum < horizon->blocknum)
+	if (le32_to_cpu(mutual->hdr->depth) < le32_to_cpu(horizon->hdr->depth))
 		return horizon_pkt(peer, horizon, mutual);
 
 	/* Otherwise tell them num children of blocks since horizon */

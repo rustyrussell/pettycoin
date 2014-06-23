@@ -107,6 +107,7 @@ new_working_block(const tal_t *ctx,
 		  u32 difficulty,
 		  u8 *prev_merkles,
 		  unsigned long num_prev_merkles,
+		  u32 depth,
 		  const struct protocol_double_sha *prev_block,
 		  const struct protocol_address *fees_to)
 {
@@ -130,6 +131,7 @@ new_working_block(const tal_t *ctx,
 	w->hdr.prev_block = *prev_block;
 	w->hdr.num_transactions = cpu_to_le32(0);
 	w->hdr.num_prev_merkles = cpu_to_le32(num_prev_merkles);
+	w->hdr.depth = cpu_to_le32(depth);
 	w->hdr.fees_to = *fees_to;
 
 	w->tailer.timestamp = cpu_to_le32(current_time());
@@ -338,13 +340,13 @@ int main(int argc, char *argv[])
 	struct protocol_address reward_address;
 	struct protocol_double_sha prev_hash;
 	u8 *prev_merkles;
-	u32 difficulty, num_prev_merkles;
+	u32 difficulty, num_prev_merkles, depth;
 
 	err_set_progname(argv[0]);
 
-	if (argc != 5 && argc != 6)
+	if (argc != 6 && argc != 7)
 		errx(1, "Usage: %s <reward_addr> <difficulty> <prevhash>"
-		     " <num-prev-merkles> [<nonce>]",
+		     " <num-prev-merkles> <depth> [<nonce>]",
 			argv[0]);
 
 	if (!from_hex(argv[1], reward_address.addr, sizeof(reward_address)))
@@ -357,6 +359,7 @@ int main(int argc, char *argv[])
 	if (!from_hex(argv[3], prev_hash.sha, sizeof(prev_hash)))
 		errx(1, "Invalid previous hash");
 
+	depth = strtoul(argv[5], NULL, 0);
 	num_prev_merkles = strtoul(argv[4], NULL, 0);
 	prev_merkles = tal_arr(ctx, u8, num_prev_merkles + 1);
 
@@ -366,10 +369,10 @@ int main(int argc, char *argv[])
 		exit(0);
 
 	w = new_working_block(ctx, difficulty, prev_merkles, num_prev_merkles,
-			      &prev_hash, &reward_address);
+			      depth, &prev_hash, &reward_address);
 
-	if (argv[5]) {
-		strncpy((char *)w->hdr.nonce2, argv[5],
+	if (argv[6]) {
+		strncpy((char *)w->hdr.nonce2, argv[6],
 			sizeof(w->hdr.nonce2));
 		update_partial_hash(w);
 	}

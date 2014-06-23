@@ -69,7 +69,7 @@ struct protocol_block_header {
 	struct protocol_double_sha prev_block;
 	le32 num_transactions;
 	le32 num_prev_merkles;
-	/* FIXME: Add le32 depth; */
+	le32 depth;
 	struct protocol_address fees_to;
 };
 

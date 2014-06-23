@@ -1019,11 +1019,12 @@ recv_block(struct peer *peer, const struct protocol_pkt_block *pkt)
 		return PROTOCOL_ERROR_BAD_PREV_MERKLES;
 	}
 
-	log_debug(peer->log, "New block %u is good!", new->blocknum);
+	log_debug(peer->log, "New block %u is good!",
+		  le32_to_cpu(new->hdr->depth));
 
 	if ((b = block_find_any(peer->state, &new->sha)) != NULL) {
 		log_debug(peer->log, "already knew about block %u",
-			  new->blocknum);
+			  le32_to_cpu(new->hdr->depth));
 		tal_free(new);
 	} else {
 		block_add(peer->state, new);

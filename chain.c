@@ -26,7 +26,7 @@ bool block_preceeds(const struct block *a, const struct block *b)
 	if (a == b)
 		return true;
 
-	if (a->blocknum >= b->blocknum)
+	if (le32_to_cpu(a->hdr->depth) >= le32_to_cpu(b->hdr->depth))
 		return false;
 
 	return block_preceeds(a, b->prev);
@@ -37,7 +37,7 @@ struct block *step_towards(const struct block *curr, const struct block *target)
 	const struct block *prev_target;
 
 	/* Move back towards target. */
-	while (curr->blocknum > target->blocknum)
+	while (le32_to_cpu(curr->hdr->depth) > le32_to_cpu(target->hdr->depth))
 		curr = curr->prev;
 
 	/* Already past it, or equal to it */
@@ -45,7 +45,7 @@ struct block *step_towards(const struct block *curr, const struct block *target)
 		return NULL;
 
 	/* Move target back towards curr. */
-	while (target->blocknum > curr->blocknum) {
+	while (le32_to_cpu(target->hdr->depth) > le32_to_cpu(curr->hdr->depth)) {
 		prev_target = target;
 		target = target->prev;
 	}
@@ -67,7 +67,7 @@ struct block *block_ancestor(const struct block *a, unsigned int count)
 	struct block *b;
 
 	/* FIXME: Slow!  Optimize if both on main chain! */
-	for (b = cast_const(struct block *, a); b->blocknum != count; b = b->prev);
+	for (b = cast_const(struct block *, a); le32_to_cpu(b->hdr->depth) != count; b = b->prev);
 	return b;
 }
 
@@ -117,7 +117,7 @@ void check_chains(const struct state *state)
 		num_next_level = 0;
 		list_for_each(state->block_depth[n], i, list) {
 			const struct block *b;
-			assert(i->blocknum == n);
+			assert(le32_to_cpu(i->hdr->depth) == n);
 			assert(num_this_level);
 			num_this_level--;
 			if (n == 0)

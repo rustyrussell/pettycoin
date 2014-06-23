@@ -25,7 +25,7 @@ bool check_timestamp(struct state *state, u32 timestamp,
 
 	/* Genesis timestamp doesn't count: it's canned. */
 	for (i = 0; 
-	     i < ARRAY_SIZE(times) && prev->blocknum != 0;
+	     i < ARRAY_SIZE(times) && prev->prev;
 	     i++, prev = prev->prev)
 		times[i] = le32_to_cpu(prev->tailer->timestamp);
 

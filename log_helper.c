@@ -196,6 +196,8 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "PROTOCOL_ERROR_BAD_DIFFICULTY"; break;
 		case PROTOCOL_ERROR_INSUFFICIENT_WORK:
 			name = "PROTOCOL_ERROR_INSUFFICIENT_WORK"; break;
+		case PROTOCOL_ERROR_BAD_DEPTH:
+			name = "PROTOCOL_ERROR_BAD_DEPTH"; break;
 		case PROTOCOL_ERROR_TRANS_HIGH_VERSION:
 			name = "PROTOCOL_ERROR_TRANS_HIGH_VERSION"; break;
 		case PROTOCOL_ERROR_TRANS_LOW_VERSION:

@@ -18,7 +18,7 @@ struct transaction_batch {
 };
 
 struct block {
-	/* In state->block_depths[blocknum]. */
+	/* In state->block_depths[le32_to_cpu(hdr->depth)]. */
 	struct list_node list;
 
 	/* Links through sibling. */
@@ -29,9 +29,6 @@ struct block {
 
 	/* What features have been locked in for next fortnight? */
 	u8 pending_features;
-
-	/* 0 == genesis block. */
-	unsigned int blocknum;
 
 	/* Do we know all transactions for this and ancestors? */
 	bool all_known;

@@ -39,8 +39,8 @@ static bool resolve_input(struct state *state,
 
 		/* Add 1 since this will go into *next* block */
 		ref->blocks_ago = 
-			cpu_to_le32(prev_block->blocknum
-				    - te->block->blocknum + 1);
+			cpu_to_le32(le32_to_cpu(prev_block->hdr->depth) -
+				    le32_to_cpu(te->block->hdr->depth) + 1);
 		ref->txnum = cpu_to_le32(te->tnum);
 		return true;
 	}

@@ -53,12 +53,12 @@ find_trans_for_ref(struct state *state,
 	const struct block *b;
 
 	*trans = NULL;
-	if (le32_to_cpu(ref->blocks_ago) > block->blocknum)
+	if (le32_to_cpu(ref->blocks_ago) > le32_to_cpu(block->hdr->depth))
 		return PROTOCOL_ERROR_PRIV_BATCH_BAD_INPUT_REF;
 
 	/* FIXME: slow */
-	bnum = block->blocknum - le32_to_cpu(ref->blocks_ago);
-	for (b = block; b->blocknum != bnum; b = b->prev);
+	bnum = le32_to_cpu(block->hdr->depth) - le32_to_cpu(ref->blocks_ago);
+	for (b = block; le32_to_cpu(b->hdr->depth) != bnum; b = b->prev);
 
 	if (le32_to_cpu(ref->txnum) >= le32_to_cpu(b->hdr->num_transactions))
 		return PROTOCOL_ERROR_PRIV_BATCH_BAD_INPUT_REF;
@@ -123,8 +123,8 @@ check_trans_normal_inputs(struct state *state,
 				break;
 
 			/* Can't be right if block number wrong. */
-			if (le32_to_cpu(te->block->blocknum)
-			    != block->blocknum
+			if (le32_to_cpu(te->block->hdr->depth)
+			    != le32_to_cpu(block->hdr->depth)
 			    - le32_to_cpu(refs[i].blocks_ago))
 				continue;
 

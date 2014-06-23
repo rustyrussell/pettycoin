@@ -89,6 +89,8 @@ solve(const tal_t *ctx,
 			      "00000000000000000000000000000000",
 			      /* No prev merkles. */
 			      "0",
+			      /* Genesis block is 0 depth. */
+			      "0",
 			      nonce, NULL);
 			exit(127);
 		}

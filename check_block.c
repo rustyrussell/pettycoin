@@ -64,11 +64,13 @@ check_block_header(struct state *state,
 		goto fail;
 	}
 
+	if (le32_to_cpu(hdr->depth) != le32_to_cpu(block->prev->hdr->depth)+1) {
+		e = PROTOCOL_ERROR_BAD_DEPTH;
+		goto fail;
+	}
+
 	/* If there's something wrong with the previous block, us too. */
 	block->complaint = block->prev->complaint;
-
-	/* We come after our predecessor, obviously. */
-	block->blocknum = block->prev->blocknum + 1;
 
 	/* Can't go backwards, can't be more than 2 hours in future. */
 	if (!check_timestamp(state, le32_to_cpu(tailer->timestamp),block->prev)){
@@ -352,8 +354,9 @@ bool check_block_prev_merkles(struct state *state,
 				log_unusual(state->log,
 					    "Incorrect merkle for block %u:"
 					    " block %u batch %u was %u not %u",
-					    block->blocknum,
-					    block->blocknum - i, j,
+					    le32_to_cpu(block->hdr->depth),
+					    le32_to_cpu(block->hdr->depth) - i,
+					    j,
 					    merkle.sha[0],
 					    block->prev_merkles[off+j]);
 				return false;

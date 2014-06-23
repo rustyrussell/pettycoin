@@ -29,20 +29,22 @@ struct block *block_find(struct block *start, const u8 lower_sha[4])
 
 void block_add(struct state *state, struct block *block)
 {
-	log_debug(state->log, "Adding block %u ", block->blocknum);
+	u32 depth = le32_to_cpu(block->hdr->depth);
+
+	log_debug(state->log, "Adding block %u ", depth);
 	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
 
 	/* Add to list for that generation. */
-	if (block->blocknum >= tal_count(state->block_depth)) {
+	if (depth >= tal_count(state->block_depth)) {
 		/* We can only increment block depths. */
-		assert(block->blocknum == tal_count(state->block_depth));
-		tal_resize(&state->block_depth, block->blocknum + 1);
-		state->block_depth[block->blocknum]
+		assert(depth == tal_count(state->block_depth));
+		tal_resize(&state->block_depth, depth + 1);
+		state->block_depth[depth]
 			= tal(state->block_depth, struct list_head);
-		list_head_init(state->block_depth[block->blocknum]);
+		list_head_init(state->block_depth[depth]);
 	}
 	/* We give some priority to blocks hear about first. */
-	list_add_tail(state->block_depth[block->blocknum], &block->list);
+	list_add_tail(state->block_depth[depth], &block->list);
 
 	block->pending_features = pending_features(block);
 
@@ -187,7 +189,7 @@ invalidate_block_bad_input(struct state *state,
 	struct protocol_pkt_block_tx_bad_input *req;
 
 	assert(le32_to_cpu(trans->hdr.type) == TRANSACTION_NORMAL);
-	log_unusual(state->log, "Block %u ", block->blocknum);
+	log_unusual(state->log, "Block %u ", le32_to_cpu(block->hdr->depth));
 	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
 	log_add(state->log, " invalid due to trans %u ", bad_transnum);
 	log_add_struct(state->log, union protocol_transaction, trans);
@@ -216,7 +218,7 @@ invalidate_block_bad_amounts(struct state *state,
 	unsigned int i;
 
 	assert(le32_to_cpu(trans->hdr.type) == TRANSACTION_NORMAL);
-	log_unusual(state->log, "Block %u ", block->blocknum);
+	log_unusual(state->log, "Block %u ", le32_to_cpu(block->hdr->depth));
 	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
 	log_add(state->log, " invalid amounts in trans %u ", bad_transnum);
 	log_add_struct(state->log, union protocol_transaction, trans);
@@ -250,7 +252,7 @@ invalidate_block_bad_transaction(struct state *state,
 {
 	struct protocol_pkt_block_tx_invalid *req;	
 
-	log_unusual(state->log, "Block %u ", block->blocknum);
+	log_unusual(state->log, "Block %u ", le32_to_cpu(block->hdr->depth));
 	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
 	log_add(state->log, " invalid due to trans %u ", bad_transnum);
 	log_add_struct(state->log, union protocol_transaction, trans);
@@ -277,7 +279,7 @@ void invalidate_block_misorder(struct state *state,
 	trans1 = block_get_trans(block, bad_transnum1);
 	trans2 = block_get_trans(block, bad_transnum2);
 
-	log_unusual(state->log, "Block %u ", block->blocknum);
+	log_unusual(state->log, "Block %u ", le32_to_cpu(block->hdr->depth));
 	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
 	log_add(state->log, " invalid due to misorder trans %u vs %u ",
 		bad_transnum1, bad_transnum2);
@@ -311,7 +313,7 @@ invalidate_block_bad_input_ref_trans(struct state *state,
 	input_block = block_ancestor(block, le32_to_cpu(bad_ref->blocks_ago));
 	in_txnum = le32_to_cpu(bad_ref->txnum);
 
-	log_unusual(state->log, "Block %u ", block->blocknum);
+	log_unusual(state->log, "Block %u ", le32_to_cpu(block->hdr->depth));
 	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
 	log_unusual(state->log, " transaction %u ", bad_transnum);
 	log_add_struct(state->log, union protocol_transaction, trans);

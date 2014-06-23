@@ -254,13 +254,14 @@ static struct io_plan got_solution(struct io_conn *conn, struct generator *gen)
 
 	log_info(gen->log,
 		 "Solution received from generator for block %u (%u trans)",
-		 gen->new->blocknum, le32_to_cpu(hdr->num_transactions));
+		 le32_to_cpu(gen->new->hdr->depth),
+		 le32_to_cpu(hdr->num_transactions));
 
 	/* Actually check the previous merkles are correct. */
 	if (!check_block_prev_merkles(gen->state, gen->new)) {
 		log_broken(gen->log,
 			   "Generator %u block %u bad prev_merkles",
-			   gen->pid, gen->new->blocknum);
+			   gen->pid, le32_to_cpu(gen->new->hdr->depth));
 		return io_close();
 	}
 	/* Read cookies back (actually, struct pending_trans *). */
@@ -303,7 +304,8 @@ static void exec_generator(struct generator *gen)
 {
 	int outfd[2], infd[2];
 	char difficulty[STR_MAX_CHARS(u32)],
-		prev_merkle_str[STR_MAX_CHARS(u32)];
+		prev_merkle_str[STR_MAX_CHARS(u32)],
+		depth[STR_MAX_CHARS(u32)];
 	char prevblock[sizeof(struct protocol_double_sha) * 2 + 1];
 	char nonce[14 + 1];
 	int i;
@@ -317,6 +319,7 @@ static void exec_generator(struct generator *gen)
 	last = gen->state->longest_knowns[0];
 	sprintf(difficulty, "%u", get_difficulty(gen->state, last));
 	sprintf(prev_merkle_str, "%zu", tal_count(prev_merkles));
+	sprintf(depth, "%u", le32_to_cpu(last->hdr->depth) + 1);
 	for (i = 0; i < sizeof(struct protocol_double_sha); i++)
 		sprintf(prevblock + i*2, "%02X", last->sha.sha[i]);
 	
@@ -345,18 +348,19 @@ static void exec_generator(struct generator *gen)
 		       "pettycoin-generate",
 		       /* FIXME: Invalid reward address. */
 		       "0000000000000000000000000000000000000000",
-		       difficulty, prevblock, prev_merkle_str, nonce, NULL);
+		       difficulty, prevblock, prev_merkle_str, depth, nonce,
+		       NULL);
 		exit(127);
 	}
 
 	sprintf(log_prefix, "Generator %u:", gen->pid);
 	gen->log = new_log(gen, gen->state->log,
 			   log_prefix, gen->state->log_level, GEN_LOG_MAX);
-	log_debug(gen->log, "Running '%s' '%s' '%s' %s' '%s' '%s'",
+	log_debug(gen->log, "Running '%s' '%s' '%s' %s' '%s' '%s' '%s'",
 		  gen->state->generate,
 		  /* FIXME: Invalid reward address. */
 		  "0000000000000000000000000000000000000000",
-		  difficulty, prevblock, prev_merkle_str, nonce);
+		  difficulty, prevblock, prev_merkle_str, depth, nonce);
 
 	close(outfd[1]);
 	close(infd[0]);
