@@ -1001,9 +1001,11 @@ recv_block(struct peer *peer, const struct protocol_pkt_block *pkt)
 		log_add_enum(peer->log, enum protocol_error, e);
 
 		/* If it was due to unknown prev, ask about that. */
-		if (e == PROTOCOL_ERROR_UNKNOWN_PREV)
+		if (e == PROTOCOL_ERROR_PRIV_UNKNOWN_PREV) {
 			/* FIXME: Keep it around! */
 			seek_predecessor(peer->state, &sha, &hdr->prev_block);
+			return PROTOCOL_ERROR_NONE;
+		}
 		return e;
 	}
 

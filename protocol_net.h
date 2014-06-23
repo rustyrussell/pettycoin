@@ -415,7 +415,6 @@ enum protocol_error {
 	/* protocol_pkt_block */
 	PROTOCOL_ERROR_BLOCK_HIGH_VERSION, /* block version unknown. */
 	PROTOCOL_ERROR_BLOCK_LOW_VERSION, /* block version is old. */
-	PROTOCOL_ERROR_UNKNOWN_PREV, /* I don't know previous block. */
 	PROTOCOL_ERROR_BAD_TIMESTAMP, /* Too far in future or past. */
 	PROTOCOL_ERROR_BAD_PREV_MERKLES, /* Wrong number of prev_merkles. */
 	PROTOCOL_ERROR_BAD_DIFFICULTY, /* Wrong difficulty calculation. */
@@ -435,6 +434,7 @@ enum protocol_error {
 	PROTOCOL_ERROR_MAX,
 
 	/* Internal error codes. */
+	PROTOCOL_ERROR_PRIV_UNKNOWN_PREV, /* I don't know previous block. */
 	PROTOCOL_ERROR_PRIV_TRANS_BAD_INPUT, /* an input is bad. */
 	PROTOCOL_ERROR_PRIV_TRANS_BAD_AMOUNTS, /* total inputs != outputs  */
 	/* These two only occur within a batch: */

@@ -60,7 +60,7 @@ check_block_header(struct state *state,
 	/* Don't just search on main chain! */
 	block->prev = block_find_any(state, &hdr->prev_block);
 	if (!block->prev) {
-		e = PROTOCOL_ERROR_UNKNOWN_PREV;
+		e = PROTOCOL_ERROR_PRIV_UNKNOWN_PREV;
 		goto fail;
 	}
 

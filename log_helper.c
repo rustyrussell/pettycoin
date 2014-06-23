@@ -188,8 +188,6 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "PROTOCOL_ERROR_BLOCK_HIGH_VERSION"; break;
 		case PROTOCOL_ERROR_BLOCK_LOW_VERSION:
 			name = "PROTOCOL_ERROR_BLOCK_LOW_VERSION"; break;
-		case PROTOCOL_ERROR_UNKNOWN_PREV:
-			name = "PROTOCOL_ERROR_UNKNOWN_PREV"; break;
 		case PROTOCOL_ERROR_BAD_TIMESTAMP:
 			name = "PROTOCOL_ERROR_BAD_TIMESTAMP"; break;
 		case PROTOCOL_ERROR_BAD_PREV_MERKLES:
@@ -214,6 +212,8 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "PROTOCOL_ERROR_TRANS_BAD_SIG"; break;
 		case PROTOCOL_ERROR_TOO_MANY_INPUTS:
 			name = "PROTOCOL_ERROR_TOO_MANY_INPUTS"; break;
+		case PROTOCOL_ERROR_PRIV_UNKNOWN_PREV:
+			name = "PROTOCOL_ERROR_PRIV_UNKNOWN_PREV"; break;
 		case PROTOCOL_ERROR_PRIV_TRANS_BAD_INPUT:
 			name = "PROTOCOL_ERROR_PRIV_TRANS_BAD_INPUT"; break;
 		case PROTOCOL_ERROR_PRIV_TRANS_BAD_AMOUNTS:
