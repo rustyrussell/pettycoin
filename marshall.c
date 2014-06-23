@@ -11,11 +11,11 @@
 #include <assert.h>
 
 enum protocol_error
-unmarshall_block(struct log *log,
-		 size_t size, const struct protocol_block_header *hdr,
-		 const struct protocol_double_sha **merkles,
-		 const u8 **prev_merkles,
-		 const struct protocol_block_tailer **tailer)
+unmarshall_block_into(struct log *log,
+		      size_t size, const struct protocol_block_header *hdr,
+		      const struct protocol_double_sha **merkles,
+		      const u8 **prev_merkles,
+		      const struct protocol_block_tailer **tailer)
 {
 	size_t len, merkle_len;
 
@@ -88,6 +88,19 @@ unmarshall_block(struct log *log,
 
 	log_debug(log, "unmarshalled block size %zu", size);
 	return PROTOCOL_ERROR_NONE;
+}
+
+enum protocol_error
+unmarshall_block(struct log *log,
+		 const struct protocol_pkt_block *pkt,
+		 const struct protocol_block_header **hdr,
+		 const struct protocol_double_sha **merkles,
+		 const u8 **prev_merkles,
+		 const struct protocol_block_tailer **tailer)
+{
+	*hdr = (void *)(pkt + 1);
+	return unmarshall_block_into(log, le32_to_cpu(pkt->len) - sizeof(*pkt),
+				     *hdr, merkles, prev_merkles, tailer);
 }
 
 /* Returns total length, sets merkle_len and prev_merkle_len */

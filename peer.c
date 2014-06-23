@@ -407,8 +407,8 @@ receive_block(struct peer *peer, const struct protocol_req_new_block *req)
 	const struct protocol_block_header *hdr = (void *)req->block;
 	u32 blocklen = le32_to_cpu(req->len) - sizeof(struct protocol_net_hdr);
 
-	e = unmarshall_block(peer->log, blocklen, hdr,
-			     &merkles, &prev_merkles, &tailer);
+	e = unmarshall_block_from(peer->log, blocklen, hdr,
+				  &merkles, &prev_merkles, &tailer);
 	if (e != PROTOCOL_ERROR_NONE) {
 		log_unusual(peer->log, "unmarshalling new block gave %u", e);
 		goto fail;
@@ -977,12 +977,11 @@ recv_block(struct peer *peer, const struct protocol_pkt_block *pkt)
 	const struct protocol_double_sha *merkles;
 	const u8 *prev_merkles;
 	const struct protocol_block_tailer *tailer;
-	const struct protocol_block_header *hdr = (void *)(pkt + 1);
-	u32 blocklen = le32_to_cpu(pkt->len) - sizeof(*pkt);
+	const struct protocol_block_header *hdr;
 	struct protocol_double_sha sha;
 
-	e = unmarshall_block(peer->log, blocklen, hdr,
-			     &merkles, &prev_merkles, &tailer);
+	e = unmarshall_block(peer->log, pkt,
+			     &hdr, &merkles, &prev_merkles, &tailer);
 	if (e != PROTOCOL_ERROR_NONE) {
 		log_unusual(peer->log, "unmarshalling new block gave %u", e);
 		return e;

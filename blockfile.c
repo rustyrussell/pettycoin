@@ -29,10 +29,10 @@ static bool load_block(struct state *state, struct protocol_net_hdr *pkt)
 	const struct protocol_double_sha *merkles;
 	const u8 *prev_merkles;
 	const struct protocol_block_tailer *tailer;
-	struct protocol_block_header *hdr = (void *)(pkt + 1);
+	const struct protocol_block_header *hdr;
 
-	e = unmarshall_block(state->log, le32_to_cpu(pkt->len) - sizeof(*pkt),
-			     hdr, &merkles, &prev_merkles, &tailer);
+	e = unmarshall_block(state->log, (void *)pkt,
+			     &hdr, &merkles, &prev_merkles, &tailer);
 	if (e != PROTOCOL_ERROR_NONE)
 		return false;
 

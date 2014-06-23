@@ -234,12 +234,10 @@ static struct io_plan got_solution(struct io_conn *conn, struct generator *gen)
 	const struct protocol_double_sha *merkles;
 	const u8 *prev_merkles;
 	const struct protocol_block_tailer *tailer;
-	struct protocol_block_header *hdr;
-	struct protocol_net_hdr *nhdr = gen->pkt_in;
+	const struct protocol_block_header *hdr;
 
-	hdr = (void *)(nhdr + 1);
-	e = unmarshall_block(gen->log, le32_to_cpu(nhdr->len) - sizeof(*nhdr),
-			     hdr, &merkles, &prev_merkles, &tailer);
+	e = unmarshall_block(gen->log, gen->pkt_in,
+			     &hdr, &merkles, &prev_merkles, &tailer);
 	if (e != PROTOCOL_ERROR_NONE) {
 		log_broken(gen->log, "Generator %u unmarshall error %u",
 			   gen->pid, e);

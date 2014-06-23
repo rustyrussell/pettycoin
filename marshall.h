@@ -7,13 +7,22 @@
  * primitives. */
 struct log;
 
-/* Does version and simple sanity checks. */
+/* Unmarshall block from wire transfer. */
 enum protocol_error
 unmarshall_block(struct log *log,
-		 size_t size, const struct protocol_block_header *hdr,
+		 const struct protocol_pkt_block *pkt,
+		 const struct protocol_block_header **hdr,
 		 const struct protocol_double_sha **merkles,
 		 const u8 **prev_merkles,
 		 const struct protocol_block_tailer **tailer);
+
+/* Does version and simple sanity checks. */
+enum protocol_error
+unmarshall_block_into(struct log *log,
+		      size_t size, const struct protocol_block_header *hdr,
+		      const struct protocol_double_sha **merkles,
+		      const u8 **prev_merkles,
+		      const struct protocol_block_tailer **tailer);
 
 /* Marshall block for wire transfer. */
 struct protocol_pkt_block *
