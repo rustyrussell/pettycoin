@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <assert.h>
+#include <ccan/err/err.h>
 #include "addr.h"
 #include "shard.h"
 
@@ -34,6 +35,9 @@ int main(int argc, char *argv[])
 	struct protocol_pubkey pub;
 	EC_KEY *priv;
 
+	if (argc != 2 && argc != 3)
+		errx(1, "Usage: mkpriv <keyname> [shardnum]");
+
 	do {
 		priv = EC_KEY_new_by_curve_name(NID_secp256k1);
 		if (EC_KEY_generate_key(priv) != 1)
@@ -45,14 +49,14 @@ int main(int argc, char *argv[])
 		p = pub.key;
 		len = i2o_ECPublicKey(priv, &p);
 		assert(len == sizeof(pub.key));
-	} while (argv[1] && shard_of_key(&pub) != atoi(argv[1]));
+	} while (argv[2] && shard_of_key(&pub) != atoi(argv[2]));
 
 	len = i2d_ECPrivateKey(priv, NULL);
 	p = buf = malloc(len);
 	if (i2d_ECPrivateKey(priv, &p) != len)
 		do_error("i2d_ECPrivateKey");
 
-	printf("static const unsigned char private_key[] = {");
+	printf("static const unsigned char private_%s[] = {", argv[1]);
 	for (i = 0; i < len; i++) {
 		if (i % 12 == 0)
 			printf("\n\t");
@@ -60,8 +64,8 @@ int main(int argc, char *argv[])
 	}
 	printf("\n};\n");
 
-	printf("static const struct protocol_pubkey public_key = {\n"
-		"\t.key = { ");
+	printf("static const struct protocol_pubkey public_%s = {\n"
+	       "\t.key = { ", argv[1]);
 	for (i = 0; i < sizeof(pub.key); i++) {
 		if (i && i % 11 == 0)
 			printf("\n\t\t ");
