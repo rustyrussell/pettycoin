@@ -312,7 +312,8 @@ void put_tx_in_block(struct state *state,
 	if (shard_is_tx(shard, txoff)) {
 		if (shard->u[txoff].txp.tx)
 			assert(memcmp(txp->tx, shard->u[txoff].txp.tx,
-				      marshall_tx_len(txp->tx)) == 0);
+				      marshall_tx_len(txp->tx)
+				      + marshall_input_ref_len(txp->tx)) == 0);
 	} else {
 		/* Tx must match hash. */
 		struct protocol_net_txrefhash hashes;

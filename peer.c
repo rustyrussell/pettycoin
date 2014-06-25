@@ -1211,6 +1211,13 @@ recv_get_shard(struct peer *peer,
 		log_add_struct(peer->log, struct protocol_double_sha,
 			       &pkt->block);
 		r->err = cpu_to_le16(PROTOCOL_ECODE_UNKNOWN_SHARD);
+	} else if (b->complaint) {
+		log_debug(peer->log, "get_shard on invalid block ");
+		log_add_struct(peer->log, struct protocol_double_sha,
+			       &pkt->block);
+		/* Send complaint, but don't otherwise reply. */
+		todo_for_peer(peer, tal_packet_dup(peer, b->complaint));
+		r = tal_free(r);
 	} else {
 		unsigned int i;
 
@@ -1251,10 +1258,20 @@ recv_shard(struct peer *peer, const struct protocol_pkt_shard *pkt)
 
 	shard = le16_to_cpu(pkt->shard);
 
+	/* FIXME: do block lookup and complaint in common code? */
 	b = block_find_any(peer->state, &pkt->block);
 	if (!b) {
 		/* If we don't know it, that's OK.  Try to find out. */
 		todo_add_get_block(peer->state, &pkt->block);
+		return PROTOCOL_ECODE_NONE;
+	}
+
+	if (b->complaint) {
+		log_debug(peer->log, "shard on invalid block ");
+		log_add_struct(peer->log, struct protocol_double_sha,
+			       &pkt->block);
+		/* Complain, but don't otherwise process. */
+		todo_for_peer(peer, tal_packet_dup(peer, b->complaint));
 		return PROTOCOL_ECODE_NONE;
 	}
 
