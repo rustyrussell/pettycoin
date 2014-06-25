@@ -22,11 +22,6 @@ check_tx_from_gateway(struct state *state,
 		      const struct block *block,
 		      const struct protocol_tx_gateway *gtx);
 
-/* True if OK. */
-bool check_tx_proof(struct state *state,
-		    union protocol_tx **tx,
-		    struct protocol_proof *proof);
-
 enum protocol_ecode check_tx(struct state *state,
 			     const union protocol_tx *trans,
 			     const struct block *block,
