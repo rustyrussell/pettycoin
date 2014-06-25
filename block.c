@@ -155,7 +155,7 @@ txrefhash_in_shard(const struct block *b, u16 shard, u8 txoff,
 		return NULL;
 
 	if (shard_is_tx(s, txoff)) {
-		const union protocol_tx *tx = s->u[txoff].txp.tx;
+		const union protocol_tx *tx = tx_for(s, txoff);
 		if (!tx)
 			return NULL;
 		hash_tx(tx, &scratch->txhash);

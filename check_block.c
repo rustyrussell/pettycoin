@@ -154,11 +154,8 @@ bool check_tx_order(struct state *state,
 	for (i = 0; i < block->shard_nums[shard->shardnum]; i++) {
 		const union protocol_tx *tx;
 
-		/* We can't determine order from the hash. */
-		if (!shard_is_tx(shard, i))
-			continue;
-
-		tx = shard->u[i].txp.tx;
+		/* We can't determine order from the hash, or empty tx */
+		tx = tx_for(shard, i);
 		if (!tx)
 			continue;
 
@@ -183,8 +180,7 @@ static void add_tx_to_txhash(struct state *state,
 	struct protocol_double_sha sha;
 	struct txhash_iter iter;
 
-	assert(shard_is_tx(shard, txoff));
-	hash_tx(shard->u[txoff].txp.tx, &sha);
+	hash_tx(tx_for(shard, txoff), &sha);
 
 	/* It could already be there (alternate chain, or previous
 	 * partial shard which we just overwrote). */
@@ -261,7 +257,7 @@ static void copy_old_txs(struct state *state,
 				      sizeof(*new->u[i].hash)) == 0);
 			continue;
 		}
-		if (!old->u[i].txp.tx)
+		if (!tx_for(old, i))
 			continue;
 
 		/* It's probably not a talloc pointer, so copy! */
@@ -295,9 +291,7 @@ static void check_tx_ordering(struct state *state,
 			      struct block *block,
 			      struct tx_shard *shard, u8 a, u8 b)
 {
-	assert(shard_is_tx(shard, a));
-	assert(shard_is_tx(shard, b));
-	if (tx_cmp(shard->u[a].txp.tx, shard->u[b].txp.tx) >= 0)
+	if (tx_cmp(tx_for(shard, a), tx_for(shard, b)) >= 0)
 		invalidate_block_misorder(state, block, a, b, shard->shardnum);
 }
 
@@ -310,8 +304,8 @@ void put_tx_in_block(struct state *state,
 
 	/* All this work for assertion checking! */
 	if (shard_is_tx(shard, txoff)) {
-		if (shard->u[txoff].txp.tx)
-			assert(memcmp(txp->tx, shard->u[txoff].txp.tx,
+		if (tx_for(shard, txoff))
+			assert(memcmp(txp->tx, tx_for(shard, txoff),
 				      marshall_tx_len(txp->tx)
 				      + marshall_input_ref_len(txp->tx)) == 0);
 	} else {
@@ -332,7 +326,7 @@ void put_tx_in_block(struct state *state,
 
 	/* Check ordering against previous. */
 	for (i = (int)txoff-1; i >= 0; i--) {
-		if (shard_is_tx(shard, i) && shard->u[i].txp.tx) {
+		if (tx_for(shard, i)) {
 			check_tx_ordering(state, block, shard, i, txoff);
 			break;
 		}
@@ -340,7 +334,7 @@ void put_tx_in_block(struct state *state,
 
 	/* Check ordering against next. */
 	for (i = (int)txoff+1; i < block->shard_nums[shard->shardnum]; i++) {
-		if (shard_is_tx(shard, i) && shard->u[i].txp.tx) {
+		if (tx_for(shard, i)) {
 			check_tx_ordering(state, block, shard, txoff, i);
 			break;
 		}
@@ -364,7 +358,7 @@ shard_validate_txs(struct state *state,
 		u32 tx_shard;
 
 		assert(shard_is_tx(shard, i));
-		tx_shard = shard_of_tx(shard->u[i].txp.tx,
+		tx_shard = shard_of_tx(tx_for(shard, i),
 				       block->hdr->shard_order);
 		if (tx_shard != shard->shardnum) {
 			*bad_trans = get_shard_start(block, shard) + i;
@@ -375,9 +369,9 @@ shard_validate_txs(struct state *state,
 		}
 
 		/* Make sure transactions themselves are valid. */
-		err = check_tx(state, shard->u[i].txp.tx, block,
-					refs_for(shard->u[i].txp),
-					inputs, bad_input_num);
+		err = check_tx(state, tx_for(shard, i), block,
+			       refs_for(shard->u[i].txp),
+			       inputs, bad_input_num);
 		if (err) {
 			*bad_trans = get_shard_start(block, shard) + i;
 			log_unusual(log, "Transaction %u gave error ",

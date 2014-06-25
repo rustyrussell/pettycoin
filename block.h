@@ -18,19 +18,6 @@ struct txptr_with_ref {
 	union protocol_tx *tx;
 };
 
-static inline const struct protocol_input_ref *refs_for(struct txptr_with_ref t)
-{
-	char *p;
-
-	p = (char *)t.tx + marshall_tx_len(t.tx);
-	return (struct protocol_input_ref *)p;
-}
-
-/* Convenient routine to allocate adjacent copied of tx and refs */
-struct txptr_with_ref txptr_with_ref(const tal_t *ctx,
-				     const union protocol_tx *tx,
-				     const struct protocol_input_ref *refs);
-
 union txp_or_hash {
 	/* Pointers to the actual transactions followed by refs */
 	struct txptr_with_ref txp;
@@ -57,6 +44,29 @@ static inline bool shard_is_tx(const struct tx_shard *s, u8 txoff)
 {
 	return !bitmap_test_bit(s->txp_or_hash, txoff);
 }
+
+static inline const struct protocol_input_ref *refs_for(struct txptr_with_ref t)
+{
+	char *p;
+
+	p = (char *)t.tx + marshall_tx_len(t.tx);
+	return (struct protocol_input_ref *)p;
+}
+
+static inline const union protocol_tx *tx_for(const struct tx_shard *s,
+					      u8 txoff)
+{
+	if (shard_is_tx(s, txoff))
+		return s->u[txoff].txp.tx;
+	else
+		return NULL;
+}
+
+/* Convenient routine to allocate adjacent copied of tx and refs */
+struct txptr_with_ref txptr_with_ref(const tal_t *ctx,
+				     const union protocol_tx *tx,
+				     const struct protocol_input_ref *refs);
+
 
 /* Returns NULL if it we don't have this tx. */
 const struct protocol_net_txrefhash *
