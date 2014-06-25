@@ -182,6 +182,12 @@ static void invalidate_block(struct state *state,
 			     struct block *block,
 			     const void *complaint)
 {
+	/* Don't complaint storm. */
+	if (block->complaint) {
+		tal_free(complaint);
+		return;
+	}
+
 	/* FIXME: Save complaint to blockfile! */
 
 	/* If it's invalid, so are any descendents. */
