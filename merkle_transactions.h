@@ -2,11 +2,11 @@
 #define PETTYCOIN_MERKLE_TRANSACTIONS_H
 #include <stddef.h>
 #include "protocol.h"
+#include "block.h"
 
 /* Merkle together a shard of transactions */
 void merkle_transactions(const void *prefix, size_t prefix_len,
-			 const union protocol_transaction *const*t,
-			 const struct protocol_input_ref *const*refs,
+			 const struct txptr_with_ref *txp,
 			 size_t off, size_t num_trans,
 			 struct protocol_double_sha *merkle);
 

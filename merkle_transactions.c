@@ -39,8 +39,7 @@ static void merkle_recurse(size_t off, size_t max_off, size_t num,
 struct merkle_txinfo {
 	const void *prefix;
 	size_t prefix_len;
-	const union protocol_transaction *const*t;
-	const struct protocol_input_ref *const*refs;
+	const struct txptr_with_ref *txp;
 };
 
 static struct protocol_double_sha merkle_tx(size_t n, void *data)
@@ -48,14 +47,14 @@ static struct protocol_double_sha merkle_tx(size_t n, void *data)
 	struct protocol_double_sha merkle;
 	struct merkle_txinfo *info = data;
 
-	hash_tx_for_block(info->t[n], info->prefix, info->prefix_len,
-			  info->refs[n], num_inputs(info->t[n]), &merkle);
+	hash_tx_for_block(info->txp[n].tx, info->prefix, info->prefix_len,
+			  refs_for(info->txp[n]), num_inputs(info->txp[n].tx),
+			  &merkle);
 	return merkle;
 }
 
 void merkle_transactions(const void *prefix, size_t prefix_len,
-			 const union protocol_transaction *const*t,
-			 const struct protocol_input_ref *const*refs,
+			 const struct txptr_with_ref *txp,
 			 size_t off, size_t num_trans,
 			 struct protocol_double_sha *merkle)
 {
@@ -63,8 +62,7 @@ void merkle_transactions(const void *prefix, size_t prefix_len,
 
 	txinfo.prefix = prefix;
 	txinfo.prefix_len = prefix_len;
-	txinfo.t = t;
-	txinfo.refs = refs;
+	txinfo.txp = txp;
 
 	merkle_recurse(off, num_trans, 256, merkle_tx, &txinfo, merkle);
 }

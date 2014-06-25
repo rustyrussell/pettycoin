@@ -5,9 +5,30 @@
 #include "protocol_net.h"
 #include "shard.h"
 #include "state.h"
+#include "marshall.h"
 #include <stdbool.h>
 #include <ccan/list/list.h>
 #include <openssl/bn.h>
+
+/* Each of these is followed by:
+   struct protocol_input_ref ref[num_inputs(tx)];
+*/
+struct txptr_with_ref {
+	union protocol_transaction *tx;
+};
+
+static inline const struct protocol_input_ref *refs_for(struct txptr_with_ref t)
+{
+	char *p;
+
+	p = (char *)t.tx + marshall_transaction_len(t.tx);
+	return (struct protocol_input_ref *)p;
+}
+
+/* Convenient routine to allocate adjacent copied of tx and refs */
+struct txptr_with_ref txptr_with_ref(const tal_t *ctx,
+				     const union protocol_transaction *tx,
+				     const struct protocol_input_ref *refs);
 
 /* Only transactions we've proven are in block go in here! */
 struct transaction_shard {
@@ -16,8 +37,7 @@ struct transaction_shard {
 	/* How many transactions do we have?  Faster than counting NULLs */
 	unsigned int count;
 	/* FIXME: Size dynamically based on block->shard_nums[shard]. */
-	const union protocol_transaction *t[256];
-	const struct protocol_input_ref *refs[256];
+	struct txptr_with_ref txp[256];
 };
 
 struct block {
@@ -99,7 +119,7 @@ block_get_tx(const struct block *block, u16 shardnum, u8 txoff)
 	if (!s)
 		return NULL;
 
-	return cast_const(union protocol_transaction *, s->t[txoff]);
+	return s->txp[txoff].tx;
 }
 
 /* Get this numbered references inside block. */

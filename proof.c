@@ -9,21 +9,19 @@ void create_proof(struct protocol_proof *proof,
 		  const struct block *block, u16 shardnum, u8 txoff)
 {
 	unsigned int i;
-	const union protocol_transaction **t;
-	const struct protocol_input_ref **refs;
+	const struct txptr_with_ref *txp;
 
 	assert(shardnum < num_shards(block->hdr));
 	assert(shard_full(block, shardnum));
-	t = block->shard[shardnum]->t;
-	refs = block->shard[shardnum]->refs;
+	txp = block->shard[shardnum]->txp;
 
 	for (i = 0; i < 8; i++) {
 		if (txoff & (1 << i))
 			/* Hash the left side together. */
-			merkle_transactions(NULL, 0, t, refs, 0, 1 << i,
+			merkle_transactions(NULL, 0, txp, 0, 1 << i,
 					    &proof->merkle[i]);
 		else
-			merkle_transactions(NULL, 0, t, refs, 1 << i, 1 << i, 
+			merkle_transactions(NULL, 0, txp, 1 << i, 1 << i, 
 					    &proof->merkle[i]);
 	}
 }

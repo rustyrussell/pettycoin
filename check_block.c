@@ -123,8 +123,8 @@ bool shard_belongs_in_block(const struct block *block,
 		return false;
 
 	assert(shard->count == block->shard_nums[shard->shardnum]);
-	merkle_transactions(NULL, 0, shard->t, shard->refs,
-			    0, block->shard_nums[shard->shardnum], &merkle);
+	merkle_transactions(NULL, 0, shard->txp, 0,
+			    block->shard_nums[shard->shardnum], &merkle);
 	return memcmp(block->merkles[shard->shardnum].sha, merkle.sha,
 		      sizeof(merkle.sha)) == 0;
 }
@@ -154,7 +154,7 @@ bool check_tx_order(struct state *state,
 	/* Is it in order? */
 	prev = NULL;
 	for (i = 0; i < block->shard_nums[shard->shardnum]; i++) {
-		const union protocol_transaction *t = shard->t[i];
+		const union protocol_transaction *t = shard->txp[i].tx;
 
 		if (!t)
 			continue;
@@ -182,10 +182,10 @@ static void add_to_thash(struct state *state,
 		struct protocol_double_sha sha;
 		struct thash_iter iter;
 
-		if (!shard->t[i])
+		if (!shard->txp[i].tx)
 			continue;
 
-		hash_tx(shard->t[i], &sha);
+		hash_tx(shard->txp[i].tx, &sha);
 
 		/* It could already be there (alternate chain, or previous
 		 * partial shard which we just overwrote). */
@@ -229,10 +229,10 @@ void put_shard_in_block(struct state *state,
 		for (i = 0; i < block->shard_nums[shard->shardnum]; i++) {
 			const union protocol_transaction *t;
 
-			t = block->shard[shard->shardnum]->t[i];
+			t = block->shard[shard->shardnum]->txp[i].tx;
 			if (!t)
 				continue;
-			assert(transaction_cmp(t, shard->t[i]) == 0);
+			assert(transaction_cmp(t, shard->txp[i].tx) == 0);
 		}
 		/* FIXME: This leaves crap in thash! */
 		tal_free(block->shard[shard->shardnum]);
@@ -264,10 +264,11 @@ shard_validate_transactions(struct state *state,
 	for (i = 0; i < block->shard_nums[shard->shardnum]; i++) {
 		u32 tx_shard;
 
-		if (!shard->t[i])
+		if (!shard->txp[i].tx)
 			continue;
 
-		tx_shard = shard_of_tx(shard->t[i], block->hdr->shard_order);
+		tx_shard = shard_of_tx(shard->txp[i].tx,
+				       block->hdr->shard_order);
 		if (tx_shard != shard->shardnum) {
 			*bad_trans = get_shard_start(block, shard) + i;
 			log_unusual(log, "Transaction %u in wrong shard"
@@ -277,8 +278,9 @@ shard_validate_transactions(struct state *state,
 		}
 
 		/* Make sure transactions themselves are valid. */
-		err = check_transaction(state, shard->t[i], block,
-					shard->refs[i], inputs, bad_input_num);
+		err = check_transaction(state, shard->txp[i].tx, block,
+					refs_for(shard->txp[i]),
+					inputs, bad_input_num);
 		if (err) {
 			*bad_trans = get_shard_start(block, shard) + i;
 			log_unusual(log, "Transaction %u gave error ",
@@ -320,8 +322,7 @@ bool check_block_prev_merkles(struct state *state, const struct block *block)
 			 * can prove you know all the transactions. */
 			merkle_transactions(&block->hdr->fees_to,
 					    sizeof(block->hdr->fees_to),
-					    prev->shard[j]->t,
-					    prev->shard[j]->refs,
+					    prev->shard[j]->txp,
 					    0, prev->shard_nums[j],
 					    &merkle);
 

@@ -169,8 +169,8 @@ static struct io_plan got_trans(struct io_conn *conn, struct generator *gen)
 		s->count = 0;
 
 		for (i = 0; i < gen->new->shard_nums[shard]; i++) {
-			s->t[i] = gen->included[off]->t;
-			s->refs[i] = tal_steal(s, gen->included[off]->refs);
+			s->txp[i] = txptr_with_ref(s, gen->included[off]->t,
+						   gen->included[off]->refs);
 			s->count++;
 			off++;
 		}

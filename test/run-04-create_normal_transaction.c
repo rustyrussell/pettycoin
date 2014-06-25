@@ -205,8 +205,7 @@ int main(int argc, char *argv[])
 	shard = talz(s, struct transaction_shard);
 	shard->shardnum = update.shard;
 	shard->count = 1;
-	shard->t[0] = t;
-	shard->refs[0] = refs;
+	shard->txp[0] = txptr_with_ref(shard, t, refs);
 
 	/* This should all be correct. */
 	assert(shard_validate_transactions(s, NULL, b, shard, NULL, NULL, intxs)
@@ -267,8 +266,7 @@ int main(int argc, char *argv[])
 	shard = talz(s, struct transaction_shard);
 	shard->shardnum = update.shard;
 	shard->count = 1;
-	shard->t[0] = t;
-	shard->refs[0] = refs;
+	shard->txp[0] = txptr_with_ref(shard, t, refs);
 
 	/* Should work */
 	assert(shard_validate_transactions(s, NULL, b2, shard, NULL, NULL,intxs)

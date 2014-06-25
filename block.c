@@ -13,6 +13,26 @@
 #include "shard.h"
 #include <string.h>
 
+/* For compactness, struct transaction_shard needs tx and refs adjacent. */
+struct txptr_with_ref txptr_with_ref(const tal_t *ctx,
+				     const union protocol_transaction *tx,
+				     const struct protocol_input_ref *refs)
+{
+	struct txptr_with_ref txp;
+	size_t txlen, reflen;
+	char *p;
+
+	txlen = marshall_transaction_len(tx);
+	reflen = num_inputs(tx) * sizeof(struct protocol_input_ref);
+
+	p = tal_alloc_(ctx, txlen + reflen, false, "txptr_with_ref");
+	memcpy(p, tx, txlen);
+	memcpy(p + txlen, refs, reflen);
+
+	txp.tx = (union protocol_transaction *)p;
+	return txp;
+}
+
 struct block *block_find(struct block *start, const u8 lower_sha[4])
 {
 	struct block *b = start;
@@ -104,7 +124,7 @@ struct protocol_input_ref *block_get_refs(const struct block *block,
 	if (!s)
 		return NULL;
 
-	return cast_const(struct protocol_input_ref *, s->refs[txoff]);
+	return cast_const(struct protocol_input_ref *, refs_for(s->txp[txoff]));
 }
 
 static void complaint_on_all(struct block *block, const void *complaint)
