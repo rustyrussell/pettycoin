@@ -50,15 +50,9 @@ static struct protocol_double_sha merkle_tx(size_t n, void *data)
 
 	/* Already got hashes?  Just hash together. */
 	if (bitmap_test_bit(info->txp_or_hash, n)) {
-		SHA256_CTX shactx;
-		const struct protocol_net_txrefhash *h;
+		const struct protocol_net_txrefhash *h = info->u[n].hash;
 
-		h = info->u[n].hash;
-
-		SHA256_Init(&shactx);
-		SHA256_Update(&shactx, &h->txhash, sizeof(h->txhash));
-		SHA256_Update(&shactx, &h->refhash, sizeof(h->refhash));
-		SHA256_Double_Final(&shactx, &merkle);
+		merkle_two_hashes(&h->txhash, &h->refhash, &merkle);
 	} else {
 		const union protocol_transaction *tx;
 		const struct protocol_input_ref *refs;
