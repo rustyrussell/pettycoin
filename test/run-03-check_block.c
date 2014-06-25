@@ -214,7 +214,7 @@ int main(int argc, char *argv[])
 	assert(check_tx_order(s, b, shard, NULL, NULL));
 	assert(shard_belongs_in_block(b, shard));
 
-	put_shard_in_block(s, b, shard);
+	force_shard_into_block(s, b, shard);
 
 	/* Should require a prev_merkle per shard for each of 2 prev blocks. */
 	assert(num_prev_merkles(b) == (2 << genesis.hdr->shard_order));

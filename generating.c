@@ -207,7 +207,7 @@ static struct io_plan got_trans(struct io_conn *conn, struct generator *gen)
 			return io_close();
 		}
 
-		put_shard_in_block(gen->state, gen->new, s);
+		force_shard_into_block(gen->state, gen->new, s);
 		log_debug(gen->log, "Added shard %u (%u trans)",
 			  shard, s->txcount);
 	}

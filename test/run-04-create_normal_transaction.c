@@ -212,7 +212,7 @@ int main(int argc, char *argv[])
 	assert(check_tx_order(s, b, shard, NULL, NULL));
 	assert(shard_belongs_in_block(b, shard));
 
-	put_shard_in_block(s, b, shard);
+	force_shard_into_block(s, b, shard);
 	assert(block_all_known(b, NULL));
 
 	prev_merkles = make_prev_merkles(s, b, helper_addr(1));
@@ -272,7 +272,7 @@ int main(int argc, char *argv[])
 	assert(check_tx_order(s, b2, shard, NULL, NULL));
 	assert(shard_belongs_in_block(b2, shard));
 
-	put_shard_in_block(s, b2, shard);
+	force_shard_into_block(s, b2, shard);
 	assert(block_all_known(b2, NULL));
 
 	tal_free(s);

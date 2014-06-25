@@ -51,10 +51,10 @@ shard_validate_transactions(struct state *state,
 			    unsigned int *bad_input_num,
 			    union protocol_transaction **bad_input);
 
-/* Block steals shard. */
-void put_shard_in_block(struct state *state,
-			struct block *block,
-			struct transaction_shard *shard);
+/* For generating.c: inserts a fully-populated shard. */
+void force_shard_into_block(struct state *state,
+			    struct block *block,
+			    struct transaction_shard *shard);
 
 /* Check what we can, using block->prev->...'s shards. */
 bool check_block_prev_merkles(struct state *state,

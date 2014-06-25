@@ -222,9 +222,9 @@ static void add_to_thash(struct state *state,
 }
 
 /* This is a fast-path used by generating.c */
-void put_shard_in_block(struct state *state,
-			struct block *block,
-			struct transaction_shard *shard)
+void force_shard_into_block(struct state *state,
+			    struct block *block,
+			    struct transaction_shard *shard)
 {
 	assert(shard_belongs_in_block(block, shard));
 	assert(shard->txcount == block->shard_nums[shard->shardnum]);
