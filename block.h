@@ -33,12 +33,15 @@ struct txptr_with_ref txptr_with_ref(const tal_t *ctx,
 /* Only transactions we've proven are in block go in here! */
 struct transaction_shard {
 	/* Which shard is this? */
-	unsigned int shardnum;
+	u16 shardnum;
 	/* How many transactions do we have?  Faster than counting NULLs */
-	unsigned int count;
-	/* FIXME: Size dynamically based on block->shard_nums[shard]. */
-	struct txptr_with_ref txp[256];
+	u8 count;
+	/* Pointers to the actual transactions followed by refs */
+	struct txptr_with_ref txp[ /* block->shard_nums[shard] */ ];
 };
+
+/* Allocate a new struct transaction_shard. */
+struct transaction_shard *new_shard(const tal_t *ctx, u16 shardnum, u8 num);
 
 struct block {
 	/* In state->block_depths[le32_to_cpu(hdr->depth)]. */

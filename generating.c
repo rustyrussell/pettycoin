@@ -164,10 +164,7 @@ static struct io_plan got_trans(struct io_conn *conn, struct generator *gen)
 		unsigned int bad_trans, bad_trans2, bad_input_num;
 		union protocol_transaction *bad_input;
 
-		s = talz(gen, struct transaction_shard);
-		s->shardnum = shard;
-		s->count = 0;
-
+		s = new_shard(gen, shard, gen->new->shard_nums[shard]);
 		for (i = 0; i < gen->new->shard_nums[shard]; i++) {
 			s->txp[i] = txptr_with_ref(s, gen->included[off]->t,
 						   gen->included[off]->refs);

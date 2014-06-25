@@ -33,6 +33,17 @@ struct txptr_with_ref txptr_with_ref(const tal_t *ctx,
 	return txp;
 }
 
+struct transaction_shard *new_shard(const tal_t *ctx, u16 shardnum, u8 num)
+{
+	struct transaction_shard *s;
+
+	s = tal_alloc_(ctx,
+		       offsetof(struct transaction_shard, txp[num]),
+		       true, "struct transaction_shard");
+	s->shardnum = shardnum;
+	return s;
+}
+
 struct block *block_find(struct block *start, const u8 lower_sha[4])
 {
 	struct block *b = start;

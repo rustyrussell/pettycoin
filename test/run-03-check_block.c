@@ -204,8 +204,7 @@ int main(int argc, char *argv[])
 	assert(check_block_prev_merkles(s, b));
 
 	/* Put the single transaction into the shard. */
-	shard = talz(s, struct transaction_shard);
-	shard->shardnum = update.shard;
+	shard = new_shard(s, update.shard, 1);
 	shard->count = 1;
 	shard->txp[0] = txptr_with_ref(shard, t, refs);
 
