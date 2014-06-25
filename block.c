@@ -1,4 +1,3 @@
-#include <ccan/cast/cast.h>
 #include "block.h"
 #include "chain.h"
 #include "protocol.h"
@@ -80,15 +79,6 @@ struct block *block_find_any(struct state *state,
 	return NULL;
 }
 
-/* Do we have everything in this shard? */
-bool shard_full(const struct block *block, u16 shardnum)
-{
-	u8 count;
-
-	count = block->shard[shardnum] ? block->shard[shardnum]->count : 0;
-	return count == block->shard_nums[shardnum];
-}
-
 bool block_full(const struct block *block, unsigned int *shardnum)
 {
 	unsigned int i;
@@ -101,20 +91,6 @@ bool block_full(const struct block *block, unsigned int *shardnum)
 		}
 	}
 	return true;
-}
-
-union protocol_transaction *block_get_tx(const struct block *block,
-					 u16 shardnum, u8 txoff)
-{
-	const struct transaction_shard *s = block->shard[shardnum];
-
-	assert(shardnum < num_shards(block->hdr));
-	assert(txoff < block->shard_nums[shardnum]);
-
-	if (!s)
-		return NULL;
-
-	return cast_const(union protocol_transaction *, s->t[txoff]);
 }
 
 struct protocol_input_ref *block_get_refs(const struct block *block,

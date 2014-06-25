@@ -3,15 +3,33 @@
 #define PETTYCOIN_CHAIN_H
 #include <stdbool.h>
 #include <ccan/short_types/short_types.h>
+#include "block.h"
 
 struct block;
 struct state;
 
 /* Is a in the chain before b (or == b)? */
-bool block_preceeds(const struct block *a, const struct block *b);
+static inline bool block_preceeds(const struct block *a, const struct block *b)
+{
+	if (a == b)
+		return true;
+
+	if (le32_to_cpu(a->hdr->depth) >= le32_to_cpu(b->hdr->depth))
+		return false;
+
+	return block_preceeds(a, b->prev);
+}
 
 /* Follow ->prev count times. */
-struct block *block_ancestor(const struct block *a, unsigned int count);
+static inline struct block *block_ancestor(const struct block *a,
+					   unsigned int count)
+{
+	struct block *b;
+
+	/* FIXME: Slow!  Optimize if both on main chain! */
+	for (b = cast_const(struct block *, a); le32_to_cpu(b->hdr->depth) != count; b = b->prev);
+	return b;
+}
 
 /* Find common ancestor of curr and target, then first descendent
  * towards target.  NULL if curr == target (or a descendent). */

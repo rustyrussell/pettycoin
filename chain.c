@@ -22,17 +22,6 @@ static void add_single(const struct block ***arr, const struct block *b)
 	(*arr)[num] = b;
 }
 
-bool block_preceeds(const struct block *a, const struct block *b)
-{
-	if (a == b)
-		return true;
-
-	if (le32_to_cpu(a->hdr->depth) >= le32_to_cpu(b->hdr->depth))
-		return false;
-
-	return block_preceeds(a, b->prev);
-}
-
 struct block *step_towards(const struct block *curr, const struct block *target)
 {
 	const struct block *prev_target;
@@ -60,16 +49,6 @@ struct block *step_towards(const struct block *curr, const struct block *target)
 
 	/* This is one step towards the target. */
 	return cast_const(struct block *, prev_target);
-}
-
-/* Follow ->prev count times. */
-struct block *block_ancestor(const struct block *a, unsigned int count)
-{
-	struct block *b;
-
-	/* FIXME: Slow!  Optimize if both on main chain! */
-	for (b = cast_const(struct block *, a); le32_to_cpu(b->hdr->depth) != count; b = b->prev);
-	return b;
 }
 
 /* Is a more work than b? */

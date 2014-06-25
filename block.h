@@ -1,7 +1,9 @@
 #ifndef PETTYCOIN_BLOCK_H
 #define PETTYCOIN_BLOCK_H
+#include <ccan/cast/cast.h>
 #include "protocol.h"
 #include "protocol_net.h"
+#include "shard.h"
 #include "state.h"
 #include <stdbool.h>
 #include <ccan/list/list.h>
@@ -66,7 +68,13 @@ struct block *block_find_any(struct state *state,
 
 
 /* Do we have everything in this shard? */
-bool shard_full(const struct block *block, u16 shardnum);
+static inline bool shard_full(const struct block *block, u16 shardnum)
+{
+	u8 count;
+
+	count = block->shard[shardnum] ? block->shard[shardnum]->count : 0;
+	return count == block->shard_nums[shardnum];
+}
 
 /* Do we have everything in this block? */
 bool block_full(const struct block *block, unsigned int *shardnum);
@@ -80,8 +88,19 @@ static inline const struct block *genesis_block(const struct state *state)
 void block_add(struct state *state, struct block *b);
 
 /* Get tx_idx'th tx inside shard shardnum inside block. */
-union protocol_transaction *block_get_tx(const struct block *block,
-					 u16 shardnum, u8 tx_idx);
+static inline union protocol_transaction *
+block_get_tx(const struct block *block, u16 shardnum, u8 txoff)
+{
+	const struct transaction_shard *s = block->shard[shardnum];
+
+	assert(shardnum < num_shards(block->hdr));
+	assert(txoff < block->shard_nums[shardnum]);
+
+	if (!s)
+		return NULL;
+
+	return cast_const(union protocol_transaction *, s->t[txoff]);
+}
 
 /* Get this numbered references inside block. */
 struct protocol_input_ref *block_get_refs(const struct block *block,
