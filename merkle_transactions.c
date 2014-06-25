@@ -1,5 +1,5 @@
 #include "merkle_transactions.h"
-#include "check_transaction.h"
+#include "transaction.h"
 #include "shadouble.h"
 #include "hash_transaction.h"
 #include "protocol.h"

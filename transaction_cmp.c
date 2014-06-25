@@ -2,6 +2,7 @@
 #include "protocol.h"
 #include "marshall.h"
 #include "addr.h"
+#include "transaction.h"
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -22,7 +23,7 @@ int transaction_cmp(const union protocol_transaction *a,
 		addra = &tmpa;
 		break;
 	case TRANSACTION_FROM_GATEWAY:
-		addra = &a->gateway.output[0].output_addr;
+		addra = &get_gateway_outputs(&a->gateway)[0].output_addr;
 		break;
 	default:
 		abort();
@@ -34,7 +35,7 @@ int transaction_cmp(const union protocol_transaction *a,
 		addrb = &tmpb;
 		break;
 	case TRANSACTION_FROM_GATEWAY:
-		addrb = &b->gateway.output[0].output_addr;
+		addrb = &get_gateway_outputs(&b->gateway)[0].output_addr;
 		break;
 	default:
 		abort();

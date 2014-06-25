@@ -1,5 +1,6 @@
 #include "shard.h"
 #include "addr.h"
+#include "transaction.h"
 #include <stdlib.h>
 
 /* This must match the order used in transaction_cmp */
@@ -14,7 +15,7 @@ u32 shard_of_tx(const union protocol_transaction *tx, u8 shard_order)
 		addr = &tmp;
 		break;
 	case TRANSACTION_FROM_GATEWAY:
-		addr = &tx->gateway.output[0].output_addr;
+		addr = &get_gateway_outputs(&tx->gateway)[0].output_addr;
 		break;
 	default:
 		abort();

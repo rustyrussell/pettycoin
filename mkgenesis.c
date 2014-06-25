@@ -20,7 +20,6 @@
 #include "shadouble.h"
 #include "marshall.h"
 #include "hash_block.h"
-#include "talv.h"
 
 struct worker {
 	int transactions_to_worker;

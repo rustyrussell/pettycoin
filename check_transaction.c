@@ -1,4 +1,5 @@
 #include "check_transaction.h"
+#include "transaction.h"
 #include "block.h"
 #include "chain.h"
 #include "gateways.h"
@@ -101,6 +102,7 @@ check_trans_normal_inputs(struct state *state,
 	unsigned int i, num;
 	u64 input_total = 0;
 	struct protocol_address my_addr;
+	const struct protocol_input *inp = get_normal_inputs(t);
 
 	/* Get the input address used by this transaction. */
 	pubkey_to_addr(&t->input_key, &my_addr);
@@ -114,11 +116,9 @@ check_trans_normal_inputs(struct state *state,
 		struct thash_iter it;
 		struct thash_elem *te;
 
-		for (te = thash_firstval(&state->thash,
-					 &t->input[i].input, &it);
+		for (te = thash_firstval(&state->thash, &inp[i].input, &it);
 		     te;
-		     te = thash_nextval(&state->thash,
-					&t->input[i].input, &it)) {
+		     te = thash_nextval(&state->thash, &inp[i].input, &it)) {
 			u16 shardnum;
 
 			inputs[i] = block_get_tx(te->block,
@@ -168,7 +168,7 @@ check_trans_normal_inputs(struct state *state,
 
 		(*inputs_known)++;
 
-		if (!find_output(inputs[i], le16_to_cpu(t->input[i].output),
+		if (!find_output(inputs[i], le16_to_cpu(inp[i].output),
 				 &addr, &amount)) {
 			*bad_input_num = i;
 			return PROTOCOL_ERROR_PRIV_TRANS_BAD_INPUT;
@@ -177,7 +177,7 @@ check_trans_normal_inputs(struct state *state,
 		/* Check it was to this address. */
 		if (memcmp(&my_addr, &addr, sizeof(addr)) != 0) {
 			*bad_input_num = i;
-			log_debug(state->log, "Address mismatch against output %i of ", le16_to_cpu(t->input[i].output));
+			log_debug(state->log, "Address mismatch against output %i of ", le16_to_cpu(inp[i].output));
 			log_add_struct(state->log, union protocol_transaction,
 				       inputs[i]);
 			return PROTOCOL_ERROR_PRIV_TRANS_BAD_INPUT;
@@ -204,12 +204,15 @@ check_trans_from_gateway(struct state *state,
 	u32 i;
 	u32 the_shard;
 	u8 shard_ord;
+	struct protocol_gateway_payment *out;
 
 	if (!version_ok(t->version))
 		return PROTOCOL_ERROR_TRANS_HIGH_VERSION;
 
 	if (!accept_gateway(state, &t->gateway_key))
 		return PROTOCOL_ERROR_TRANS_BAD_GATEWAY;
+
+	out = get_gateway_outputs(t);
 
 	/* Each output must be in the same shard. */
 	if (!block)
@@ -219,13 +222,11 @@ check_trans_from_gateway(struct state *state,
 
 	for (i = 0; i < le16_to_cpu(t->num_outputs); i++) {
 		if (i == 0)
-			the_shard = shard_of(&t->output[i].output_addr,
-					     shard_ord);
-		else if (shard_of(&t->output[i].output_addr, shard_ord)
-			 != the_shard)
+			the_shard = shard_of(&out[i].output_addr, shard_ord);
+		else if (shard_of(&out[i].output_addr, shard_ord) != the_shard)
 			return PROTOCOL_ERROR_TRANS_CROSS_SHARDS;
 
-		if (le32_to_cpu(t->output[i].send_amount) > MAX_SATOSHI)
+		if (le32_to_cpu(out[i].send_amount) > MAX_SATOSHI)
 			return PROTOCOL_ERROR_TOO_LARGE;
 	}
 
@@ -233,35 +234,6 @@ check_trans_from_gateway(struct state *state,
 			      &t->gateway_key, &t->signature))
 		return PROTOCOL_ERROR_TRANS_BAD_SIG;
 	return PROTOCOL_ERROR_NONE;
-}
-
-bool find_output(union protocol_transaction *trans, u16 output_num,
-		 struct protocol_address *addr, u32 *amount)
-{
-	switch (trans->hdr.type) {
-	case TRANSACTION_FROM_GATEWAY:
-		if (output_num > le16_to_cpu(trans->gateway.num_outputs))
-			return false;
-		*addr = trans->gateway.output[output_num].output_addr;
-		*amount = le32_to_cpu(trans->gateway.output[output_num]
-				      .send_amount);
-		return true;
-	case TRANSACTION_NORMAL:
-		if (output_num == 0) {
-			/* Spending the send_amount. */
-			*addr = trans->normal.output_addr;
-			*amount = le32_to_cpu(trans->normal.send_amount);
-			return true;
-		} else if (output_num == 1) {
-			/* Spending the change. */
-			pubkey_to_addr(&trans->normal.input_key, addr);
-			*amount = le32_to_cpu(trans->normal.change_amount);
-			return true;
-		}
-		return false;
-	default:
-		abort();
-	}
 }
 
 #if 0

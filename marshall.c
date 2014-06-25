@@ -4,9 +4,8 @@
 #include "protocol_net.h"
 #include "overflows.h"
 #include "block.h"
-#include "check_transaction.h"
+#include "transaction.h"
 #include "version.h"
-#include "talv.h"
 #include "peer.h"
 #include "log.h"
 #include <assert.h>
@@ -198,10 +197,10 @@ enum protocol_error unmarshall_transaction(const void *buffer, size_t size,
 	case TRANSACTION_NORMAL:
 		if (size < sizeof(t->normal))
 			return PROTOCOL_INVALID_LEN;
-		if (mul_overflows(sizeof(t->normal.input[0]),
+		if (mul_overflows(sizeof(struct protocol_input),
 				  le32_to_cpu(t->normal.num_inputs)))
 			return PROTOCOL_INVALID_LEN;
-		i = sizeof(t->normal.input[0])
+		i = sizeof(struct protocol_input)
 			* le32_to_cpu(t->normal.num_inputs);
 
 		if (add_overflows(sizeof(t->normal), i))
@@ -212,10 +211,10 @@ enum protocol_error unmarshall_transaction(const void *buffer, size_t size,
 		if (size < sizeof(t->gateway))
 			return PROTOCOL_INVALID_LEN;
 		
-		if (mul_overflows(sizeof(t->gateway.output[0]),
+		if (mul_overflows(sizeof(struct protocol_gateway_payment),
 				  le16_to_cpu(t->gateway.num_outputs)))
 			return PROTOCOL_INVALID_LEN;
-		i = sizeof(t->gateway.output[0])
+		i = sizeof(struct protocol_gateway_payment)
 			* le16_to_cpu(t->gateway.num_outputs);
 
 		if (add_overflows(sizeof(t->gateway), i))
@@ -253,19 +252,20 @@ static size_t varsize_(size_t base, size_t num, size_t fieldsize)
 	return base + fieldsize * num;
 }
 
-#define varsize(type, field, num)				\
-	varsize_(sizeof(type), (num), sizeof(((type *)0)->field[0]))
+#define varsize(type, extra, num)			\
+	varsize_(sizeof(type), (num), sizeof(extra))
 
 /* Returns 0 on length overflow! */
 size_t marshall_transaction_len(const union protocol_transaction *t)
 {
 	switch (t->hdr.type) {
 	case TRANSACTION_NORMAL:
-		return varsize(struct protocol_transaction_normal,
-			       input, le32_to_cpu(t->normal.num_inputs));
+		return varsize(t->normal, struct protocol_input,
+			       le32_to_cpu(t->normal.num_inputs));
 	case TRANSACTION_FROM_GATEWAY:
-		return varsize(struct protocol_transaction_gateway,
-			       output, le16_to_cpu(t->gateway.num_outputs));
+		return varsize(t->gateway,
+			       struct protocol_gateway_payment,
+			       le16_to_cpu(t->gateway.num_outputs));
 	}
 	abort();
 }

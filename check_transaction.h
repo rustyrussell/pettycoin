@@ -35,19 +35,4 @@ enum protocol_error check_transaction(struct state *state,
 				      inputs[TRANSACTION_MAX_INPUTS],
 				      unsigned int *bad_input_num);
 
-/* Find the output_num'th output in trans */
-bool find_output(union protocol_transaction *trans, u16 output_num,
-		 struct protocol_address *addr, u32 *amount);
-
-/* Only normal transactions have inputs; 0 for others. */
-static inline u32 num_inputs(const union protocol_transaction *t)
-{
-	switch (t->hdr.type) {
-	case TRANSACTION_NORMAL:
-		return le32_to_cpu(t->normal.num_inputs);
-	case TRANSACTION_FROM_GATEWAY:
-		return 0;
-	}
-	abort();
-}
 #endif /* PETTYCOIN_CHECK_TRANSACTION_H */

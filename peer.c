@@ -13,6 +13,7 @@
 #include "marshall.h"
 #include "check_block.h"
 #include "check_transaction.h"
+#include "transaction.h"
 #include "generating.h"
 #include "blockfile.h"
 #include "pending.h"
@@ -1082,9 +1083,11 @@ complain_about_inputs(struct state *state,
 		      const union protocol_transaction *trans)
 {
 	struct protocol_pkt_tx_bad_amount *pkt;
+	struct protocol_input *inp;
 	unsigned int i;
 
 	assert(le32_to_cpu(trans->hdr.type) == TRANSACTION_NORMAL);
+	inp = get_normal_inputs(&trans->normal);
 
 	pkt = tal_packet(peer, struct protocol_pkt_tx_bad_amount,
 			 PROTOCOL_PKT_TX_BAD_AMOUNT);
@@ -1094,8 +1097,7 @@ complain_about_inputs(struct state *state,
 	/* FIXME: What if input still pending, not in thash? */
 	for (i = 0; i < le32_to_cpu(trans->normal.num_inputs); i++) {
 		union protocol_transaction *input;
-		input = thash_gettrans(&state->thash,
-				       &trans->normal.input[i].input);
+		input = thash_gettrans(&state->thash, &inp[i].input);
 		tal_packet_append_trans(&pkt, input);
 	}
 

@@ -9,6 +9,7 @@
 #include "../shard.c"
 #include "../merkle_transactions.c"
 #include "../hash_transaction.c"
+#include "../transaction.c"
 #include <assert.h>
 #include "helper_gateway_key.h"
 #include "helper_key.h"
@@ -25,6 +26,7 @@ int main(int argc, char *argv[])
 	union protocol_transaction *t;
 	struct state *s = fake_new_state();
 	struct protocol_gateway_payment *payment;
+	struct protocol_gateway_payment *out;
 
 	/* Single payment. */
 	payment = tal_arr(s, struct protocol_gateway_payment, 1);
@@ -33,6 +35,7 @@ int main(int argc, char *argv[])
 	t = create_gateway_transaction(s, helper_gateway_public_key(),
 				       1, 10, payment, helper_gateway_key());
 	assert(t);
+	out = get_gateway_outputs(&t->gateway);
 	assert(t->gateway.version == current_version());
 	assert(version_ok(t->gateway.version));
 	assert(t->gateway.features == 0);
@@ -41,10 +44,9 @@ int main(int argc, char *argv[])
 	assert(le16_to_cpu(t->gateway.num_outputs) == 1);
 	assert(le32_to_cpu(t->gateway.reward) == 10);
 	assert(le16_to_cpu(t->gateway.unused) == 0);
-	assert(le32_to_cpu(t->gateway.output[0].send_amount) == 1000);
-	assert(memcmp(&t->gateway.output[0].output_addr,
-		      helper_addr(0),
-		      sizeof(t->gateway.output[0].output_addr)) == 0);
+	assert(le32_to_cpu(out[0].send_amount) == 1000);
+	assert(memcmp(&out[0].output_addr, helper_addr(0),
+		      sizeof(out[0].output_addr)) == 0);
 
 	assert(check_transaction(s, t, NULL, NULL, NULL, NULL) == PROTOCOL_ERROR_NONE);
 
@@ -57,6 +59,7 @@ int main(int argc, char *argv[])
 	t = create_gateway_transaction(s, helper_gateway_public_key(),
 				       2, 11, payment, helper_gateway_key());
 	assert(t);
+	out = get_gateway_outputs(&t->gateway);
 	assert(t->gateway.version == current_version());
 	assert(version_ok(t->gateway.version));
 	assert(t->gateway.features == 0);
@@ -65,14 +68,12 @@ int main(int argc, char *argv[])
 	assert(memcmp(&t->gateway.gateway_key, helper_gateway_public_key(),
 		      sizeof(t->gateway.gateway_key)) == 0);
 	assert(le16_to_cpu(t->gateway.num_outputs) == 2);
-	assert(le32_to_cpu(t->gateway.output[0].send_amount) == 1000);
-	assert(memcmp(&t->gateway.output[0].output_addr,
-		      helper_addr(0),
-		      sizeof(t->gateway.output[0].output_addr)) == 0);
-	assert(le32_to_cpu(t->gateway.output[1].send_amount) == 2000);
-	assert(memcmp(&t->gateway.output[1].output_addr,
-		      helper_addr(1),
-		      sizeof(t->gateway.output[1].output_addr)) == 0);
+	assert(le32_to_cpu(out[0].send_amount) == 1000);
+	assert(memcmp(&out[0].output_addr, helper_addr(0),
+		      sizeof(out[0].output_addr)) == 0);
+	assert(le32_to_cpu(out[1].send_amount) == 2000);
+	assert(memcmp(&out[1].output_addr, helper_addr(1),
+		      sizeof(out[1].output_addr)) == 0);
 
 	assert(check_transaction(s, t, NULL, NULL, NULL, NULL)
 	       == PROTOCOL_ERROR_NONE);
@@ -100,25 +101,25 @@ int main(int argc, char *argv[])
 	t->gateway.num_outputs = cpu_to_le16(le16_to_cpu(t->gateway.num_outputs)
 					     + 1);
 
-	t->gateway.output[0].send_amount ^= cpu_to_le32(1);
+	out[0].send_amount ^= cpu_to_le32(1);
 	assert(check_transaction(s, t, NULL, NULL, NULL, NULL)
 	       == PROTOCOL_ERROR_TRANS_BAD_SIG);
-	t->gateway.output[0].send_amount ^= cpu_to_le32(1);
+	out[0].send_amount ^= cpu_to_le32(1);
 
-	t->gateway.output[0].output_addr.addr[0]++;
+	out[0].output_addr.addr[0]++;
 	assert(check_transaction(s, t, NULL, NULL, NULL, NULL)
 	       == PROTOCOL_ERROR_TRANS_BAD_SIG);
-	t->gateway.output[0].output_addr.addr[0]--;
+	out[0].output_addr.addr[0]--;
 
-	t->gateway.output[1].send_amount ^= cpu_to_le32(1);
+	out[1].send_amount ^= cpu_to_le32(1);
 	assert(check_transaction(s, t, NULL, NULL, NULL, NULL)
 	       == PROTOCOL_ERROR_TRANS_BAD_SIG);
-	t->gateway.output[1].send_amount ^= cpu_to_le32(1);
+	out[1].send_amount ^= cpu_to_le32(1);
 
-	t->gateway.output[1].output_addr.addr[0]++;
+	out[1].output_addr.addr[0]++;
 	assert(check_transaction(s, t, NULL, NULL, NULL, NULL)
 	       == PROTOCOL_ERROR_TRANS_BAD_SIG);
-	t->gateway.output[1].output_addr.addr[0]--;
+	out[1].output_addr.addr[0]--;
 
 	/* We restored it ok? */
 	assert(check_transaction(s, t, NULL, NULL, NULL, NULL)

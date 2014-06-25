@@ -8,7 +8,7 @@
 #include "pending.h"
 #include "packet.h"
 #include "proof.h"
-#include "check_transaction.h"
+#include "transaction.h"
 #include "features.h"
 #include "shard.h"
 #include <string.h>
@@ -177,6 +177,7 @@ invalidate_block_bad_amounts(struct state *state,
 	struct protocol_pkt_block_tx_bad_amount *req;
 	union protocol_transaction *input[TRANSACTION_MAX_INPUTS];
 	unsigned int i;
+	struct protocol_input *inp;
 
 	assert(le32_to_cpu(trans->hdr.type) == TRANSACTION_NORMAL);
 	log_unusual(state->log, "Block %u ", le32_to_cpu(block->hdr->depth));
@@ -185,13 +186,14 @@ invalidate_block_bad_amounts(struct state *state,
 		bad_txoff, bad_shardnum);
 	log_add_struct(state->log, union protocol_transaction, trans);
 	log_add(state->log, " with inputs: ");
+
+	inp = get_normal_inputs(&trans->normal);
+
 	/* FIXME: What if input is pending? */
 	for (i = 0; i < le32_to_cpu(trans->normal.num_inputs); i++) {
-		input[i] = thash_gettrans(&state->thash,
-					  &trans->normal.input[i].input);
+		input[i] = thash_gettrans(&state->thash, &inp[i].input);
 		log_add_struct(state->log, union protocol_transaction, input[i]);
-		log_add(state->log, " (output %u)",
-			le16_to_cpu(trans->normal.input[i].output));
+		log_add(state->log, " (output %u)", le16_to_cpu(inp[i].output));
 	}
 
 	req = tal_packet(block, struct protocol_pkt_block_tx_bad_amount,

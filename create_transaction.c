@@ -1,10 +1,9 @@
 #include "create_transaction.h"
-#include "check_transaction.h"
+#include "transaction.h"
 #include "hash_transaction.h"
 #include "merkle_transactions.h"
 #include "signature.h"
 #include "version.h"
-#include "talv.h"
 #include <ccan/tal/tal.h>
 #include <assert.h>
 
@@ -14,22 +13,24 @@ alloc_transaction(const tal_t *ctx,
 		  u16 num)
 {
 	union protocol_transaction *t;
+	size_t len = 0;
+	const char *label = NULL;
 
 	switch (type) {
 	case TRANSACTION_NORMAL:
-		t = to_union(union protocol_transaction, normal,
-			     talv(ctx, struct protocol_transaction_normal,
-				  input[num]));
+		label = "struct protocol_transaction_normal";
+		len = sizeof(struct protocol_transaction_normal)
+			+ num * sizeof(struct protocol_input);
 		break;
 	case TRANSACTION_FROM_GATEWAY:
-		t = to_union(union protocol_transaction, gateway,
-			     talv(ctx, struct protocol_transaction_gateway,
-				  output[num]));
+		label = "struct protocol_transaction_gateway";
+		len = sizeof(struct protocol_transaction_gateway)
+			+ num * sizeof(struct protocol_gateway_payment);
 		break;
-	default:
-		abort();
 	}
+	assert(label);
 
+	t = tal_alloc_(ctx, len, false, label);
 	t->hdr.version = current_version();
 	t->hdr.type = type;
 	t->hdr.features = 0;
@@ -55,7 +56,8 @@ create_gateway_transaction(struct state *state,
 	t->num_outputs = cpu_to_le16(num_payments);
 	t->unused = 0;
 	t->reward = cpu_to_le32(reward);
-	memcpy(t->output, payment, sizeof(t->output[0]) * num_payments);
+	memcpy(get_gateway_outputs(t), payment,
+	       sizeof(payment[0])*num_payments);
 
 	if (!sign_transaction(ut, private_key))
 		return tal_free(ut);
@@ -93,7 +95,7 @@ create_normal_transaction(struct state *state,
 	/* Make sure they don't leave junk here! */
 	for (i = 0; i < num_inputs; i++)
 		assert(inputs[i].unused == 0);
-	memcpy(t->input, inputs, sizeof(t->input[0]) * num_inputs);
+	memcpy(get_normal_inputs(t), inputs, sizeof(inputs[0]) * num_inputs);
 
 	if (!sign_transaction(ut, private_key))
 		return tal_free(ut);

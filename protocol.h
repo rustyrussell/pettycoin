@@ -141,10 +141,10 @@ struct protocol_transaction_normal {
 	le32 change_amount;
 	/* Number of inputs to spend (<= TRANSACTION_MAX_INPUTS) */
 	le32 num_inputs;
-	/* ECDSA of double SHA256 of above, and inputs[] below. */
+	/* ECDSA of double SHA256 of above, and input[num_inputs] below. */
 	struct protocol_signature signature;
-	/* The inputs */
-	struct protocol_input input[ /* num_inputs */ ];
+	/* Followed by:
+	 * struct protocol_input input[num_inputs]; */
 };
 
 /* Inside a block, a normal transaction is followed by num_inputs of these: */
@@ -178,7 +178,9 @@ struct protocol_transaction_gateway {
 	le16 unused;
 	/* ECDSA of double SHA256 of above, and outputs[] below. */
 	struct protocol_signature signature;
-	struct protocol_gateway_payment output[ /* num_outputs */ ];
+	/* Followed by:
+	   struct protocol_gateway_payment output[num_outputs];
+	*/
 };
 
 union protocol_transaction {

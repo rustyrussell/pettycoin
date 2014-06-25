@@ -43,6 +43,7 @@ static time_t my_time(time_t *p)
 #include "../state.c"
 #include "../pseudorand.c"
 #include "../create_refs.c"
+#include "../transaction.c"
 
 /* Here's a genesis block we created earlier */
 static struct protocol_block_header genesis_hdr = {

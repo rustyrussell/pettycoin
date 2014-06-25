@@ -4,7 +4,7 @@
 #include "state.h"
 #include "block.h"
 #include "timestamp.h"
-#include "check_transaction.h"
+#include "transaction.h"
 #include <assert.h>
 
 /* We don't include transactions which are close to being timed out. */
@@ -23,7 +23,7 @@ static bool resolve_input(struct state *state,
 	assert(tx->hdr.type == TRANSACTION_NORMAL);
 	assert(num < le32_to_cpu(tx->normal.num_inputs));
 
-	sha = &tx->normal.input[num].input;
+	sha = &get_normal_inputs(&tx->normal)[num].input;
 
 	for (te = thash_firstval(&state->thash, sha, &iter);
 	     te;

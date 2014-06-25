@@ -2,6 +2,7 @@
 #include "protocol.h"
 #include "protocol_net.h"
 #include "hash_transaction.h"
+#include "transaction.h"
 #include "base58.h"
 #include "addr.h"
 #include <sys/socket.h>
@@ -73,7 +74,8 @@ void log_add_struct_(struct log *log, const char *structname, const void *ptr)
 				log_add(log, " %u:", i);
 				log_add_struct(log,
 					       struct protocol_gateway_payment,
-					       &t->gateway.output[i]);
+					       &get_gateway_outputs(&t->gateway)
+					       [i]);
 			}
 			break;
 		default:

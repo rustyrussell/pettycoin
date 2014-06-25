@@ -16,7 +16,7 @@
 #include "generate.h"
 #include "pending.h"
 #include "chain.h"
-#include "check_transaction.h"
+#include "transaction.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/io/io.h>
 #include <sys/types.h>
