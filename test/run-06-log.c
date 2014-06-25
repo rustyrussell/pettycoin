@@ -1,45 +1,61 @@
+#include <ccan/tal/tal.h>
+#include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
 #include <ccan/isaac/isaac64.h>
 #include <ccan/err/err.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-static struct timespec my_time;
+static struct timeabs my_time;
 
 /* Prune everything! */
 #define isaac64_next_uint(isaac64, n) ((n) - 1)
-#define time_now(x) my_time
+#define time_now() my_time
 #include "../log.c"
+#include "../log_helper.c"
+#include "../base58.c"
+#include "../hash_transaction.c"
+#include "../marshall.c"
+#include "../shadouble.c"
+
+static char *read_from(int fd)
+{
+	size_t max = 128, done = 0;
+	int r;
+	char *p = tal_arr(NULL, char, max);
+
+	while ((r = read(fd, p + done, max - done)) > 0) {
+		done += r;
+		if (done == max)
+			tal_resize(&p, max *= 2);
+	}
+	tal_resize(&p, done + 1);
+	p[done] = '\0';
+
+	return p;
+}
 
 int main(void)
 {
 	struct protocol_double_sha dsha;
 	struct protocol_net_address netaddr;
 	int fds[2];
-	const char expect1[] = "PREFIX 334 bytes, Sun Nov 10 16:57:35 2013\n"
-		"+0.000000500 DEBUG: This is a debug message!\n"
-		"+0.000000501 INFO: This is an info message!\n"
-		"+0.000000502 UNUSUAL: This is an unusual message!\n"
-		"+0.000000503 BROKEN: This is a broken message!the sha is ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff and the address is: ::ffff:127.0.0.1:65000\n\n";
-	const char expect2[] = "PREFIX 103 bytes, Sun Nov 10 16:57:35 2013\n"
-		"... 4 skipped...\n"
-		"+0.000000504 DEBUG: Overflow!\n"
-		"+0.000000504 DEBUG: Log pruned 4 entries (mem 372 -> 38)\n\n";
-	char *p;
+	char *p, *mem1, *mem2, *mem3;
 	int status;
-	struct log *log = new_log(NULL, "PREFIX", LOG_BROKEN+1, sizeof(struct log_entry) * 4 + 25 + 25 + 28 + 144);
+	size_t maxmem = sizeof(struct log_entry) * 4 + 25 + 25 + 28 + 144;
+	struct log *log = new_log(NULL, NULL, "PREFIX", LOG_BROKEN+1, maxmem);
 
-	my_time.tv_sec = 1384064855;
-	my_time.tv_nsec = 500;
+	my_time.ts.tv_sec = 1384064855;
+	my_time.ts.tv_nsec = 500;
 
 	log_debug(log, "This is a debug %s!", "message");
-	my_time.tv_nsec++;
+	my_time.ts.tv_nsec++;
 	log_info(log, "This is an info %s!", "message");
-	my_time.tv_nsec++;
+	my_time.ts.tv_nsec++;
 	log_unusual(log, "This is an unusual %s!", "message");
-	my_time.tv_nsec++;
+	my_time.ts.tv_nsec++;
 	log_broken(log, "This is a broken %s!", "message");
-	my_time.tv_nsec++;
+	my_time.ts.tv_nsec++;
 
 	log_add(log, "the sha is ");
 	memset(&dsha, 0xFF, sizeof(dsha));
@@ -67,16 +83,19 @@ int main(void)
 	}
 
 	close(fds[1]);
+	p = read_from(fds[0]);
+	/* Shouldn't contain any NUL chars */
+	assert(strlen(p) + 1 == tal_count(p));
 
-	p = malloc(strlen(expect1) + 1);
-	if (!read_all(fds[0], p, strlen(expect1)))
-		err(1, "Reading log dump from child");
-	if (read(fds[0], p, 1) != 0)
-		errx(1, "Extra in log dump from child");
-	close(fds[0]);
+	assert(tal_strreg(p, p,
+			  "PREFIX ([0-9])* bytes, Sun Nov 10 16:57:35 2013\n"
+			  "\\+0\\.000000500 DEBUG: This is a debug message!\n"
+			  "\\+0\\.000000501 INFO: This is an info message!\n"
+			  "\\+0\\.000000502 UNUSUAL: This is an unusual message!\n"
+			  "\\+0\\.000000503 BROKEN: This is a broken message!the sha is ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff and the address is: ::ffff:127\\.0\\.0\\.1:65000\n\n", &mem1));
+	assert(atoi(mem1) < maxmem);
+	tal_free(p);
 
-	p[strlen(expect1)] = '\0';
-	assert(streq(expect1, p));
 	wait(&status);
 	assert(WIFEXITED(status) && WEXITSTATUS(status) == 0);
 
@@ -96,17 +115,20 @@ int main(void)
 
 	close(fds[1]);
 
-	if (!read_all(fds[0], p, strlen(expect2)))
-		err(1, "Reading log dump from child");
-	if (read(fds[0], p, 1) != 0)
-		errx(1, "Extra in log dump from child");
-	close(fds[0]);
+	p = read_from(fds[0]);
+	/* Shouldn't contain any NUL chars */
+	assert(strlen(p) + 1 == tal_count(p));
 
-	p[strlen(expect2)] = '\0';
-	assert(streq(expect2, p));
+	assert(tal_strreg(p, p,
+			  "PREFIX ([0-9]*) bytes, Sun Nov 10 16:57:35 2013\n"
+			  "\\.\\.\\. 4 skipped\\.\\.\\.\n"
+			  "\\+0.000000504 DEBUG: Overflow!\n"
+			  "\\+0.000000504 DEBUG: Log pruned 4 entries \\(mem ([0-9]*) -> ([0-9]*)\\)\n\n", &mem1, &mem2, &mem3));
+	assert(atoi(mem1) < maxmem);
+	assert(atoi(mem2) >= maxmem);
+	assert(atoi(mem3) < maxmem);
+	tal_free(p);
 	wait(&status);
 	assert(WIFEXITED(status) && WEXITSTATUS(status) == 0);
-
-	free(p);
 	return 0;
 }

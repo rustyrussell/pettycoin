@@ -1,15 +1,18 @@
 #include "../create_transaction.c"
 #include "../check_transaction.c"
 #include "../shadouble.c"
+#include "../signature.c"
+#include "../thash.c"
+#include "../minimal_log.c"
+#include "../marshall.c"
+#include "../proof.c"
+#include "../shard.c"
+#include "../merkle_transactions.c"
 #include "../hash_transaction.c"
 #include <assert.h>
 #include "helper_gateway_key.h"
 #include "helper_key.h"
-
-struct block *block_find(struct block *start, const u8 lower_sha[4])
-{
-	abort();
-}
+#include "helper_fakenewstate.h"
 
 bool accept_gateway(const struct state *state,
 		    const struct protocol_pubkey *key)
@@ -20,9 +23,8 @@ bool accept_gateway(const struct state *state,
 int main(int argc, char *argv[])
 {
 	union protocol_transaction *t;
-	struct state *s = tal(NULL, struct state);
+	struct state *s = fake_new_state();
 	struct protocol_gateway_payment *payment;
-	union protocol_transaction **trans;
 
 	/* Single payment. */
 	payment = tal_arr(s, struct protocol_gateway_payment, 1);
@@ -44,9 +46,7 @@ int main(int argc, char *argv[])
 		      helper_addr(0),
 		      sizeof(t->gateway.output[0].output_addr)) == 0);
 
-	trans = tal_arr(s, union protocol_transaction *, 1);
-	trans[0] = t;
-	assert(check_transaction_proof(s, trans, NULL));
+	assert(check_transaction(s, t, NULL, NULL, NULL, NULL) == PROTOCOL_ERROR_NONE);
 
 	/* Two payments (must be same shard!) */
 	payment = tal_arr(s, struct protocol_gateway_payment, 2);
@@ -74,53 +74,62 @@ int main(int argc, char *argv[])
 		      helper_addr(1),
 		      sizeof(t->gateway.output[1].output_addr)) == 0);
 
-	trans = tal_arr(s, union protocol_transaction *, 1);
-	trans[0] = t;
-	assert(check_transaction_proof(s, trans, NULL));
+	assert(check_transaction(s, t, NULL, NULL, NULL, NULL)
+	       == PROTOCOL_ERROR_NONE);
 
 	/* Now try changing it. */
 	t->gateway.version++;
-	assert(!check_transaction_proof(s, trans, NULL));
+	assert(check_transaction(s, t, NULL, NULL, NULL, NULL)
+	       == PROTOCOL_ERROR_TRANS_HIGH_VERSION);
 	t->gateway.version--;
 
 	t->gateway.features++;
-	assert(!check_transaction_proof(s, trans, NULL));
+	assert(check_transaction(s, t, NULL, NULL, NULL, NULL)
+	       == PROTOCOL_ERROR_TRANS_BAD_SIG);
 	t->gateway.features--;
 
 	t->gateway.type++;
-	assert(!check_transaction_proof(s, trans, NULL));
+	assert(check_transaction(s, t, NULL, NULL, NULL, NULL)
+	       == PROTOCOL_ERROR_TRANS_UNKNOWN);
 	t->gateway.type--;
 
 	t->gateway.num_outputs = cpu_to_le16(le16_to_cpu(t->gateway.num_outputs)
 					     - 1);
-	assert(!check_transaction_proof(s, trans, NULL));
+	assert(check_transaction(s, t, NULL, NULL, NULL, NULL)
+	       == PROTOCOL_ERROR_TRANS_BAD_SIG);
 	t->gateway.num_outputs = cpu_to_le16(le16_to_cpu(t->gateway.num_outputs)
 					     + 1);
 
 	t->gateway.output[0].send_amount ^= cpu_to_le32(1);
-	assert(!check_transaction_proof(s, trans, NULL));
+	assert(check_transaction(s, t, NULL, NULL, NULL, NULL)
+	       == PROTOCOL_ERROR_TRANS_BAD_SIG);
 	t->gateway.output[0].send_amount ^= cpu_to_le32(1);
 
 	t->gateway.output[0].output_addr.addr[0]++;
-	assert(!check_transaction_proof(s, trans, NULL));
+	assert(check_transaction(s, t, NULL, NULL, NULL, NULL)
+	       == PROTOCOL_ERROR_TRANS_BAD_SIG);
 	t->gateway.output[0].output_addr.addr[0]--;
 
 	t->gateway.output[1].send_amount ^= cpu_to_le32(1);
-	assert(!check_transaction_proof(s, trans, NULL));
+	assert(check_transaction(s, t, NULL, NULL, NULL, NULL)
+	       == PROTOCOL_ERROR_TRANS_BAD_SIG);
 	t->gateway.output[1].send_amount ^= cpu_to_le32(1);
 
 	t->gateway.output[1].output_addr.addr[0]++;
-	assert(!check_transaction_proof(s, trans, NULL));
+	assert(check_transaction(s, t, NULL, NULL, NULL, NULL)
+	       == PROTOCOL_ERROR_TRANS_BAD_SIG);
 	t->gateway.output[1].output_addr.addr[0]--;
 
 	/* We restored it ok? */
-	assert(check_transaction_proof(s, trans, NULL));
+	assert(check_transaction(s, t, NULL, NULL, NULL, NULL)
+	       == PROTOCOL_ERROR_NONE);
 
 	/* Try signing it with non-gateway key. */
-	trans[0] = create_gateway_transaction(s, helper_public_key(0),
-					      2, 12, payment,
-					      helper_private_key(0));
-	assert(!check_transaction_proof(s, trans, NULL));
+	t = create_gateway_transaction(s, helper_public_key(0),
+				       2, 12, payment,
+				       helper_private_key(0));
+	assert(check_transaction(s, t, NULL, NULL, NULL, NULL)
+	       == PROTOCOL_ERROR_TRANS_BAD_GATEWAY);
 
 	tal_free(s);
 	return 0;
