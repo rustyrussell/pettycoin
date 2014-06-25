@@ -232,6 +232,11 @@ struct protocol_pkt_block_tx_bad_amount {
 	*/
 };
 
+struct protocol_net_txrefhash {
+	struct protocol_double_sha txhash;
+	struct protocol_double_sha refhash;
+};
+
 struct protocol_pkt_shard {
 	le32 len; /* sizeof(struct protocol_pkt_shard) */
 	le32 type; /* PROTOCOL_PKT_SHARD */
@@ -242,7 +247,7 @@ struct protocol_pkt_shard {
 		     PROTOCOL_ERROR_UNKNOWN_SHARD */
 
 	/* Only if !err:
-	   struct protocol_double_sha txhash[block->shard_nums[shard]];
+	   struct protocol_net_txrefhash hash[block->shard_nums[shard]];
 	*/
 };
 
