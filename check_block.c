@@ -1,3 +1,4 @@
+#include <ccan/structeq/structeq.h>
 #include "check_block.h"
 #include "version.h"
 #include "overflows.h"
@@ -123,8 +124,7 @@ bool shard_belongs_in_block(const struct block *block,
 	       == block->shard_nums[shard->shardnum]);
 	merkle_txs(NULL, 0, shard->txp_or_hash, shard->u, 0,
 		   block->shard_nums[shard->shardnum], &merkle);
-	return memcmp(block->merkles[shard->shardnum].sha, merkle.sha,
-		      sizeof(merkle.sha)) == 0;
+	return structeq(&block->merkles[shard->shardnum], &merkle);
 }
 
 static u32 get_shard_start(const struct block *block,
@@ -253,8 +253,7 @@ static void copy_old_txs(struct state *state,
 	for (i = 0; i < num; i++) {
 		if (!shard_is_tx(old, i)) {
 			/* Both hashes must be identical. */
-			assert(memcmp(old->u[i].hash, new->u[i].hash,
-				      sizeof(*new->u[i].hash)) == 0);
+			assert(structeq(&old->u[i].hash, &new->u[i].hash));
 			continue;
 		}
 		if (!tx_for(old, i))
@@ -313,8 +312,7 @@ void put_tx_in_block(struct state *state,
 		struct protocol_net_txrefhash hashes;
 		hash_tx(txp->tx, &hashes.txhash);
 		hash_refs(refs_for(*txp), num_inputs(txp->tx), &hashes.refhash);
-		assert(memcmp(shard->u[txoff].hash, &hashes, sizeof(hashes))
-		       == 0);
+		assert(structeq(shard->u[txoff].hash, &hashes));
 	}
 
 	/* Now it's a transaction. */

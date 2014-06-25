@@ -1,3 +1,4 @@
+#include <ccan/structeq/structeq.h>
 #include "proof.h"
 #include "merkle_txs.h"
 #include "block.h"
@@ -73,6 +74,5 @@ bool check_proof(const struct protocol_proof *proof,
 
 	proof_merkles_to(tx, txoff, proof, &merkle);
 
-	return memcmp(b->merkles[shardnum].sha, merkle.sha, sizeof(merkle.sha))
-		== 0;
+	return structeq(&b->merkles[shardnum], &merkle);
 }

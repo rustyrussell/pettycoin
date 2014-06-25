@@ -1,3 +1,4 @@
+#include <ccan/structeq/structeq.h>
 #include "chain.h"
 #include "block.h"
 #include "peer.h"
@@ -103,8 +104,8 @@ void check_chains(const struct state *state)
 			if (n == 0)
 				assert(i == genesis_block(state));
 			else {
-				assert(memcmp(&i->hdr->prev_block, &i->prev->sha,
-					      sizeof(i->prev->sha)) == 0);
+				assert(structeq(&i->hdr->prev_block,
+						&i->prev->sha));
 				if (i->prev->complaint)
 					assert(i->complaint);
 			}

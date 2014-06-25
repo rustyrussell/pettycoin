@@ -1,4 +1,5 @@
 #include <ccan/asort/asort.h>
+#include <ccan/structeq/structeq.h>
 #include <ccan/array_size/array_size.h>
 #include "pending.h"
 #include "prev_merkles.h"
@@ -267,7 +268,7 @@ find_pending_tx_with_ref(const tal_t *ctx,
 
 			/* FIXME: Cache sha of tx in pending? */
 			hash_tx(pend[i]->tx, &sha);
-			if (memcmp(&hash->txhash, &sha, sizeof(sha)) != 0)
+			if (!structeq(&hash->txhash, &sha))
 				continue;
 
 			/* FIXME: If peer->state->longest_knowns[0]->prev ==
@@ -279,7 +280,7 @@ find_pending_tx_with_ref(const tal_t *ctx,
 				continue;
 
 			hash_refs(refs, tal_count(refs), &sha);
-			if (memcmp(&hash->refhash, &sha, sizeof(sha)) != 0) {
+			if (!structeq(&hash->refhash, &sha)) {
 				tal_free(refs);
 				continue;
 			}

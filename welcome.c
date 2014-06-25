@@ -1,3 +1,4 @@
+#include <ccan/structeq/structeq.h>
 #include "welcome.h"
 #include "state.h"
 #include "version.h"
@@ -134,8 +135,7 @@ enum protocol_ecode check_welcome(const struct state *state,
 		return PROTOCOL_ECODE_INVALID_LEN;
 
 	/* We must agree on genesis block. */
-	if (memcmp(&(*blocks)[le16_to_cpu(w->num_blocks) - 1],
-		   &genesis->sha, sizeof(genesis->sha)) != 0) 
+	if (!structeq(&(*blocks)[le16_to_cpu(w->num_blocks)-1], &genesis->sha))
 		return PROTOCOL_ECODE_WRONG_GENESIS;
 
 	return PROTOCOL_ECODE_NONE;

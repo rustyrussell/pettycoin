@@ -1,3 +1,4 @@
+#include <ccan/structeq/structeq.h>
 #include "todo.h"
 #include "state.h"
 #include "protocol_net.h"
@@ -61,7 +62,7 @@ static struct todo_request *find_todo(struct state *state,
 			continue;
 
 		get_todo_ptrs(state, i, &i_sha, &i_shardnum, &i_txoff);
-		if (memcmp(i_sha, blk, sizeof(*blk)) != 0)
+		if (!structeq(i_sha, blk))
 			continue;
 		if (i_shardnum && le16_to_cpu(*i_shardnum) != shardnum)
 			continue;
@@ -287,7 +288,7 @@ void todo_forget_about_block(struct state *state,
 		u8 *i_txoff;
 
 		get_todo_ptrs(state, i, &i_sha, &i_shardnum, &i_txoff);
-		if (memcmp(i_sha, block, sizeof(*i_sha)) != 0)
+		if (!structeq(i_sha, block))
 			continue;
 
 		list_del_from(&state->todo, &i->list);

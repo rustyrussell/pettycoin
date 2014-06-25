@@ -1,3 +1,4 @@
+#include <ccan/structeq/structeq.h>
 #include "peer_cache.h"
 #include "peer.h"
 #include "protocol_net.h"
@@ -167,7 +168,7 @@ static bool peer_already(struct state *state, const struct protocol_net_address 
 	struct peer *p;
 
 	list_for_each(&state->peers, p, list)
-		if (memcmp(&p->you, a, sizeof(*a)) == 0)
+		if (structeq(&p->you, a))
 			return true;
 	return false;
 }
@@ -219,7 +220,7 @@ void peer_cache_update(struct state *state,
 	struct peer_hash_entry *e = peer_hash_entry(state->peer_cache, addr);
 
 	/* Don't update if not in cache. */
-	if (memcmp(&e->addr, addr, sizeof(*addr)) != 0) {
+	if (!structeq(&e->addr, addr)) {
 		log_debug(state->log, "Can't update address not in peer_cache ");
 		log_add_struct(state->log, struct protocol_net_address, addr);
 		return;
@@ -245,7 +246,7 @@ void peer_cache_add(struct state *state,
 {
 	struct peer_hash_entry *e = peer_hash_entry(state->peer_cache, addr);
 
-	if (memcmp(&e->addr, addr, sizeof(*addr)) == 0) {
+	if (structeq(&e->addr, addr)) {
 		log_debug(state->log, "peer_cache adding repeat for ");
 		log_add_struct(state->log, struct protocol_net_address, addr);
 		return;
@@ -277,7 +278,7 @@ void peer_cache_del(struct state *state,
 {
 	struct peer_hash_entry *e = peer_hash_entry(state->peer_cache, addr);
 
-	if (memcmp(&e->addr, addr, sizeof(*addr)) == 0) {
+	if (structeq(&e->addr, addr)) {
 		log_debug(state->log, "peer_cache deleting ");
 		log_add_struct(state->log, struct protocol_net_address, addr);
 		memset(e, 0, sizeof(*e));

@@ -1,3 +1,4 @@
+#include <ccan/structeq/structeq.h>
 #include "check_tx.h"
 #include "tx.h"
 #include "block.h"
@@ -173,7 +174,7 @@ check_tx_normal_inputs(struct state *state,
 		}
 
 		/* Check it was to this address. */
-		if (memcmp(&my_addr, &addr, sizeof(addr)) != 0) {
+		if (!structeq(&my_addr, &addr)) {
 			*bad_input_num = i;
 			log_debug(state->log, "Address mismatch against output %i of ", le16_to_cpu(inp[i].output));
 			log_add_struct(state->log, union protocol_tx,

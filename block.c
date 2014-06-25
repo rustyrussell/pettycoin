@@ -1,3 +1,4 @@
+#include <ccan/structeq/structeq.h>
 #include "block.h"
 #include "chain.h"
 #include "protocol.h"
@@ -103,7 +104,7 @@ struct block *block_find_any(struct state *state,
 	/* Search recent blocks first. */
 	for (i = n - 1; i >= 0; i--) {
 		list_for_each(state->block_depth[i], b, list) {
-			if (memcmp(b->sha.sha, sha->sha, sizeof(sha->sha)) == 0)
+			if (structeq(&b->sha, sha))
 				return b;
 		}
 	}
