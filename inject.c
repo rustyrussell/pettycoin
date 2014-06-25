@@ -420,8 +420,17 @@ int main(int argc, char *argv[])
 	read_response(fd);
 
 	hash_tx(t, &sha);
-	log_info(NULL, "%s", "");
-	log_add_struct(NULL, struct protocol_double_sha, &sha);
-	printf("\n");
+	printf("%02x%02x%02x%02x%02x%02x%02x%02x"
+	       "%02x%02x%02x%02x%02x%02x%02x%02x"
+	       "%02x%02x%02x%02x%02x%02x%02x%02x"
+	       "%02x%02x%02x%02x%02x%02x%02x%02x\n",
+	       sha.sha[0], sha.sha[1], sha.sha[2], sha.sha[3],
+	       sha.sha[4], sha.sha[5], sha.sha[6], sha.sha[7],
+	       sha.sha[8], sha.sha[9], sha.sha[10], sha.sha[11],
+	       sha.sha[12], sha.sha[13], sha.sha[14], sha.sha[15],
+	       sha.sha[16], sha.sha[17], sha.sha[18], sha.sha[19],
+	       sha.sha[20], sha.sha[21], sha.sha[22], sha.sha[23],
+	       sha.sha[24], sha.sha[25], sha.sha[26], sha.sha[27],
+	       sha.sha[28], sha.sha[29], sha.sha[30], sha.sha[31]);
 	return 0;
 }
