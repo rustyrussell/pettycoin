@@ -45,10 +45,10 @@ enum protocol_pkt_type {
 	PROTOCOL_PKT_GET_TX,
 	/* Here's a transaction. */
 	PROTOCOL_PKT_TX,
-	/* Please give me the nth TX in this shard. */
-	PROTOCOL_PKT_GET_TX_IN_SHARD,
-	/* Here's a transaction in a block's shard. */
-	PROTOCOL_PKT_TX_IN_SHARD,
+	/* Please give me the TX (w/refs) in this block. */
+	PROTOCOL_PKT_GET_TX_IN_BLOCK,
+	/* Here's a transaction (w/refs) in a block. */
+	PROTOCOL_PKT_TX_IN_BLOCK,
 	/* Please tell me what transactions I should know about. */
 	PROTOCOL_PKT_GET_TXMAP,
 	/* Which transactions you should know about (response to above) */
@@ -328,10 +328,10 @@ struct protocol_pkt_get_tx {
 	struct protocol_double_sha tx;
 };
 
-/* Ask for a specific block pos (reply will be PROTOCOL_PKT_TX_IN_SHARD). */
-struct protocol_pkt_get_tx_in_shard {
-	le32 len; /* sizeof(struct protocol_pkt_get_tx_in_shard) */
-	le32 type; /* PROTOCOL_PKT_GET_TX */
+/* Ask for a specific block pos (reply will be PROTOCOL_PKT_TX_IN_BLOCK). */
+struct protocol_pkt_get_tx_in_block {
+	le32 len; /* sizeof(struct protocol_pkt_get_tx_in_block) */
+	le32 type; /* PROTOCOL_PKT_GET_TX_IN_BLOCK */
 
 	struct protocol_double_sha block;
 	le16 shard;
@@ -378,7 +378,7 @@ struct protocol_pkt_txmap {
 #define PROTOCOL_PKT_PIGGYBACK_NEWSHARD 2
 /* Followed by struct protocol_double_sha of tx, block then le16 shard
  * and u8 txoff. */
-#define PROTOCOL_PKT_PIGGYBACK_TX_IN_SHARD 3
+#define PROTOCOL_PKT_PIGGYBACK_TX_IN_BLOCK 3
 /* Followed by struct protocol_double_sha of tx. */
 #define PROTOCOL_PKT_PIGGYBACK_TX 4
 

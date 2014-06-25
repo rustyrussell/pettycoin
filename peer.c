@@ -1203,7 +1203,7 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 		err = recv_unknown_block(peer, peer->incoming);
 		break;
 	/* FIXME! */
-	case PROTOCOL_PKT_TX_IN_SHARD:
+	case PROTOCOL_PKT_TX_IN_BLOCK:
 		/* If we don't know block, ask about block.
 		 * Otherwise, if it's in our interest:
 		 *      If we don't know inputs, ask for them.

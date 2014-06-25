@@ -128,12 +128,12 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "PROTOCOL_PKT_SET_FILTER"; break;
 		case PROTOCOL_PKT_TX:
 			name = "PROTOCOL_PKT_TX"; break;
-		case PROTOCOL_PKT_TX_IN_SHARD:
-			name = "PROTOCOL_PKT_TX_IN_SHARD"; break;
+		case PROTOCOL_PKT_TX_IN_BLOCK:
+			name = "PROTOCOL_PKT_TX_IN_BLOCK"; break;
 		case PROTOCOL_PKT_GET_TX:
 			name = "PROTOCOL_PKT_GET_TX"; break;
-		case PROTOCOL_PKT_GET_TX_IN_SHARD:
-			name = "PROTOCOL_PKT_GET_TX_IN_SHARD"; break;
+		case PROTOCOL_PKT_GET_TX_IN_BLOCK:
+			name = "PROTOCOL_PKT_GET_TX_IN_BLOCK"; break;
 		case PROTOCOL_PKT_GET_TXMAP:
 			name = "PROTOCOL_PKT_GET_TXMAP"; break;
 		case PROTOCOL_PKT_TXMAP:
