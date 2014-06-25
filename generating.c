@@ -1,3 +1,5 @@
+/* FIXME: update mechanism is still racy.  We should just stop the generator
+ * before we update the pending transactions. */
 #include "generating.h"
 #include "difficulty.h"
 #include "state.h"
@@ -15,6 +17,7 @@
 #include "pending.h"
 #include "chain.h"
 #include "check_transaction.h"
+#include <ccan/array_size/array_size.h>
 #include <ccan/io/io.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -40,9 +43,10 @@ struct generator {
 	void *pkt_in;
 	/* The block it found. */
 	struct block *new;
-	/* The transactions it included. */
+	/* The transactions it included */
 	struct pending_trans **included;
 	pid_t pid;
+	u8 shard_order;
 	/* Update list. */
 	struct list_head updates;
 };
@@ -132,8 +136,8 @@ static struct io_plan do_send_trans(struct io_conn *conn, struct generator *gen)
 
 	u = list_top(&gen->updates, struct pending_update, list);
 	if (u) {
-		log_debug(gen->log, "Sending transaction update pos %u cookie %p",
-			  u->update.trans_idx, u->update.cookie);
+		log_debug(gen->log, "Sending transaction update shard %u off %u cookie %p",
+			  u->update.shard, u->update.txoff, u->update.cookie);
 
 		return io_write(&u->update, sizeof(u->update), trans_sent, gen);
 	}
@@ -152,47 +156,41 @@ static struct io_plan send_go_byte(struct io_conn *conn, struct generator *gen)
 
 static struct io_plan got_trans(struct io_conn *conn, struct generator *gen)
 {
-	u32 i, j, num_trans;
+	u32 i, off = 0, shard;
 
-	/* Break into batches, and add. */
-	num_trans = le32_to_cpu(gen->new->hdr->num_transactions);
-
-	log_debug(gen->log, "Got %u transactions", num_trans);
-	for (i = 0; i < num_trans; i += (1 << PETTYCOIN_BATCH_ORDER)) {
-		struct transaction_batch *b;
-		u32 num = num_trans - i;
+	for (shard = 0; shard < (1 << gen->shard_order); shard++) {
+		struct transaction_shard *s;
 		enum protocol_error err;
 		unsigned int bad_trans, bad_trans2, bad_input_num;
 		union protocol_transaction *bad_input;
 
-		if (num > (1 << PETTYCOIN_BATCH_ORDER))
-			num = (1 << PETTYCOIN_BATCH_ORDER);
+		s = talz(gen, struct transaction_shard);
+		s->shardnum = shard;
+		s->count = 0;
 
-		b = talz(gen, struct transaction_batch);
-		b->trans_start = i;
-		b->count = num;
-
-		for (j = 0; j < num; j++) {
-			b->t[j] = gen->included[i+j]->t;
-			b->refs[j] = tal_steal(b, gen->included[i+j]->refs);
+		for (i = 0; i < gen->new->shard_nums[shard]; i++) {
+			s->t[i] = gen->included[off]->t;
+			s->refs[i] = tal_steal(s, gen->included[off]->refs);
+			s->count++;
+			off++;
 		}
 
-		if (!batch_full(gen->new, b)) {
+		if (s->count != gen->new->shard_nums[shard]) {
 			log_broken(gen->log,
-				   "Generator %u created short batch %u-%u",
-				   gen->pid, i, i+num);
+				   "Generator %u created short shard %u(%u)",
+				   gen->pid, shard, s->count);
 			return io_close();
 		}
 
-		if (!batch_belongs_in_block(gen->new, b)) {
+		if (!shard_belongs_in_block(gen->new, s)) {
 			log_broken(gen->log,
-				   "Generator %u created invalid batch %u-%u",
-				   gen->pid, i, i+num);
+				   "Generator %u created invalid shard %u",
+				   gen->pid, shard);
 			return io_close();
 		}
 
-		err = batch_validate_transactions(gen->state, gen->log,
-						  gen->new, b, &bad_trans,
+		err = shard_validate_transactions(gen->state, gen->log,
+						  gen->new, s, &bad_trans,
 						  &bad_input_num, &bad_input);
 		if (err) {
 			log_broken(gen->log,
@@ -202,25 +200,27 @@ static struct io_plan got_trans(struct io_conn *conn, struct generator *gen)
 			return io_close();
 		}
 
-		if (!check_batch_order(gen->state, gen->new, b, &bad_trans,
-				       &bad_trans2)) {
+		if (!check_tx_order(gen->state, gen->new, s,
+				    &bad_trans, &bad_trans2)) {
 			log_broken(gen->log,
 				   "Generator %u created bad order %u vs %u",
 				   gen->pid, bad_trans, bad_trans2);
 			return io_close();
 		}
 
-		put_batch_in_block(gen->state, gen->new, b);
-		log_debug(gen->log, "Added batch %u-%u", i, i+num);
+		put_shard_in_block(gen->state, gen->new, s);
+		log_debug(gen->log, "Added shard %u (%u trans)",
+			  shard, s->count);
 	}
+	assert(off == tal_count(gen->included));
 
 	/* Ignore return: we restart generating whether this is in main chain or not */
 	assert(block_full(gen->new, NULL));
 	block_add(gen->state, gen->new);
 	save_block(gen->state, gen->new);
 
-	for (i = 0; i < num_trans; i++)
-		save_transaction(gen->state, gen->new, i);
+	for (shard = 0; shard < (1 << gen->shard_order); shard++)
+		save_shard(gen->state, gen->new, shard);
 
 	/* We may need to revise what we consider mutual blocks with peers. */
 	send_block_to_peers(gen->state, NULL, gen->new);
@@ -228,34 +228,46 @@ static struct io_plan got_trans(struct io_conn *conn, struct generator *gen)
 	return io_close();
 }
 
+static u32 count_transactions(const u8 *shard_nums, u8 shard_order)
+{
+	u32 i, total;
+
+	for (i = 0, total = 0; i < (1 << shard_order); i++)
+		total += shard_nums[i];
+	return total;
+}
+
 static struct io_plan got_solution(struct io_conn *conn, struct generator *gen)
 {
 	enum protocol_error e;
+	const u8 *shard_nums;
 	const struct protocol_double_sha *merkles;
 	const u8 *prev_merkles;
 	const struct protocol_block_tailer *tailer;
 	const struct protocol_block_header *hdr;
+	u32 total_txs;
 
-	e = unmarshall_block(gen->log, gen->pkt_in,
-			     &hdr, &merkles, &prev_merkles, &tailer);
+	e = unmarshall_block(gen->log, gen->pkt_in, &hdr, &shard_nums,
+			     &merkles, &prev_merkles, &tailer);
 	if (e != PROTOCOL_ERROR_NONE) {
 		log_broken(gen->log, "Generator %u unmarshall error %u",
 			   gen->pid, e);
 		return io_close();
 	}
 
-	e = check_block_header(gen->state, hdr, merkles, prev_merkles,
-			       tailer, &gen->new, NULL);
+	e = check_block_header(gen->state, hdr, shard_nums, merkles,
+			       prev_merkles, tailer, &gen->new, NULL);
 	if (e != PROTOCOL_ERROR_NONE) {
 		log_broken(gen->log, "Generator %u block error %u",
 			   gen->pid, e);
 		return io_close();
 	}
 
+	total_txs = count_transactions(shard_nums, gen->shard_order);
+
 	log_info(gen->log,
 		 "Solution received from generator for block %u (%u trans)",
-		 le32_to_cpu(gen->new->hdr->depth),
-		 le32_to_cpu(hdr->num_transactions));
+		 le32_to_cpu(gen->new->hdr->depth), total_txs);
 
 	/* Actually check the previous merkles are correct. */
 	if (!check_block_prev_merkles(gen->state, gen->new)) {
@@ -264,25 +276,31 @@ static struct io_plan got_solution(struct io_conn *conn, struct generator *gen)
 			   gen->pid, le32_to_cpu(gen->new->hdr->depth));
 		return io_close();
 	}
-	/* Read cookies back (actually, struct pending_trans *). */
-	gen->included = tal_arr(gen, struct pending_trans *,
-			     le32_to_cpu(hdr->num_transactions));
 
-	return io_read(gen->included, sizeof(struct pending_trans *)
-		       * le32_to_cpu(hdr->num_transactions), got_trans, gen);
+	/* Read cookies back (actually, struct pending_trans *). */
+	gen->included = tal_arr(gen, struct pending_trans *, total_txs);
+	return io_read(gen->included,
+		       sizeof(struct pending_trans *) * total_txs,
+		       got_trans, gen);
 }
 
 /* FIXME: If transaction may go over horizon, time out generation */
 static void add_update(struct state *state,
 		       struct pending_trans *t,
-		       u32 idx)
+		       size_t shard, size_t txoff)
 {
 	struct pending_update *update;
 
 	update = tal(state->gen, struct pending_update);
 	update->update.features = t->t->hdr.features;
-	update->update.trans_idx = idx;
+	update->update.shard = shard;
+	update->update.txoff = txoff;
+	update->update.unused = 0;
 	update->update.cookie = t;
+
+	/* We shouldn't overflow. */
+	assert(update->update.shard == shard);
+	assert(update->update.txoff == txoff);
 
 	hash_tx_for_block(t->t, NULL, 0, t->refs, num_inputs(t->t),
 			  &update->update.hash);
@@ -291,13 +309,15 @@ static void add_update(struct state *state,
 
 static void init_updates(struct generator *gen)
 {
-	size_t i;
-	struct pending_trans **pend = gen->state->pending->pend;
+	size_t shard, i;
 
 	list_head_init(&gen->updates);
 
-	for (i = 0; i < tal_count(pend); i++)
-		add_update(gen->state, pend[i], i);
+	for (shard = 0; shard < ARRAY_SIZE(gen->state->pending->pend); shard++) {
+		struct pending_trans **pend = gen->state->pending->pend[shard];
+		for (i = 0; i < tal_count(pend); i++)
+			add_update(gen->state, pend[i], shard, i);
+	}
 }
 
 static void exec_generator(struct generator *gen)
@@ -305,7 +325,8 @@ static void exec_generator(struct generator *gen)
 	int outfd[2], infd[2];
 	char difficulty[STR_MAX_CHARS(u32)],
 		prev_merkle_str[STR_MAX_CHARS(u32)],
-		depth[STR_MAX_CHARS(u32)];
+		depth[STR_MAX_CHARS(u32)],
+		shard_order[STR_MAX_CHARS(u8)];
 	char prevblock[sizeof(struct protocol_double_sha) * 2 + 1];
 	char nonce[14 + 1];
 	int i;
@@ -313,13 +334,17 @@ static void exec_generator(struct generator *gen)
 	char log_prefix[40];
 	const u8 *prev_merkles = gen->state->pending->prev_merkles;
 
-	prev_merkles = make_prev_merkles(gen, gen->state,
+	/* FIXME: This is where we increment shard_order if voted! */
+	gen->shard_order = gen->state->longest_knowns[0]->hdr->shard_order;
+
+	prev_merkles = make_prev_merkles(gen,
 					 gen->state->longest_knowns[0],
 					 generating_address(gen->state));
 	last = gen->state->longest_knowns[0];
 	sprintf(difficulty, "%u", get_difficulty(gen->state, last));
 	sprintf(prev_merkle_str, "%zu", tal_count(prev_merkles));
 	sprintf(depth, "%u", le32_to_cpu(last->hdr->depth) + 1);
+	sprintf(shard_order, "%u", gen->shard_order);
 	for (i = 0; i < sizeof(struct protocol_double_sha); i++)
 		sprintf(prevblock + i*2, "%02X", last->sha.sha[i]);
 	
@@ -348,19 +373,20 @@ static void exec_generator(struct generator *gen)
 		       "pettycoin-generate",
 		       /* FIXME: Invalid reward address. */
 		       "0000000000000000000000000000000000000000",
-		       difficulty, prevblock, prev_merkle_str, depth, nonce,
-		       NULL);
+		       difficulty, prevblock, prev_merkle_str,
+		       depth, shard_order, nonce, NULL);
 		exit(127);
 	}
 
 	sprintf(log_prefix, "Generator %u:", gen->pid);
 	gen->log = new_log(gen, gen->state->log,
 			   log_prefix, gen->state->log_level, GEN_LOG_MAX);
-	log_debug(gen->log, "Running '%s' '%s' '%s' %s' '%s' '%s' '%s'",
+	log_debug(gen->log, "Running '%s' '%s' '%s' '%s' %s' '%s' '%s' '%s'",
 		  gen->state->generate,
 		  /* FIXME: Invalid reward address. */
 		  "0000000000000000000000000000000000000000",
-		  difficulty, prevblock, prev_merkle_str, depth, nonce);
+		  difficulty, prevblock, prev_merkle_str, depth, shard_order,
+		  nonce);
 
 	close(outfd[1]);
 	close(infd[0]);
@@ -377,14 +403,14 @@ static void exec_generator(struct generator *gen)
 	io_set_finish(gen->answer, finish_answer, gen);
 }
 
-/* state->pending->t[num] has been added. */
-void tell_generator_new_pending(struct state *state, unsigned int num)
+/* state->pending->t[shard][txoff] has been added. */
+void tell_generator_new_pending(struct state *state, u32 shard, u32 txoff)
 {
 	/* Tell generator about new transaction. */
 	if (!state->gen)
 		return;
 
-	add_update(state, state->pending->pend[num], num);
+	add_update(state, state->pending->pend[shard][txoff], shard, txoff);
 	io_wake(state->gen);
 }
 

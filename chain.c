@@ -4,6 +4,7 @@
 #include "pending.h"
 #include "generating.h"
 #include "todo.h"
+#include "shard.h"
 #include <time.h>
 #include <ccan/cast/cast.h>
 
@@ -289,11 +290,11 @@ static bool update_known_recursive(struct state *state, struct block *block)
 /* FIXME: Ask only the shards we care about. */
 static void ask_about_block(struct state *state, const struct block *block)
 {
-	u32 i;
+	u16 i;
 
-	for (i = 0; i < num_batches_for_block(block); i++) {
-		if (!batch_full(block, block->batch[i]))
-			todo_add_get_batch(state, &block->sha, i);
+	for (i = 0; i < num_shards(block->hdr); i++) {
+		if (!shard_full(block, i))
+			todo_add_get_shard(state, &block->sha, i);
 	}
 }
 
@@ -371,6 +372,16 @@ static void new_longest(struct state *state, const struct block *block)
 	update_preferred_chain(state);
 }
 
+static bool empty_block(const struct block *block)
+{
+	u16 i;
+
+	for (i = 0; i < num_shards(block->hdr); i++)
+		if (block->shard_nums[i] != 0)
+			return false;
+	return true;
+}
+
 /* We've added a new block; update state->longest_chains, state->longest_knowns,
    state->longest_known_descendents as required. */
 void update_block_ptrs_new_block(struct state *state, struct block *block)
@@ -393,7 +404,7 @@ void update_block_ptrs_new_block(struct state *state, struct block *block)
 
 	/* Corner case for zero transactions (will update
 	 * longest_known_descendent if necessary). */
-	if (le32_to_cpu(block->hdr->num_transactions) == 0)
+	if (empty_block(block))
 		update_known(state, block);
 	else
 		/* FIXME: Only needed if a descendent of known[0] */
@@ -410,10 +421,10 @@ void update_block_ptrs_new_block(struct state *state, struct block *block)
 	}
 }
 
-/* We've added a new batch; update state->longest_chains, state->longest_knowns,
+/* We've fille a new shard; update state->longest_chains, state->longest_knowns,
    state->longest_known_descendents as required. */
-void update_block_ptrs_new_batch(struct state *state, struct block *block,
-				 unsigned int batchnum)
+void update_block_ptrs_new_shard(struct state *state, struct block *block,
+				 u16 shardnum)
 {
 	if (block_full(block, NULL))
 		update_known(state, block);
@@ -421,11 +432,11 @@ void update_block_ptrs_new_batch(struct state *state, struct block *block,
 
 static void forget_about_block(struct state *state, const struct block *block)
 {
-	u32 i;
+	u16 i;
 
-	for (i = 0; i < num_batches_for_block(block); i++) {
-		if (!batch_full(block, block->batch[i]))
-			todo_forget_about_batch(state, &block->sha, i);
+	for (i = 0; i < num_shards(block->hdr); i++) {
+		if (!shard_full(block, i))
+			todo_forget_about_shard(state, &block->sha, i);
 	}
 }
 

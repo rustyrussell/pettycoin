@@ -13,14 +13,13 @@ size_t num_prev_merkles(const struct block *prev)
 	for (i = 0;
 	     i < PETTYCOIN_PREV_BLOCK_MERKLES && prev;
 	     i++, prev = prev->prev) {
-		num += num_batches_for_block(prev);
+		num += (1 << prev->hdr->shard_order);
 	}
 
 	return num;
 }
 
-u8 *make_prev_merkles(const tal_t *ctx,
-		      struct state *state, const struct block *prev,
+u8 *make_prev_merkles(const tal_t *ctx, const struct block *prev,
 		      const struct protocol_address *my_addr)
 {
 	unsigned int i;
@@ -35,20 +34,20 @@ u8 *make_prev_merkles(const tal_t *ctx,
 	     i++, prev = prev->prev) {
 		unsigned int j;
 
-		for (j = 0; j < num_batches_for_block(prev); j++) {
+		for (j = 0; j < (1 << prev->hdr->shard_order); j++) {
 			struct protocol_double_sha merkle;
 
-			/* We need to know everything in batch to check
+			/* We need to know everything in shard to check
 			 * previous merkle. */
-			if (!batch_full(prev, prev->batch[j]))
+			if (!shard_full(prev, j))
 				return tal_free(m);
 
 			/* Merkle has block reward address prepended, so you
 			 * can prove you know all the transactions. */
 			merkle_transactions(my_addr, sizeof(*my_addr),
-					    prev->batch[j]->t,
-					    prev->batch[j]->refs,
-					    ARRAY_SIZE(prev->batch[j]->t),
+					    prev->shard[j]->t,
+					    prev->shard[j]->refs,
+					    0, prev->shard_nums[j],
 					    &merkle);
 
 			/* We only save one byte. */

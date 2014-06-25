@@ -51,11 +51,14 @@ static bool valid_difficulty(u32 difficulty)
 
 struct working_block {
 	u32 feature_counts[8];
+	u32 num_shards;
+	u32 num_trans;
 	struct protocol_block_header hdr;
+	u8 *shard_nums;
 	struct protocol_double_sha *merkles;
 	u8 *prev_merkles;
 	struct protocol_block_tailer tailer;
-	struct protocol_double_sha **trans_hashes;
+	struct protocol_double_sha ***trans_hashes;
 	struct protocol_double_sha hash_of_merkles;
 	struct protocol_double_sha hash_of_prev_merkles;
 
@@ -63,31 +66,26 @@ struct working_block {
 	SHA256_CTX partial;
 };
 
-/* Update w->merkles, and w->hash_of_merkles */
-static void merkle_hash_transactions(struct working_block *w)
+/* Update w->merkles[shard], and w->hash_of_merkles */
+static void merkle_hash_shard(struct working_block *w, u32 shard)
 {
-	u32 i, num_trans, num_merk;
-	SHA256_CTX ctx;
 	const struct protocol_double_sha **hashes;
 
-	num_trans = le32_to_cpu(w->hdr.num_transactions);
-	num_merk = num_batches(num_trans);
-
-	if (tal_count(w->merkles) != num_merk << PETTYCOIN_BATCH_ORDER)
-		tal_resize(&w->merkles, num_merk << PETTYCOIN_BATCH_ORDER);
-
-	/* Create merkle hashes for each batch of transactions, and also
-	 * hash together those merkles. */
-	SHA256_Init(&ctx);
-
 	/* Introducing const here requires cast. */
-	hashes = (const struct protocol_double_sha **)w->trans_hashes;
-	for (i = 0; i < num_merk; i++) {
-		merkle_transaction_hashes(hashes + (i<<PETTYCOIN_BATCH_ORDER),
-					  (1 << PETTYCOIN_BATCH_ORDER),
-					  &w->merkles[i]);
+	hashes = (const struct protocol_double_sha **)w->trans_hashes[shard];
+	merkle_transaction_hashes(hashes, 0, w->shard_nums[shard],
+				  &w->merkles[shard]);
+}
+
+static void merkle_hash_changed(struct working_block *w)
+{
+	u32 i;
+	SHA256_CTX ctx;
+
+	/* Recalc hash of all merkles. */
+	SHA256_Init(&ctx);
+	for (i = 0; i < w->num_shards; i++)
 		SHA256_Update(&ctx, &w->merkles[i], sizeof(w->merkles[i]));
-	}
 	SHA256_Double_Final(&ctx, &w->hash_of_merkles);
 }
 
@@ -99,6 +97,8 @@ static void update_partial_hash(struct working_block *w)
 	SHA256_Update(&w->partial, &w->hash_of_merkles,
 		      sizeof(w->hash_of_merkles));
 	SHA256_Update(&w->partial, &w->hdr, sizeof(w->hdr));
+	SHA256_Update(&w->partial, w->shard_nums,
+		      sizeof(*w->shard_nums)*w->num_shards);
 }
 
 /* Create a new block. */
@@ -108,11 +108,13 @@ new_working_block(const tal_t *ctx,
 		  u8 *prev_merkles,
 		  unsigned long num_prev_merkles,
 		  u32 depth,
+		  u8 shard_order,
 		  const struct protocol_double_sha *prev_block,
 		  const struct protocol_address *fees_to)
 {
 	struct working_block *w;
 	SHA256_CTX shactx;
+	u32 i;
 
 	w = tal(ctx, struct working_block);
 	if (!w)
@@ -120,16 +122,27 @@ new_working_block(const tal_t *ctx,
 
 	memset(w->feature_counts, 0, sizeof(w->feature_counts));
 
-	w->trans_hashes = tal_arr(w, struct protocol_double_sha *, 0);
-	w->merkles = tal_arr(w, struct protocol_double_sha, num_batches(0));
-	if (!w->trans_hashes || !w->merkles)
+	w->num_shards = 1 << shard_order;
+	w->num_trans = 0;
+	w->trans_hashes = tal_arr(w, struct protocol_double_sha **,
+				  w->num_shards);
+	w->shard_nums = tal_arrz(w, u8, w->num_shards);
+	w->merkles = tal_arrz(w, struct protocol_double_sha, w->num_shards);
+	if (!w->trans_hashes || !w->shard_nums || !w->merkles)
 		return tal_free(w);
+	for (i = 0; i < w->num_shards; i++) {
+		w->trans_hashes[i] = tal_arr(w->trans_hashes,
+					     struct protocol_double_sha *,
+					     0);
+		if (!w->trans_hashes[i])
+			return tal_free(w);
+	}
 
 	w->hdr.version = current_version();
 	w->hdr.features_vote = 0;
 	memset(w->hdr.nonce2, 0, sizeof(w->hdr.nonce2));
 	w->hdr.prev_block = *prev_block;
-	w->hdr.num_transactions = cpu_to_le32(0);
+	w->hdr.shard_order = shard_order;
 	w->hdr.num_prev_merkles = cpu_to_le32(num_prev_merkles);
 	w->hdr.depth = cpu_to_le32(depth);
 	w->hdr.fees_to = *fees_to;
@@ -144,7 +157,10 @@ new_working_block(const tal_t *ctx,
 	SHA256_Update(&shactx, w->prev_merkles, num_prev_merkles);
 	SHA256_Double_Final(&shactx, &w->hash_of_prev_merkles);
 
-	merkle_hash_transactions(w);
+	for (i = 0; i < w->num_shards; i++)
+		merkle_hash_shard(w, i);
+	merkle_hash_changed(w);
+
 	update_partial_hash(w);
 	return w;
 }
@@ -154,40 +170,34 @@ static bool add_transaction(struct working_block *w, struct update *update)
 {
 	unsigned int i;
 	u8 new_features = 0;
-	u32 num_trans, num_merk;
-	size_t hash_count;
+	size_t num;
 
-	num_trans = le32_to_cpu(w->hdr.num_transactions) + 1;
+	assert(update->shard < tal_count(w->shard_nums));
+	assert(w->shard_nums[update->shard] < 255);
+	assert(update->txoff <= w->shard_nums[update->shard]);
 
-	/* Check for 2^32 transactions: discard if over. */
-	assert(num_trans != 0);
-	assert(update->trans_idx < num_trans);
+	num = w->shard_nums[update->shard];
 
-	num_merk = num_batches(num_trans);
-
-	/* We always keep whole number of batches of hashes. */
-	hash_count = tal_count(w->trans_hashes);
-	if (hash_count != (num_merk << PETTYCOIN_BATCH_ORDER)) {
-		/* FIXME: Assumes NULL == bitwise 0! */
-		tal_resizez(&w->trans_hashes,
-			    num_merk << PETTYCOIN_BATCH_ORDER);
-		hash_count = tal_count(w->trans_hashes);
-	}
+	/* Assumes NULL == bitwise 0! */
+	tal_resizez(&w->trans_hashes[update->shard], num + 1);
 
 	/* Move later transactions. */
-	memmove(w->trans_hashes + update->trans_idx + 1,
-		w->trans_hashes + update->trans_idx,
-		(hash_count - update->trans_idx - 1) * sizeof(w->trans_hashes[0]));
-	w->trans_hashes[update->trans_idx] = &update->hash;
-	w->hdr.num_transactions = cpu_to_le32(num_trans);
+	memmove(w->trans_hashes[update->shard] + update->txoff + 1,
+		w->trans_hashes[update->shard] + update->txoff,
+		(num - update->txoff)
+		* sizeof(w->trans_hashes[update->shard][0]));
+	w->trans_hashes[update->shard][update->txoff] = &update->hash;
+	w->shard_nums[update->shard]++;
+	w->num_trans++;
 
-	merkle_hash_transactions(w);
+	merkle_hash_shard(w, update->shard);
+	merkle_hash_changed(w);
 
 	for (i = 0; i < ARRAY_SIZE(w->feature_counts); i++) {
 		if (update->features & (1 << i))
 			w->feature_counts[i]++;
 		/* If less than half vote for it, clear feature. */
-		if (w->feature_counts[i] < num_trans / 2)
+		if (w->feature_counts[i] < w->num_trans / 2)
 			new_features &= ~(1 << i);
 	}
 	w->hdr.features_vote = new_features;
@@ -318,18 +328,22 @@ static bool from_hex(const char *str, u8 *buf, size_t bufsize)
 static void write_block(int fd, const struct working_block *w)
 {
 	struct protocol_pkt_block *b;
-	u32 i;
+	u32 shard, i;
 
-	b = marshall_block(w, &w->hdr, w->merkles, w->prev_merkles, &w->tailer);
+	b = marshall_block(w, &w->hdr, w->shard_nums, w->merkles,
+			   w->prev_merkles, &w->tailer);
 	if (!write_all(fd, b, le32_to_cpu(b->len)))
 		err(1, "Writing out results: %s", strerror(errno));
 
 	/* Write out the cookies. */
-	for (i = 0; i < le32_to_cpu(w->hdr.num_transactions); i++) {
-		/* cookie is just before hash */
-		void **cookie = (void *)w->trans_hashes[i];
-		if (!write_all(fd, &cookie[-1], sizeof(void *)))
-			err(1, "Writing out cookie: %s", strerror(errno));
+	for (shard = 0; shard < w->num_shards; shard++) {
+		for (i = 0; i < w->shard_nums[shard]; i++) {
+			/* cookie is just before hash */
+			void **cookie = (void *)w->trans_hashes[shard][i];
+			if (!write_all(fd, &cookie[-1], sizeof(void *)))
+				err(1, "Writing out cookie: %s",
+				    strerror(errno));
+		}
 	}
 }
 
@@ -340,13 +354,13 @@ int main(int argc, char *argv[])
 	struct protocol_address reward_address;
 	struct protocol_double_sha prev_hash;
 	u8 *prev_merkles;
-	u32 difficulty, num_prev_merkles, depth;
+	u32 difficulty, num_prev_merkles, depth, shard_order;
 
 	err_set_progname(argv[0]);
 
-	if (argc != 6 && argc != 7)
+	if (argc != 7 && argc != 8)
 		errx(1, "Usage: %s <reward_addr> <difficulty> <prevhash>"
-		     " <num-prev-merkles> <depth> [<nonce>]",
+		     " <num-prev-merkles> <depth> <shardorder> [<nonce>]",
 			argv[0]);
 
 	if (!from_hex(argv[1], reward_address.addr, sizeof(reward_address)))
@@ -360,6 +374,7 @@ int main(int argc, char *argv[])
 		errx(1, "Invalid previous hash");
 
 	depth = strtoul(argv[5], NULL, 0);
+	shard_order = strtoul(argv[6], NULL, 0);
 	num_prev_merkles = strtoul(argv[4], NULL, 0);
 	prev_merkles = tal_arr(ctx, u8, num_prev_merkles + 1);
 
@@ -369,10 +384,10 @@ int main(int argc, char *argv[])
 		exit(0);
 
 	w = new_working_block(ctx, difficulty, prev_merkles, num_prev_merkles,
-			      depth, &prev_hash, &reward_address);
+			      depth, shard_order, &prev_hash, &reward_address);
 
-	if (argv[6]) {
-		strncpy((char *)w->hdr.nonce2, argv[6],
+	if (argv[7]) {
+		strncpy((char *)w->hdr.nonce2, argv[7],
 			sizeof(w->hdr.nonce2));
 		update_partial_hash(w);
 	}

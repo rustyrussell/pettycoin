@@ -96,6 +96,7 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 		switch ((enum protocol_pkt_type)val) {
 		case PROTOCOL_PKT_NONE:
 		case PROTOCOL_PKT_MAX:
+		case PROTOCOL_PKT_PRIV_FULLSHARD:
 			break; /* Shouldn't happen! */ 
 
 		case PROTOCOL_PKT_ERR:
@@ -116,21 +117,21 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "PROTOCOL_PKT_UNKNOWN_BLOCK"; break;
 		case PROTOCOL_PKT_BLOCK:
 			name = "PROTOCOL_PKT_BLOCK"; break;
-		case PROTOCOL_PKT_GET_BATCH:
-			name = "PROTOCOL_PKT_GET_BATCH"; break;
-		case PROTOCOL_PKT_BATCH:
-			name = "PROTOCOL_PKT_BATCH"; break;
+		case PROTOCOL_PKT_GET_SHARD:
+			name = "PROTOCOL_PKT_GET_SHARD"; break;
+		case PROTOCOL_PKT_SHARD:
+			name = "PROTOCOL_PKT_SHARD"; break;
 
 		case PROTOCOL_PKT_SET_FILTER:
 			name = "PROTOCOL_PKT_SET_FILTER"; break;
 		case PROTOCOL_PKT_TX:
 			name = "PROTOCOL_PKT_TX"; break;
-		case PROTOCOL_PKT_TX_IN_BLOCK:
-			name = "PROTOCOL_PKT_TX_IN_BLOCK"; break;
+		case PROTOCOL_PKT_TX_IN_SHARD:
+			name = "PROTOCOL_PKT_TX_IN_SHARD"; break;
 		case PROTOCOL_PKT_GET_TX:
 			name = "PROTOCOL_PKT_GET_TX"; break;
-		case PROTOCOL_PKT_GET_TX_IN_BLOCK:
-			name = "PROTOCOL_PKT_GET_TX_IN_BLOCK"; break;
+		case PROTOCOL_PKT_GET_TX_IN_SHARD:
+			name = "PROTOCOL_PKT_GET_TX_IN_SHARD"; break;
 		case PROTOCOL_PKT_GET_TXMAP:
 			name = "PROTOCOL_PKT_GET_TXMAP"; break;
 		case PROTOCOL_PKT_TXMAP:
@@ -182,8 +183,8 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "PROTOCOL_ERROR_UNKNOWN_TX"; break;
 		case PROTOCOL_ERROR_BAD_TXPOS:
 			name = "PROTOCOL_ERROR_BAD_TXPOS"; break;
-		case PROTOCOL_ERROR_BAD_BATCHNUM:
-			name = "PROTOCOL_ERROR_BAD_BATCHNUM"; break;
+		case PROTOCOL_ERROR_BAD_SHARDNUM:
+			name = "PROTOCOL_ERROR_BAD_SHARDNUM"; break;
 		case PROTOCOL_ERROR_BLOCK_HIGH_VERSION:
 			name = "PROTOCOL_ERROR_BLOCK_HIGH_VERSION"; break;
 		case PROTOCOL_ERROR_BLOCK_LOW_VERSION:
@@ -214,16 +215,18 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "PROTOCOL_ERROR_TRANS_BAD_SIG"; break;
 		case PROTOCOL_ERROR_TOO_MANY_INPUTS:
 			name = "PROTOCOL_ERROR_TOO_MANY_INPUTS"; break;
+		case PROTOCOL_ERROR_BLOCK_BAD_TX_SHARD:
+			name = "PROTOCOL_ERROR_BLOCK_BAD_TX_SHARD"; break;
 		case PROTOCOL_ERROR_PRIV_UNKNOWN_PREV:
 			name = "PROTOCOL_ERROR_PRIV_UNKNOWN_PREV"; break;
 		case PROTOCOL_ERROR_PRIV_TRANS_BAD_INPUT:
 			name = "PROTOCOL_ERROR_PRIV_TRANS_BAD_INPUT"; break;
 		case PROTOCOL_ERROR_PRIV_TRANS_BAD_AMOUNTS:
 			name = "PROTOCOL_ERROR_PRIV_TRANS_BAD_AMOUNTS"; break;
-		case PROTOCOL_ERROR_PRIV_BATCH_BAD_INPUT_REF:
-			name = "PROTOCOL_ERROR_PRIV_BATCH_BAD_INPUT_REF"; break;
-		case PROTOCOL_ERROR_PRIV_BATCH_BAD_INPUT_REF_TRANS:
-			name = "PROTOCOL_ERROR_PRIV_BATCH_BAD_INPUT_REF_TRANS";
+		case PROTOCOL_ERROR_PRIV_BLOCK_BAD_INPUT_REF:
+			name = "PROTOCOL_ERROR_PRIV_BLOCK_BAD_INPUT_REF"; break;
+		case PROTOCOL_ERROR_PRIV_BLOCK_BAD_INPUT_REF_TRANS:
+			name = "PROTOCOL_ERROR_PRIV_BLOCK_BAD_INPUT_REF_TRANS";
 			break;
 		case PROTOCOL_ERROR_MAX:
 			break; /* Shouldn't happen! */

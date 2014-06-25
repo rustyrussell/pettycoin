@@ -5,6 +5,7 @@
 #include "block.h"
 #include "blockfile.h"
 #include "packet.h"
+#include "shard.h"
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
 #include <ccan/read_write_all/read_write_all.h>
@@ -14,29 +15,23 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-struct block_transaction {
-	le32 len;
-	le32 type; /* == PROTOCOL_REQ_NEW_GATEWAY_TRANSACTION */
-	struct protocol_double_sha block;
-	le32 num;
-	/* Followed by union protocol_transaction trans */
-};
-
 static bool load_block(struct state *state, struct protocol_net_hdr *pkt)
 {
 	struct block *new;
 	enum protocol_error e;
+	const u8 *shard_nums;
 	const struct protocol_double_sha *merkles;
 	const u8 *prev_merkles;
 	const struct protocol_block_tailer *tailer;
 	const struct protocol_block_header *hdr;
 
 	e = unmarshall_block(state->log, (void *)pkt,
-			     &hdr, &merkles, &prev_merkles, &tailer);
+			     &hdr, &shard_nums, &merkles, &prev_merkles,
+			     &tailer);
 	if (e != PROTOCOL_ERROR_NONE)
 		return false;
 
-	e = check_block_header(state, hdr, merkles, prev_merkles,
+	e = check_block_header(state, hdr, shard_nums, merkles, prev_merkles,
 			       tailer, &new, NULL);
 	if (e != PROTOCOL_ERROR_NONE)
 		return false;
@@ -45,40 +40,11 @@ static bool load_block(struct state *state, struct protocol_net_hdr *pkt)
 	return true;
 }
 
+/* FIXME: Use struct protocol_pkt_tx_in_block, or at least sha to
+ * detect corruption. */
 static bool load_transaction(struct state *state, struct protocol_net_hdr *pkt)
 {
-	struct block_transaction *hdr = (void *)pkt;
-	struct transaction_batch *batch;
-	union protocol_transaction *t;
-	struct block *block;
-	u32 num;
-
-	if (le32_to_cpu(hdr->len) < sizeof(*hdr))
-		return false;
-
-	block = block_find_any(state, &hdr->block);
-	if (!block)
-		return false;
-
-	num = le32_to_cpu(hdr->num);
-	if (num >= le32_to_cpu(block->hdr->num_transactions))
-		return false;
-
-	t = (void *)(hdr + 1);
-	if (unmarshall_transaction(t, le32_to_cpu(hdr->len)-sizeof(*hdr), NULL)
-	    != PROTOCOL_ERROR_NONE)
-		return false;
-
-	batch = block->batch[batch_index(num)];
-	if (!batch) {
-		batch = block->batch[batch_index(num)]
-			= talz(block->batch, struct transaction_batch);
-		batch->trans_start = batch_index(num) << PETTYCOIN_BATCH_ORDER;
-	}
-	assert(!batch->t[num % (1 << PETTYCOIN_BATCH_ORDER)]);
-	batch->t[num % (1 << PETTYCOIN_BATCH_ORDER)] = t;
-	batch->count++;
-	return true;
+	return false;
 }
 
 void load_blocks(struct state *state)
@@ -145,8 +111,8 @@ void save_block(struct state *state, struct block *new)
 	size_t len;
 
 	blk = marshall_block(state,
-			     new->hdr, new->merkles, new->prev_merkles,
-			     new->tailer);
+			     new->hdr, new->shard_nums, new->merkles,
+			     new->prev_merkles, new->tailer);
 	len = le32_to_cpu(blk->len);
 	if (!write_all(state->blockfd, blk, len))
 		err(1, "writing block to blockfile");
@@ -154,21 +120,7 @@ void save_block(struct state *state, struct block *new)
 	tal_free(blk);
 }
 
-void save_transaction(struct state *state, struct block *b, u32 i)
+void save_shard(struct state *state, struct block *block, u16 shardnum)
 {
-	union protocol_transaction *t = block_get_trans(b, i);
-	size_t len;
-	struct block_transaction hdr;
-
-	assert(t);
-
-	len = marshall_transaction_len(t);
-	hdr.len = cpu_to_le32(sizeof(hdr) + len);
-	hdr.type = PROTOCOL_PKT_TX;
-	hdr.block = b->sha;
-	hdr.num = cpu_to_le32(i);
-
-	if (!write_all(state->blockfd, &hdr, sizeof(hdr))
-	    || !write_all(state->blockfd, t, len))
-		err(1, "writing transaction to blockfile");
+	/* FIXME! */
 }

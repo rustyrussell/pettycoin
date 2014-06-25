@@ -7,31 +7,28 @@
 #include <string.h>
 #include <ccan/tal/tal.h>
 
-void merkle_transactions(const void *prefix, size_t prefix_len,
-			 const union protocol_transaction *const*t,
-			 const struct protocol_input_ref *const*refs,
-			 size_t num_trans,
-			 struct protocol_double_sha *merkle)
+static void merkle_recurse(size_t off, size_t max_off, size_t num,
+			   struct protocol_double_sha
+			     (*fn)(size_t n, void *data),
+			   void *data,
+			   struct protocol_double_sha *merkle)
 {
 	/* Always a power of 2. */
-	assert((num_trans & (num_trans-1)) == 0);
-	assert(num_trans != 0);
+	assert((num & (num-1)) == 0);
+	assert(num != 0);
 
-	if (num_trans == 1) {
-		if (t[0] == NULL)
+	if (num == 1) {
+		if (off >= max_off)
 			memset(merkle, 0, sizeof(*merkle));
 		else
-			hash_tx_for_block(t[0], prefix, prefix_len, *refs,
-					  *refs ? num_inputs(t[0]) : 0, merkle);
+			*merkle = fn(off, data);
 	} else {
 		SHA256_CTX shactx;
 		struct protocol_double_sha sub[2];
 
-		num_trans /= 2;
-		merkle_transactions(prefix, prefix_len, t, refs, num_trans, sub);
-		merkle_transactions(prefix, prefix_len, t + num_trans,
-				    refs + num_trans,
-				    num_trans, sub+1);
+		num /= 2;
+		merkle_recurse(off, max_off, num, fn, data, sub);
+		merkle_recurse(off + num, max_off, num, fn, data, sub+1);
 		
 		SHA256_Init(&shactx);
 		SHA256_Update(&shactx, sub, sizeof(sub));
@@ -39,29 +36,49 @@ void merkle_transactions(const void *prefix, size_t prefix_len,
 	}
 }
 
+struct merkle_txinfo {
+	const void *prefix;
+	size_t prefix_len;
+	const union protocol_transaction *const*t;
+	const struct protocol_input_ref *const*refs;
+};
+
+static struct protocol_double_sha merkle_tx(size_t n, void *data)
+{
+	struct protocol_double_sha merkle;
+	struct merkle_txinfo *info = data;
+
+	hash_tx_for_block(info->t[n], info->prefix, info->prefix_len,
+			  info->refs[n], num_inputs(info->t[n]), &merkle);
+	return merkle;
+}
+
+void merkle_transactions(const void *prefix, size_t prefix_len,
+			 const union protocol_transaction *const*t,
+			 const struct protocol_input_ref *const*refs,
+			 size_t off, size_t num_trans,
+			 struct protocol_double_sha *merkle)
+{
+	struct merkle_txinfo txinfo;
+
+	txinfo.prefix = prefix;
+	txinfo.prefix_len = prefix_len;
+	txinfo.t = t;
+	txinfo.refs = refs;
+
+	merkle_recurse(off, num_trans, 256, merkle_tx, &txinfo, merkle);
+}
+
+static struct protocol_double_sha merkle_hashes(size_t n, void *data)
+{
+	const struct protocol_double_sha **hashes = data;
+
+	return *hashes[n];
+}
+
 void merkle_transaction_hashes(const struct protocol_double_sha **hashes,
-			       size_t num_hashes,
+			       size_t off, size_t num_hashes,
 			       struct protocol_double_sha *merkle)
 {
-	/* Always a power of 2. */
-	assert((num_hashes & (num_hashes-1)) == 0);
-	assert(num_hashes != 0);
-
-	if (num_hashes == 1) {
-		if (hashes[0] == NULL)
-			memset(merkle, 0, sizeof(*merkle));
-		else
-			*merkle = *hashes[0];
-	} else {
-		SHA256_CTX shactx;
-		struct protocol_double_sha sub[2];
-
-		num_hashes /= 2;
-		merkle_transaction_hashes(hashes, num_hashes, sub);
-		merkle_transaction_hashes(hashes+num_hashes, num_hashes, sub+1);
-		
-		SHA256_Init(&shactx);
-		SHA256_Update(&shactx, sub, sizeof(sub));
-		SHA256_Double_Final(&shactx, merkle);
-	}
+	merkle_recurse(off, num_hashes, 256, merkle_hashes, hashes, merkle);
 }

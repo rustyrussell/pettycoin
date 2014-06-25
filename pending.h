@@ -11,8 +11,10 @@ struct pending_trans {
 /* aka state->pending */
 struct pending_block {
 	u8 *prev_merkles;
+	/* FIXME: make this [num_shards(state->preferred_chain)]! */
+	u32 pending_counts[1 << PROTOCOL_INITIAL_SHARD_ORDER];
 	/* Available for the next block. */
-	struct pending_trans **pend;
+	struct pending_trans **pend[1 << PROTOCOL_INITIAL_SHARD_ORDER];
 };
 
 struct state;

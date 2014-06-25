@@ -8,20 +8,20 @@
 static void get_todo_ptrs(struct state *state,
 			  struct todo_request *todo,
 			  struct protocol_double_sha **blk,
-			  unsigned int **batchnum)
+			  le16 **shardnum)
 {
 	switch (cpu_to_le32(todo->pkt.hdr.type)) {
 	case PROTOCOL_PKT_GET_BLOCK:
 		*blk = &todo->pkt.get_block.block;
-		*batchnum = NULL;
+		*shardnum = NULL;
 		break;
-	case PROTOCOL_PKT_GET_BATCH:
-		*blk = &todo->pkt.get_batch.block;
-		*batchnum = &todo->pkt.get_batch.batchnum;
+	case PROTOCOL_PKT_GET_SHARD:
+		*blk = &todo->pkt.get_shard.block;
+		*shardnum = &todo->pkt.get_shard.shardnum;
 		break;
 	case PROTOCOL_PKT_GET_CHILDREN:
 		*blk = &todo->pkt.get_children.block;
-		*batchnum = NULL;
+		*shardnum = NULL;
 		break;
 	default:
 		log_broken(state->log, "Unknown todo type ");
@@ -35,43 +35,43 @@ static void get_todo_ptrs(struct state *state,
 static struct todo_request *find_todo(struct state *state,
 				      enum protocol_pkt_type type,
 				      const struct protocol_double_sha *blk,
-				      unsigned int batchnum)
+				      u16 shardnum)
 {
 	struct todo_request *i;
 
 	list_for_each(&state->todo, i, list) {
 		struct protocol_double_sha *i_sha;
-		unsigned int *i_batchnum;
+		le16 *i_shardnum;
 
 		if (i->pkt.hdr.type != cpu_to_le32(type))
 			continue;
 
-		get_todo_ptrs(state, i, &i_sha, &i_batchnum);
+		get_todo_ptrs(state, i, &i_sha, &i_shardnum);
 		if (memcmp(i_sha, blk, sizeof(*blk)) != 0)
 			continue;
-		if (i_batchnum && le32_to_cpu(*i_batchnum) != batchnum)
+		if (i_shardnum && le16_to_cpu(*i_shardnum) != shardnum)
 			continue;
 		return i;
 	}
 	return NULL;
 }
 
-#define new_todo_request(state, type, structtype, blocksha, batchnum)	\
+#define new_todo_request(state, type, structtype, blocksha, shardnum)	\
 	((structtype *)new_todo_request_((state), (type), sizeof(structtype), \
-					 (blocksha), (batchnum)))
+					 (blocksha), (shardnum)))
 
 static void *new_todo_request_(struct state *state,
 			       enum protocol_pkt_type type,
 			       size_t pktlen,
 			       const struct protocol_double_sha *blk,
-			       unsigned int batchnum)
+			       unsigned int shardnum)
 {
 	struct todo_request *t;
 	struct protocol_double_sha *t_sha;
-	unsigned int *t_batchnum;
+	le16 *t_shardnum;
 
 	/* We don't insert duplicates. */
-	if (find_todo(state, type, blk, batchnum))
+	if (find_todo(state, type, blk, shardnum))
 		return NULL;
 
 	t = tal(state, struct todo_request);
@@ -81,10 +81,10 @@ static void *new_todo_request_(struct state *state,
 	t->pkt.hdr.type = cpu_to_le32(type);
 	t->pkt.hdr.len = cpu_to_le32(pktlen);
 	
-	get_todo_ptrs(state, t, &t_sha, &t_batchnum);
+	get_todo_ptrs(state, t, &t_sha, &t_shardnum);
 	*t_sha = *blk;
-	if (t_batchnum)
-		*t_batchnum = cpu_to_le32(batchnum);
+	if (t_shardnum)
+		*t_shardnum = cpu_to_le16(shardnum);
 
 	list_add_tail(&state->todo, &t->list);
 
@@ -110,13 +110,13 @@ void todo_add_get_block(struct state *state,
 			 block, 0);
 }
 
-void todo_add_get_batch(struct state *state,
+void todo_add_get_shard(struct state *state,
 			const struct protocol_double_sha *block,
-			unsigned int batchnum)
+			u16 shardnum)
 {
-	new_todo_request(state, PROTOCOL_PKT_GET_BATCH,
-			 struct protocol_pkt_get_batch,
-			 block, batchnum);
+	new_todo_request(state, PROTOCOL_PKT_GET_SHARD,
+			 struct protocol_pkt_get_shard,
+			 block, shardnum);
 }
 
 void todo_for_peer(struct peer *peer, void *pkt)
@@ -170,7 +170,7 @@ static void delete_todo(struct state *state, struct todo_request *todo)
 static void finish_todo(struct peer *peer,
 			enum protocol_pkt_type type,
 			const struct protocol_double_sha *blk,
-			unsigned int batchnum,
+			u16 shardnum,
 			bool success)
 {
 	struct todo_request *todo;
@@ -181,9 +181,9 @@ static void finish_todo(struct peer *peer,
 	log_add_enum(peer->log, enum protocol_pkt_type, type);
 	log_add(peer->log, " block ");
 	log_add_struct(peer->log, struct protocol_double_sha, blk);
-	log_add(peer->log, ":%u", batchnum);
+	log_add(peer->log, ":%u", shardnum);
 
-	todo = find_todo(peer->state, type, blk, batchnum);
+	todo = find_todo(peer->state, type, blk, shardnum);
 	if (!todo) {
 		/* Someone else may have answered */
 		log_debug(peer->log, "Didn't find request, ignoring.");
@@ -206,7 +206,7 @@ static void finish_todo(struct peer *peer,
 		log_add_enum(peer->log, enum protocol_pkt_type, type);
 		log_add(peer->log, " block ");
 		log_add_struct(peer->log, struct protocol_double_sha, blk);
-		log_add(peer->log, ":%u", batchnum);
+		log_add(peer->log, ":%u", shardnum);
 	}
 
 	if (success)
@@ -232,20 +232,20 @@ void todo_done_get_block(struct peer *peer,
 	finish_todo(peer, PROTOCOL_PKT_GET_BLOCK, block, 0, success);
 }
 
-void todo_done_get_batch(struct peer *peer,
+void todo_done_get_shard(struct peer *peer,
 			 const struct protocol_double_sha *block,
-			 unsigned int batchnum, bool success)
+			 u16 shardnum, bool success)
 {
-	finish_todo(peer, PROTOCOL_PKT_GET_BATCH, block, batchnum, success);
+	finish_todo(peer, PROTOCOL_PKT_GET_SHARD, block, shardnum, success);
 }
 
-void todo_forget_about_batch(struct state *state,
+void todo_forget_about_shard(struct state *state,
 			     const struct protocol_double_sha *block,
-			     unsigned int batchnum)
+			     u16 shardnum)
 {
 	struct todo_request *todo;
 
-	todo = find_todo(state, PROTOCOL_PKT_GET_BATCH, block, batchnum);
+	todo = find_todo(state, PROTOCOL_PKT_GET_SHARD, block, shardnum);
 	if (todo) {
 		list_del_from(&state->todo, &todo->list);
 		tal_free(todo);

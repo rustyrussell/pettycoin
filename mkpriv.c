@@ -24,7 +24,7 @@ static u32 shard_of_key(const struct protocol_pubkey *key)
 
 	pubkey_to_addr(key, &addr);
 
-	return shard_of(&addr, shard_order(NULL));
+	return shard_of(&addr, PROTOCOL_INITIAL_SHARD_ORDER);
 }
 
 int main(int argc, char *argv[])

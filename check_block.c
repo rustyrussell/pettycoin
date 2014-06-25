@@ -16,17 +16,19 @@
 #include "generating.h"
 #include "check_transaction.h"
 #include "chain.h"
+#include "shard.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/tal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 
-/* Returns NULL if bad.  Not sufficient by itself: see check_batch_valid and
- * check_block_prev_merkles! */
+/* Returns error if bad.  Not sufficient by itself: see check_tx_order,
+ * shard_validate_transactions and check_block_prev_merkles! */
 enum protocol_error
 check_block_header(struct state *state,
 		   const struct protocol_block_header *hdr,
+		   const u8 *shard_nums,
 		   const struct protocol_double_sha *merkles,
 		   const u8 *prev_merkles,
 		   const struct protocol_block_tailer *tailer,
@@ -48,7 +50,7 @@ check_block_header(struct state *state,
 	 * keep it around, or ask others about its predecessors, etc) */
 
 	/* Get SHA: should have enough leading zeroes to beat target. */
-	hash_block(hdr, merkles, prev_merkles, tailer, &block->sha);
+	hash_block(hdr, shard_nums, merkles, prev_merkles, tailer, &block->sha);
 	if (sha)
 		*sha = block->sha;
 
@@ -61,6 +63,11 @@ check_block_header(struct state *state,
 	block->prev = block_find_any(state, &hdr->prev_block);
 	if (!block->prev) {
 		e = PROTOCOL_ERROR_PRIV_UNKNOWN_PREV;
+		goto fail;
+	}
+
+	if (hdr->shard_order != next_shard_order(block->prev)) {
+		e = PROTOCOL_ERROR_BAD_SHARD_ORDER;
 		goto fail;
 	}
 
@@ -89,10 +96,10 @@ check_block_header(struct state *state,
 			&block->prev->total_work,
 			&block->total_work);
 
-	block->batch = tal_arrz(block, struct transaction_batch *,
-				num_batches(le32_to_cpu(hdr->num_transactions)));
-
+	block->shard = tal_arrz(block, struct transaction_shard *,
+				num_shards(hdr));
 	block->hdr = hdr;
+	block->shard_nums = shard_nums;
 	block->merkles = merkles;
 	block->prev_merkles = prev_merkles;
 	block->tailer = tailer;
@@ -106,175 +113,135 @@ fail:
 	return e;
 }
 
-static const union protocol_transaction *
-last_trans(const struct transaction_batch *batch, unsigned int *transnum)
-{
-	int i;
-
-	for (i = ARRAY_SIZE(batch->t)-1; i >= 0; i--) {
-		if (batch->t[i]) {
-			if (transnum)
-				*transnum = batch->trans_start + i;
-			return batch->t[i];
-		}
-	}
-	abort();
-}
-
-static const union protocol_transaction *
-first_trans(const struct transaction_batch *batch, unsigned int *transnum)
-{
-	unsigned int i;
-
-	for (i = 0; i < ARRAY_SIZE(batch->t); i++) {
-		if (batch->t[i]) {
-			if (transnum)
-				*transnum = batch->trans_start + i;
-			return batch->t[i];
-		}
-	}
-	abort();
-}
-
-bool batch_belongs_in_block(const struct block *block,
-			    const struct transaction_batch *batch)
+bool shard_belongs_in_block(const struct block *block,
+			    const struct transaction_shard *shard)
 {
 	struct protocol_double_sha merkle;
-	unsigned int batchnum = batch_index(batch->trans_start);
 
-	merkle_transactions(NULL, 0, batch->t, batch->refs,
-			    ARRAY_SIZE(batch->t), &merkle);
-	return memcmp(block->merkles[batchnum].sha, merkle.sha,
+	/* FIXME: Audit, can this happen?. */
+	if (shard->shardnum >= num_shards(block->hdr))
+		return false;
+
+	assert(shard->count == block->shard_nums[shard->shardnum]);
+	merkle_transactions(NULL, 0, shard->t, shard->refs,
+			    0, block->shard_nums[shard->shardnum], &merkle);
+	return memcmp(block->merkles[shard->shardnum].sha, merkle.sha,
 		      sizeof(merkle.sha)) == 0;
 }
 
-bool check_batch_order(struct state *state,
-		       const struct block *block,
-		       const struct transaction_batch *batch,
-		       unsigned int *bad_transnum1, unsigned int *bad_transnum2)
+static u32 get_shard_start(const struct block *block,
+			   const struct transaction_shard *shard)
+{
+	unsigned int i;
+	u32 num = 0;
+
+	for (i = 0; i < shard->shardnum; i++)
+		num += block->shard_nums[i];
+
+	return num;
+}
+
+bool check_tx_order(struct state *state,
+		    const struct block *block,
+		    const struct transaction_shard *shard,
+		    unsigned int *bad_transnum1,
+		    unsigned int *bad_transnum2)
 {
 	int i;
 	const union protocol_transaction *prev;
-	unsigned int batchnum = batch->trans_start << PETTYCOIN_BATCH_ORDER;
-
-	/* These should never happen, since we create batches. */
-	assert(!(batch->trans_start & ((1 << PETTYCOIN_BATCH_ORDER)-1)));
-	assert(batch->count <= ARRAY_SIZE(batch->t));
-	assert(!add_overflows(batch->trans_start, batch->count));
-	assert(batch->trans_start + batch->count <=
-	       le32_to_cpu(block->hdr->num_transactions));
+	u32 shard_start = get_shard_start(block, shard);
 
 	/* Is it in order? */
 	prev = NULL;
-	for (i = 0; i < ARRAY_SIZE(batch->t); i++) {
-		const union protocol_transaction *t = batch->t[i];
+	for (i = 0; i < block->shard_nums[shard->shardnum]; i++) {
+		const union protocol_transaction *t = shard->t[i];
 
 		if (!t)
 			continue;
 
 		if (prev && transaction_cmp(prev, t) >= 0) {
 			if (bad_transnum2)
-				*bad_transnum2 = batch->trans_start + i;
+				*bad_transnum2 = shard_start + i;
 			return false;
 		}
 		prev = t;
 		if (bad_transnum1)
-			*bad_transnum1 = batch->trans_start + i;
+			*bad_transnum1 = shard_start + i;
 	}
-
-	/* Is it in order wrt other known blocks?  If not, it may not
-	 * be this batch's fault, but it's still a problem. */
-	for (i = batchnum - 1; i >= 0; i--) {
-		if (!block->batch[i])
-			continue;
-
-		if (transaction_cmp(last_trans(block->batch[i], bad_transnum1),
-				    first_trans(batch, bad_transnum2)) >= 0)
-			return false;
-	}
-
-	for (i = batchnum + 1;
-	     (i << PETTYCOIN_BATCH_ORDER) 
-		     < le32_to_cpu(block->hdr->num_transactions);
-	     i++) {
-		if (!block->batch[i])
-			continue;
-
-		if (transaction_cmp(last_trans(batch, bad_transnum1),
-				    first_trans(block->batch[i], bad_transnum2))
-		    >= 0)
-			return false;
-	}
-
 	return true;
 }
 
 static void add_to_thash(struct state *state,
 			 struct block *block,
-			 struct transaction_batch *batch)
+			 struct transaction_shard *shard)
 {
 	u32 i;
 
-	for (i = 0; i < ARRAY_SIZE(batch->t); i++) {
+	for (i = 0; i < block->shard_nums[shard->shardnum]; i++) {
 		struct thash_elem *te;
 		struct protocol_double_sha sha;
 		struct thash_iter iter;
-		unsigned tnum = batch->trans_start + i;
 
-		if (!batch->t[i])
+		if (!shard->t[i])
 			continue;
 
-		hash_tx(batch->t[i], &sha);
+		hash_tx(shard->t[i], &sha);
 
 		/* It could already be there (alternate chain, or previous
-		 * partial batch which we just overwrote). */
+		 * partial shard which we just overwrote). */
 		for (te = thash_firstval(&state->thash, &sha, &iter);
 		     te;
 		     te = thash_nextval(&state->thash, &sha, &iter)) {
-			/* Previous partial batch which we just overwrote? */
-			if (te->block == block && te->tnum == tnum)
+			/* Previous partial shard which we just overwrote? */
+			if (te->block == block
+			    && te->shardnum == shard->shardnum
+			    && te->txoff == i)
 				break;
 		}
 
 		if (!te) {
 			/* Add a new one for this block. */
-			te = tal(state, struct thash_elem);
+			te = tal(shard, struct thash_elem);
 			te->block = block;
-			te->tnum = tnum;
+			te->shardnum = shard->shardnum;
+			te->txoff = i;
 			te->sha = sha;
 			thash_add(&state->thash, te);
+			/* FIXME:
+			   tal_add_destructor(te, delete_from_thash);
+			*/
 		}
 	}
 }
 
-void put_batch_in_block(struct state *state,
+void put_shard_in_block(struct state *state,
 			struct block *block,
-			struct transaction_batch *batch)
+			struct transaction_shard *shard)
 {
-	unsigned int batchnum = batch_index(batch->trans_start);
-
-	assert(batch_belongs_in_block(block, batch));
-	assert(batch_full(block, batch));
-	assert(check_batch_order(state, block, batch, NULL, NULL));
+	assert(shard_belongs_in_block(block, shard));
+	assert(shard->count == block->shard_nums[shard->shardnum]);
+	assert(check_tx_order(state, block, shard, NULL, NULL));
 
 	/* If there are already some transactions, we should agree! */
-	if (block->batch[batchnum]) {
+	if (block->shard[shard->shardnum]) {
 		unsigned int i;
 
-		for (i = 0; i < ARRAY_SIZE(batch->t); i++) {
+		for (i = 0; i < block->shard_nums[shard->shardnum]; i++) {
 			const union protocol_transaction *t;
 
-			t = block->batch[batchnum]->t[i];
-			if (t)
-				assert(transaction_cmp(t, batch->t[i]) == 0);
+			t = block->shard[shard->shardnum]->t[i];
+			if (!t)
+				continue;
+			assert(transaction_cmp(t, shard->t[i]) == 0);
 		}
-		tal_free(block->batch[batchnum]);
+		/* FIXME: This leaves crap in thash! */
+		tal_free(block->shard[shard->shardnum]);
 	}
-	block->batch[batchnum] = tal_steal(block, batch);
+	block->shard[shard->shardnum] = tal_steal(block, shard);
 
-	add_to_thash(state, block, block->batch[batchnum]);
+	add_to_thash(state, block, shard);
 
-	update_block_ptrs_new_batch(state, block, batchnum);
+	update_block_ptrs_new_shard(state, block, shard->shardnum);
 
 	/* FIXME: re-check prev_merkles for any descendents. */
 	/* FIXME: re-check pending transactions with unknown inputs
@@ -282,10 +249,10 @@ void put_batch_in_block(struct state *state,
 }
 
 enum protocol_error
-batch_validate_transactions(struct state *state,
+shard_validate_transactions(struct state *state,
 			    struct log *log,
 			    const struct block *block,
-			    struct transaction_batch *batch,
+			    struct transaction_shard *shard,
 			    unsigned int *bad_trans,
 			    unsigned int *bad_input_num,
 			    union protocol_transaction *
@@ -294,19 +261,29 @@ batch_validate_transactions(struct state *state,
 	unsigned int i;
 	enum protocol_error err;
 
-	for (i = 0; i < ARRAY_SIZE(batch->t); i++) {
-		if (!batch->t[i])
+	for (i = 0; i < block->shard_nums[shard->shardnum]; i++) {
+		u32 tx_shard;
+
+		if (!shard->t[i])
 			continue;
 
+		tx_shard = shard_of_tx(shard->t[i], block->hdr->shard_order);
+		if (tx_shard != shard->shardnum) {
+			*bad_trans = get_shard_start(block, shard) + i;
+			log_unusual(log, "Transaction %u in wrong shard"
+				    " (%u vs %u) ", *bad_trans,
+				    tx_shard, shard->shardnum);
+			return PROTOCOL_ERROR_BLOCK_BAD_TX_SHARD;
+		}
+
 		/* Make sure transactions themselves are valid. */
-		err = check_transaction(state, batch->t[i], block,
-					batch->refs[i], inputs, bad_input_num);
+		err = check_transaction(state, shard->t[i], block,
+					shard->refs[i], inputs, bad_input_num);
 		if (err) {
-			log_unusual(log, "Peer resp_batch transaction %u"
-				    " gave error ",
-				    batch->trans_start + i);
+			*bad_trans = get_shard_start(block, shard) + i;
+			log_unusual(log, "Transaction %u gave error ",
+				    *bad_trans);
 			log_add_enum(log, enum protocol_error, err);
-			*bad_trans = batch->trans_start + i;
 			return err;
 		}
 	}
@@ -314,9 +291,8 @@ batch_validate_transactions(struct state *state,
 	return PROTOCOL_ERROR_NONE;
 }
 
-/* Check what we can, using block->prev->...'s batch. */
-bool check_block_prev_merkles(struct state *state,
-			      const struct block *block)
+/* Check what we can, using block->prev->...'s shards. */
+bool check_block_prev_merkles(struct state *state, const struct block *block)
 {
 	unsigned int i;
 	size_t off = 0;
@@ -328,32 +304,32 @@ bool check_block_prev_merkles(struct state *state,
 		unsigned int j;
 
 		/* It's bad if we don't have that many prev merkles. */
-		if (off + num_batches_for_block(prev)
+		if (off + num_shards(prev->hdr)
 		    > le32_to_cpu(block->hdr->num_prev_merkles))
 			return false;
 
-		for (j = 0; j < num_batches_for_block(prev); j++) {
+		for (j = 0; j < num_shards(prev->hdr); j++) {
 			struct protocol_double_sha merkle;
 
-			/* We need to know everything in batch to check
+			/* We need to know everything in shard to check
 			 * previous merkle. */
-			if (!batch_full(prev, prev->batch[j]))
+			if (!shard_full(prev, j))
 				continue;
 
 			/* Merkle has block reward address prepended, so you
 			 * can prove you know all the transactions. */
 			merkle_transactions(&block->hdr->fees_to,
 					    sizeof(block->hdr->fees_to),
-					    prev->batch[j]->t,
-					    prev->batch[j]->refs,
-					    ARRAY_SIZE(prev->batch[j]->t),
+					    prev->shard[j]->t,
+					    prev->shard[j]->refs,
+					    0, prev->shard_nums[j],
 					    &merkle);
 
 			/* We only check one byte; that's enough. */
 			if (merkle.sha[0] != block->prev_merkles[off+j]) {
 				log_unusual(state->log,
 					    "Incorrect merkle for block %u:"
-					    " block %u batch %u was %u not %u",
+					    " block %u shard %u was %u not %u",
 					    le32_to_cpu(block->hdr->depth),
 					    le32_to_cpu(block->hdr->depth) - i,
 					    j,

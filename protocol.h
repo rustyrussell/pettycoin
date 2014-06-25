@@ -5,9 +5,6 @@
 #include <openssl/sha.h>
 #include <openssl/ripemd.h>
 
-/* How many transactions get merkled together */
-#define PETTYCOIN_BATCH_ORDER		8
-
 /* How many previous blocks do we record a merkle for? */
 #define PETTYCOIN_PREV_BLOCK_MERKLES	10
 
@@ -65,19 +62,20 @@ struct protocol_signature {
 struct protocol_block_header {
 	u8 version;
 	u8 features_vote;
-	u8 nonce2[14];
+	u8 shard_order;
+	u8 nonce2[13];
 	struct protocol_double_sha prev_block;
-	le32 num_transactions;
 	le32 num_prev_merkles;
 	le32 depth;
 	struct protocol_address fees_to;
 };
 
-/* header is followed by array of double_shas which are the merkles of
+/* header is followed by an array of (1 << shard_order) u8s, indicating
+ * the number of transactions in each shard.
+ *
+ * This is followed by an array of double_shas which are the merkles of
  * each transaction + input_refs:
- *	num_merkles = (hdr->num_transactions + (1<<PETTYCOIN_BATCH_ORDER)-1)
- *			>> PETTYCOIN_BATCH_ORDER;
- *	struct protocol_double_sha merkle[num_merkles];
+ *	struct protocol_double_sha merkle[1 << shard_order];
  *
  * Then the previous blocks's merkles hashed with fees_to, for each of
  * the PETTYCOIN_PREV_BLOCK_SIGN blocks:
@@ -151,8 +149,13 @@ struct protocol_transaction_normal {
 
 /* Inside a block, a normal transaction is followed by num_inputs of these: */
 struct protocol_input_ref {
+	/* Follow ->prev this many times. */
 	le32 blocks_ago;
-	le32 txnum;
+	/* FIXME: Put shard once in hdr, make blocks_ago 24 bit. */
+	le16 shard;
+	/* Offset within that shard. */
+	u8 txoff;
+	u8 unused;
 };
 
 /* From a gateway into the pettycoin network. */
@@ -185,17 +188,22 @@ union protocol_transaction {
 	struct protocol_transaction_gateway gateway;
 };
 
-/* Merkle proof, used to show tx (+ refs) is in a block. */
+/* FIXME: Multi-transactions proofs could be much more efficient. */
+
+/* Merkle proof, used to show tx (+ refs) is in a shard. */
 struct protocol_proof {
-	struct protocol_double_sha merkle[PETTYCOIN_BATCH_ORDER];
+	struct protocol_double_sha merkle[8];
 };
 
 /* Proof that a transaction (with inputs refs) was in a block. */
 struct protocol_trans_with_proof {
 	/* The block it's in. */
 	struct protocol_double_sha block;
-	/* Transaction number within the block. */
-	le32 tnum;
+	/* Shard it's in. */
+	le16 shard;
+	/* Transaction number within the shard. */
+	u8 txoff;
+	u8 unused;
 	/* This is the tree of double shas which proves it. */
 	struct protocol_proof proof;
 

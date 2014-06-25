@@ -1,4 +1,5 @@
 #include <ccan/asort/asort.h>
+#include <ccan/array_size/array_size.h>
 #include "pending.h"
 #include "prev_merkles.h"
 #include "state.h"
@@ -10,13 +11,17 @@
 #include "peer.h"
 #include "chain.h"
 #include "timestamp.h"
-#include "talv.h"
+#include "shard.h"
 
 struct pending_block *new_pending_block(struct state *state)
 {
 	struct pending_block *b = tal(state, struct pending_block);
+	unsigned int i;
 
-	b->pend = tal_arr(b, struct pending_trans *, 0);
+	for (i = 0; i < ARRAY_SIZE(b->pending_counts); i++) {
+		b->pending_counts[i] = 0;
+		b->pend[i] = tal_arr(b, struct pending_trans *, 0);
+	}
 	return b;
 }
 
@@ -32,32 +37,43 @@ static struct pending_trans *new_pending_trans(const tal_t *ctx,
 	return pend;
 }
 
-/* Transfer all transaction from this block into pending array. */
-static void block_to_pending(struct state *state,
-			     const struct block *block)
+/* Transfer all transaction from this shard into pending array. */
+static void shard_to_pending(struct state *state,
+			     const struct block *block, u16 shard)
 {
 	size_t curr = tal_count(state->pending->pend), num, added = 0, i;
 
-	num = le32_to_cpu(block->hdr->num_transactions);
+	num = block->shard_nums[shard];
 
 	/* Worst case. */
-	tal_resize(&state->pending->pend, curr + num);
+	tal_resize(&state->pending->pend[shard], curr + num);
 
 	for (i = 0; i < num; i++) {
 		struct pending_trans *pend;
-		union protocol_transaction *t = block_get_trans(block, i);
+		union protocol_transaction *t;
 
+		t = block_get_tx(block, shard, i);
 		if (!t)
 			continue;
 
 		/* FIXME: Transfer block->refs directly! */
 		pend = new_pending_trans(state->pending, t);
-		state->pending->pend[curr + added++] = pend;
+		state->pending->pend[shard][curr + added++] = pend;
 	}
 
-	log_debug(state->log, "Added %zu transactions from old block",
-		  added);
-	tal_resize(&state->pending->pend, curr + added);
+	log_debug(state->log, "Added %zu transactions from old shard %u",
+		  added, shard);
+	tal_resize(&state->pending->pend[shard], curr + added);
+}
+
+/* Transfer all transaction from this block into pending array. */
+static void block_to_pending(struct state *state,
+			     const struct block *block)
+{
+	u16 shard;
+
+	for (shard = 0; shard < num_shards(block->hdr); shard++)
+		shard_to_pending(state, block, shard);
 }
 
 static int pending_trans_cmp(struct pending_trans *const *a,
@@ -67,12 +83,13 @@ static int pending_trans_cmp(struct pending_trans *const *a,
 	return transaction_cmp((*a)->t, (*b)->t);
 }
 
-/* We've added a whole heap of transactions, recheck them and set input refs. */
-static void recheck_pending_transactions(struct state *state)
+/* Returns num removed. */
+static size_t recheck_one_shard(struct state *state, u16 shard)
 {
-	size_t i, num = tal_count(state->pending->pend);
+	struct pending_trans **pend = state->pending->pend[shard];
+	size_t i, num, start_num = tal_count(pend);
 
-	log_debug(state->log, "Searching %zu pending transactions", num);
+	num = start_num;
 	for (i = 0; i < num; i++) {
 		struct thash_elem *te;
 		struct protocol_double_sha sha;
@@ -82,7 +99,7 @@ static void recheck_pending_transactions(struct state *state)
 		struct thash_iter iter;
 		bool in_known_chain = false;
 
-		hash_tx(state->pending->pend[i]->t, &sha);
+		hash_tx(pend[i]->t, &sha);
 
 		for (te = thash_firstval(&state->thash, &sha, &iter);
 		     te;
@@ -99,7 +116,7 @@ static void recheck_pending_transactions(struct state *state)
 		log_debug(state->log, "  %zu is NOT FOUND", i);
 
 		/* Discard if no longer valid (inputs already spent) */
-		e = check_transaction(state, state->pending->pend[i]->t,
+		e = check_transaction(state, pend[i]->t,
 				      NULL, NULL, inputs, &bad_input_num);
 		if (e) {
 			log_debug(state->log, "  %zu is now ", i);
@@ -116,11 +133,10 @@ static void recheck_pending_transactions(struct state *state)
 
 		/* FIXME: Usually this is a simple increment to
 		 * ->refs[].blocks_ago. */
-		tal_free(state->pending->pend[i]->refs);
-		state->pending->pend[i]->refs
-			= create_refs(state, state->longest_knowns[0],
-				      state->pending->pend[i]->t);
-		if (!state->pending->pend[i]->refs) {
+		tal_free(pend[i]->refs);
+		pend[i]->refs = create_refs(state, state->longest_knowns[0],
+				            pend[i]->t);
+		if (!pend[i]->refs) {
 			/* FIXME: put this into pending-awaiting list! */
 			log_debug(state->log, "  inputs no longer known");
 			goto discard;
@@ -129,21 +145,32 @@ static void recheck_pending_transactions(struct state *state)
 
 	discard:
 		/* FIXME:
-		 * remove_trans_from_peers(state, state->pending->pend[i]->t);
+		 * remove_trans_from_peers(state, pend[i]->t);
 		 */
-		memmove(state->pending->pend + i,
-			state->pending->pend + i + 1,
-			(num - i - 1) * sizeof(*state->pending->pend));
+		memmove(pend + i, pend + i + 1, (num - i - 1) * sizeof(*pend));
 		num--;
 		i--;
 	}
-	log_debug(state->log, "Cleaned up %zu of %zu pending transactions",
-		  tal_count(state->pending->pend) - num,
-		  tal_count(state->pending->pend));
-	tal_resize(&state->pending->pend, num);
 
-	/* Make sure they're sorted into correct order! */
-	asort(state->pending->pend, num, pending_trans_cmp, NULL);
+	tal_resize(&state->pending->pend[shard], num);
+
+	/* Make sure they're sorted into correct order (since
+	 * block_to_pending doesn't) */
+	asort(state->pending->pend[shard], num, pending_trans_cmp, NULL);
+
+	return start_num - num;
+}
+
+/* We've added a whole heap of transactions, recheck them and set input refs. */
+static void recheck_pending_transactions(struct state *state)
+{
+	size_t shard, removed = 0;
+
+	log_debug(state->log, "Searching pending transactions");
+	for (shard = 0; shard < ARRAY_SIZE(state->pending->pend); shard++)
+		removed += recheck_one_shard(state, shard);
+
+	log_debug(state->log, "Cleaned up %zu pending transactions", removed);
 }
 
 /* We're moving longest_known from old to new.  Dump all its transactions into
@@ -165,19 +192,29 @@ void steal_pending_transactions(struct state *state,
 	recheck_pending_transactions(state);
 }
 
+/* FIXME: Don't leak transactions on failure! */
 void add_pending_transaction(struct peer *peer,
 			     const union protocol_transaction *t)
 {
 	struct pending_block *pending = peer->state->pending;
 	struct pending_trans *pend;
-	size_t start = 0, num = tal_count(pending->pend), end = num;
+	u16 shard;
+	size_t start, num, end;
 
-	/* Assumes tal_count < max-size_t / 2 */
+	shard = shard_of_tx(t,next_shard_order(peer->state->longest_knowns[0]));
+	num = tal_count(pending->pend[shard]);
+
+	/* FIXME: put this into pending-awaiting list (and xmit) */
+	if (num == 255)
+		return;
+
+	start = 0;
+	end = num;
 	while (start < end) {
 		size_t halfway = (start + end) / 2;
 		int c;
 
-		c = transaction_cmp(t, pending->pend[halfway]->t);
+		c = transaction_cmp(t, pending->pend[shard][halfway]->t);
 		if (c < 0)
 			end = halfway;
 		else if (c > 0)
@@ -201,12 +238,12 @@ void add_pending_transaction(struct peer *peer,
 	}
 
 	/* Move down to make room, and insert */
-	tal_resize(&pending->pend, num + 1);
-	memmove(pending->pend + start + 1,
-		pending->pend + start,
-		(num - start) * sizeof(*pending->pend));
-	pending->pend[start] = pend;
+	tal_resize(&pending->pend[shard], num + 1);
+	memmove(pending->pend[shard] + start + 1,
+		pending->pend[shard] + start,
+		(num - start) * sizeof(*pending->pend[shard]));
+	pending->pend[shard][start] = pend;
 
-	tell_generator_new_pending(peer->state, start);
+	tell_generator_new_pending(peer->state, shard, start);
 	send_trans_to_peers(peer->state, peer, t);
 }

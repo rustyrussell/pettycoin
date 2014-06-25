@@ -2,6 +2,7 @@
 #ifndef PETTYCOIN_CHAIN_H
 #define PETTYCOIN_CHAIN_H
 #include <stdbool.h>
+#include <ccan/short_types/short_types.h>
 
 struct block;
 struct state;
@@ -20,10 +21,10 @@ struct block *step_towards(const struct block *curr, const struct block *target)
    state->longest_known_descendents as required. */
 void update_block_ptrs_new_block(struct state *state, struct block *block);
 
-/* We've added a new batch; update state->longest_chains, state->longest_knowns,
+/* We've added a new shard; update state->longest_chains, state->longest_knowns,
    state->longest_known_descendents as required. */
-void update_block_ptrs_new_batch(struct state *state, struct block *block,
-				 unsigned int blocknum);
+void update_block_ptrs_new_shard(struct state *state, struct block *block,
+				 u16 shardnum);
 
 /* We've invalidated a block. */
 void update_block_ptrs_invalidated(struct state *state, const struct block *block);

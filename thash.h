@@ -9,7 +9,8 @@
 struct thash_elem {
 	struct protocol_double_sha sha;
 	struct block *block;
-	u32 tnum;
+	u16 shardnum;
+	u8 txoff; /* Within shard. */
 };
 
 static inline const struct protocol_double_sha *

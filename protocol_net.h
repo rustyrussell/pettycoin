@@ -37,18 +37,18 @@ enum protocol_pkt_type {
 	PROTOCOL_PKT_UNKNOWN_BLOCK,
 	/* Here's a block (may be response to GET_BLOCK, or spontaneous) */
 	PROTOCOL_PKT_BLOCK,
-	/* Please tell me about this batch */
-	PROTOCOL_PKT_GET_BATCH,
-	/* Here's a batch (response to above) */
-	PROTOCOL_PKT_BATCH,
+	/* Please tell me about this shard */
+	PROTOCOL_PKT_GET_SHARD,
+	/* Here's a shard (response to above) */
+	PROTOCOL_PKT_SHARD,
 	/* Please give me a TX. */
 	PROTOCOL_PKT_GET_TX,
 	/* Here's a transaction. */
 	PROTOCOL_PKT_TX,
-	/* Please give me the nth TX in this block. */
-	PROTOCOL_PKT_GET_TX_IN_BLOCK,
-	/* Here's a transaction in a block. */
-	PROTOCOL_PKT_TX_IN_BLOCK,
+	/* Please give me the nth TX in this shard. */
+	PROTOCOL_PKT_GET_TX_IN_SHARD,
+	/* Here's a transaction in a block's shard. */
+	PROTOCOL_PKT_TX_IN_SHARD,
 	/* Please tell me what transactions I should know about. */
 	PROTOCOL_PKT_GET_TXMAP,
 	/* Which transactions you should know about (response to above) */
@@ -72,7 +72,10 @@ enum protocol_pkt_type {
 	PROTOCOL_PKT_PIGGYBACK,
 
 	/* >= this is invalid. */
-	PROTOCOL_PKT_MAX
+	PROTOCOL_PKT_MAX,
+
+	/* Used for saving to disk. */
+	PROTOCOL_PKT_PRIV_FULLSHARD,
 };
 
 struct protocol_pkt_welcome {
@@ -177,7 +180,7 @@ struct protocol_pkt_block_tx_invalid {
 	 *  PROTOCOL_ERROR_TOO_LARGE
 	 *  PROTOCOL_ERROR_TRANS_BAD_SIG
 	 *  PROTOCOL_ERROR_TOO_MANY_INPUTS
-	 *  PROTOCOL_ERROR_BATCH_BAD_INPUT_REF
+	 *  PROTOCOL_ERROR_SHARD_BAD_INPUT_REF
 	 */
 	le32 error;
 
@@ -187,7 +190,7 @@ struct protocol_pkt_block_tx_invalid {
 };
 
 /* This block contains an transaction with an invalid input,
- * ie PROTOCOL_ERROR_PRIV_TRANS_BAD_INPUT. */
+ * ie PROTOCOL_ERROR_PRIV_BLOCK_BAD_INPUT_REF. */
 struct protocol_pkt_block_tx_bad_input {
 	le32 len; /* sizeof(struct protocol_req_block_tx_bad_input) */
 	le32 type; /* PROTOCOL_REQ_BLOCK_TX_BAD_INPUT */
@@ -202,7 +205,7 @@ struct protocol_pkt_block_tx_bad_input {
 };
 
 /* This block contains an input ref with an invalid input (wrong trans!)
- * ie PROTOCOL_ERROR_BATCH_BAD_REF_TRANS. */
+ * ie PROTOCOL_ERROR_PRIV_BLOCK_BAD_INPUT_REF_TRANS. */
 struct protocol_pkt_block_bad_input_ref {
 	le32 len; /* sizeof(struct protocol_pkt_block_bad_input_ref) */
 	le32 type; /* PROTOCOL_PKT_BLOCK_BAD_INPUT_REF */
@@ -229,17 +232,18 @@ struct protocol_pkt_block_tx_bad_amount {
 	*/
 };
 
-struct protocol_pkt_batch {
-	le32 len; /* sizeof(struct protocol_pkt_batch) */
-	le32 type; /* PROTOCOL_PKT_BATCH */
+struct protocol_pkt_shard {
+	le32 len; /* sizeof(struct protocol_pkt_shard) */
+	le32 type; /* PROTOCOL_PKT_SHARD */
 
 	struct protocol_double_sha block;
-	le32 batchnum;
-	le32 err; /* May be PROTOCOL_ERROR_UNKNOWN_BLOCK or
-		     PROTOCOL_ERROR_UNKNOWN_BATCH */
+	le16 shard;
+	le16 err; /* May be PROTOCOL_ERROR_UNKNOWN_BLOCK or
+		     PROTOCOL_ERROR_UNKNOWN_SHARD */
 
-	/* Only if !err. */
-	struct protocol_double_sha txhash[1 << PETTYCOIN_BATCH_ORDER];
+	/* Only if !err:
+	   struct protocol_double_sha txhash[block->shard_nums[shard]];
+	*/
 };
 
 struct protocol_pkt_tx_in_block {
@@ -319,22 +323,25 @@ struct protocol_pkt_get_tx {
 	struct protocol_double_sha tx;
 };
 
-/* Ask for a specific block pos (reply will be PROTOCOL_PKT_TX_IN_BLOCK). */
-struct protocol_pkt_get_tx_in_block {
-	le32 len; /* sizeof(struct protocol_pkt_tx) */
+/* Ask for a specific block pos (reply will be PROTOCOL_PKT_TX_IN_SHARD). */
+struct protocol_pkt_get_tx_in_shard {
+	le32 len; /* sizeof(struct protocol_pkt_get_tx_in_shard) */
 	le32 type; /* PROTOCOL_PKT_GET_TX */
 
 	struct protocol_double_sha block;
-	le32 txpos;
+	le16 shard;
+	u8 txoff;
+	u8 unused;
 };
 
-/* Ask for a specific batch (reply will be PROTOCOL_PKT_BATCH). */
-struct protocol_pkt_get_batch {
-	le32 len; /* sizeof(struct protocol_pkt_get_batch) */
-	le32 type; /* PROTOCOL_PKT_GET_batch */
+/* Ask for a specific shard (reply will be PROTOCOL_PKT_SHARD). */
+struct protocol_pkt_get_shard {
+	le32 len; /* sizeof(struct protocol_pkt_get_shard) */
+	le32 type; /* PROTOCOL_PKT_GET_SHARD */
 
 	struct protocol_double_sha block;
-	le32 batchnum;
+	le16 shardnum;
+	le16 unused;
 };
 
 /* For syncing: what transactions should we know about? */
@@ -342,8 +349,8 @@ struct protocol_pkt_get_txmap {
 	le32 len; /* sizeof(struct protocol_pkt_get_txmap) */
 	le32 type; /* PROTOCOL_PKT_GET_TXMAP */
 
-	struct protocol_double_sha block;
-	le32 batchnum;
+	le16 shardnum;
+	le16 unused;
 };
 
 /* For syncing: what transactions should we know about. */
@@ -352,18 +359,21 @@ struct protocol_pkt_txmap {
 	le32 type; /* PROTOCOL_PKT_GET_TXMAP */
 
 	struct protocol_double_sha block;
-	le32 batchnum;
+	le16 shard;
+	le16 unused;
 
-	/* Each set bit is a TX you want. */
-	u8 txmap[(1 << PETTYCOIN_BATCH_ORDER) / 8];
+	/* Each set bit is a TX you want:
+	   u8 txmap[(block->shard_nums[shard] + 31) / 32 * 4];
+	*/
 };
 
 /* Followed by struct protocol_double_sha of block. */
 #define PROTOCOL_PKT_PIGGYBACK_NEWBLOCK 1
-/* Followed by struct protocol_double_sha of block then le32 batch number. */
-#define PROTOCOL_PKT_PIGGYBACK_NEWBATCH 2
-/* Followed by struct protocol_double_sha of tx, block then le32 position. */
-#define PROTOCOL_PKT_PIGGYBACK_TX_IN_BLOCK 3
+/* Followed by struct protocol_double_sha of block then le16 shard number. */
+#define PROTOCOL_PKT_PIGGYBACK_NEWSHARD 2
+/* Followed by struct protocol_double_sha of tx, block then le16 shard
+ * and u8 txoff. */
+#define PROTOCOL_PKT_PIGGYBACK_TX_IN_SHARD 3
 /* Followed by struct protocol_double_sha of tx. */
 #define PROTOCOL_PKT_PIGGYBACK_TX 4
 

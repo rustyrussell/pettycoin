@@ -74,7 +74,7 @@ struct protocol_pkt_welcome *make_welcome(const tal_t *ctx,
 	w->random = state->random_welcome;
 	w->you = *a;
 	w->listen_port = state->listen_port;
-	add_interests(state, &w, shard_order(state->preferred_chain));
+	add_interests(state, &w, state->preferred_chain->hdr->shard_order);
 	add_welcome_blocks(state, &w);
 
 	return w;

@@ -12,6 +12,7 @@ enum protocol_error
 unmarshall_block(struct log *log,
 		 const struct protocol_pkt_block *pkt,
 		 const struct protocol_block_header **hdr,
+		 const u8 **shard_nums,
 		 const struct protocol_double_sha **merkles,
 		 const u8 **prev_merkles,
 		 const struct protocol_block_tailer **tailer);
@@ -20,6 +21,7 @@ unmarshall_block(struct log *log,
 enum protocol_error
 unmarshall_block_into(struct log *log,
 		      size_t size, const struct protocol_block_header *hdr,
+		      const u8 **shard_nums,
 		      const struct protocol_double_sha **merkles,
 		      const u8 **prev_merkles,
 		      const struct protocol_block_tailer **tailer);
@@ -28,6 +30,7 @@ unmarshall_block_into(struct log *log,
 struct protocol_pkt_block *
 marshall_block(const tal_t *ctx,
 	       const struct protocol_block_header *hdr,
+	       const u8 *shard_nums,
 	       const struct protocol_double_sha *merkles,
 	       const u8 *prev_merkles,
 	       const struct protocol_block_tailer *tailer);
@@ -38,6 +41,7 @@ size_t marshall_block_len(const struct protocol_block_header *hdr);
 /* Store block into dst, which must be at least marshall_block_len. */
 void marshall_block_into(void *dst,
 			 const struct protocol_block_header *hdr,
+			 const u8 *shard_nums,
 			 const struct protocol_double_sha *merkles,
 			 const u8 *prev_merkles,
 			 const struct protocol_block_tailer *tailer);

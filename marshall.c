@@ -1,4 +1,5 @@
 #include <ccan/endian/endian.h>
+#include <ccan/build_assert/build_assert.h>
 #include "marshall.h"
 #include "protocol_net.h"
 #include "overflows.h"
@@ -13,11 +14,12 @@
 enum protocol_error
 unmarshall_block_into(struct log *log,
 		      size_t size, const struct protocol_block_header *hdr,
+		      const u8 **shard_nums,
 		      const struct protocol_double_sha **merkles,
 		      const u8 **prev_merkles,
 		      const struct protocol_block_tailer **tailer)
 {
-	size_t len, merkle_len;
+	size_t len, merkle_len, shard_len;
 
 	if (size < sizeof(*hdr)) {
 		log_unusual(log, "total size %zu < header size %zu",
@@ -30,26 +32,34 @@ unmarshall_block_into(struct log *log,
 		return PROTOCOL_ERROR_BLOCK_HIGH_VERSION;
 	}
 
-	if (add_overflows(le32_to_cpu(hdr->num_transactions),
-			  (1<<PETTYCOIN_BATCH_ORDER)-1)) {
-		log_unusual(log, "num_transactions %u overflows",
-			    le32_to_cpu(hdr->num_transactions));
-		return PROTOCOL_INVALID_LEN;
-	}
+	/* Make sure we can't ever overflow when we sum transactions. */
+	BUILD_ASSERT(PROTOCOL_MAX_SHARD_ORDER < 24);
 
+	if (hdr->shard_order > PROTOCOL_MAX_SHARD_ORDER) {
+		log_unusual(log, "shard_order %u not OK", hdr->shard_order);
+		return PROTOCOL_ERROR_BAD_SHARD_ORDER;
+	}
 	len = sizeof(*hdr);
 
-	/* Merkles come after header. */
-	*merkles = (struct protocol_double_sha *)(hdr + 1);
+	/* Shards come next. */
+	*shard_nums = (u8 *)(hdr + 1);
 
-	merkle_len = num_batches(le32_to_cpu(hdr->num_transactions));
-
-	/* This can't actually happen, due to shift, but be thorough. */
-	if (mul_overflows(merkle_len, sizeof(struct protocol_double_sha))) {
-		log_unusual(log, "merkle_len %zu overflows", merkle_len);
+	shard_len = 1 << hdr->shard_order;
+	if (add_overflows(shard_len, len)) {
+		log_unusual(log, "shard_len %zu overflows", shard_len);
 		return PROTOCOL_INVALID_LEN;
 	}
-	merkle_len *= sizeof(struct protocol_double_sha);
+	len += shard_len;
+
+	/* Merkles come after shard numbers. */
+	*merkles = (struct protocol_double_sha *)(*shard_nums + shard_len);
+
+	/* This can't actually happen, but be thorough. */
+	if (mul_overflows(shard_len, sizeof(struct protocol_double_sha))) {
+		log_unusual(log, "merkle_len %zu overflows", shard_len);
+		return PROTOCOL_INVALID_LEN;
+	}
+	merkle_len = shard_len * sizeof(struct protocol_double_sha);
 
 	if (add_overflows(len, merkle_len)) {
 		log_unusual(log, "len %zu + merkle_len %zu overflows",
@@ -94,47 +104,54 @@ enum protocol_error
 unmarshall_block(struct log *log,
 		 const struct protocol_pkt_block *pkt,
 		 const struct protocol_block_header **hdr,
+		 const u8 **shard_nums,
 		 const struct protocol_double_sha **merkles,
 		 const u8 **prev_merkles,
 		 const struct protocol_block_tailer **tailer)
 {
 	*hdr = (void *)(pkt + 1);
 	return unmarshall_block_into(log, le32_to_cpu(pkt->len) - sizeof(*pkt),
-				     *hdr, merkles, prev_merkles, tailer);
+				     *hdr, shard_nums, merkles, prev_merkles,
+				     tailer);
 }
 
-/* Returns total length, sets merkle_len and prev_merkle_len */
+/* Returns total length, sets shardnum_len, merkle_len, prev_merkle_len */
 static size_t block_lengths(const struct protocol_block_header *hdr,
+			    size_t *shardnum_len,
 			    size_t *merkle_len, size_t *prev_merkle_len)
 {
-	*merkle_len = sizeof(struct protocol_double_sha)
-		* num_batches(le32_to_cpu(hdr->num_transactions));
+	u32 num_shards = (u32)1 << hdr->shard_order;
+	*shardnum_len = num_shards * sizeof(u8);
+	*merkle_len = sizeof(struct protocol_double_sha) * num_shards;
 	*prev_merkle_len = sizeof(u8) * le32_to_cpu(hdr->num_prev_merkles);
 
-	return sizeof(*hdr) + *merkle_len + *prev_merkle_len
+	return sizeof(*hdr) + *shardnum_len + *merkle_len + *prev_merkle_len
 		+ sizeof(struct protocol_block_tailer);
 }
 
 size_t marshall_block_len(const struct protocol_block_header *hdr)
 {
-	size_t merkle_len, prev_merkle_len;
+	size_t shardnum_len, merkle_len, prev_merkle_len;
 
-	return block_lengths(hdr, &merkle_len, &prev_merkle_len);
+	return block_lengths(hdr, &shardnum_len, &merkle_len, &prev_merkle_len);
 }
 
 void marshall_block_into(void *dst,
 			 const struct protocol_block_header *hdr,
+			 const u8 *shard_nums,
 			 const struct protocol_double_sha *merkles,
 			 const u8 *prev_merkles,
 			 const struct protocol_block_tailer *tailer)
 {
 	char *dest = dst;
-	size_t merkle_len, prev_merkle_len;
+	size_t shardnum_len, merkle_len, prev_merkle_len;
 
-	block_lengths(hdr, &merkle_len, &prev_merkle_len);
+	block_lengths(hdr, &shardnum_len, &merkle_len, &prev_merkle_len);
 
 	memcpy(dest, hdr, sizeof(*hdr));
 	dest += sizeof(*hdr);
+	memcpy(dest, shard_nums, shardnum_len);
+	dest += shardnum_len;
 	memcpy(dest, merkles, merkle_len);
 	dest += merkle_len;
 	memcpy(dest, prev_merkles, prev_merkle_len);
@@ -145,6 +162,7 @@ void marshall_block_into(void *dst,
 struct protocol_pkt_block *
 marshall_block(const tal_t *ctx,
 	       const struct protocol_block_header *hdr,
+	       const u8 *shard_nums,
 	       const struct protocol_double_sha *merkles,
 	       const u8 *prev_merkles,
 	       const struct protocol_block_tailer *tailer)
@@ -158,7 +176,8 @@ marshall_block(const tal_t *ctx,
 	ret->len = cpu_to_le32(sizeof(*ret) + len);
 	ret->type = cpu_to_le32(PROTOCOL_PKT_BLOCK);
 
-	marshall_block_into(ret + 1, hdr, merkles, prev_merkles, tailer);
+	marshall_block_into(ret + 1,
+			    hdr, shard_nums, merkles, prev_merkles, tailer);
 	return ret;
 }
 

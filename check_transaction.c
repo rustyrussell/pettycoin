@@ -54,26 +54,29 @@ find_trans_for_ref(struct state *state,
 
 	*trans = NULL;
 	if (le32_to_cpu(ref->blocks_ago) > le32_to_cpu(block->hdr->depth))
-		return PROTOCOL_ERROR_PRIV_BATCH_BAD_INPUT_REF;
+		return PROTOCOL_ERROR_PRIV_BLOCK_BAD_INPUT_REF;
 
 	/* FIXME: slow */
 	bnum = le32_to_cpu(block->hdr->depth) - le32_to_cpu(ref->blocks_ago);
 	for (b = block; le32_to_cpu(b->hdr->depth) != bnum; b = b->prev);
 
-	if (le32_to_cpu(ref->txnum) >= le32_to_cpu(b->hdr->num_transactions))
-		return PROTOCOL_ERROR_PRIV_BATCH_BAD_INPUT_REF;
+	if (le16_to_cpu(ref->shard) >= num_shards(b->hdr))
+		return PROTOCOL_ERROR_PRIV_BLOCK_BAD_INPUT_REF;
+
+	if (ref->txoff >= b->shard_nums[ref->shard])
+		return PROTOCOL_ERROR_PRIV_BLOCK_BAD_INPUT_REF;
 
 	if (le32_to_cpu(b->tailer->timestamp) + TRANSACTION_HORIZON_SECS
 	    < le32_to_cpu(block->tailer->timestamp))
-		return PROTOCOL_ERROR_PRIV_BATCH_BAD_INPUT_REF;
+		return PROTOCOL_ERROR_PRIV_BLOCK_BAD_INPUT_REF;
 
-	*trans = block_get_trans(b, le32_to_cpu(ref->txnum));
+	*trans = block_get_tx(b, le16_to_cpu(ref->shard), ref->txoff);
 	if (!*trans)
 		/* We just don't know it.  OK */
 		return PROTOCOL_ERROR_NONE;
 
 	/* Trans is actually not the correct one! */
-	return PROTOCOL_ERROR_PRIV_BATCH_BAD_INPUT_REF_TRANS;
+	return PROTOCOL_ERROR_PRIV_BLOCK_BAD_INPUT_REF_TRANS;
 }	
 
 /*
@@ -116,7 +119,10 @@ check_trans_normal_inputs(struct state *state,
 		     te;
 		     te = thash_nextval(&state->thash,
 					&t->input[i].input, &it)) {
-			inputs[i] = block_get_trans(te->block, te->tnum);
+			u16 shardnum;
+
+			inputs[i] = block_get_tx(te->block,
+						 te->shardnum, te->txoff);
 
 			/* Not checking in block?  Any location will do. */
 			if (!refs)
@@ -129,8 +135,12 @@ check_trans_normal_inputs(struct state *state,
 				continue;
 
 			/* Can't be right if transaction number impossible. */
-			if (le32_to_cpu(refs[i].txnum)
-			    >= le32_to_cpu(te->block->hdr->num_transactions))
+			shardnum = le32_to_cpu(refs[i].shard);
+			if (shardnum >= num_shards(te->block->hdr))
+				continue;
+
+			if (le32_to_cpu(refs[i].txoff)
+			    >= te->block->shard_nums[shardnum])
 				continue;
 
 			/* Must be predecessor */
@@ -203,14 +213,16 @@ check_trans_from_gateway(struct state *state,
 
 	/* Each output must be in the same shard. */
 	if (!block)
-		shard_ord = shard_order(state->preferred_chain);
+		shard_ord = next_shard_order(state->longest_knowns[0]);
 	else
-		shard_ord = shard_order(block);
+		shard_ord = block->hdr->shard_order;
 
 	for (i = 0; i < le16_to_cpu(t->num_outputs); i++) {
 		if (i == 0)
-			the_shard = shard_of(&t->output[i].output_addr, shard_ord);
-		else if (shard_of(&t->output[i].output_addr, shard_ord) != the_shard)
+			the_shard = shard_of(&t->output[i].output_addr,
+					     shard_ord);
+		else if (shard_of(&t->output[i].output_addr, shard_ord)
+			 != the_shard)
 			return PROTOCOL_ERROR_TRANS_CROSS_SHARDS;
 
 		if (le32_to_cpu(t->output[i].send_amount) > MAX_SATOSHI)

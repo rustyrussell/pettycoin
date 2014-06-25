@@ -8,12 +8,11 @@ struct block;
 union protocol_transaction;
 
 void create_proof(struct protocol_proof *proof,
-		  const struct block *block,
-		  u32 tnum);
+		  const struct block *block, u16 shardnum, u8 txoff);
 
 bool check_proof(const struct protocol_proof *proof,
 		 const struct block *block,
 		 const union protocol_transaction *t,
-		 u32 tnum);
+		 u16 shardnum, u8 txoff);
 
 #endif /* PETTYCOIN_PROOF_H */

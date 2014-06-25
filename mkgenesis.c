@@ -41,15 +41,19 @@ solve(const tal_t *ctx,
       unsigned int threads,
       const char *difficulty,
       char *nonce,
+      const u8 **shard_nums,
+      const struct protocol_double_sha **merkles,
       const struct protocol_block_tailer **tailer)
 {
 	unsigned int i, maxfd = 0;
 	fd_set set;
 	tal_t *children = tal(ctx, char);
 	struct protocol_pkt_block *ret;
-	const struct protocol_double_sha *merkles;
 	const u8 *prev_merkles;
 	const struct protocol_block_header *hdr;
+	char shard_order[STR_MAX_CHARS(u8)];
+
+	sprintf(shard_order, "%u", PROTOCOL_INITIAL_SHARD_ORDER);
 
 	FD_ZERO(&set);
 
@@ -91,6 +95,7 @@ solve(const tal_t *ctx,
 			      "0",
 			      /* Genesis block is 0 depth. */
 			      "0",
+			      shard_order,
 			      nonce, NULL);
 			exit(127);
 		}
@@ -129,9 +134,9 @@ solve(const tal_t *ctx,
 	/* Kill off children. */
 	tal_free(children);
 
-	/* merkles and prev_merkles will be empty. */
+	/* prev_merkles will be empty. */
 	unmarshall_block(NULL, ret,
-			 &hdr, &merkles, &prev_merkles, tailer);
+			 &hdr, shard_nums, merkles, &prev_merkles, tailer);
 
 	return hdr;
 }
@@ -149,11 +154,13 @@ static void dump_array(const u8 *arr, size_t len)
 int main(int argc, char *argv[])
 {
 	unsigned int threads;
-	SHA256_CTX shactx;
 	tal_t *ctx = tal(NULL, char);
 	const struct protocol_block_header *hdr;
 	const struct protocol_block_tailer *tailer;
+	const struct protocol_double_sha *merkles;
 	struct protocol_double_sha sha;
+	const u8 *shard_nums;
+	unsigned int i;
 	char nonce[sizeof(hdr->nonce2) + 1];
 
 	err_set_progname(argv[0]);
@@ -171,13 +178,15 @@ int main(int argc, char *argv[])
 	memcpy(nonce, argv[3], strlen(argv[3]));
 	nonce[sizeof(nonce)-1] = '\0';
 
-	hdr = solve(ctx, threads, argv[2], nonce, &tailer);
+	hdr = solve(ctx, threads, argv[2], nonce, &shard_nums, &merkles,
+		    &tailer);
 
 	printf("#include \"genesis.h\"\n");
 	printf("#include \"protocol.h\"\n\n");
 	printf("static struct protocol_block_header genesis_hdr = {\n");
 	printf("\t.version = %u,\n", hdr->version);
 	printf("\t.features_vote = %u,\n", hdr->features_vote);
+	printf("\t.shard_order = %u,\n", hdr->shard_order);
 	{
 		printf("\t.nonce2 = ");
 		dump_array(hdr->nonce2, sizeof(hdr->nonce2));
@@ -190,7 +199,7 @@ int main(int argc, char *argv[])
 	}
 	printf("};\n");
 
-	printf("static struct protocol_block_tailer genesis_tlr = {\n");
+	printf("static const struct protocol_block_tailer genesis_tlr = {\n");
 	printf("\t.timestamp = CPU_TO_LE32(%u),\n",
 	       le32_to_cpu(tailer->timestamp));
 	printf("\t.difficulty = CPU_TO_LE32(0x%08x),\n",
@@ -198,15 +207,41 @@ int main(int argc, char *argv[])
 	printf("\t.nonce1 = CPU_TO_LE32(%u)\n", le32_to_cpu(tailer->nonce1));
 	printf("};\n");
 
-	/* Empty hash of prev_merkles and merkles. */
-	SHA256_Init(&shactx);
-	SHA256_Double_Final(&shactx, &sha);
+	/* This will be all zeroes, but let's be precise. */
+	printf("static const u8 genesis_shardnums[] = {\n");
+	for (i = 0; i < (1U << hdr->shard_order); i++)
+		printf("%s%u", i == 0 ? "" : ", ", shard_nums[i]);
+	printf("\n};\n");
 
-	hash_block(hdr, NULL, NULL, tailer, &sha);
+	printf("static const struct protocol_double_sha genesis_merkles[] = {\n");
+	for (i = 0; i < (1U << hdr->shard_order); i++) {
+		printf("{ ");
+		dump_array(merkles[i].sha, ARRAY_SIZE(merkles[i].sha));
+		printf("} ,\n");
+	}
+	printf("};\n");
+
+	for (i = 0; i < (1U << hdr->shard_order); i++) {
+		printf("static struct transaction_shard genesis_shard%i = {\n",
+		       i);
+		printf("\t.shardnum = %i\n", i);
+		/* Rest all zeroes/NULLs. */
+		printf("};\n");
+	}
+	printf("static struct transaction_shard *genesis_shards[] = {\n");
+	for (i = 0; i < (1U << hdr->shard_order); i++)
+		printf("%s&genesis_shard%i",
+		       i == 0 ? "\t" : ", ", i);
+	printf("\n};\n");
+
+	hash_block(hdr, shard_nums, merkles, NULL, tailer, &sha);
 
 	printf("struct block genesis = {\n"
 	       "	.hdr = &genesis_hdr,\n"
+	       "	.shard_nums = genesis_shardnums,\n"
+	       "	.merkles = genesis_merkles,\n"
 	       "	.tailer = &genesis_tlr,\n"
+	       "	.shard = genesis_shards,\n"
 	       "	.sha = { ");
 
 	dump_array(sha.sha, ARRAY_SIZE(sha.sha));

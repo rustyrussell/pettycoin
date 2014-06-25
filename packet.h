@@ -51,8 +51,8 @@ void *tal_packet_dup(const tal_t *ctx, const void *pkt);
 	tal_packet_append_block_(ptr_to_ptr(ppkt), (block))
 #define tal_packet_append_sha(ppkt, sha)		\
 	tal_packet_append_sha_(ptr_to_ptr(ppkt), (sha))
-#define tal_packet_append_proof(ppkt, block, txnum)			\
-	tal_packet_append_proof_(ptr_to_ptr(ppkt), (block), (txnum))
+#define tal_packet_append_proof(ppkt, block, shardnum, txidx)		\
+	tal_packet_append_proof_(ptr_to_ptr(ppkt), (block), (shardnum), (txidx))
 
 union protocol_transaction;
 void tal_packet_append_trans_(void *ppkt,
@@ -69,6 +69,7 @@ void tal_packet_append_block_(void *ppkt, const struct block *block);
 struct protocol_double_sha;
 void tal_packet_append_sha_(void *ppkt, const struct protocol_double_sha *sha);
 
-void tal_packet_append_proof_(void *ppkt, const struct block *block, u32 txnum);
+void tal_packet_append_proof_(void *ppkt, const struct block *block,
+			      u16 shardnum, u8 txoff);
 
 #endif

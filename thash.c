@@ -47,7 +47,7 @@ union protocol_transaction *thash_gettrans(struct thash *thash,
 		return NULL;
 
 	/* Can't be in hash if it doesn't exist. */
-	t = block_get_trans(te->block, te->tnum);
+	t = block_get_tx(te->block, te->shardnum, te->txoff);
 	assert(t);
 	return t;
 }

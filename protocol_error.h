@@ -12,9 +12,11 @@ enum protocol_error {
 	/* protocol_pkt_welcome: */
 	PROTOCOL_ERROR_HIGH_VERSION, /* version is unknown. */
 	PROTOCOL_ERROR_LOW_VERSION, /* version is old. */
-	PROTOCOL_ERROR_BAD_SHARD_ORDER, /* shard_order is wrong. */
 	PROTOCOL_ERROR_NO_INTEREST, /* not enough interest bits. */
 	PROTOCOL_ERROR_WRONG_GENESIS, /* your inital block is wrong. */
+
+	/* protocol_pkt_welcome or protocol_pkt_block */
+	PROTOCOL_ERROR_BAD_SHARD_ORDER, /* shard_order is wrong. */
 
 	/* protocol_pkt_sync: */
 	PROTOCOL_ERROR_NO_MUTUAL, /* I didn't know any of your blocks. */
@@ -22,9 +24,9 @@ enum protocol_error {
 	/* protocol_set_filter: */
 	PROTOCOL_ERROR_FILTER_INVALID, /* 0 filter bits or bad offset */
 
-	/* protocol_req_block
+	/* protocol_pkt_block
 	   protocol_pkt_get_tx_in_block
-	   protocol_pkt_get_batch
+	   protocol_pkt_get_shard
 	   protocol_pkt_get_txmap
 	   protocol_pkt_get_syncblock
 	*/
@@ -36,8 +38,8 @@ enum protocol_error {
 	/* protocol_pkt_get_tx_in_block */
 	PROTOCOL_ERROR_BAD_TXPOS,
 
-	/* protocol_pkt_get_batch / protocol_pkt_get_txmap */
-	PROTOCOL_ERROR_BAD_BATCHNUM,
+	/* protocol_pkt_get_shard / protocol_pkt_get_txmap */
+	PROTOCOL_ERROR_BAD_SHARDNUM,
 
 	/* The rest are fatal errors: peer should know better! */
 
@@ -60,6 +62,9 @@ enum protocol_error {
 	PROTOCOL_ERROR_TRANS_BAD_SIG, /* invalid signature */
 	PROTOCOL_ERROR_TOO_MANY_INPUTS, /* > TRANSACTION_MAX_INPUTS. */
 
+	/* protocol_pkt_tx_in_block */
+	PROTOCOL_ERROR_BLOCK_BAD_TX_SHARD, /* TX was in wrong shard in block */
+
 	/* >= this is invalid. */
 	PROTOCOL_ERROR_MAX,
 
@@ -67,9 +72,9 @@ enum protocol_error {
 	PROTOCOL_ERROR_PRIV_UNKNOWN_PREV, /* I don't know previous block. */
 	PROTOCOL_ERROR_PRIV_TRANS_BAD_INPUT, /* an input is bad. */
 	PROTOCOL_ERROR_PRIV_TRANS_BAD_AMOUNTS, /* total inputs != outputs  */
-	/* These two only occur within a batch: */
-	PROTOCOL_ERROR_PRIV_BATCH_BAD_INPUT_REF, /* input_ref is bad */
-	PROTOCOL_ERROR_PRIV_BATCH_BAD_INPUT_REF_TRANS, /* input_ref points to bad trans */
+	/* These two only occur within a block: */
+	PROTOCOL_ERROR_PRIV_BLOCK_BAD_INPUT_REF, /* input_ref is bad */
+	PROTOCOL_ERROR_PRIV_BLOCK_BAD_INPUT_REF_TRANS, /* input_ref points to bad trans */
 };
 
 #endif /* PETTYCOIN_PROTOCOL_ERROR_H */

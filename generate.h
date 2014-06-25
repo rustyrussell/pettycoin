@@ -4,7 +4,9 @@
 
 /* Write this to generate's stdin to add a new transaction. */
 struct update {
-	u32 trans_idx;
+	u16 shard;
+	u8 txoff;
+	u8 unused;
 	u32 features;
 	const void *cookie;
 	struct protocol_double_sha hash;

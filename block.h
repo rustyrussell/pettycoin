@@ -8,13 +8,14 @@
 #include <openssl/bn.h>
 
 /* Only transactions we've proven are in block go in here! */
-struct transaction_batch {
-	/* Where this batch starts (should be N << PETTYCOIN_BATCH_ORDER) */
-	unsigned int trans_start;
+struct transaction_shard {
+	/* Which shard is this? */
+	unsigned int shardnum;
 	/* How many transactions do we have?  Faster than counting NULLs */
 	unsigned int count;
-	const union protocol_transaction *t[1 << PETTYCOIN_BATCH_ORDER];
-	const struct protocol_input_ref *refs[1 << PETTYCOIN_BATCH_ORDER];
+	/* FIXME: Size dynamically based on block->shard_nums[shard]. */
+	const union protocol_transaction *t[256];
+	const struct protocol_input_ref *refs[256];
 };
 
 struct block {
@@ -41,6 +42,7 @@ struct block {
 
 	/* The block itself: */
 	const struct protocol_block_header *hdr;
+	const u8 *shard_nums;
 	const struct protocol_double_sha *merkles;
 	const u8 *prev_merkles;
 	const struct protocol_block_tailer *tailer;
@@ -51,7 +53,7 @@ struct block {
 	/* Cache double SHA of block */
 	struct protocol_double_sha sha;
 	/* Transactions: may not be fully populated. */
-	struct transaction_batch **batch;
+	struct transaction_shard **shard;
 };
 
 /* Find on this chain. */
@@ -62,14 +64,12 @@ struct block *block_find(struct block *start, const u8 lower_sha[4]);
 struct block *block_find_any(struct state *state,
 			     const struct protocol_double_sha *sha);
 
-/* Maximum amount in batch (1 >> PETTYCOIN_BATCH_ORDER) except for last */
-u32 batch_max(const struct block *block, unsigned int batchnum);
 
-/* Do we have everything in this batch? */
-bool batch_full(const struct block *block, const struct transaction_batch *batch);
+/* Do we have everything in this shard? */
+bool shard_full(const struct block *block, u16 shardnum);
 
 /* Do we have everything in this block? */
-bool block_full(const struct block *block, unsigned int *batchnum);
+bool block_full(const struct block *block, unsigned int *shardnum);
 
 static inline const struct block *genesis_block(const struct state *state)
 {
@@ -79,40 +79,26 @@ static inline const struct block *genesis_block(const struct state *state)
 /* Add this new block into the state structure. */
 void block_add(struct state *state, struct block *b);
 
-static inline size_t batch_index(u32 trans_num)
-{
-	return trans_num >> PETTYCOIN_BATCH_ORDER;
-}
-
-/* Given this number of transactions, how many merkle hashes/batches? */
-static inline u32 num_batches(u64 num_transactions)
-{
-	return (num_transactions + (1<<PETTYCOIN_BATCH_ORDER) - 1)
-		>> PETTYCOIN_BATCH_ORDER;
-}
-
-static inline u32 num_batches_for_block(const struct block *block)
-{
-	return num_batches(le32_to_cpu(block->hdr->num_transactions));
-}
-
-/* Get this numbered transaction inside block. */
-union protocol_transaction *block_get_trans(const struct block *block,
-					    u32 trans_num);
+/* Get tx_idx'th tx inside shard shardnum inside block. */
+union protocol_transaction *block_get_tx(const struct block *block,
+					 u16 shardnum, u8 tx_idx);
 
 /* Get this numbered references inside block. */
 struct protocol_input_ref *block_get_refs(const struct block *block,
-					  u32 trans_num);
+					  u16 shardnum, u8 txoff);
 
 void invalidate_block_badtrans(struct state *state,
 			       struct block *block,
 			       enum protocol_error err,
-			       unsigned int bad_transnum,
+			       unsigned int bad_shardnum,
+			       unsigned int bad_txoff,
 			       unsigned int bad_input,
 			       union protocol_transaction *bad_intrans);
 
 void invalidate_block_misorder(struct state *state,
 			       struct block *block,
-			       unsigned int bad_transnum1,
-			       unsigned int bad_transnum2);
+			       unsigned int bad_txoff1,
+			       unsigned int bad_txoff2,
+			       unsigned int bad_shardnum);
+
 #endif /* PETTYCOIN_BLOCK_H */

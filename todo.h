@@ -24,7 +24,7 @@ struct todo_request {
 	union {
 		struct protocol_net_hdr hdr;
 		struct protocol_pkt_get_block get_block;
-		struct protocol_pkt_get_batch get_batch;
+		struct protocol_pkt_get_shard get_shard;
 		struct protocol_pkt_get_children get_children;
 	} pkt;
 };
@@ -41,9 +41,9 @@ void todo_add_get_children(struct state *state,
 			   const struct protocol_double_sha *block);
 void todo_add_get_block(struct state *state,
 			const struct protocol_double_sha *block);
-void todo_add_get_batch(struct state *state,
+void todo_add_get_shard(struct state *state,
 			const struct protocol_double_sha *block,
-			unsigned int batchnum);
+			u16 shardnum);
 void todo_for_peer(struct peer *peer, void *pkt);
 
 /* These decrement peer->requests_outstanding if it was outstanding. */
@@ -53,14 +53,14 @@ void todo_done_get_children(struct peer *peer,
 void todo_done_get_block(struct peer *peer,
 			 const struct protocol_double_sha *block,
 			 bool success);
-void todo_done_get_batch(struct peer *peer,
+void todo_done_get_shard(struct peer *peer,
 			 const struct protocol_double_sha *block,
-			 unsigned int batchnum, bool success);
+			 u16 shardnum, bool success);
 
 /* Completely forget about this request (ie. block is invalid) */
-void todo_forget_about_batch(struct state *state,
+void todo_forget_about_shard(struct state *state,
 			     const struct protocol_double_sha *block,
-			     unsigned int batchnum);
+			     u16 shardnum);
 
 /* Peer has closed, remove it from todo bitmaps */
 void remove_peer_from_todo(struct state *state, struct peer *peer);

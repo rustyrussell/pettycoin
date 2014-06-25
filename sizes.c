@@ -4,13 +4,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define PROTOCOL_NET_SHARD_BITS 10
 #define AVERAGE_INPUTS 2.1
 
 int main(int argc, char *argv[])
 {
 	unsigned long long tps, tsize, trans_per_block, merkles_per_block,
-		blocksize;
+		blocksize, shard_order;
 
 	if (argc != 2)
 		errx(1, "Usage: sizes <tps>");
@@ -22,7 +21,18 @@ int main(int argc, char *argv[])
 	       AVERAGE_INPUTS, tsize);
 	trans_per_block = tps * 600;
 	printf("Transactions per block: %llu\n", trans_per_block);
-	merkles_per_block = num_batches(trans_per_block);
+	/* Increase shard order until shards are half full. */
+	for (shard_order = PROTOCOL_INITIAL_SHARD_ORDER;
+	     (128 << shard_order) < trans_per_block;
+	     shard_order++);
+
+	printf("Shards: (2^%llu) %llu\n", shard_order, 1ULL << shard_order);
+	if (shard_order > 16) {
+		printf("Truncating shards to 2^16 (need u32 shardnum!)\n");
+		shard_order = 16;
+	}
+
+	merkles_per_block = (1 << shard_order);
 	blocksize = sizeof(struct protocol_block_header)
 		+ merkles_per_block * sizeof(struct protocol_double_sha)
 		+ merkles_per_block * PETTYCOIN_PREV_BLOCK_MERKLES
@@ -36,8 +46,8 @@ int main(int argc, char *argv[])
 
 	/* Minimal node needs two shards + every block. */
 	printf("Minimal nodes: %llu + %llu = %llu bytes per second\n",
-	       ((tps * tsize) >> PROTOCOL_NET_SHARD_BITS) * 2, blocksize / 600,
-	       ((tps * tsize) >> PROTOCOL_NET_SHARD_BITS) * 2 + blocksize / 600);
+	       ((tps * tsize) >> shard_order) * 2, blocksize / 600,
+	       ((tps * tsize) >> shard_order) * 2 + blocksize / 600);
 
 	return 0;
 }

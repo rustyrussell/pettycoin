@@ -6,6 +6,6 @@ void load_blocks(struct state *state);
 void save_block(struct state *state, struct block *new);
 
 /* We only save transactions within a saved block. */
-void save_transaction(struct state *state, struct block *b, u32 i);
+void save_shard(struct state *state, struct block *block, u16 shardnum);
 
 #endif /* PETTYCOIN_BLOCKFILE_H */

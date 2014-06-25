@@ -16,7 +16,6 @@
 #include "blockfile.h"
 #include "pending.h"
 #include "chain.h"
-#include "merkle_transactions.h"
 #include "todo.h"
 #include "sync.h"
 #include "difficulty.h"
@@ -183,7 +182,8 @@ static struct protocol_pkt_block *block_pkt(tal_t *ctx, const struct block *b)
 	struct protocol_pkt_block *blk;
  
 	blk = marshall_block(ctx,
-			     b->hdr, b->merkles, b->prev_merkles, b->tailer);
+			     b->hdr, b->shard_nums, b->merkles, b->prev_merkles,
+			     b->tailer);
 
 	return blk;
 }
@@ -975,23 +975,25 @@ recv_block(struct peer *peer, const struct protocol_pkt_block *pkt)
 	struct block *new, *b;
 	enum protocol_error e;
 	const struct protocol_double_sha *merkles;
+	const u8 *shard_nums;
 	const u8 *prev_merkles;
 	const struct protocol_block_tailer *tailer;
 	const struct protocol_block_header *hdr;
 	struct protocol_double_sha sha;
 
 	e = unmarshall_block(peer->log, pkt,
-			     &hdr, &merkles, &prev_merkles, &tailer);
+			     &hdr, &shard_nums, &merkles, &prev_merkles,
+			     &tailer);
 	if (e != PROTOCOL_ERROR_NONE) {
 		log_unusual(peer->log, "unmarshalling new block gave %u", e);
 		return e;
 	}
 
-	log_debug(peer->log, "version = %u, features = %u, num_transactions = %u",
-		  hdr->version, hdr->features_vote, hdr->num_transactions);
+	log_debug(peer->log, "version = %u, features = %u, shard_order = %u",
+		  hdr->version, hdr->features_vote, hdr->shard_order);
 
-	e = check_block_header(peer->state, hdr, merkles, prev_merkles,
-			       tailer, &new, &sha);
+	e = check_block_header(peer->state, hdr, shard_nums, merkles,
+			       prev_merkles, tailer, &new, &sha);
 	/* In case we were asking for this, we're not any more. */
 	todo_done_get_block(peer, &sha, true);
 
@@ -1197,6 +1199,22 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 	case PROTOCOL_PKT_UNKNOWN_BLOCK:
 		err = recv_unknown_block(peer, peer->incoming);
 		break;
+	/* FIXME! */
+	case PROTOCOL_PKT_TX_IN_SHARD:
+		/* If we don't know block, ask about block.
+		 * Otherwise, if it's in our interest:
+		 *      If we don't know inputs, ask for them.
+		 *      Otherwise, place in block.
+		 *	Save TX to disk.
+		 */
+	case PROTOCOL_PKT_SHARD:
+		/* If we don't know block, ask about block.
+		 * Otherwise, if it's in our interest:
+		 *      If we don't know some inputs, ask for them and
+		 *	  treat other txs as above.
+		 *      Otherwise, place in block.
+		 *	Save batch to disk.
+		 */
 	default:
 		err = PROTOCOL_ERROR_UNKNOWN_COMMAND;
 	}

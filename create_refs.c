@@ -41,7 +41,9 @@ static bool resolve_input(struct state *state,
 		ref->blocks_ago = 
 			cpu_to_le32(le32_to_cpu(prev_block->hdr->depth) -
 				    le32_to_cpu(te->block->hdr->depth) + 1);
-		ref->txnum = cpu_to_le32(te->tnum);
+		ref->shard = cpu_to_le16(te->shardnum);
+		ref->txoff = te->txoff;
+		ref->unused = 0;
 		return true;
 	}
 	return false;
