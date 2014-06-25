@@ -46,16 +46,16 @@ int main(int argc, char *argv[])
 
 	/* This creates a new genesis block. */
 	fake_time = 1403486777;
-	w = new_working_block(s, 0x1effffff, NULL, 0, 0,
+	w = new_working_block(s, 0x1ffffff0, NULL, 0, 0,
 			      PROTOCOL_INITIAL_SHARD_ORDER,
 			      &prev, helper_addr(0));
 
 	for (i = 0; !solve_block(w); i++);
-	assert(i == 13517);
+	assert(i == 87);
 
 	hash_block(&w->hdr, w->shard_nums, w->merkles, w->prev_merkles,
 		   &w->tailer, &hash);
-	assert(beats_target(&hash, 0x1effffff));
+	assert(beats_target(&hash, 0x1ffffff0));
 
 	assert(w->hdr.version == current_version());
 	assert(w->hdr.features_vote == 0);
@@ -68,14 +68,14 @@ int main(int argc, char *argv[])
 	       == 0);
 
 	assert(le32_to_cpu(w->tailer.timestamp) == fake_time);
-	assert(le32_to_cpu(w->tailer.difficulty) == 0x1effffff);
+	assert(le32_to_cpu(w->tailer.difficulty) == 0x1ffffff0);
 	assert(le32_to_cpu(w->tailer.nonce1) == i);
 	for (i = 0; i < (1 << w->hdr.shard_order); i++)
 		assert(w->shard_nums[i] == 0);
 
 	/* Now create a block after that, with a gateway transaction in it. */
 	fake_time++;
-	w2 = new_working_block(s, 0x1effffff, NULL, 0, 1,
+	w2 = new_working_block(s, 0x1ffffff0, NULL, 0, 1,
 			       w->hdr.shard_order, &hash, helper_addr(1));
 
 	payment.send_amount = cpu_to_le32(1000);
@@ -95,7 +95,7 @@ int main(int argc, char *argv[])
 
 	hash_block(&w2->hdr, w2->shard_nums, w2->merkles, w2->prev_merkles,
 		   &w2->tailer, &hash2);
-	assert(beats_target(&hash2, 0x1effffff));
+	assert(beats_target(&hash2, 0x1ffffff0));
 
 	assert(w2->hdr.version == current_version());
 	assert(w2->hdr.features_vote == 0);
@@ -108,7 +108,7 @@ int main(int argc, char *argv[])
 	       == 0);
 
 	assert(le32_to_cpu(w2->tailer.timestamp) == fake_time);
-	assert(le32_to_cpu(w2->tailer.difficulty) == 0x1effffff);
+	assert(le32_to_cpu(w2->tailer.difficulty) == 0x1ffffff0);
 	assert(le32_to_cpu(w2->tailer.nonce1) == i);
 	for (i = 0; i < (1 << w2->hdr.shard_order); i++) {
 		if (i == update.shard)

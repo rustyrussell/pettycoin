@@ -53,7 +53,7 @@ static struct protocol_block_header genesis_hdr = {
 };
 static const struct protocol_block_tailer genesis_tlr = {
 	.timestamp = CPU_TO_LE32(1403483533),
-	.difficulty = CPU_TO_LE32(0x1effffff),
+	.difficulty = CPU_TO_LE32(0x1ffffff0),
 	.nonce1 = CPU_TO_LE32(4823)
 };
 static const u8 genesis_shardnums[] = {
@@ -170,7 +170,7 @@ int main(int argc, char *argv[])
 
 	/* Create a block with a gateway transaction in it. */
 	prev_merkles = make_prev_merkles(s, &genesis, helper_addr(1));
-	w = new_working_block(s, 0x1effffff,
+	w = new_working_block(s, 0x1ffffff0,
 			      prev_merkles, tal_count(prev_merkles),
 			      le32_to_cpu(genesis.hdr->depth) + 1,
 			      next_shard_order(&genesis),
@@ -220,7 +220,7 @@ int main(int argc, char *argv[])
 
 	/* Solve third block, with a normal transaction in it. */
 	fake_time++;
-	w2 = new_working_block(s, 0x1effffff,
+	w2 = new_working_block(s, 0x1ffffff0,
 			       prev_merkles, num_prev_merkles(b),
 			       le32_to_cpu(b->hdr->depth) + 1,
 			       next_shard_order(b),
