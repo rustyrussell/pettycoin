@@ -90,8 +90,8 @@ struct block *block_find_any(struct state *state,
 			     const struct protocol_double_sha *sha);
 
 
-/* Do we have everything in this shard? */
-static inline bool shard_full(const struct block *block, u16 shardnum)
+/* Do we have every tx in this shard? */
+static inline bool shard_all_known(const struct block *block, u16 shardnum)
 {
 	u8 count;
 
@@ -99,8 +99,10 @@ static inline bool shard_full(const struct block *block, u16 shardnum)
 	return count == block->shard_nums[shardnum];
 }
 
-/* Do we have everything in this block? */
-bool block_full(const struct block *block, unsigned int *shardnum);
+/* Do we have every tx in this block?
+ * If not, tell us about one in shardnum (if non-NULL).
+ */
+bool block_all_known(const struct block *block, unsigned int *shardnum);
 
 static inline const struct block *genesis_block(const struct state *state)
 {

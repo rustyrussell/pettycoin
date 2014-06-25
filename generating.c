@@ -212,7 +212,7 @@ static struct io_plan got_trans(struct io_conn *conn, struct generator *gen)
 	assert(off == tal_count(gen->included));
 
 	/* Ignore return: we restart generating whether this is in main chain or not */
-	assert(block_full(gen->new, NULL));
+	assert(block_all_known(gen->new, NULL));
 	block_add(gen->state, gen->new);
 	save_block(gen->state, gen->new);
 

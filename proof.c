@@ -12,7 +12,7 @@ void create_proof(struct protocol_proof *proof,
 	const struct txptr_with_ref *txp;
 
 	assert(shardnum < num_shards(block->hdr));
-	assert(shard_full(block, shardnum));
+	assert(shard_all_known(block, shardnum));
 	txp = block->shard[shardnum]->txp;
 
 	for (i = 0; i < 8; i++) {

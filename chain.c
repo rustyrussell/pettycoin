@@ -227,7 +227,7 @@ static bool update_known_recursive(struct state *state, struct block *block)
 	struct block *b;
 	bool knowns_changed;
 
-	if (!block->prev->all_known || !block_full(block, NULL))
+	if (!block->prev->all_known || !block_all_known(block, NULL))
 		return false;
 
 	/* FIXME: Hack avoids writing to read-only genesis block. */
@@ -272,7 +272,7 @@ static void ask_about_block(struct state *state, const struct block *block)
 	u16 i;
 
 	for (i = 0; i < num_shards(block->hdr); i++) {
-		if (!shard_full(block, i))
+		if (!shard_all_known(block, i))
 			todo_add_get_shard(state, &block->sha, i);
 	}
 }
@@ -405,7 +405,7 @@ void update_block_ptrs_new_block(struct state *state, struct block *block)
 void update_block_ptrs_new_shard(struct state *state, struct block *block,
 				 u16 shardnum)
 {
-	if (block_full(block, NULL))
+	if (block_all_known(block, NULL))
 		update_known(state, block);
 }
 
@@ -414,7 +414,7 @@ static void forget_about_block(struct state *state, const struct block *block)
 	u16 i;
 
 	for (i = 0; i < num_shards(block->hdr); i++) {
-		if (!shard_full(block, i))
+		if (!shard_all_known(block, i))
 			todo_forget_about_shard(state, &block->sha, i);
 	}
 }

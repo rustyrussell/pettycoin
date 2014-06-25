@@ -315,7 +315,7 @@ bool check_block_prev_merkles(struct state *state, const struct block *block)
 
 			/* We need to know everything in shard to check
 			 * previous merkle. */
-			if (!shard_full(prev, j))
+			if (!shard_all_known(prev, j))
 				continue;
 
 			/* Merkle has block reward address prepended, so you

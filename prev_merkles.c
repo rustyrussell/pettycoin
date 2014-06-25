@@ -39,7 +39,7 @@ u8 *make_prev_merkles(const tal_t *ctx, const struct block *prev,
 
 			/* We need to know everything in shard to check
 			 * previous merkle. */
-			if (!shard_full(prev, j))
+			if (!shard_all_known(prev, j))
 				return tal_free(m);
 
 			/* Merkle has block reward address prepended, so you

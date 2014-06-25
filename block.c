@@ -110,12 +110,12 @@ struct block *block_find_any(struct state *state,
 	return NULL;
 }
 
-bool block_full(const struct block *block, unsigned int *shardnum)
+bool block_all_known(const struct block *block, unsigned int *shardnum)
 {
 	unsigned int i;
 
 	for (i = 0; i < num_shards(block->hdr); i++) {
-		if (!shard_full(block, i)) {
+		if (!shard_all_known(block, i)) {
 			if (shardnum)
 				*shardnum = i;
 			return false;
