@@ -160,7 +160,7 @@ int main(int argc, char *argv[])
 	enum protocol_ecode e;
 	struct update update;
 	struct protocol_input_ref *refs;
-	union protocol_tx *intxs[TX_MAX_INPUTS];
+	union protocol_tx *intxs[PROTOCOL_TX_MAX_INPUTS];
 
 	/* We need enough of state to use the real init function here. */
 	pseudorand_init();

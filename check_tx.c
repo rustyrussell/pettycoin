@@ -29,7 +29,7 @@ check_tx_normal_basic(struct state *state, const struct protocol_tx_normal *ntx)
 	if (le32_to_cpu(ntx->change_amount) > MAX_SATOSHI)
 		return PROTOCOL_ECODE_TX_TOO_LARGE;
 
-	if (le32_to_cpu(ntx->num_inputs) > TX_MAX_INPUTS)
+	if (le32_to_cpu(ntx->num_inputs) > PROTOCOL_TX_MAX_INPUTS)
 		return PROTOCOL_ECODE_TX_TOO_MANY_INPUTS;
 
 	if (le32_to_cpu(ntx->num_inputs) == 0)
@@ -66,7 +66,7 @@ find_tx_for_ref(struct state *state,
 	if (ref->txoff >= b->shard_nums[ref->shard])
 		return PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF;
 
-	if (le32_to_cpu(b->tailer->timestamp) + TX_HORIZON_SECS
+	if (le32_to_cpu(b->tailer->timestamp) + PROTOCOL_TX_HORIZON_SECS
 	    < le32_to_cpu(block->tailer->timestamp))
 		return PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF;
 
@@ -94,7 +94,7 @@ check_tx_normal_inputs(struct state *state,
 		       const struct block *block,
 		       const struct protocol_input_ref *refs,
 		       unsigned int *inputs_known,
-		       union protocol_tx *inputs[TX_MAX_INPUTS],
+		       union protocol_tx *inputs[PROTOCOL_TX_MAX_INPUTS],
 		       unsigned int *bad_input_num)
 {
 	unsigned int i, num;
@@ -357,7 +357,7 @@ enum protocol_ecode check_tx(struct state *state,
 			     const union protocol_tx *tx,
 			     const struct block *block,
 			     const struct protocol_input_ref *refs,
-			     union protocol_tx *inputs[TX_MAX_INPUTS],
+			     union protocol_tx *inputs[PROTOCOL_TX_MAX_INPUTS],
 			     unsigned int *bad_input_num)
 {
 	enum protocol_ecode e;

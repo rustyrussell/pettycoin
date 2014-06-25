@@ -234,7 +234,7 @@ invalidate_block_bad_amounts(struct state *state,
 			     unsigned int bad_txoff)
 {
 	struct protocol_pkt_block_tx_bad_amount *req;
-	union protocol_tx *input[TX_MAX_INPUTS];
+	union protocol_tx *input[PROTOCOL_TX_MAX_INPUTS];
 	unsigned int i;
 	struct protocol_input *inp;
 

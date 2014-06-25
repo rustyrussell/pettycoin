@@ -10,11 +10,11 @@ u8 pending_features(const struct block *block)
 	u8 result = 0;
 
 	/* We only update pending features every FEATURE_VOTE_BLOCKS blocks */
-	if (le32_to_cpu(block->hdr->depth) % FEATURE_VOTE_BLOCKS != 0)
+	if (le32_to_cpu(block->hdr->depth) % PROTOCOL_FEATURE_VOTE_BLOCKS != 0)
 		return block->prev->pending_features;
 
 	for (b = block, i = 0;
-	     i < FEATURE_VOTE_BLOCKS;
+	     i < PROTOCOL_FEATURE_VOTE_BLOCKS;
 	     i++, b = b->prev) {
 		for (j = 0; j < ARRAY_SIZE(feature_counts); j++) {
 			if (b->hdr->features_vote & (1 << j))
@@ -24,7 +24,7 @@ u8 pending_features(const struct block *block)
 
 	/* If 75% of blocks accept feature, we have supermajority. */
 	for (j = 0; j < ARRAY_SIZE(feature_counts); j++) {
-		if (feature_counts[j] * 4 / FEATURE_VOTE_BLOCKS >= 3)
+		if (feature_counts[j] * 4 / PROTOCOL_FEATURE_VOTE_BLOCKS >= 3)
 			result |= 1 << j;
 	}
 	return result;

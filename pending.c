@@ -93,7 +93,7 @@ static size_t recheck_one_shard(struct state *state, u16 shard)
 	for (i = 0; i < num; i++) {
 		struct txhash_elem *te;
 		struct protocol_double_sha sha;
-		union protocol_tx *inputs[TX_MAX_INPUTS];
+		union protocol_tx *inputs[PROTOCOL_TX_MAX_INPUTS];
 		unsigned int bad_input_num;
 		enum protocol_ecode e;
 		struct txhash_iter iter;

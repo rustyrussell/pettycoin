@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
 		+ sizeof(struct protocol_input) * AVERAGE_INPUTS;
 	printf("# Assuming %f average inputs => tsize %llu bytes\n",
 	       AVERAGE_INPUTS, tsize);
-	trans_per_block = tps * BLOCK_TARGET_TIME;
+	trans_per_block = tps * PROTOCOL_BLOCK_TARGET_TIME;
 	printf("Transactions per block: %llu\n", trans_per_block);
 	/* Increase shard order until shards are half full. */
 	for (shard_order = PROTOCOL_INITIAL_SHARD_ORDER;
@@ -52,12 +52,12 @@ int main(int argc, char *argv[])
 	merkles_per_block = (1 << shard_order);
 	blocksize = sizeof(struct protocol_block_header)
 		+ merkles_per_block * sizeof(struct protocol_double_sha)
-		+ merkles_per_block * PETTYCOIN_PREV_BLOCK_MERKLES
+		+ merkles_per_block * PROTOCOL_PREV_BLOCK_MERKLES
 		+ sizeof(struct protocol_block_tailer);
 	printf("Block size: %llu\n", blocksize);
 
 	txbytes_per_sec = tps * tsize;
-	blockbytes_per_sec = blocksize / BLOCK_TARGET_TIME;
+	blockbytes_per_sec = blocksize / PROTOCOL_BLOCK_TARGET_TIME;
 
 	printf("%-15s%15s%15s%15s %s\n",
 	       "", "Transactions", "Blocks", "Total", "Units");
@@ -70,10 +70,10 @@ int main(int argc, char *argv[])
 	       "bytes per second");
 	printf("%-15s%15llu%15llu%25s\n",
 	       "Miners storage",
-	       txbytes_per_sec * TX_HORIZON_SECS,
-	       blockbytes_per_sec * TX_HORIZON_SECS,
-	       format_si(txbytes_per_sec * TX_HORIZON_SECS
-			 + blockbytes_per_sec * TX_HORIZON_SECS));
+	       txbytes_per_sec * PROTOCOL_TX_HORIZON_SECS,
+	       blockbytes_per_sec * PROTOCOL_TX_HORIZON_SECS,
+	       format_si(txbytes_per_sec * PROTOCOL_TX_HORIZON_SECS
+			 + blockbytes_per_sec * PROTOCOL_TX_HORIZON_SECS));
 
 	/* Minimal node needs two shards + every block. */
 	txbytes_per_sec >>= shard_order - 1;
@@ -84,9 +84,9 @@ int main(int argc, char *argv[])
 	       "bytes per second");
 	printf("%-15s%15llu%15llu%25s\n",
 	       "Minimal storage",
-	       txbytes_per_sec * TX_HORIZON_SECS,
-	       blockbytes_per_sec * TX_HORIZON_SECS,
-	       format_si(txbytes_per_sec * TX_HORIZON_SECS
-			 + blockbytes_per_sec * TX_HORIZON_SECS));
+	       txbytes_per_sec * PROTOCOL_TX_HORIZON_SECS,
+	       blockbytes_per_sec * PROTOCOL_TX_HORIZON_SECS,
+	       format_si(txbytes_per_sec * PROTOCOL_TX_HORIZON_SECS
+			 + blockbytes_per_sec * PROTOCOL_TX_HORIZON_SECS));
 	return 0;
 }

@@ -310,7 +310,7 @@ shard_validate_txs(struct state *state,
 		   struct tx_shard *shard,
 		   unsigned int *bad_trans,
 		   unsigned int *bad_input_num,
-		   union protocol_tx *inputs[TX_MAX_INPUTS])
+		   union protocol_tx *inputs[PROTOCOL_TX_MAX_INPUTS])
 {
 	unsigned int i;
 	enum protocol_ecode err;
@@ -353,7 +353,7 @@ bool check_block_prev_merkles(struct state *state, const struct block *block)
 	const struct block *prev;
 
 	for (i = 0, prev = block->prev;
-	     i < PETTYCOIN_PREV_BLOCK_MERKLES && prev;
+	     i < PROTOCOL_PREV_BLOCK_MERKLES && prev;
 	     i++, prev = prev->prev) {
 		unsigned int j;
 

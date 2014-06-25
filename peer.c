@@ -1109,7 +1109,7 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 	enum protocol_ecode e;
 	union protocol_tx *tx;
 	u32 txlen = le32_to_cpu(pkt->len) - sizeof(*pkt);
-	union protocol_tx *inputs[TX_MAX_INPUTS];
+	union protocol_tx *inputs[PROTOCOL_TX_MAX_INPUTS];
 	unsigned int bad_input_num;
 
 	tx = (void *)(pkt + 1);

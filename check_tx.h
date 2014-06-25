@@ -31,7 +31,7 @@ enum protocol_ecode check_tx(struct state *state,
 			     const union protocol_tx *trans,
 			     const struct block *block,
 			     const struct protocol_input_ref *refs,
-			     union protocol_tx *inputs[TX_MAX_INPUTS],
+			     union protocol_tx *inputs[PROTOCOL_TX_MAX_INPUTS],
 			     unsigned int *bad_input_num);
 
 #endif /* PETTYCOIN_CHECK_TX_H */

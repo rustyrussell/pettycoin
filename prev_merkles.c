@@ -11,7 +11,7 @@ size_t num_prev_merkles(const struct block *prev)
 	unsigned int i;
 
 	for (i = 0;
-	     i < PETTYCOIN_PREV_BLOCK_MERKLES && prev;
+	     i < PROTOCOL_PREV_BLOCK_MERKLES && prev;
 	     i++, prev = prev->prev) {
 		num += (1 << prev->hdr->shard_order);
 	}
@@ -30,7 +30,7 @@ u8 *make_prev_merkles(const tal_t *ctx, const struct block *prev,
 	p = m = tal_arr(ctx, u8, len);
 
 	for (i = 0;
-	     i < PETTYCOIN_PREV_BLOCK_MERKLES && prev;
+	     i < PROTOCOL_PREV_BLOCK_MERKLES && prev;
 	     i++, prev = prev->prev) {
 		unsigned int j;
 

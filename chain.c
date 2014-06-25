@@ -331,7 +331,8 @@ static void new_longest(struct state *state, const struct block *block)
 	if (block->pending_features && !state->upcoming_features) {
 		/* Be conservative, halve estimate of time to confirm feature */
 		time_t impact = le32_to_cpu(block->tailer->timestamp)
-			+ FEATURE_CONFIRM_DELAY * BLOCK_TARGET_TIME / 2;
+			+ (PROTOCOL_FEATURE_CONFIRM_DELAY
+			   * PROTOCOL_BLOCK_TARGET_TIME / 2);
 		struct tm *when;
 
 		when = localtime(&impact);
