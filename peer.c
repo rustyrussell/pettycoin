@@ -1168,8 +1168,7 @@ static void try_resolve_hashes(struct state *state,
 		txp = find_pending_tx_with_ref(shard, state, block,
 					       shard->u[i].hash);
 		if (txp.tx) {
-			bitmap_clear_bit(shard->txp_or_hash, i);
-			shard->u[i].txp = txp;
+			put_tx_in_block(state, block, shard, i, &txp);
 		} else {
 			todo_add_get_tx_in_block(state, &block->sha, shardnum,
 						 i);

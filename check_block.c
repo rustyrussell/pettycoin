@@ -174,47 +174,40 @@ bool check_tx_order(struct state *state,
 	return true;
 }
 
-/* This is a fully known shard, add txs to txhash. */
-static void add_to_txhash(struct state *state,
-			  struct block *block,
-			  struct tx_shard *shard)
+static void add_tx_to_txhash(struct state *state,
+			     struct block *block,
+			     struct tx_shard *shard,
+			     u8 txoff)
 {
-	u32 i;
+	struct txhash_elem *te;
+	struct protocol_double_sha sha;
+	struct txhash_iter iter;
 
-	for (i = 0; i < block->shard_nums[shard->shardnum]; i++) {
-		struct txhash_elem *te;
-		struct protocol_double_sha sha;
-		struct txhash_iter iter;
+	assert(shard_is_tx(shard, txoff));
+	hash_tx(shard->u[txoff].txp.tx, &sha);
 
-		assert(shard_is_tx(shard, i));
-
-		hash_tx(shard->u[i].txp.tx, &sha);
-
-		/* It could already be there (alternate chain, or previous
-		 * partial shard which we just overwrote). */
-		for (te = txhash_firstval(&state->txhash, &sha, &iter);
-		     te;
-		     te = txhash_nextval(&state->txhash, &sha, &iter)) {
-			/* Previous partial shard which we just overwrote? */
-			if (te->block == block
-			    && te->shardnum == shard->shardnum
-			    && te->txoff == i)
-				break;
-		}
-
-		if (!te) {
-			/* Add a new one for this block. */
-			te = tal(shard, struct txhash_elem);
-			te->block = block;
-			te->shardnum = shard->shardnum;
-			te->txoff = i;
-			te->sha = sha;
-			txhash_add(&state->txhash, te);
-			/* FIXME:
-			   tal_add_destructor(te, delete_from_txhash);
-			*/
-		}
+	/* It could already be there (alternate chain, or previous
+	 * partial shard which we just overwrote). */
+	for (te = txhash_firstval(&state->txhash, &sha, &iter);
+	     te;
+	     te = txhash_nextval(&state->txhash, &sha, &iter)) {
+		/* Previous partial shard which we just overwrote? */
+		if (te->block == block
+		    && te->shardnum == shard->shardnum
+		    && te->txoff == txoff)
+			return;
 	}
+
+	/* Add a new one for this block. */
+	te = tal(shard, struct txhash_elem);
+	te->block = block;
+	te->shardnum = shard->shardnum;
+	te->txoff = txoff;
+	te->sha = sha;
+	txhash_add(&state->txhash, te);
+	/* FIXME:
+	   tal_add_destructor(te, delete_from_txhash);
+	*/
 }
 
 /* This is a fast-path used by generating.c */
@@ -222,6 +215,7 @@ void force_shard_into_block(struct state *state,
 			    struct block *block,
 			    struct tx_shard *shard)
 {
+	unsigned int i;
 	assert(shard_belongs_in_block(block, shard));
 	assert(shard->txcount == block->shard_nums[shard->shardnum]);
 	assert(check_tx_order(state, block, shard, NULL, NULL));
@@ -229,7 +223,8 @@ void force_shard_into_block(struct state *state,
 
 	block->shard[shard->shardnum] = tal_steal(block, shard);
 
-	add_to_txhash(state, block, shard);
+	for (i = 0; i < block->shard_nums[shard->shardnum]; i++)
+		add_tx_to_txhash(state, block, shard, i);
 
 	update_block_ptrs_new_shard(state, block, shard->shardnum);
 
@@ -251,9 +246,13 @@ static struct txptr_with_ref dup_txp(const tal_t *ctx,
 	return ret;
 }
 
-static void copy_txs(struct tx_shard *new, const struct tx_shard *old, u8 num)
+static void copy_old_txs(struct state *state,
+			 struct block *block,
+			 struct tx_shard *new, const struct tx_shard *old,
+			 u8 num)
 {
 	unsigned int i;
+	struct txptr_with_ref txp;
 
 	for (i = 0; i < num; i++) {
 		if (!shard_is_tx(old, i)) {
@@ -265,19 +264,9 @@ static void copy_txs(struct tx_shard *new, const struct tx_shard *old, u8 num)
 		if (!old->u[i].txp.tx)
 			continue;
 
-		/* Tx must match hash. */
-		{
-			struct protocol_net_txrefhash hashes;
-			hash_tx(old->u[i].txp.tx, &hashes.txhash);
-			hash_refs(refs_for(old->u[i].txp),
-				  num_inputs(old->u[i].txp.tx),
-				  &hashes.refhash);
-			assert(memcmp(new->u[i].hash, &hashes,
-				      sizeof(hashes)) == 0);
-		}
-		bitmap_clear_bit(new->txp_or_hash, i);
 		/* It's probably not a talloc pointer, so copy! */
-		new->u[i].txp = dup_txp(new, old->u[i].txp);
+		txp = dup_txp(new, old->u[i].txp);
+		put_tx_in_block(state, block, new, i, &txp);
 	}
 }
 
@@ -294,12 +283,67 @@ void put_shard_of_hashes_into_block(struct state *state,
 
 	/* If we know some transactions already, perform a merge. */
 	if (block->shard[shard->shardnum]) {
-		copy_txs(shard, block->shard[shard->shardnum], num);
+		copy_old_txs(state, block, shard, block->shard[shard->shardnum],
+			     num);
 		tal_free(block->shard[shard->shardnum]);
 	}
 
 	block->shard[shard->shardnum] = tal_steal(block, shard);
-	/* FIXME: add_to_txhash(state, block, shard);? */
+}
+
+static void check_tx_ordering(struct state *state,
+			      struct block *block,
+			      struct tx_shard *shard, u8 a, u8 b)
+{
+	assert(shard_is_tx(shard, a));
+	assert(shard_is_tx(shard, b));
+	if (tx_cmp(shard->u[a].txp.tx, shard->u[b].txp.tx) >= 0)
+		invalidate_block_misorder(state, block, a, b, shard->shardnum);
+}
+
+void put_tx_in_block(struct state *state,
+		     struct block *block,
+		     struct tx_shard *shard, u8 txoff,
+		     const struct txptr_with_ref *txp)
+{
+	int i;
+
+	/* All this work for assertion checking! */
+	if (shard_is_tx(shard, txoff)) {
+		if (shard->u[txoff].txp.tx)
+			assert(memcmp(txp->tx, shard->u[txoff].txp.tx,
+				      marshall_tx_len(txp->tx)) == 0);
+	} else {
+		/* Tx must match hash. */
+		struct protocol_net_txrefhash hashes;
+		hash_tx(txp->tx, &hashes.txhash);
+		hash_refs(refs_for(*txp), num_inputs(txp->tx), &hashes.refhash);
+		assert(memcmp(shard->u[txoff].hash, &hashes, sizeof(hashes))
+		       == 0);
+	}
+
+	/* Now it's a transaction. */
+	bitmap_clear_bit(shard->txp_or_hash, txoff);
+	shard->u[txoff].txp = *txp;
+
+	/* Record it in the hash. */
+	add_tx_to_txhash(state, block, shard, txoff);
+
+	/* Check ordering against previous. */
+	for (i = (int)txoff-1; i >= 0; i--) {
+		if (shard_is_tx(shard, i) && shard->u[i].txp.tx) {
+			check_tx_ordering(state, block, shard, i, txoff);
+			break;
+		}
+	}
+
+	/* Check ordering against next. */
+	for (i = (int)txoff+1; i < block->shard_nums[shard->shardnum]; i++) {
+		if (shard_is_tx(shard, i) && shard->u[i].txp.tx) {
+			check_tx_ordering(state, block, shard, txoff, i);
+			break;
+		}
+	}
 }
 
 /* FIXME: Only used by generate.c as an assertion... */
