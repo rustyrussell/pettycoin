@@ -1,5 +1,5 @@
 #include "../timestamp.c"
-#include "../create_proof.c"
+#include "../proof.c"
 #include "../check_transaction.c"
 #include "../merkle_transactions.c"
 #include "../block.c"
