@@ -151,7 +151,6 @@ struct protocol_transaction_normal {
 struct protocol_input_ref {
 	/* Follow ->prev this many times. */
 	le32 blocks_ago;
-	/* FIXME: Put shard once in hdr, make blocks_ago 24 bit. */
 	le16 shard;
 	/* Offset within that shard. */
 	u8 txoff;

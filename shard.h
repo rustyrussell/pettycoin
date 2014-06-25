@@ -3,12 +3,13 @@
 #include "protocol.h"
 #include <string.h>
 
-static inline u32 shard_of(const struct protocol_address *addr, u8 shard_order)
+/* Shard of an address is the top shard_order bits */
+static inline u16 shard_of(const struct protocol_address *addr, u8 shard_order)
 {
-	be32 shard;
+	be16 shard;
 
 	memcpy(&shard, addr->addr, sizeof(shard));
-	return be32_to_cpu(shard) & (((u32)1 << shard_order) - 1);
+	return be16_to_cpu(shard) >> (16 - shard_order);
 }
 
 struct block;
