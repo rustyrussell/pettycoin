@@ -2,6 +2,7 @@
 #include "state.h"
 #include "protocol_net.h"
 #include "packet.h"
+#include "packet_io.h"
 #include "dns.h"
 #include "netaddr.h"
 #include "welcome.h"

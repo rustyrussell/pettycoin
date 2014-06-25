@@ -5,6 +5,7 @@
 #include "block.h"
 #include "blockfile.h"
 #include "packet.h"
+#include "packet_io.h"
 #include "shard.h"
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>

@@ -10,7 +10,7 @@
 #include "check_block.h"
 #include "block.h"
 #include "prev_merkles.h"
-#include "packet.h"
+#include "packet_io.h"
 #include "peer.h"
 #include "blockfile.h"
 #include "generate.h"

@@ -1,7 +1,7 @@
 #include "dns.h"
 #include "protocol_net.h"
 #include "netaddr.h"
-#include "packet.h"
+#include "packet_io.h"
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
