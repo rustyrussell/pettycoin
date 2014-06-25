@@ -1,5 +1,5 @@
 #include <ccan/array_size/array_size.h>
-#include "merkle_transactions.h"
+#include "merkle_txs.h"
 #include "prev_merkles.h"
 #include "protocol.h"
 #include "block.h"
@@ -44,11 +44,11 @@ u8 *make_prev_merkles(const tal_t *ctx, const struct block *prev,
 
 			/* Merkle has block reward address prepended, so you
 			 * can prove you know all the transactions. */
-			merkle_transactions(my_addr, sizeof(*my_addr),
-					    prev->shard[j]->txp_or_hash,
-					    prev->shard[j]->u,
-					    0, prev->shard_nums[j],
-					    &merkle);
+			merkle_txs(my_addr, sizeof(*my_addr),
+				   prev->shard[j]->txp_or_hash,
+				   prev->shard[j]->u,
+				   0, prev->shard_nums[j],
+				   &merkle);
 
 			/* We only save one byte. */
 			*p = merkle.sha[0];

@@ -15,10 +15,10 @@
 #define PROTOCOL_MAX_SHARD_ORDER 16
 
 /* Maximum inputs in a single transaction. */
-#define TRANSACTION_MAX_INPUTS 4
+#define TX_MAX_INPUTS 4
 
 /* How long (seconds) until transactions are obsolete (30 days) */
-#define TRANSACTION_HORIZON_SECS	(60 * 60 * 24 * 30)
+#define TX_HORIZON_SECS	(60 * 60 * 24 * 30)
 
 /* How long between blocks (seconds) */
 #define BLOCK_TARGET_TIME	600
@@ -100,19 +100,19 @@ struct protocol_block_tailer {
  *	struct protocol_block_tailer tailer;
  */
 
-enum protocol_transaction_type {
+enum protocol_tx_type {
 	/* Normal transfer. */
-	TRANSACTION_NORMAL = 0,
+	TX_NORMAL = 0,
 	/* Gateway injecting funds from bitcoin network. */
-	TRANSACTION_FROM_GATEWAY = 1,
+	TX_FROM_GATEWAY = 1,
 	/* Doublespend penalty transaction? */
 	/* Fee collection transaction? */
 };
 
 /* For use in the union */
-struct protocol_transaction_hdr {
+struct protocol_tx_hdr {
 	u8 version;
-	u8 type; /* == TRANSACTION_NORMAL || TRANSACTION_FROM_GATEWAY */
+	u8 type; /* == TX_NORMAL || TX_FROM_GATEWAY */
 	u8 features;
 };
 
@@ -127,9 +127,9 @@ struct protocol_input {
 };
 
 /* Core of a transaction */
-struct protocol_transaction_normal {
+struct protocol_tx_normal {
 	u8 version;
-	u8 type; /* == TRANSACTION_NORMAL */
+	u8 type; /* == TX_NORMAL */
 	u8 features;
 	/* return_amount goes back to this key. */
 	struct protocol_pubkey input_key;
@@ -139,7 +139,7 @@ struct protocol_transaction_normal {
 	le32 send_amount;
 	/* Amount to return to input_key. */
 	le32 change_amount;
-	/* Number of inputs to spend (<= TRANSACTION_MAX_INPUTS) */
+	/* Number of inputs to spend (<= TX_MAX_INPUTS) */
 	le32 num_inputs;
 	/* ECDSA of double SHA256 of above, and input[num_inputs] below. */
 	struct protocol_signature signature;
@@ -165,9 +165,9 @@ struct protocol_gateway_payment {
 	struct protocol_address output_addr;
 };
 
-struct protocol_transaction_gateway {
+struct protocol_tx_gateway {
 	u8 version;
-	u8 type; /* == TRANSACTION_FROM_GATEWAY */
+	u8 type; /* == TX_FROM_GATEWAY */
 	u8 features;
 	/* Key of the gateway crediting the funds. */
 	struct protocol_pubkey gateway_key;
@@ -183,10 +183,10 @@ struct protocol_transaction_gateway {
 	*/
 };
 
-union protocol_transaction {
-	struct protocol_transaction_hdr hdr;
-	struct protocol_transaction_normal normal;
-	struct protocol_transaction_gateway gateway;
+union protocol_tx {
+	struct protocol_tx_hdr hdr;
+	struct protocol_tx_normal normal;
+	struct protocol_tx_gateway gateway;
 };
 
 /* FIXME: Multi-transactions proofs could be much more efficient. */
@@ -197,7 +197,7 @@ struct protocol_proof {
 };
 
 /* Proof that a transaction (with inputs refs) was in a block. */
-struct protocol_trans_with_proof {
+struct protocol_tx_with_proof {
 	/* The block it's in. */
 	struct protocol_double_sha block;
 	/* Shard it's in. */
@@ -208,8 +208,8 @@ struct protocol_trans_with_proof {
 	/* This is the tree of double shas which proves it. */
 	struct protocol_proof proof;
 
-	/* union protocol_transaction trans;
-	   struct protocol_input_ref ref[num_inputs(trans)];
+	/* union protocol_tx tx;
+	   struct protocol_input_ref ref[num_inputs(tx)];
 	*/
 };
 

@@ -22,7 +22,7 @@
 #include "hash_block.h"
 
 struct worker {
-	int transactions_to_worker;
+	int txs_to_worker;
 	int result_from_worker;
 	pid_t child;
 };
@@ -30,7 +30,7 @@ struct worker {
 static void destroy_worker(struct worker *w)
 {
 	kill(w->child, SIGTERM);
-	close(w->transactions_to_worker);
+	close(w->txs_to_worker);
 	close(w->result_from_worker);
 	waitpid(w->child, NULL, 0);
 }
@@ -102,7 +102,7 @@ solve(const tal_t *ctx,
 		close(infd[0]);
 		/* Write "go" byte. */
 		write(infd[1], "", 1);
-		w->transactions_to_worker = infd[1];
+		w->txs_to_worker = infd[1];
 		w->result_from_worker = outfd[0];
 		tal_add_destructor(w, destroy_worker);
 		FD_SET(w->result_from_worker, &set);
@@ -221,13 +221,13 @@ int main(int argc, char *argv[])
 	printf("};\n");
 
 	for (i = 0; i < (1U << hdr->shard_order); i++) {
-		printf("static struct transaction_shard genesis_shard%i = {\n",
+		printf("static struct tx_shard genesis_shard%i = {\n",
 		       i);
 		printf("\t.shardnum = %i\n", i);
 		/* Rest all zeroes/NULLs. */
 		printf("};\n");
 	}
-	printf("static struct transaction_shard *genesis_shards[] = {\n");
+	printf("static struct tx_shard *genesis_shards[] = {\n");
 	for (i = 0; i < (1U << hdr->shard_order); i++)
 		printf("%s&genesis_shard%i",
 		       i == 0 ? "\t" : ", ", i);

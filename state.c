@@ -25,7 +25,7 @@ struct state *new_state(bool test_net)
 	s->longest_knowns[0] = &genesis;
 	s->preferred_chain = &genesis;
 	list_head_init(&s->todo);
-	thash_init(&s->thash);
+	txhash_init(&s->txhash);
 	s->num_peers = 0;
 	s->num_peers_connected = 0;
 	list_head_init(&s->peers);

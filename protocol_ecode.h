@@ -55,14 +55,14 @@ enum protocol_ecode {
 	PROTOCOL_ECODE_BAD_DEPTH, /* Wasn't prev + 1. */
 
 	/* protocol_pkt_tx / protocol_pkt_tx_in_block */
-	PROTOCOL_ECODE_TRANS_HIGH_VERSION, /* transaction version unknown */
-	PROTOCOL_ECODE_TRANS_LOW_VERSION, /* transaction version old */
-	PROTOCOL_ECODE_TRANS_UNKNOWN, /* unknown transaction type */
-	PROTOCOL_ECODE_TRANS_BAD_GATEWAY, /* unknown gateway */
-	PROTOCOL_ECODE_TRANS_CROSS_SHARDS, /* to different shards. */
-	PROTOCOL_ECODE_TOO_LARGE, /* too many satoshi in one transaction. */
-	PROTOCOL_ECODE_TRANS_BAD_SIG, /* invalid signature */
-	PROTOCOL_ECODE_TOO_MANY_INPUTS, /* > TRANSACTION_MAX_INPUTS. */
+	PROTOCOL_ECODE_TX_HIGH_VERSION, /* transaction version unknown */
+	PROTOCOL_ECODE_TX_LOW_VERSION, /* transaction version old */
+	PROTOCOL_ECODE_TX_UNKNOWN, /* unknown transaction type */
+	PROTOCOL_ECODE_TX_BAD_GATEWAY, /* unknown gateway */
+	PROTOCOL_ECODE_TX_CROSS_SHARDS, /* to different shards. */
+	PROTOCOL_ECODE_TX_TOO_LARGE, /* too many satoshi in one transaction. */
+	PROTOCOL_ECODE_TX_BAD_SIG, /* invalid signature */
+	PROTOCOL_ECODE_TX_TOO_MANY_INPUTS, /* > TX_MAX_INPUTS. */
 
 	/* protocol_pkt_tx_in_block */
 	PROTOCOL_ECODE_BLOCK_BAD_TX_SHARD, /* TX was in wrong shard in block */
@@ -75,11 +75,11 @@ enum protocol_ecode {
 
 	/* Internal error codes. */
 	PROTOCOL_ECODE_PRIV_UNKNOWN_PREV, /* I don't know previous block. */
-	PROTOCOL_ECODE_PRIV_TRANS_BAD_INPUT, /* an input is bad. */
-	PROTOCOL_ECODE_PRIV_TRANS_BAD_AMOUNTS, /* total inputs != outputs  */
+	PROTOCOL_ECODE_PRIV_TX_BAD_INPUT, /* an input is bad. */
+	PROTOCOL_ECODE_PRIV_TX_BAD_AMOUNTS, /* total inputs != outputs  */
 	/* These two only occur within a block: */
 	PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF, /* input_ref is bad */
-	PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF_TRANS, /* input_ref points to bad trans */
+	PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF_TX, /* input_ref points to bad transaction */
 };
 
 #endif /* PETTYCOIN_PROTOCOL_ECODE_H */

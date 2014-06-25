@@ -22,27 +22,27 @@ static time_t my_time(time_t *p)
 #include "../hash_block.c"
 #include "../shadouble.c"
 #include "../difficulty.c"
-#include "../merkle_transactions.c"
-#include "../transaction_cmp.c"
+#include "../merkle_txs.c"
+#include "../tx_cmp.c"
 #include "../marshall.c"
-#include "../hash_transaction.c"
-#include "../create_transaction.c"
+#include "../hash_tx.c"
+#include "../create_tx.c"
 #include "../check_block.c"
 #include "../block.c"
 #include "../prev_merkles.c"
 #include "../minimal_log.c"
 #include "../signature.c"
-#include "../thash.c"
+#include "../txhash.c"
 #include "../shard.c"
 #include "../chain.c"
-#include "../check_transaction.c"
+#include "../check_tx.c"
 #include "../features.c"
 #include "../packet.c"
 #include "../gateways.c"
 #include "../state.c"
 #include "../pseudorand.c"
 #include "../create_refs.c"
-#include "../transaction.c"
+#include "../tx.c"
 
 /* Here's a genesis block we created earlier */
 static struct protocol_block_header genesis_hdr = {
@@ -66,19 +66,19 @@ static const struct protocol_double_sha genesis_merkles[] = {
 { { 0x6d, 0x07, 0x57, 0x1d, 0xee, 0x2e, 0x35, 0xe1, 0x37, 0x8b, 0xc4, 0x3a, 0x8e, 0x13, 0x88, 0xd2, 0xfe, 0xf6, 0xb3, 0x02, 0x1c, 0xc9, 0x92, 0x4b, 0x88, 0x5d, 0x53, 0xb2, 0xce, 0x39, 0x0e, 0xa8  }} ,
 { { 0x6d, 0x07, 0x57, 0x1d, 0xee, 0x2e, 0x35, 0xe1, 0x37, 0x8b, 0xc4, 0x3a, 0x8e, 0x13, 0x88, 0xd2, 0xfe, 0xf6, 0xb3, 0x02, 0x1c, 0xc9, 0x92, 0x4b, 0x88, 0x5d, 0x53, 0xb2, 0xce, 0x39, 0x0e, 0xa8  }} ,
 };
-static struct transaction_shard genesis_shard0 = {
+static struct tx_shard genesis_shard0 = {
 	.shardnum = 0
 };
-static struct transaction_shard genesis_shard1 = {
+static struct tx_shard genesis_shard1 = {
 	.shardnum = 1
 };
-static struct transaction_shard genesis_shard2 = {
+static struct tx_shard genesis_shard2 = {
 	.shardnum = 2
 };
-static struct transaction_shard genesis_shard3 = {
+static struct tx_shard genesis_shard3 = {
 	.shardnum = 3
 };
-static struct transaction_shard *genesis_shards[] = {
+static struct tx_shard *genesis_shards[] = {
 	&genesis_shard0, &genesis_shard1, &genesis_shard2, &genesis_shard3
 };
 struct block genesis = {
@@ -102,7 +102,7 @@ void broadcast_to_peers(struct state *state, const struct protocol_net_hdr *pkt)
 {
 }
 
-void steal_pending_transactions(struct state *state,
+void steal_pending_txs(struct state *state,
 				const struct block *old,
 				const struct block *new)
 {
@@ -151,16 +151,16 @@ int main(int argc, char *argv[])
 	struct state *s;
 	struct working_block *w, *w2;
 	unsigned int i;
-	union protocol_transaction *t;
+	union protocol_tx *t;
 	struct protocol_gateway_payment payment;
 	struct block *b, *b2;
-	struct transaction_shard *shard;
+	struct tx_shard *shard;
 	struct protocol_input inputs[1];
 	u8 *prev_merkles;
 	enum protocol_ecode e;
 	struct update update;
 	struct protocol_input_ref *refs;
-	union protocol_transaction *intxs[TRANSACTION_MAX_INPUTS];
+	union protocol_tx *intxs[TX_MAX_INPUTS];
 
 	/* We need enough of state to use the real init function here. */
 	pseudorand_init();
@@ -168,7 +168,7 @@ int main(int argc, char *argv[])
 
 	fake_time = le32_to_cpu(genesis_tlr.timestamp) + 1;
 
-	/* Create a block with a gateway transaction in it. */
+	/* Create a block with a gateway tx in it. */
 	prev_merkles = make_prev_merkles(s, &genesis, helper_addr(1));
 	w = new_working_block(s, 0x1ffffff0,
 			      prev_merkles, tal_count(prev_merkles),
@@ -178,9 +178,9 @@ int main(int argc, char *argv[])
 
 	payment.send_amount = cpu_to_le32(1000);
 	payment.output_addr = *helper_addr(0);
-	t = create_gateway_transaction(s, helper_gateway_public_key(),
+	t = create_gateway_tx(s, helper_gateway_public_key(),
 				       1, 0, &payment, helper_gateway_key());
-	/* Gateway transactions have empty refs, so this gives 0-len array. */
+	/* Gateway txs have empty refs, so this gives 0-len array. */
 	refs = create_refs(s, &genesis, t);
 
 	update.shard = shard_of_tx(t, next_shard_order(&genesis));
@@ -188,7 +188,7 @@ int main(int argc, char *argv[])
 	update.features = 0;
 	update.cookie = t;
 	hash_tx_for_block(t, NULL, 0, refs, num_inputs(t), &update.hash);
-	assert(add_transaction(w, &update));
+	assert(add_tx(w, &update));
 	for (i = 0; !solve_block(w); i++);
 
 	e = check_block_header(s, &w->hdr, w->shard_nums, w->merkles,
@@ -200,13 +200,13 @@ int main(int argc, char *argv[])
 	/* This is a NOOP, so should succeed. */
 	assert(check_block_prev_merkles(s, b));
 
-	/* Put the single transaction into a shard. */
+	/* Put the single tx into a shard. */
 	shard = new_shard(s, update.shard, 1);
 	shard->txcount = 1;
 	shard->u[0].txp = txptr_with_ref(shard, t, refs);
 
 	/* This should all be correct. */
-	assert(shard_validate_transactions(s, NULL, b, shard, NULL, NULL, intxs)
+	assert(shard_validate_txs(s, NULL, b, shard, NULL, NULL, intxs)
 	       == PROTOCOL_ECODE_NONE);
 	assert(check_tx_order(s, b, shard, NULL, NULL));
 	assert(shard_belongs_in_block(b, shard));
@@ -216,7 +216,7 @@ int main(int argc, char *argv[])
 
 	prev_merkles = make_prev_merkles(s, b, helper_addr(1));
 
-	/* Solve third block, with a normal transaction in it. */
+	/* Solve third block, with a normal tx in it. */
 	fake_time++;
 	w2 = new_working_block(s, 0x1ffffff0,
 			       prev_merkles, num_prev_merkles(b),
@@ -224,12 +224,12 @@ int main(int argc, char *argv[])
 			       next_shard_order(b),
 			       &b->sha, helper_addr(1));
 
-	/* We are going to spend half the gateway transaction. */
+	/* We are going to spend half the gateway tx. */
 	hash_tx(t, &inputs[0].input);
 	inputs[0].output = 0;
 	inputs[0].unused = 0;
 
-	t = create_normal_transaction(s, helper_addr(1),
+	t = create_normal_tx(s, helper_addr(1),
 				      500, 500, 1, inputs,
 				      helper_private_key(0));
 	assert(t->normal.change_amount == 500);
@@ -248,7 +248,7 @@ int main(int argc, char *argv[])
 	update.features = 0;
 	update.cookie = t;
 	hash_tx_for_block(t, NULL, 0, refs, num_inputs(t), &update.hash);
-	assert(add_transaction(w2, &update));
+	assert(add_tx(w2, &update));
 	for (i = 0; !solve_block(w2); i++);
 
 	e = check_block_header(s, &w2->hdr, w2->shard_nums, w2->merkles,
@@ -260,13 +260,13 @@ int main(int argc, char *argv[])
 	/* This should be correct. */
 	assert(check_block_prev_merkles(s, b2));
 
-	/* Put the single transaction into a shard. */
+	/* Put the single tx into a shard. */
 	shard = new_shard(s, update.shard, 1);
 	shard->txcount = 1;
 	shard->u[0].txp = txptr_with_ref(shard, t, refs);
 
 	/* Should work */
-	assert(shard_validate_transactions(s, NULL, b2, shard, NULL, NULL,intxs)
+	assert(shard_validate_txs(s, NULL, b2, shard, NULL, NULL,intxs)
 	       == PROTOCOL_ECODE_NONE);
 	assert(check_tx_order(s, b2, shard, NULL, NULL));
 	assert(shard_belongs_in_block(b2, shard));

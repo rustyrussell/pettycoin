@@ -1,8 +1,8 @@
 #include "log.h"
 #include "protocol.h"
 #include "protocol_net.h"
-#include "hash_transaction.h"
-#include "transaction.h"
+#include "hash_tx.h"
+#include "tx.h"
 #include "base58.h"
 #include "addr.h"
 #include <sys/socket.h>
@@ -47,39 +47,40 @@ void log_add_struct_(struct log *log, const char *structname, const void *ptr)
 		const struct protocol_gateway_payment *gp = ptr;
 		log_add(log, "%u to ", le32_to_cpu(gp->send_amount));
 		log_add_struct(log, struct protocol_address, &gp->output_addr);
-	} else if (streq(structname, "union protocol_transaction")) {
-		const union protocol_transaction *t = ptr;
+	} else if (streq(structname, "union protocol_tx")) {
+		const union protocol_tx *tx = ptr;
 		struct protocol_double_sha sha;
 		struct protocol_address input_addr;
 		u32 i;
 
-		hash_tx(t, &sha);
-		switch (t->hdr.type) {
-		case TRANSACTION_NORMAL:
+		hash_tx(tx, &sha);
+		switch (tx->hdr.type) {
+		case TX_NORMAL:
 			log_add(log, "NORMAL %u inputs => %u (%u change) ",
-				le32_to_cpu(t->normal.num_inputs),
-				le32_to_cpu(t->normal.send_amount),
-				le32_to_cpu(t->normal.change_amount));
-			pubkey_to_addr(&t->normal.input_key, &input_addr);
+				le32_to_cpu(tx->normal.num_inputs),
+				le32_to_cpu(tx->normal.send_amount),
+				le32_to_cpu(tx->normal.change_amount));
+			pubkey_to_addr(&tx->normal.input_key, &input_addr);
 			log_add(log, " from ");
 			log_add_struct(log, struct protocol_address, &input_addr);
 			log_add(log, " to ");
 			log_add_struct(log, struct protocol_address,
-				       &t->normal.output_addr);
+				       &tx->normal.output_addr);
 			break;
-		case TRANSACTION_FROM_GATEWAY:
+		case TX_FROM_GATEWAY:
 			log_add(log, "GATEWAY %u outputs",
-				le32_to_cpu(t->gateway.num_outputs));
-			for (i = 0; i < le32_to_cpu(t->gateway.num_outputs);i++){
+				le32_to_cpu(tx->gateway.num_outputs));
+			for (i = 0;
+			     i < le32_to_cpu(tx->gateway.num_outputs);
+			     i++) {
 				log_add(log, " %u:", i);
 				log_add_struct(log,
-					       struct protocol_gateway_payment,
-					       &get_gateway_outputs(&t->gateway)
-					       [i]);
+					struct protocol_gateway_payment,
+					&get_gateway_outputs(&tx->gateway)[i]);
 			}
 			break;
 		default:
-			log_add(log, "UNKNOWN(%u) ", t->hdr.type);
+			log_add(log, "UNKNOWN(%u) ", tx->hdr.type);
 			break;
 		}
 		log_add_struct(log, struct protocol_double_sha, &sha);
@@ -205,36 +206,36 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "PROTOCOL_ECODE_INSUFFICIENT_WORK"; break;
 		case PROTOCOL_ECODE_BAD_DEPTH:
 			name = "PROTOCOL_ECODE_BAD_DEPTH"; break;
-		case PROTOCOL_ECODE_TRANS_HIGH_VERSION:
-			name = "PROTOCOL_ECODE_TRANS_HIGH_VERSION"; break;
-		case PROTOCOL_ECODE_TRANS_LOW_VERSION:
-			name = "PROTOCOL_ECODE_TRANS_LOW_VERSION"; break;
-		case PROTOCOL_ECODE_TRANS_UNKNOWN:
-			name = "PROTOCOL_ECODE_TRANS_UNKNOWN"; break;
-		case PROTOCOL_ECODE_TRANS_BAD_GATEWAY:
-			name = "PROTOCOL_ECODE_TRANS_BAD_GATEWAY"; break;
-		case PROTOCOL_ECODE_TRANS_CROSS_SHARDS:
-			name = "PROTOCOL_ECODE_TRANS_CROSS_SHARDS"; break;
-		case PROTOCOL_ECODE_TOO_LARGE:
-			name = "PROTOCOL_ECODE_TOO_LARGE"; break;
-		case PROTOCOL_ECODE_TRANS_BAD_SIG:
-			name = "PROTOCOL_ECODE_TRANS_BAD_SIG"; break;
-		case PROTOCOL_ECODE_TOO_MANY_INPUTS:
-			name = "PROTOCOL_ECODE_TOO_MANY_INPUTS"; break;
+		case PROTOCOL_ECODE_TX_HIGH_VERSION:
+			name = "PROTOCOL_ECODE_TX_HIGH_VERSION"; break;
+		case PROTOCOL_ECODE_TX_LOW_VERSION:
+			name = "PROTOCOL_ECODE_TX_LOW_VERSION"; break;
+		case PROTOCOL_ECODE_TX_UNKNOWN:
+			name = "PROTOCOL_ECODE_TX_UNKNOWN"; break;
+		case PROTOCOL_ECODE_TX_BAD_GATEWAY:
+			name = "PROTOCOL_ECODE_TX_BAD_GATEWAY"; break;
+		case PROTOCOL_ECODE_TX_CROSS_SHARDS:
+			name = "PROTOCOL_ECODE_TX_CROSS_SHARDS"; break;
+		case PROTOCOL_ECODE_TX_TOO_LARGE:
+			name = "PROTOCOL_ECODE_TX_TOO_LARGE"; break;
+		case PROTOCOL_ECODE_TX_BAD_SIG:
+			name = "PROTOCOL_ECODE_TX_BAD_SIG"; break;
+		case PROTOCOL_ECODE_TX_TOO_MANY_INPUTS:
+			name = "PROTOCOL_ECODE_TX_TOO_MANY_INPUTS"; break;
 		case PROTOCOL_ECODE_BLOCK_BAD_TX_SHARD:
 			name = "PROTOCOL_ECODE_BLOCK_BAD_TX_SHARD"; break;
 		case PROTOCOL_ECODE_BAD_MERKLE:
 			name = "PROTOCOL_ECODE_BAD_MERKLE"; break;
 		case PROTOCOL_ECODE_PRIV_UNKNOWN_PREV:
 			name = "PROTOCOL_ECODE_PRIV_UNKNOWN_PREV"; break;
-		case PROTOCOL_ECODE_PRIV_TRANS_BAD_INPUT:
-			name = "PROTOCOL_ECODE_PRIV_TRANS_BAD_INPUT"; break;
-		case PROTOCOL_ECODE_PRIV_TRANS_BAD_AMOUNTS:
-			name = "PROTOCOL_ECODE_PRIV_TRANS_BAD_AMOUNTS"; break;
+		case PROTOCOL_ECODE_PRIV_TX_BAD_INPUT:
+			name = "PROTOCOL_ECODE_PRIV_TX_BAD_INPUT"; break;
+		case PROTOCOL_ECODE_PRIV_TX_BAD_AMOUNTS:
+			name = "PROTOCOL_ECODE_PRIV_TX_BAD_AMOUNTS"; break;
 		case PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF:
 			name = "PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF"; break;
-		case PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF_TRANS:
-			name = "PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF_TRANS";
+		case PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF_TX:
+			name = "PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF_TX";
 			break;
 		case PROTOCOL_ECODE_MAX:
 			break; /* Shouldn't happen! */

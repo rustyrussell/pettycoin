@@ -1,7 +1,7 @@
-#include "merkle_transactions.h"
-#include "transaction.h"
+#include "merkle_txs.h"
+#include "tx.h"
 #include "shadouble.h"
-#include "hash_transaction.h"
+#include "hash_tx.h"
 #include "protocol.h"
 #include <assert.h>
 #include <string.h>
@@ -54,7 +54,7 @@ static struct protocol_double_sha merkle_tx(size_t n, void *data)
 
 		merkle_two_hashes(&h->txhash, &h->refhash, &merkle);
 	} else {
-		const union protocol_transaction *tx;
+		const union protocol_tx *tx;
 		const struct protocol_input_ref *refs;
 
 		tx = info->u[n].txp.tx;
@@ -67,11 +67,11 @@ static struct protocol_double_sha merkle_tx(size_t n, void *data)
 	return merkle;
 }
 
-void merkle_transactions(const void *prefix, size_t prefix_len,
-			 const bitmap *txp_or_hash,
-			 const union txp_or_hash *u,
-			 size_t off, size_t num_trans,
-			 struct protocol_double_sha *merkle)
+void merkle_txs(const void *prefix, size_t prefix_len,
+		const bitmap *txp_or_hash,
+		const union txp_or_hash *u,
+		size_t off, size_t num_txs,
+		struct protocol_double_sha *merkle)
 {
 	struct merkle_txinfo txinfo;
 
@@ -80,7 +80,7 @@ void merkle_transactions(const void *prefix, size_t prefix_len,
 	txinfo.txp_or_hash = txp_or_hash;
 	txinfo.u = u;
 
-	merkle_recurse(off, num_trans, 256, merkle_tx, &txinfo, merkle);
+	merkle_recurse(off, num_txs, 256, merkle_tx, &txinfo, merkle);
 }
 
 static struct protocol_double_sha merkle_hashes(size_t n, void *data)
@@ -90,9 +90,9 @@ static struct protocol_double_sha merkle_hashes(size_t n, void *data)
 	return *hashes[n];
 }
 
-void merkle_transaction_hashes(const struct protocol_double_sha **hashes,
-			       size_t off, size_t num_hashes,
-			       struct protocol_double_sha *merkle)
+void merkle_tx_hashes(const struct protocol_double_sha **hashes,
+		      size_t off, size_t num_hashes,
+		      struct protocol_double_sha *merkle)
 {
 	merkle_recurse(off, num_hashes, 256, merkle_hashes, hashes, merkle);
 }

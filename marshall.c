@@ -4,7 +4,7 @@
 #include "protocol_net.h"
 #include "overflows.h"
 #include "block.h"
-#include "transaction.h"
+#include "tx.h"
 #include "version.h"
 #include "peer.h"
 #include "log.h"
@@ -181,50 +181,49 @@ marshall_block(const tal_t *ctx,
 }
 
 /* Make sure transaction is all there. */
-enum protocol_ecode unmarshall_transaction(const void *buffer, size_t size,
-					   size_t *used)
+enum protocol_ecode unmarshall_tx(const void *buffer, size_t size, size_t *used)
 {
-	const union protocol_transaction *t = buffer;
+	const union protocol_tx *tx = buffer;
 	size_t i, len;
 
-	if (size < sizeof(t->hdr))
+	if (size < sizeof(tx->hdr))
 		return PROTOCOL_ECODE_INVALID_LEN;
 
-	if (!version_ok(t->hdr.version))
-		return PROTOCOL_ECODE_TRANS_HIGH_VERSION;
+	if (!version_ok(tx->hdr.version))
+		return PROTOCOL_ECODE_TX_HIGH_VERSION;
 
-	switch (t->hdr.type) {
-	case TRANSACTION_NORMAL:
-		if (size < sizeof(t->normal))
+	switch (tx->hdr.type) {
+	case TX_NORMAL:
+		if (size < sizeof(tx->normal))
 			return PROTOCOL_ECODE_INVALID_LEN;
 		if (mul_overflows(sizeof(struct protocol_input),
-				  le32_to_cpu(t->normal.num_inputs)))
+				  le32_to_cpu(tx->normal.num_inputs)))
 			return PROTOCOL_ECODE_INVALID_LEN;
 		i = sizeof(struct protocol_input)
-			* le32_to_cpu(t->normal.num_inputs);
+			* le32_to_cpu(tx->normal.num_inputs);
 
-		if (add_overflows(sizeof(t->normal), i))
+		if (add_overflows(sizeof(tx->normal), i))
 			return PROTOCOL_ECODE_INVALID_LEN;
-		len = sizeof(t->normal) + i;
+		len = sizeof(tx->normal) + i;
 		break;
-	case TRANSACTION_FROM_GATEWAY:
-		if (size < sizeof(t->gateway))
+	case TX_FROM_GATEWAY:
+		if (size < sizeof(tx->gateway))
 			return PROTOCOL_ECODE_INVALID_LEN;
 		
 		if (mul_overflows(sizeof(struct protocol_gateway_payment),
-				  le16_to_cpu(t->gateway.num_outputs)))
+				  le16_to_cpu(tx->gateway.num_outputs)))
 			return PROTOCOL_ECODE_INVALID_LEN;
 		i = sizeof(struct protocol_gateway_payment)
-			* le16_to_cpu(t->gateway.num_outputs);
+			* le16_to_cpu(tx->gateway.num_outputs);
 
-		if (add_overflows(sizeof(t->gateway), i))
+		if (add_overflows(sizeof(tx->gateway), i))
 			return PROTOCOL_ECODE_INVALID_LEN;
 
-		len = sizeof(t->gateway) + i;
+		len = sizeof(tx->gateway) + i;
 		break;
 	default:
 		/* Unknown type. */
-		return PROTOCOL_ECODE_TRANS_UNKNOWN;
+		return PROTOCOL_ECODE_TX_UNKNOWN;
 	}
 
 	if (size < len)
@@ -256,25 +255,25 @@ static size_t varsize_(size_t base, size_t num, size_t fieldsize)
 	varsize_(sizeof(type), (num), sizeof(extra))
 
 /* Returns 0 on length overflow! */
-size_t marshall_transaction_len(const union protocol_transaction *t)
+size_t marshall_tx_len(const union protocol_tx *tx)
 {
-	switch (t->hdr.type) {
-	case TRANSACTION_NORMAL:
-		return varsize(t->normal, struct protocol_input,
-			       le32_to_cpu(t->normal.num_inputs));
-	case TRANSACTION_FROM_GATEWAY:
-		return varsize(t->gateway,
+	switch (tx->hdr.type) {
+	case TX_NORMAL:
+		return varsize(tx->normal, struct protocol_input,
+			       le32_to_cpu(tx->normal.num_inputs));
+	case TX_FROM_GATEWAY:
+		return varsize(tx->gateway,
 			       struct protocol_gateway_payment,
-			       le16_to_cpu(t->gateway.num_outputs));
+			       le16_to_cpu(tx->gateway.num_outputs));
 	}
 	abort();
 }
 
 enum protocol_ecode unmarshall_input_refs(const void *buffer, size_t size,
-					  const union protocol_transaction *t,
+					  const union protocol_tx *tx,
 					  size_t *used)
 {
-	size_t need = marshall_input_ref_len(t);
+	size_t need = marshall_input_ref_len(tx);
 
 	if (size < need)
 		return PROTOCOL_ECODE_INVALID_LEN;
@@ -284,7 +283,7 @@ enum protocol_ecode unmarshall_input_refs(const void *buffer, size_t size,
 }
 
 /* Input refs don't need marshalling */
-size_t marshall_input_ref_len(const union protocol_transaction *t)
+size_t marshall_input_ref_len(const union protocol_tx *tx)
 {
-	return num_inputs(t) * sizeof(struct protocol_input_ref);
+	return num_inputs(tx) * sizeof(struct protocol_input_ref);
 }

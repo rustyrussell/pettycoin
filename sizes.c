@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
 		errx(1, "Usage: sizes <tps>");
 
 	tps = atoi(argv[1]);
-	tsize = sizeof(struct protocol_transaction_normal)
+	tsize = sizeof(struct protocol_tx_normal)
 		+ sizeof(struct protocol_input) * AVERAGE_INPUTS;
 	printf("# Assuming %f average inputs => tsize %llu bytes\n",
 	       AVERAGE_INPUTS, tsize);
@@ -70,10 +70,10 @@ int main(int argc, char *argv[])
 	       "bytes per second");
 	printf("%-15s%15llu%15llu%25s\n",
 	       "Miners storage",
-	       txbytes_per_sec * TRANSACTION_HORIZON_SECS,
-	       blockbytes_per_sec * TRANSACTION_HORIZON_SECS,
-	       format_si(txbytes_per_sec * TRANSACTION_HORIZON_SECS
-			 + blockbytes_per_sec * TRANSACTION_HORIZON_SECS));
+	       txbytes_per_sec * TX_HORIZON_SECS,
+	       blockbytes_per_sec * TX_HORIZON_SECS,
+	       format_si(txbytes_per_sec * TX_HORIZON_SECS
+			 + blockbytes_per_sec * TX_HORIZON_SECS));
 
 	/* Minimal node needs two shards + every block. */
 	txbytes_per_sec >>= shard_order - 1;
@@ -84,9 +84,9 @@ int main(int argc, char *argv[])
 	       "bytes per second");
 	printf("%-15s%15llu%15llu%25s\n",
 	       "Minimal storage",
-	       txbytes_per_sec * TRANSACTION_HORIZON_SECS,
-	       blockbytes_per_sec * TRANSACTION_HORIZON_SECS,
-	       format_si(txbytes_per_sec * TRANSACTION_HORIZON_SECS
-			 + blockbytes_per_sec * TRANSACTION_HORIZON_SECS));
+	       txbytes_per_sec * TX_HORIZON_SECS,
+	       blockbytes_per_sec * TX_HORIZON_SECS,
+	       format_si(txbytes_per_sec * TX_HORIZON_SECS
+			 + blockbytes_per_sec * TX_HORIZON_SECS));
 	return 0;
 }

@@ -14,7 +14,7 @@ static inline u16 shard_of(const struct protocol_address *addr, u8 shard_order)
 
 struct block;
 
-u32 shard_of_tx(const union protocol_transaction *tx, u8 shard_order);
+u32 shard_of_tx(const union protocol_tx *tx, u8 shard_order);
 
 /* FIXME: voting mechanism to bump shard_order. */
 static inline u8 next_shard_order(const struct block *prev)

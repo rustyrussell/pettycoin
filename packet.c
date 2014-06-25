@@ -42,18 +42,17 @@ void tal_packet_append_(void *ppkt, const void *mem, size_t len)
 	(*hdr)->len = cpu_to_le32(orig_len + len);
 }
 
-void tal_packet_append_trans_(void *ppkt,
-			      const union protocol_transaction *trans)
+void tal_packet_append_tx_(void *ppkt, const union protocol_tx *tx)
 {
-	tal_packet_append_(ppkt, trans, marshall_transaction_len(trans));
+	tal_packet_append_(ppkt, tx, marshall_tx_len(tx));
 }
 
-void tal_packet_append_trans_with_refs_(void *ppkt,
-					const union protocol_transaction *trans,
-					const struct protocol_input_ref *refs)
+void tal_packet_append_tx_with_refs_(void *ppkt,
+				     const union protocol_tx *tx,
+				     const struct protocol_input_ref *refs)
 {
-	tal_packet_append_trans_(ppkt, trans);
-	tal_packet_append_(ppkt, refs, marshall_input_ref_len(trans));
+	tal_packet_append_tx_(ppkt, tx);
+	tal_packet_append_(ppkt, refs, marshall_input_ref_len(tx));
 }
 
 void tal_packet_append_block_(void *ppkt, const struct block *block)
@@ -78,7 +77,7 @@ void tal_packet_append_sha_(void *ppkt, const struct protocol_double_sha *sha)
 void tal_packet_append_proof_(void *ppkt, const struct block *block,
 			      u16 shardnum, u8 txoff)
 {
-	struct protocol_trans_with_proof proof;
+	struct protocol_tx_with_proof proof;
 
 	proof.block = block->sha;
 	proof.shard = cpu_to_le16(shardnum);
@@ -87,10 +86,9 @@ void tal_packet_append_proof_(void *ppkt, const struct block *block,
 	create_proof(&proof.proof, block, shardnum, txoff);
 
 	tal_packet_append_(ppkt, &proof, sizeof(proof));
-	tal_packet_append_trans_with_refs_(ppkt,
-					   block_get_tx(block, shardnum, txoff),
-					   block_get_refs(block, shardnum,
-							  txoff));
+	tal_packet_append_tx_with_refs_(ppkt,
+					block_get_tx(block, shardnum, txoff),
+					block_get_refs(block, shardnum, txoff));
 }
 
 void tal_packet_append_txrefhash_(void *ppkt,

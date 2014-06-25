@@ -47,16 +47,16 @@ void marshall_block_into(void *dst,
 			 const struct protocol_block_tailer *tailer);
 
 /* Unmarshall transaction: does version and simple sanity checking. */
-enum protocol_ecode unmarshall_transaction(const void *buffer, size_t size,
-					   size_t *used);
+enum protocol_ecode unmarshall_tx(const void *buffer, size_t size,
+				  size_t *used);
 
 /* Transactions don't need marshalling. */
-size_t marshall_transaction_len(const union protocol_transaction *t);
+size_t marshall_tx_len(const union protocol_tx *tx);
 
 enum protocol_ecode unmarshall_input_refs(const void *buffer, size_t size,
-					  const union protocol_transaction *t,
+					  const union protocol_tx *tx,
 					  size_t *used);
 /* Input refs don't need marshalling */
-size_t marshall_input_ref_len(const union protocol_transaction *t);
+size_t marshall_input_ref_len(const union protocol_tx *tx);
 
 #endif /* PETTYCOIN_MARSHALL_H */

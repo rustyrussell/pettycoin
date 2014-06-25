@@ -22,12 +22,12 @@
 #include <stdio.h>
 #include <netdb.h>
 #include "base58.h"
-#include "create_transaction.h"
+#include "create_tx.h"
 #include "protocol_net.h"
 #include "marshall.h"
 #include "netaddr.h"
 #include "addr.h"
-#include "hash_transaction.h"
+#include "hash_tx.h"
 #include "hash_block.h"
 #include "log.h"
 #include <string.h>
@@ -312,7 +312,7 @@ static struct protocol_double_sha parse_sha(const char *shastr)
 /* Simple test code to create a gateway transaction */
 int main(int argc, char *argv[])
 {
-	union protocol_transaction *t;
+	union protocol_tx *tx;
 	struct protocol_gateway_payment payment;
 	struct protocol_net_address netaddr;
 	bool test_net;
@@ -321,13 +321,13 @@ int main(int argc, char *argv[])
 	size_t len;
 	struct protocol_net_hdr hdr;
 	bool gateway = false;
-	bool tx = false;
+	bool normal = false;
 	struct protocol_double_sha sha;
 
 	if (argv[1] && streq(argv[1], "gateway"))
 		gateway = true;
 	else if (argv[1] && streq(argv[1], "tx"))
-		tx = true;
+		normal = true;
 	else
 		usage();
 
@@ -350,8 +350,8 @@ int main(int argc, char *argv[])
 		log_add_struct(NULL, struct protocol_address,
 			       &payment.output_addr);
 
-		t = create_gateway_transaction(NULL, &gkey, 1, 0, &payment, key);
-	} else if (tx) {
+		tx = create_gateway_tx(NULL, &gkey, 1, 0, &payment, key);
+	} else if (normal) {
 		struct protocol_pubkey destkey;
 		EC_KEY *key;
 		struct protocol_input input[argc - 8];
@@ -375,9 +375,8 @@ int main(int argc, char *argv[])
 				input[i].output = cpu_to_le16(0);
 			input[i].unused = cpu_to_le16(0);
 		}
-		t = create_normal_transaction(NULL, &destaddr, atoi(argv[6]),
-					      atoi(argv[7]), argc - 8, input,
-					      key);
+		tx = create_normal_tx(NULL, &destaddr, atoi(argv[6]),
+				      atoi(argv[7]), argc - 8, input, key);
 		{
 			struct protocol_pubkey pubkey;
 			unsigned char *p = (void *)&pubkey;
@@ -392,7 +391,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	len = marshall_transaction_len(t);
+	len = marshall_tx_len(tx);
 	if (!len)
 		errx(1, "Marshalling transaction failed");
 
@@ -414,12 +413,12 @@ int main(int argc, char *argv[])
 	hdr.type = cpu_to_le32(PROTOCOL_PKT_TX);
 	if (!write_all(fd, &hdr, sizeof(hdr)))
 		err(1, "Failed writing header");
-	if (!write_all(fd, t, len))
+	if (!write_all(fd, tx, len))
 		err(1, "Failed writing transaction");
 
 	read_response(fd);
 
-	hash_tx(t, &sha);
+	hash_tx(tx, &sha);
 	printf("%02x%02x%02x%02x%02x%02x%02x%02x"
 	       "%02x%02x%02x%02x%02x%02x%02x%02x"
 	       "%02x%02x%02x%02x%02x%02x%02x%02x"

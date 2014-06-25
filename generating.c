@@ -16,7 +16,7 @@
 #include "generate.h"
 #include "pending.h"
 #include "chain.h"
-#include "transaction.h"
+#include "tx.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/io/io.h>
 #include <sys/types.h>
@@ -44,7 +44,7 @@ struct generator {
 	/* The block it found. */
 	struct block *new;
 	/* The transactions it included */
-	struct pending_trans **included;
+	struct pending_tx **included;
 	pid_t pid;
 	u8 shard_order;
 	/* Update list. */
@@ -116,19 +116,19 @@ static void finish_answer(struct io_conn *conn, struct generator *gen)
 		reap_generator(conn, gen);
 }		       
 
-static struct io_plan do_send_trans(struct io_conn *conn,struct generator *gen);
+static struct io_plan do_send_tx(struct io_conn *conn,struct generator *gen);
 
-static struct io_plan trans_sent(struct io_conn *conn, struct generator *gen)
+static struct io_plan tx_sent(struct io_conn *conn, struct generator *gen)
 {
 	assert(conn == gen->update);
 
 	log_debug(gen->log, "Update done.");
 	tal_free(list_pop(&gen->updates, struct pending_update, list));
 
-	return do_send_trans(conn, gen);
+	return do_send_tx(conn, gen);
 }
 
-static struct io_plan do_send_trans(struct io_conn *conn, struct generator *gen)
+static struct io_plan do_send_tx(struct io_conn *conn, struct generator *gen)
 {
 	struct pending_update *u;
 
@@ -139,11 +139,11 @@ static struct io_plan do_send_trans(struct io_conn *conn, struct generator *gen)
 		log_debug(gen->log, "Sending transaction update shard %u off %u cookie %p",
 			  u->update.shard, u->update.txoff, u->update.cookie);
 
-		return io_write(&u->update, sizeof(u->update), trans_sent, gen);
+		return io_write(&u->update, sizeof(u->update), tx_sent, gen);
 	}
 
 	log_debug(gen->log, "Sending transactions going idle %p", gen);
-	return io_wait(gen, do_send_trans, gen);
+	return io_wait(gen, do_send_tx, gen);
 }
 
 static struct io_plan send_go_byte(struct io_conn *conn, struct generator *gen)
@@ -151,24 +151,24 @@ static struct io_plan send_go_byte(struct io_conn *conn, struct generator *gen)
 	assert(conn == gen->update);
 
 	log_debug(gen->log, "Sending go byte");
-	return io_write("", 1, do_send_trans, gen);
+	return io_write("", 1, do_send_tx, gen);
 }
 
-static struct io_plan got_trans(struct io_conn *conn, struct generator *gen)
+static struct io_plan got_tx(struct io_conn *conn, struct generator *gen)
 {
 	u32 i, off = 0, shard;
 
 	for (shard = 0; shard < (1 << gen->shard_order); shard++) {
-		struct transaction_shard *s;
+		struct tx_shard *s;
 		enum protocol_ecode err;
-		unsigned int bad_trans, bad_trans2, bad_input_num;
-		union protocol_transaction *bad_input;
+		unsigned int bad_tx, bad_tx2, bad_input_num;
+		union protocol_tx *bad_input;
 
 		s = new_shard(gen, shard, gen->new->shard_nums[shard]);
 		for (i = 0; i < gen->new->shard_nums[shard]; i++) {
 			/* Initialized this way... */
 			assert(shard_is_tx(s, i));
-			s->u[i].txp = txptr_with_ref(s, gen->included[off]->t,
+			s->u[i].txp = txptr_with_ref(s, gen->included[off]->tx,
 						     gen->included[off]->refs);
 			s->txcount++;
 			off++;
@@ -188,9 +188,9 @@ static struct io_plan got_trans(struct io_conn *conn, struct generator *gen)
 			return io_close();
 		}
 
-		err = shard_validate_transactions(gen->state, gen->log,
-						  gen->new, s, &bad_trans,
-						  &bad_input_num, &bad_input);
+		err = shard_validate_txs(gen->state, gen->log,
+					 gen->new, s, &bad_tx,
+					 &bad_input_num, &bad_input);
 		if (err) {
 			log_broken(gen->log,
 				   "Generator %u gave invalid transaction",
@@ -200,10 +200,10 @@ static struct io_plan got_trans(struct io_conn *conn, struct generator *gen)
 		}
 
 		if (!check_tx_order(gen->state, gen->new, s,
-				    &bad_trans, &bad_trans2)) {
+				    &bad_tx, &bad_tx2)) {
 			log_broken(gen->log,
 				   "Generator %u created bad order %u vs %u",
-				   gen->pid, bad_trans, bad_trans2);
+				   gen->pid, bad_tx, bad_tx2);
 			return io_close();
 		}
 
@@ -227,7 +227,7 @@ static struct io_plan got_trans(struct io_conn *conn, struct generator *gen)
 	return io_close();
 }
 
-static u32 count_transactions(const u8 *shard_nums, u8 shard_order)
+static u32 count_txs(const u8 *shard_nums, u8 shard_order)
 {
 	u32 i, total;
 
@@ -262,7 +262,7 @@ static struct io_plan got_solution(struct io_conn *conn, struct generator *gen)
 		return io_close();
 	}
 
-	total_txs = count_transactions(shard_nums, gen->shard_order);
+	total_txs = count_txs(shard_nums, gen->shard_order);
 
 	log_info(gen->log,
 		 "Solution received from generator for block %u (%u trans)",
@@ -276,22 +276,22 @@ static struct io_plan got_solution(struct io_conn *conn, struct generator *gen)
 		return io_close();
 	}
 
-	/* Read cookies back (actually, struct pending_trans *). */
-	gen->included = tal_arr(gen, struct pending_trans *, total_txs);
+	/* Read cookies back (actually, struct pending_tx *). */
+	gen->included = tal_arr(gen, struct pending_tx *, total_txs);
 	return io_read(gen->included,
-		       sizeof(struct pending_trans *) * total_txs,
-		       got_trans, gen);
+		       sizeof(struct pending_tx *) * total_txs,
+		       got_tx, gen);
 }
 
 /* FIXME: If transaction may go over horizon, time out generation */
 static void add_update(struct state *state,
-		       struct pending_trans *t,
+		       struct pending_tx *t,
 		       size_t shard, size_t txoff)
 {
 	struct pending_update *update;
 
 	update = tal(state->gen, struct pending_update);
-	update->update.features = t->t->hdr.features;
+	update->update.features = t->tx->hdr.features;
 	update->update.shard = shard;
 	update->update.txoff = txoff;
 	update->update.unused = 0;
@@ -301,7 +301,7 @@ static void add_update(struct state *state,
 	assert(update->update.shard == shard);
 	assert(update->update.txoff == txoff);
 
-	hash_tx_for_block(t->t, NULL, 0, t->refs, num_inputs(t->t),
+	hash_tx_for_block(t->tx, NULL, 0, t->refs, num_inputs(t->tx),
 			  &update->update.hash);
 	list_add_tail(&state->gen->updates, &update->list);
 }
@@ -313,7 +313,7 @@ static void init_updates(struct generator *gen)
 	list_head_init(&gen->updates);
 
 	for (shard = 0; shard < ARRAY_SIZE(gen->state->pending->pend); shard++) {
-		struct pending_trans **pend = gen->state->pending->pend[shard];
+		struct pending_tx **pend = gen->state->pending->pend[shard];
 		for (i = 0; i < tal_count(pend); i++)
 			add_update(gen->state, pend[i], shard, i);
 	}

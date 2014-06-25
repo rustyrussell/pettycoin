@@ -7,7 +7,7 @@
 #include <ccan/compiler/compiler.h>
 #include <ccan/bitmap/bitmap.h>
 #include "peer.h"
-#include "thash.h"
+#include "txhash.h"
 #include "log.h"
 
 /* Our local state. */
@@ -45,7 +45,7 @@ struct state {
 	struct pending_block *pending;
 
 	/* All transactions. */
-	struct thash thash;
+	struct txhash txhash;
 
 	/* Number of current peers (some may be connecting) */
 	size_t num_peers;

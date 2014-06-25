@@ -1,10 +1,10 @@
 #include "create_refs.h"
-#include "thash.h"
+#include "txhash.h"
 #include "chain.h"
 #include "state.h"
 #include "block.h"
 #include "timestamp.h"
-#include "transaction.h"
+#include "tx.h"
 #include <assert.h>
 
 /* We don't include transactions which are close to being timed out. */
@@ -12,28 +12,28 @@
 
 static bool resolve_input(struct state *state,
 			  const struct block *prev_block,
-			  const union protocol_transaction *tx,
+			  const union protocol_tx *tx,
 			  u32 num,
 			  struct protocol_input_ref *ref)
 {
 	const struct protocol_double_sha *sha;
-	struct thash_iter iter;
-	struct thash_elem *te;
+	struct txhash_iter iter;
+	struct txhash_elem *te;
 
-	assert(tx->hdr.type == TRANSACTION_NORMAL);
+	assert(tx->hdr.type == TX_NORMAL);
 	assert(num < le32_to_cpu(tx->normal.num_inputs));
 
 	sha = &get_normal_inputs(&tx->normal)[num].input;
 
-	for (te = thash_firstval(&state->thash, sha, &iter);
+	for (te = txhash_firstval(&state->txhash, sha, &iter);
 	     te;
-	     te = thash_nextval(&state->thash, sha, &iter)) {
+	     te = txhash_nextval(&state->txhash, sha, &iter)) {
 		if (!block_preceeds(te->block, prev_block))
 			continue;
 
 		/* Don't include any transactions within 1 hour of cutoff. */
 		if (le32_to_cpu(te->block->tailer->timestamp)
-		    + TRANSACTION_HORIZON_SECS - CLOSE_TO_HORIZON
+		    + TX_HORIZON_SECS - CLOSE_TO_HORIZON
 		    < current_time())
 			return false;
 
@@ -52,7 +52,7 @@ static bool resolve_input(struct state *state,
 /* Try to find the inputs in block and its ancestors */
 struct protocol_input_ref *create_refs(struct state *state,
 				       const struct block *prev_block,
-				       const union protocol_transaction *tx)
+				       const union protocol_tx *tx)
 {
 	u32 i, num = num_inputs(tx);
 	struct protocol_input_ref *refs;

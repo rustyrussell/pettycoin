@@ -24,11 +24,11 @@ static time_t my_time(time_t *p)
 #include "../hash_block.c"
 #include "../shadouble.c"
 #include "../difficulty.c"
-#include "../merkle_transactions.c"
-#include "../transaction_cmp.c"
+#include "../merkle_txs.c"
+#include "../tx_cmp.c"
 #include "../marshall.c"
-#include "../hash_transaction.c"
-#include "../create_transaction.c"
+#include "../hash_tx.c"
+#include "../create_tx.c"
 #include "../signature.c"
 #include "../shard.c"
 #include "../minimal_log.c"
@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
 	struct protocol_double_sha prev = { .sha = { 0 } };
 	unsigned int i;
 	struct protocol_double_sha hash, hash2;
-	union protocol_transaction *t;
+	union protocol_tx *t;
 	struct protocol_gateway_payment payment;
 	struct update update;
 
@@ -73,21 +73,21 @@ int main(int argc, char *argv[])
 	for (i = 0; i < (1 << w->hdr.shard_order); i++)
 		assert(w->shard_nums[i] == 0);
 
-	/* Now create a block after that, with a gateway transaction in it. */
+	/* Now create a block after that, with a gateway tx in it. */
 	fake_time++;
 	w2 = new_working_block(s, 0x1ffffff0, NULL, 0, 1,
 			       w->hdr.shard_order, &hash, helper_addr(1));
 
 	payment.send_amount = cpu_to_le32(1000);
 	payment.output_addr = *helper_addr(0);
-	t = create_gateway_transaction(s, helper_gateway_public_key(),
+	t = create_gateway_tx(s, helper_gateway_public_key(),
 				       1, 0, &payment, helper_gateway_key());
 	update.shard = shard_of_tx(t, w->hdr.shard_order);
 	update.txoff = 0;
 	update.features = 0;
 	update.cookie = t;
 	hash_tx(t, &update.hash);
-	assert(add_transaction(w2, &update));
+	assert(add_tx(w2, &update));
 
 	/* Since tx contains randomness, we don't know how long this
 	 * will take */

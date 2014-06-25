@@ -17,11 +17,11 @@
 #include "version.h"
 #include "features.h"
 #include "protocol.h"
-#include "merkle_transactions.h"
+#include "merkle_txs.h"
 #include "block.h"
 #include "shadouble.h"
 #include "version.h"
-#include "transaction_cmp.h"
+#include "tx_cmp.h"
 #include "difficulty.h"
 #include "marshall.h"
 #include "generate.h"
@@ -73,8 +73,7 @@ static void merkle_hash_shard(struct working_block *w, u32 shard)
 
 	/* Introducing const here requires cast. */
 	hashes = (const struct protocol_double_sha **)w->trans_hashes[shard];
-	merkle_transaction_hashes(hashes, 0, w->shard_nums[shard],
-				  &w->merkles[shard]);
+	merkle_tx_hashes(hashes, 0, w->shard_nums[shard], &w->merkles[shard]);
 }
 
 static void merkle_hash_changed(struct working_block *w)
@@ -166,7 +165,7 @@ new_working_block(const tal_t *ctx,
 }
 
 /* Append a new transaction hash to the block. */
-static bool add_transaction(struct working_block *w, struct update *update)
+static bool add_tx(struct working_block *w, struct update *update)
 {
 	unsigned int i;
 	u8 new_features = 0;
@@ -277,13 +276,13 @@ static bool read_all_or_none(int fd, void *buf, size_t len)
 	return true;
 }
 
-static void read_transactions(struct working_block *w)
+static void read_txs(struct working_block *w)
 {
 	struct update *update = tal(w, struct update);
 
 	/* Gratuitous initial read handles race */
 	while (read_all_or_none(STDIN_FILENO, update, sizeof(*update))) {
-		if (!add_transaction(w, update))
+		if (!add_tx(w, update))
 			err(1, "Adding transaction");
 		update = tal(w, struct update);
 	}
@@ -402,7 +401,7 @@ int main(int argc, char *argv[])
 	do {
 		if (input) {
 			input = false;
-			read_transactions(w);
+			read_txs(w);
 		}
 	} while (!solve_block(w));
 

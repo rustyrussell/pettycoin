@@ -14,7 +14,7 @@ static struct timeabs my_time;
 #include "../log.c"
 #include "../log_helper.c"
 #include "../base58.c"
-#include "../hash_transaction.c"
+#include "../hash_tx.c"
 #include "../marshall.c"
 #include "../shadouble.c"
 

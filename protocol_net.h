@@ -172,14 +172,14 @@ struct protocol_pkt_block_tx_invalid {
 	le32 type; /* PROTOCOL_REQ_BLOCK_TX_INVALID */
 
 	/* What is wrong with it, one of:
-	 *  PROTOCOL_ECODE_TRANS_HIGH_VERSION
-	 *  PROTOCOL_ECODE_TRANS_LOW_VERSION
-	 *  PROTOCOL_ECODE_TRANS_UNKNOWN
-	 *  PROTOCOL_ECODE_TRANS_BAD_GATEWAY
-	 *  PROTOCOL_ECODE_TRANS_CROSS_SHARDS
-	 *  PROTOCOL_ECODE_TOO_LARGE
-	 *  PROTOCOL_ECODE_TRANS_BAD_SIG
-	 *  PROTOCOL_ECODE_TOO_MANY_INPUTS
+	 *  PROTOCOL_ECODE_TX_HIGH_VERSION
+	 *  PROTOCOL_ECODE_TX_LOW_VERSION
+	 *  PROTOCOL_ECODE_TX_UNKNOWN
+	 *  PROTOCOL_ECODE_TX_BAD_GATEWAY
+	 *  PROTOCOL_ECODE_TX_CROSS_SHARDS
+	 *  PROTOCOL_ECODE_TX_TOO_LARGE
+	 *  PROTOCOL_ECODE_TX_BAD_SIG
+	 *  PROTOCOL_ECODE_TX_TOO_MANY_INPUTS
 	 *  PROTOCOL_ECODE_SHARD_BAD_INPUT_REF
 	 */
 	le32 error;
@@ -199,23 +199,23 @@ struct protocol_pkt_block_tx_bad_input {
 	le32 inputnum;
 
 	/*
-	  struct protocol_trans_with_proof proof;
-	  union protocol_transaction input;
+	  struct protocol_tx_with_proof proof;
+	  union protocol_tx input;
 	*/
 };
 
 /* This block contains an input ref with an invalid input (wrong trans!)
- * ie PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF_TRANS. */
+ * ie PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF_TX. */
 struct protocol_pkt_block_bad_input_ref {
 	le32 len; /* sizeof(struct protocol_pkt_block_bad_input_ref) */
 	le32 type; /* PROTOCOL_PKT_BLOCK_BAD_INPUT_REF */
 
-	/* Input of trans I am referring to. */
+	/* Input of transaction I am referring to. */
 	le32 inputnum;
 
 	/*
-	  struct protocol_trans_with_proof trans;
-	  struct protocol_trans_with_proof input;
+	  struct protocol_tx_with_proof tx;
+	  struct protocol_tx_with_proof input;
 	*/
 };
 
@@ -228,7 +228,7 @@ struct protocol_pkt_block_tx_bad_amount {
 	/*
 	  struct protocol_trans_with_proof proof;
 	  The inputs:
-	     union protocol_transaction input[t->normal.num_inputs];
+	     union protocol_tx input[t->normal.num_inputs];
 	*/
 };
 
@@ -285,9 +285,9 @@ struct protocol_pkt_tx_bad_input {
 	le32 inputnum;
 
 	/* The transaction whose input was bad:
-	     union protocol_transaction trans ...; 
+	     union protocol_tx trans ...; 
 	   The bad input:
-	     union protocol_transaction input ...;
+	     union protocol_tx input ...;
 	*/
 };
 
@@ -298,9 +298,9 @@ struct protocol_pkt_tx_bad_amount {
 
 
 	/* The transaction whose input was bad:
-	     union protocol_transaction trans ...; 
+	     union protocol_tx trans ...; 
 	  The inputs:
-	     union protocol_transaction input[t->normal.num_inputs];
+	     union protocol_tx input[t->normal.num_inputs];
 	*/
 };
 

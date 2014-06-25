@@ -12,8 +12,8 @@
 #include "log.h"
 #include "marshall.h"
 #include "check_block.h"
-#include "check_transaction.h"
-#include "transaction.h"
+#include "check_tx.h"
+#include "tx.h"
 #include "generating.h"
 #include "blockfile.h"
 #include "pending.h"
@@ -154,14 +154,13 @@ void fill_peers(struct state *state)
 	}
 }
 
-void send_trans_to_peers(struct state *state,
-			 struct peer *exclude,
-			 const union protocol_transaction *t)
+void send_tx_to_peers(struct state *state, struct peer *exclude,
+		      const union protocol_tx *tx)
 {
 	struct peer *peer;
 
 	list_for_each(&state->peers, peer, list) {
-		struct protocol_pkt_tx *tx;
+		struct protocol_pkt_tx *pkt;
 
 		/* Avoid sending back to peer who told us. */
 		if (peer == exclude)
@@ -173,9 +172,9 @@ void send_trans_to_peers(struct state *state,
 			continue;
 
 		/* FIXME: Respect filter! */
-		tx = tal_packet(peer, struct protocol_pkt_tx, PROTOCOL_PKT_TX);
-		tal_packet_append_trans(&tx, t);
-		todo_for_peer(peer, tx);
+		pkt = tal_packet(peer, struct protocol_pkt_tx, PROTOCOL_PKT_TX);
+		tal_packet_append_tx(&pkt, tx);
+		todo_for_peer(peer, pkt);
 	}
 }
 
@@ -262,7 +261,7 @@ void wake_peers(struct state *state)
 #if 0 /* FIXME */
 
 static struct protocol_pkt_tx *
-trans_pkt(tal_t *ctx, const union protocol_transaction *t)
+trans_pkt(tal_t *ctx, const union protocol_tx *t)
 {
 	struct protocol_pkt_tx *r;
 	r = tal_packet(ctx, struct protocol_pkt_tx, PROTOCOL_PKT_TX);
@@ -377,7 +376,7 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 		tal_del_destructor(pend, unlink_pend);
 
 		log_debug(peer->log, "Sending transaction ");
-		log_add_struct(peer->log, union protocol_transaction, pend->t);
+		log_add_struct(peer->log, union protocol_tx, pend->t);
 		peer->new_trans_pending = pend;
 		peer->curr_out_req = PROTOCOL_REQ_NEW_TRANSACTION;
 		pkt = trans_pkt(peer, pend->t);
@@ -567,7 +566,7 @@ unmarshall_batch(struct log *log,
 		size_t used;
 		enum protocol_ecode err;
 
-		batch->t[batch->count] = (union protocol_transaction *)buffer;
+		batch->t[batch->count] = (union protocol_tx *)buffer;
 		err = unmarshall_transaction(buffer, size, &used);
 		if (err) {
 			log_unusual(log, "Peer resp_batch transaction %u/%zu"
@@ -613,7 +612,7 @@ receive_batch_resp(struct peer *peer, struct protocol_resp_batch *resp)
 	enum protocol_ecode err;
 	struct transaction_batch *batch;
 	unsigned int bad_transnum, bad_input, bad_transnum2;
-	union protocol_transaction *bad_intrans;
+	union protocol_tx *bad_intrans;
 
 	if (le32_to_cpu(resp->len) < sizeof(*resp)) {
 		log_unusual(peer->log,
@@ -786,7 +785,7 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 			log_debug(peer->log,
 				  "Error %u on PROTOCOL_RESP_NEW_TRANSACTION ",
 				  le32_to_cpu(resp->error));
-			log_add_struct(peer->log, union protocol_transaction,
+			log_add_struct(peer->log, union protocol_tx,
 				       peer->new_trans_pending->t);
 		}
 		tal_free(peer->new_trans_pending);
@@ -1055,8 +1054,8 @@ recv_block(struct peer *peer, const struct protocol_pkt_block *pkt)
 static void
 complain_about_input(struct state *state,
 		     struct peer *peer,
-		     const union protocol_transaction *trans,
-		     const union protocol_transaction *bad_input,
+		     const union protocol_tx *tx,
+		     const union protocol_tx *bad_input,
 		     unsigned int bad_input_num)
 {
 	struct protocol_pkt_tx_bad_input *pkt;
@@ -1071,8 +1070,8 @@ complain_about_input(struct state *state,
 			 PROTOCOL_PKT_TX_BAD_INPUT);
 	pkt->inputnum = cpu_to_le32(bad_input_num);
 
-	tal_packet_append_trans(&pkt, trans);
-	tal_packet_append_trans(&pkt, bad_input);
+	tal_packet_append_tx(&pkt, tx);
+	tal_packet_append_tx(&pkt, bad_input);
 
 	todo_for_peer(peer, pkt);
 }
@@ -1080,25 +1079,25 @@ complain_about_input(struct state *state,
 static void
 complain_about_inputs(struct state *state,
 		      struct peer *peer,
-		      const union protocol_transaction *trans)
+		      const union protocol_tx *tx)
 {
 	struct protocol_pkt_tx_bad_amount *pkt;
 	struct protocol_input *inp;
 	unsigned int i;
 
-	assert(le32_to_cpu(trans->hdr.type) == TRANSACTION_NORMAL);
-	inp = get_normal_inputs(&trans->normal);
+	assert(le32_to_cpu(tx->hdr.type) == TX_NORMAL);
+	inp = get_normal_inputs(&tx->normal);
 
 	pkt = tal_packet(peer, struct protocol_pkt_tx_bad_amount,
 			 PROTOCOL_PKT_TX_BAD_AMOUNT);
 
-	tal_packet_append_trans(&pkt, trans);
+	tal_packet_append_tx(&pkt, tx);
 
-	/* FIXME: What if input still pending, not in thash? */
-	for (i = 0; i < le32_to_cpu(trans->normal.num_inputs); i++) {
-		union protocol_transaction *input;
-		input = thash_gettrans(&state->thash, &inp[i].input);
-		tal_packet_append_trans(&pkt, input);
+	/* FIXME: What if input still pending, not in txhash? */
+	for (i = 0; i < le32_to_cpu(tx->normal.num_inputs); i++) {
+		union protocol_tx *input;
+		input = txhash_gettx(&state->txhash, &inp[i].input);
+		tal_packet_append_tx(&pkt, input);
 	}
 
 	todo_for_peer(peer, pkt);
@@ -1108,32 +1107,31 @@ static enum protocol_ecode
 recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 {
 	enum protocol_ecode e;
-	union protocol_transaction *trans;
-	u32 translen = le32_to_cpu(pkt->len) - sizeof(*pkt);
-	union protocol_transaction *inputs[TRANSACTION_MAX_INPUTS];
+	union protocol_tx *tx;
+	u32 txlen = le32_to_cpu(pkt->len) - sizeof(*pkt);
+	union protocol_tx *inputs[TX_MAX_INPUTS];
 	unsigned int bad_input_num;
 
-	trans = (void *)(pkt + 1);
-	e = unmarshall_transaction(trans, translen, NULL);
+	tx = (void *)(pkt + 1);
+	e = unmarshall_tx(tx, txlen, NULL);
 	if (e)
 		return e;
 
-	e = check_transaction(peer->state, trans, NULL, NULL,
-			      inputs, &bad_input_num);
+	e = check_tx(peer->state, tx, NULL, NULL, inputs, &bad_input_num);
 
 	/* These two complaints are not fatal. */
-	if (e == PROTOCOL_ECODE_PRIV_TRANS_BAD_INPUT) {
-		complain_about_input(peer->state, peer, trans,
+	if (e == PROTOCOL_ECODE_PRIV_TX_BAD_INPUT) {
+		complain_about_input(peer->state, peer, tx,
 				     inputs[bad_input_num], bad_input_num);
-	} else if (e == PROTOCOL_ECODE_PRIV_TRANS_BAD_AMOUNTS) {
-		complain_about_inputs(peer->state, peer, trans);
+	} else if (e == PROTOCOL_ECODE_PRIV_TX_BAD_AMOUNTS) {
+		complain_about_inputs(peer->state, peer, tx);
 	} else if (e) {
 		/* Any other failure is something they should have known */
 		return e;
 	} else {
 		/* OK, we own it now. */
 		tal_steal(peer->state, pkt);
-		add_pending_transaction(peer, trans);
+		add_pending_tx(peer, tx);
 	}
 
 	return PROTOCOL_ECODE_NONE;
@@ -1157,7 +1155,7 @@ static void try_resolve_hashes(struct state *state,
 			       u16 shardnum)
 {
 	unsigned int i, num = block->shard_nums[shardnum];
-	struct transaction_shard *shard = block->shard[shardnum];
+	struct tx_shard *shard = block->shard[shardnum];
 
 	/* If we know any of these transactions, resolve them now! */
 	for (i = 0; i < num; i++) {
@@ -1247,7 +1245,7 @@ recv_shard(struct peer *peer, const struct protocol_pkt_shard *pkt)
 	u16 shard;
 	unsigned int i;
 	const struct protocol_net_txrefhash *hash;
-	struct transaction_shard *s;
+	struct tx_shard *s;
 
 	if (le32_to_cpu(pkt->len) < sizeof(*pkt))
 		return PROTOCOL_ECODE_INVALID_LEN;

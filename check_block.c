@@ -8,14 +8,14 @@
 #include "timestamp.h"
 #include "difficulty.h"
 #include "shadouble.h"
-#include "hash_transaction.h"
-#include "merkle_transactions.h"
-#include "transaction_cmp.h"
+#include "hash_tx.h"
+#include "merkle_txs.h"
+#include "tx_cmp.h"
 #include "hash_block.h"
 #include "prev_merkles.h"
 #include "generating.h"
-#include "check_transaction.h"
-#include "transaction.h"
+#include "check_tx.h"
+#include "tx.h"
 #include "chain.h"
 #include "shard.h"
 #include <ccan/array_size/array_size.h>
@@ -97,8 +97,7 @@ check_block_header(struct state *state,
 			&block->prev->total_work,
 			&block->total_work);
 
-	block->shard = tal_arrz(block, struct transaction_shard *,
-				num_shards(hdr));
+	block->shard = tal_arrz(block, struct tx_shard *, num_shards(hdr));
 	block->hdr = hdr;
 	block->shard_nums = shard_nums;
 	block->merkles = merkles;
@@ -115,21 +114,21 @@ fail:
 }
 
 bool shard_belongs_in_block(const struct block *block,
-			    const struct transaction_shard *shard)
+			    const struct tx_shard *shard)
 {
 	struct protocol_double_sha merkle;
 
-	/* merkle_transactions is happy with just the hashes. */
+	/* merkle_txs is happy with just the hashes. */
 	assert(shard->txcount + shard->hashcount
 	       == block->shard_nums[shard->shardnum]);
-	merkle_transactions(NULL, 0, shard->txp_or_hash, shard->u, 0,
-			    block->shard_nums[shard->shardnum], &merkle);
+	merkle_txs(NULL, 0, shard->txp_or_hash, shard->u, 0,
+		   block->shard_nums[shard->shardnum], &merkle);
 	return memcmp(block->merkles[shard->shardnum].sha, merkle.sha,
 		      sizeof(merkle.sha)) == 0;
 }
 
 static u32 get_shard_start(const struct block *block,
-			   const struct transaction_shard *shard)
+			   const struct tx_shard *shard)
 {
 	unsigned int i;
 	u32 num = 0;
@@ -142,50 +141,50 @@ static u32 get_shard_start(const struct block *block,
 
 bool check_tx_order(struct state *state,
 		    const struct block *block,
-		    const struct transaction_shard *shard,
+		    const struct tx_shard *shard,
 		    unsigned int *bad_transnum1,
 		    unsigned int *bad_transnum2)
 {
 	int i;
-	const union protocol_transaction *prev;
+	const union protocol_tx *prev;
 	u32 shard_start = get_shard_start(block, shard);
 
 	/* Is it in order? */
 	prev = NULL;
 	for (i = 0; i < block->shard_nums[shard->shardnum]; i++) {
-		const union protocol_transaction *t;
+		const union protocol_tx *tx;
 
 		/* We can't determine order from the hash. */
 		if (!shard_is_tx(shard, i))
 			continue;
 
-		t = shard->u[i].txp.tx;
-		if (!t)
+		tx = shard->u[i].txp.tx;
+		if (!tx)
 			continue;
 
-		if (prev && transaction_cmp(prev, t) >= 0) {
+		if (prev && tx_cmp(prev, tx) >= 0) {
 			if (bad_transnum2)
 				*bad_transnum2 = shard_start + i;
 			return false;
 		}
-		prev = t;
+		prev = tx;
 		if (bad_transnum1)
 			*bad_transnum1 = shard_start + i;
 	}
 	return true;
 }
 
-/* This is a fully known shard, add txs to thash. */
-static void add_to_thash(struct state *state,
-			 struct block *block,
-			 struct transaction_shard *shard)
+/* This is a fully known shard, add txs to txhash. */
+static void add_to_txhash(struct state *state,
+			  struct block *block,
+			  struct tx_shard *shard)
 {
 	u32 i;
 
 	for (i = 0; i < block->shard_nums[shard->shardnum]; i++) {
-		struct thash_elem *te;
+		struct txhash_elem *te;
 		struct protocol_double_sha sha;
-		struct thash_iter iter;
+		struct txhash_iter iter;
 
 		assert(shard_is_tx(shard, i));
 
@@ -193,9 +192,9 @@ static void add_to_thash(struct state *state,
 
 		/* It could already be there (alternate chain, or previous
 		 * partial shard which we just overwrote). */
-		for (te = thash_firstval(&state->thash, &sha, &iter);
+		for (te = txhash_firstval(&state->txhash, &sha, &iter);
 		     te;
-		     te = thash_nextval(&state->thash, &sha, &iter)) {
+		     te = txhash_nextval(&state->txhash, &sha, &iter)) {
 			/* Previous partial shard which we just overwrote? */
 			if (te->block == block
 			    && te->shardnum == shard->shardnum
@@ -205,14 +204,14 @@ static void add_to_thash(struct state *state,
 
 		if (!te) {
 			/* Add a new one for this block. */
-			te = tal(shard, struct thash_elem);
+			te = tal(shard, struct txhash_elem);
 			te->block = block;
 			te->shardnum = shard->shardnum;
 			te->txoff = i;
 			te->sha = sha;
-			thash_add(&state->thash, te);
+			txhash_add(&state->txhash, te);
 			/* FIXME:
-			   tal_add_destructor(te, delete_from_thash);
+			   tal_add_destructor(te, delete_from_txhash);
 			*/
 		}
 	}
@@ -221,7 +220,7 @@ static void add_to_thash(struct state *state,
 /* This is a fast-path used by generating.c */
 void force_shard_into_block(struct state *state,
 			    struct block *block,
-			    struct transaction_shard *shard)
+			    struct tx_shard *shard)
 {
 	assert(shard_belongs_in_block(block, shard));
 	assert(shard->txcount == block->shard_nums[shard->shardnum]);
@@ -230,7 +229,7 @@ void force_shard_into_block(struct state *state,
 
 	block->shard[shard->shardnum] = tal_steal(block, shard);
 
-	add_to_thash(state, block, shard);
+	add_to_txhash(state, block, shard);
 
 	update_block_ptrs_new_shard(state, block, shard->shardnum);
 
@@ -245,16 +244,14 @@ static struct txptr_with_ref dup_txp(const tal_t *ctx,
 	struct txptr_with_ref ret;
 	size_t len;
 
-	len = marshall_transaction_len(txp.tx)
+	len = marshall_tx_len(txp.tx)
 		+ num_inputs(txp.tx) * sizeof(struct protocol_input_ref);
 
 	ret.tx = (void *)tal_dup(ctx, char, (char *)txp.tx, len, 0);
 	return ret;
 }
 
-static void copy_transactions(struct transaction_shard *new,
-			      const struct transaction_shard *old,
-			      u8 num)
+static void copy_txs(struct tx_shard *new, const struct tx_shard *old, u8 num)
 {
 	unsigned int i;
 
@@ -286,7 +283,7 @@ static void copy_transactions(struct transaction_shard *new,
 
 void put_shard_of_hashes_into_block(struct state *state,
 				    struct block *block,
-				    struct transaction_shard *shard)
+				    struct tx_shard *shard)
 {
 	unsigned int num;
 
@@ -297,24 +294,23 @@ void put_shard_of_hashes_into_block(struct state *state,
 
 	/* If we know some transactions already, perform a merge. */
 	if (block->shard[shard->shardnum]) {
-		copy_transactions(shard, block->shard[shard->shardnum], num);
+		copy_txs(shard, block->shard[shard->shardnum], num);
 		tal_free(block->shard[shard->shardnum]);
 	}
 
 	block->shard[shard->shardnum] = tal_steal(block, shard);
-	/* FIXME: add_to_thash(state, block, shard);? */
+	/* FIXME: add_to_txhash(state, block, shard);? */
 }
 
 /* FIXME: Only used by generate.c as an assertion... */
 enum protocol_ecode
-shard_validate_transactions(struct state *state,
-			    struct log *log,
-			    const struct block *block,
-			    struct transaction_shard *shard,
-			    unsigned int *bad_trans,
-			    unsigned int *bad_input_num,
-			    union protocol_transaction *
-			      inputs[TRANSACTION_MAX_INPUTS])
+shard_validate_txs(struct state *state,
+		   struct log *log,
+		   const struct block *block,
+		   struct tx_shard *shard,
+		   unsigned int *bad_trans,
+		   unsigned int *bad_input_num,
+		   union protocol_tx *inputs[TX_MAX_INPUTS])
 {
 	unsigned int i;
 	enum protocol_ecode err;
@@ -334,7 +330,7 @@ shard_validate_transactions(struct state *state,
 		}
 
 		/* Make sure transactions themselves are valid. */
-		err = check_transaction(state, shard->u[i].txp.tx, block,
+		err = check_tx(state, shard->u[i].txp.tx, block,
 					refs_for(shard->u[i].txp),
 					inputs, bad_input_num);
 		if (err) {
@@ -376,12 +372,12 @@ bool check_block_prev_merkles(struct state *state, const struct block *block)
 
 			/* Merkle has block reward address prepended, so you
 			 * can prove you know all the transactions. */
-			merkle_transactions(&block->hdr->fees_to,
-					    sizeof(block->hdr->fees_to),
-					    prev->shard[j]->txp_or_hash,
-					    prev->shard[j]->u,
-					    0, prev->shard_nums[j],
-					    &merkle);
+			merkle_txs(&block->hdr->fees_to,
+				   sizeof(block->hdr->fees_to),
+				   prev->shard[j]->txp_or_hash,
+				   prev->shard[j]->u,
+				   0, prev->shard_nums[j],
+				   &merkle);
 
 			/* We only check one byte; that's enough. */
 			if (merkle.sha[0] != block->prev_merkles[off+j]) {

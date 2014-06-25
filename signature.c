@@ -9,32 +9,31 @@
 #include <openssl/ecdsa.h>
 #include <openssl/obj_mac.h>
 
-static struct protocol_signature *
-get_signature(const union protocol_transaction *t)
+static struct protocol_signature *get_signature(const union protocol_tx *tx)
 {
-	switch (t->hdr.type) {
-	case TRANSACTION_NORMAL:
+	switch (tx->hdr.type) {
+	case TX_NORMAL:
 		return cast_const(struct protocol_signature *,
-				  &t->normal.signature);
-	case TRANSACTION_FROM_GATEWAY:
+				  &tx->normal.signature);
+	case TX_FROM_GATEWAY:
 		return cast_const(struct protocol_signature *,
-				  &t->gateway.signature);
+				  &tx->gateway.signature);
 	default:
 		abort();
 	}
 }	
 
 /* Hash without the signature part (since that's TBA) */
-static void sighash_transaction(const union protocol_transaction *t,
-				struct protocol_double_sha *sha)
+static void sighash_tx(const union protocol_tx *tx,
+		       struct protocol_double_sha *sha)
 {
-	size_t sig_offset, len = marshall_transaction_len(t);
+	size_t sig_offset, len = marshall_tx_len(tx);
 	const char *p;
 	SHA256_CTX shactx;
 
 	/* Offset of signature in bytes. */
-	sig_offset = (char *)get_signature(t) - (char *)t;
-	p = (const char *)t;
+	sig_offset = (char *)get_signature(tx) - (char *)tx;
+	p = (const char *)tx;
 
 	/* Get double sha of transaction. */
 	SHA256_Init(&shactx);
@@ -45,9 +44,9 @@ static void sighash_transaction(const union protocol_transaction *t,
 	SHA256_Double_Final(&shactx, sha);
 }
 
-bool check_trans_sign(const union protocol_transaction *t,
-		      const struct protocol_pubkey *key,
-		      const struct protocol_signature *signature)
+bool check_tx_sign(const union protocol_tx *tx,
+		   const struct protocol_pubkey *key,
+		   const struct protocol_signature *signature)
 {
 	bool ok = false;	
 	BIGNUM r, s;
@@ -57,7 +56,7 @@ bool check_trans_sign(const union protocol_transaction *t,
 	struct protocol_double_sha sha;
 
 	/* Get hash of transaction without sig */
-	sighash_transaction(t, &sha);
+	sighash_tx(tx, &sha);
 
 	/* Unpack public key. */
 	if (!o2i_ECPublicKey(&eckey, &k, sizeof(key->key)))
@@ -96,7 +95,7 @@ out:
 }
 
 
-bool sign_transaction(union protocol_transaction *t, EC_KEY *private_key)
+bool sign_tx(union protocol_tx *tx, EC_KEY *private_key)
 {
 	struct protocol_double_sha sha;
 	ECDSA_SIG *sig;
@@ -104,7 +103,7 @@ bool sign_transaction(union protocol_transaction *t, EC_KEY *private_key)
 	struct protocol_signature *signature;
 
 	/* Get hash of transaction without sig */
-	sighash_transaction(t, &sha);
+	sighash_tx(tx, &sha);
 
 	sig = ECDSA_do_sign(sha.sha, SHA256_DIGEST_LENGTH, private_key);
 	if (!sig)
@@ -127,7 +126,7 @@ bool sign_transaction(union protocol_transaction *t, EC_KEY *private_key)
         }
 
 	/* Pack r and s into signature, 32 bytes each. */
-	signature = get_signature(t);
+	signature = get_signature(tx);
 	memset(signature, 0, sizeof(*signature));
 	len = BN_num_bytes(sig->r);
 	assert(len <= ARRAY_SIZE(signature->r));

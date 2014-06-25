@@ -13,7 +13,9 @@ u8 pending_features(const struct block *block)
 	if (le32_to_cpu(block->hdr->depth) % FEATURE_VOTE_BLOCKS != 0)
 		return block->prev->pending_features;
 
-	for (b = block, i = 0; i < FEATURE_VOTE_BLOCKS; i++, b = b->prev) {
+	for (b = block, i = 0;
+	     i < FEATURE_VOTE_BLOCKS;
+	     i++, b = b->prev) {
 		for (j = 0; j < ARRAY_SIZE(feature_counts); j++) {
 			if (b->hdr->features_vote & (1 << j))
 				feature_counts[j]++;

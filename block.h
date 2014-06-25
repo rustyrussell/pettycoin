@@ -15,20 +15,20 @@
    struct protocol_input_ref ref[num_inputs(tx)];
 */
 struct txptr_with_ref {
-	union protocol_transaction *tx;
+	union protocol_tx *tx;
 };
 
 static inline const struct protocol_input_ref *refs_for(struct txptr_with_ref t)
 {
 	char *p;
 
-	p = (char *)t.tx + marshall_transaction_len(t.tx);
+	p = (char *)t.tx + marshall_tx_len(t.tx);
 	return (struct protocol_input_ref *)p;
 }
 
 /* Convenient routine to allocate adjacent copied of tx and refs */
 struct txptr_with_ref txptr_with_ref(const tal_t *ctx,
-				     const union protocol_transaction *tx,
+				     const union protocol_tx *tx,
 				     const struct protocol_input_ref *refs);
 
 union txp_or_hash {
@@ -39,7 +39,7 @@ union txp_or_hash {
 };
 
 /* Only transactions we've proven are in block go in here! */
-struct transaction_shard {
+struct tx_shard {
 	/* Which shard is this? */
 	u16 shardnum;
 	/* How many transactions do we have?  Faster than counting NULLs */
@@ -53,7 +53,7 @@ struct transaction_shard {
 	union txp_or_hash u[ /* block->shard_nums[shard] */ ];
 };
 
-static inline bool shard_is_tx(const struct transaction_shard *s, u8 txoff)
+static inline bool shard_is_tx(const struct tx_shard *s, u8 txoff)
 {
 	return !bitmap_test_bit(s->txp_or_hash, txoff);
 }
@@ -64,7 +64,7 @@ txrefhash_in_shard(const struct block *b, u16 shard, u8 txoff,
 		   struct protocol_net_txrefhash *scratch);
 
 /* Allocate a new struct transaction_shard. */
-struct transaction_shard *new_shard(const tal_t *ctx, u16 shardnum, u8 num);
+struct tx_shard *new_shard(const tal_t *ctx, u16 shardnum, u8 num);
 
 struct block {
 	/* In state->block_depths[le32_to_cpu(hdr->depth)]. */
@@ -101,7 +101,7 @@ struct block {
 	/* Cache double SHA of block */
 	struct protocol_double_sha sha;
 	/* Transactions: may not be fully populated. */
-	struct transaction_shard **shard;
+	struct tx_shard **shard;
 };
 
 /* Find on this chain. */
@@ -149,10 +149,10 @@ static inline const struct block *genesis_block(const struct state *state)
 void block_add(struct state *state, struct block *b);
 
 /* Get tx_idx'th tx inside shard shardnum inside block. */
-static inline union protocol_transaction *
+static inline union protocol_tx *
 block_get_tx(const struct block *block, u16 shardnum, u8 txoff)
 {
-	const struct transaction_shard *s = block->shard[shardnum];
+	const struct tx_shard *s = block->shard[shardnum];
 
 	assert(shardnum < num_shards(block->hdr));
 	assert(txoff < block->shard_nums[shardnum]);
@@ -169,13 +169,13 @@ block_get_tx(const struct block *block, u16 shardnum, u8 txoff)
 struct protocol_input_ref *block_get_refs(const struct block *block,
 					  u16 shardnum, u8 txoff);
 
-void invalidate_block_badtrans(struct state *state,
-			       struct block *block,
-			       enum protocol_ecode err,
-			       unsigned int bad_shardnum,
-			       unsigned int bad_txoff,
-			       unsigned int bad_input,
-			       union protocol_transaction *bad_intrans);
+void invalidate_block_badtx(struct state *state,
+			    struct block *block,
+			    enum protocol_ecode err,
+			    unsigned int bad_shardnum,
+			    unsigned int bad_txoff,
+			    unsigned int bad_input,
+			    union protocol_tx *bad_intx);
 
 void invalidate_block_misorder(struct state *state,
 			       struct block *block,

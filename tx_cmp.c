@@ -1,15 +1,15 @@
-#include "transaction_cmp.h"
+#include "tx_cmp.h"
 #include "protocol.h"
 #include "marshall.h"
 #include "addr.h"
-#include "transaction.h"
+#include "tx.h"
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
 
 /* Returns < 0 if a before b, > 0 if a after b, 0 if equal. */
-int transaction_cmp(const union protocol_transaction *a,
-		    const union protocol_transaction *b)
+int tx_cmp(const union protocol_tx *a,
+		    const union protocol_tx *b)
 {
 	const struct protocol_address *addra, *addrb;
 	struct protocol_address tmpa, tmpb;
@@ -18,11 +18,11 @@ int transaction_cmp(const union protocol_transaction *a,
 
 	/* We order by upper bits of output. */
 	switch (a->hdr.type) {
-	case TRANSACTION_NORMAL:
+	case TX_NORMAL:
 		pubkey_to_addr(&a->normal.input_key, &tmpa);
 		addra = &tmpa;
 		break;
-	case TRANSACTION_FROM_GATEWAY:
+	case TX_FROM_GATEWAY:
 		addra = &get_gateway_outputs(&a->gateway)[0].output_addr;
 		break;
 	default:
@@ -30,11 +30,11 @@ int transaction_cmp(const union protocol_transaction *a,
 	}
 
 	switch (b->hdr.type) {
-	case TRANSACTION_NORMAL:
+	case TX_NORMAL:
 		pubkey_to_addr(&b->normal.input_key, &tmpb);
 		addrb = &tmpb;
 		break;
-	case TRANSACTION_FROM_GATEWAY:
+	case TX_FROM_GATEWAY:
 		addrb = &get_gateway_outputs(&b->gateway)[0].output_addr;
 		break;
 	default:
@@ -46,8 +46,8 @@ int transaction_cmp(const union protocol_transaction *a,
 		return ret;
 
 	/* We need some (arbitrary but deterministic) secondary order */
-	lena = marshall_transaction_len(a);
-	lenb = marshall_transaction_len(b);
+	lena = marshall_tx_len(a);
+	lenb = marshall_tx_len(b);
 
 	if (lena < lenb) {
 		ret = memcmp(a, b, lena);
