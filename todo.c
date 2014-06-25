@@ -19,7 +19,7 @@ static void get_todo_ptrs(struct state *state,
 		break;
 	case PROTOCOL_PKT_GET_SHARD:
 		*blk = &todo->pkt.get_shard.block;
-		*shardnum = &todo->pkt.get_shard.shardnum;
+		*shardnum = &todo->pkt.get_shard.shard;
 		*txoff = NULL;
 		break;
 	case PROTOCOL_PKT_GET_CHILDREN:

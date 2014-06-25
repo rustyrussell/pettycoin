@@ -345,7 +345,7 @@ struct protocol_pkt_get_shard {
 	le32 type; /* PROTOCOL_PKT_GET_SHARD */
 
 	struct protocol_double_sha block;
-	le16 shardnum;
+	le16 shard;
 	le16 unused;
 };
 
@@ -354,7 +354,7 @@ struct protocol_pkt_get_txmap {
 	le32 len; /* sizeof(struct protocol_pkt_get_txmap) */
 	le32 type; /* PROTOCOL_PKT_GET_TXMAP */
 
-	le16 shardnum;
+	le16 shard;
 	le16 unused;
 };
 
