@@ -4,7 +4,7 @@ MKGENESIS_OBJS := mkgenesis.o shadouble.o marshall.o hash_block.o minimal_log.o
 SIZES_OBJS := sizes.o
 MKPRIV_OBJS := mkpriv.o
 INJECT_OBJS := inject.o base58.o create_transaction.o marshall.o netaddr.o hash_transaction.o minimal_log.o shadouble.o signature.o hash_block.o
-CCAN_OBJS := ccan-asort.o ccan-breakpoint.o ccan-tal.o ccan-tal-path.o ccan-tal-str.o ccan-take.o ccan-list.o ccan-str.o ccan-opt-helpers.o ccan-opt.o ccan-opt-parse.o ccan-opt-usage.o ccan-read_write_all.o ccan-htable.o ccan-io-io.o ccan-io-poll.o ccan-timer.o ccan-time.o ccan-noerr.o ccan-hash.o ccan-isaac64.o ccan-net.o
+CCAN_OBJS := ccan-asort.o ccan-breakpoint.o ccan-tal.o ccan-tal-path.o ccan-tal-str.o ccan-take.o ccan-list.o ccan-str.o ccan-opt-helpers.o ccan-opt.o ccan-opt-parse.o ccan-opt-usage.o ccan-read_write_all.o ccan-htable.o ccan-io-io.o ccan-io-poll.o ccan-timer.o ccan-time.o ccan-noerr.o ccan-hash.o ccan-isaac64.o ccan-net.o ccan-err.o
 CCANDIR=../ccan/
 VERSION:=$(shell git describe --dirty --always 2>/dev/null || echo Unknown)
 #CFLAGS = -O3 -flto -ggdb -I $(CCANDIR) -Wall -DVERSION=\"$(VERSION)\"
@@ -94,6 +94,8 @@ ccan-hash.o: $(CCANDIR)/ccan/hash/hash.c
 ccan-isaac64.o: $(CCANDIR)/ccan/isaac/isaac64.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-net.o: $(CCANDIR)/ccan/net/net.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-err.o: $(CCANDIR)/ccan/err/err.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 -include *.d
