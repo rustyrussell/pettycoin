@@ -8,20 +8,29 @@
 static void get_todo_ptrs(struct state *state,
 			  struct todo_request *todo,
 			  struct protocol_double_sha **blk,
-			  le16 **shardnum)
+			  le16 **shardnum,
+			  u8 **txoff)
 {
 	switch (cpu_to_le32(todo->pkt.hdr.type)) {
 	case PROTOCOL_PKT_GET_BLOCK:
 		*blk = &todo->pkt.get_block.block;
 		*shardnum = NULL;
+		*txoff = NULL;
 		break;
 	case PROTOCOL_PKT_GET_SHARD:
 		*blk = &todo->pkt.get_shard.block;
 		*shardnum = &todo->pkt.get_shard.shardnum;
+		*txoff = NULL;
 		break;
 	case PROTOCOL_PKT_GET_CHILDREN:
 		*blk = &todo->pkt.get_children.block;
 		*shardnum = NULL;
+		*txoff = NULL;
+		break;
+	case PROTOCOL_PKT_GET_TX_IN_BLOCK:
+		*blk = &todo->pkt.get_tx_in_block.block;
+		*shardnum = &todo->pkt.get_tx_in_block.shard;
+		*txoff = &todo->pkt.get_tx_in_block.txoff;
 		break;
 	default:
 		log_broken(state->log, "Unknown todo type ");
@@ -32,46 +41,54 @@ static void get_todo_ptrs(struct state *state,
 }
 
 /* FIXME: Slow! */
+/*
+ * FIXME: Move found todos to the end of the queue?
+ * FIXME: Penalize peers who make us ask too many bad questions? 
+ */
 static struct todo_request *find_todo(struct state *state,
 				      enum protocol_pkt_type type,
 				      const struct protocol_double_sha *blk,
-				      u16 shardnum)
+				      u16 shardnum, u8 txoff)
 {
 	struct todo_request *i;
 
 	list_for_each(&state->todo, i, list) {
 		struct protocol_double_sha *i_sha;
 		le16 *i_shardnum;
+		u8 *i_txoff;
 
 		if (i->pkt.hdr.type != cpu_to_le32(type))
 			continue;
 
-		get_todo_ptrs(state, i, &i_sha, &i_shardnum);
+		get_todo_ptrs(state, i, &i_sha, &i_shardnum, &i_txoff);
 		if (memcmp(i_sha, blk, sizeof(*blk)) != 0)
 			continue;
 		if (i_shardnum && le16_to_cpu(*i_shardnum) != shardnum)
+			continue;
+		if (i_txoff && le16_to_cpu(*i_txoff) != txoff)
 			continue;
 		return i;
 	}
 	return NULL;
 }
 
-#define new_todo_request(state, type, structtype, blocksha, shardnum)	\
+#define new_todo_request(state, type, structtype, blocksha, shardnum, txoff) \
 	((structtype *)new_todo_request_((state), (type), sizeof(structtype), \
-					 (blocksha), (shardnum)))
+					 (blocksha), (shardnum), (txoff)))
 
 static void *new_todo_request_(struct state *state,
 			       enum protocol_pkt_type type,
 			       size_t pktlen,
 			       const struct protocol_double_sha *blk,
-			       unsigned int shardnum)
+			       u16 shardnum, u8 txoff)
 {
 	struct todo_request *t;
 	struct protocol_double_sha *t_sha;
 	le16 *t_shardnum;
+	u8 *t_txoff;
 
 	/* We don't insert duplicates. */
-	if (find_todo(state, type, blk, shardnum))
+	if (find_todo(state, type, blk, shardnum, txoff))
 		return NULL;
 
 	t = tal(state, struct todo_request);
@@ -81,10 +98,12 @@ static void *new_todo_request_(struct state *state,
 	t->pkt.hdr.type = cpu_to_le32(type);
 	t->pkt.hdr.len = cpu_to_le32(pktlen);
 	
-	get_todo_ptrs(state, t, &t_sha, &t_shardnum);
+	get_todo_ptrs(state, t, &t_sha, &t_shardnum, &t_txoff);
 	*t_sha = *blk;
 	if (t_shardnum)
 		*t_shardnum = cpu_to_le16(shardnum);
+	if (t_txoff)
+		*t_txoff = txoff;
 
 	list_add_tail(&state->todo, &t->list);
 
@@ -99,7 +118,7 @@ void todo_add_get_children(struct state *state,
 {
 	new_todo_request(state, PROTOCOL_PKT_GET_CHILDREN,
 			 struct protocol_pkt_get_children,
-			 block, 0);
+			 block, 0, 0);
 }
 
 void todo_add_get_block(struct state *state,
@@ -107,7 +126,7 @@ void todo_add_get_block(struct state *state,
 {
 	new_todo_request(state, PROTOCOL_PKT_GET_BLOCK,
 			 struct protocol_pkt_get_block,
-			 block, 0);
+			 block, 0, 0);
 }
 
 void todo_add_get_shard(struct state *state,
@@ -116,7 +135,17 @@ void todo_add_get_shard(struct state *state,
 {
 	new_todo_request(state, PROTOCOL_PKT_GET_SHARD,
 			 struct protocol_pkt_get_shard,
-			 block, shardnum);
+			 block, shardnum, 0);
+}
+
+
+void todo_add_get_tx_in_block(struct state *state,
+			      const struct protocol_double_sha *block,
+			      u16 shardnum, u8 txoff)
+{
+	new_todo_request(state, PROTOCOL_PKT_GET_TX_IN_BLOCK,
+			 struct protocol_pkt_get_tx_in_block,
+			 block, shardnum, txoff);
 }
 
 void todo_for_peer(struct peer *peer, void *pkt)
@@ -170,7 +199,7 @@ static void delete_todo(struct state *state, struct todo_request *todo)
 static void finish_todo(struct peer *peer,
 			enum protocol_pkt_type type,
 			const struct protocol_double_sha *blk,
-			u16 shardnum,
+			u16 shardnum, u8 txoff,
 			bool success)
 {
 	struct todo_request *todo;
@@ -183,7 +212,7 @@ static void finish_todo(struct peer *peer,
 	log_add_struct(peer->log, struct protocol_double_sha, blk);
 	log_add(peer->log, ":%u", shardnum);
 
-	todo = find_todo(peer->state, type, blk, shardnum);
+	todo = find_todo(peer->state, type, blk, shardnum, txoff);
 	if (!todo) {
 		/* Someone else may have answered */
 		log_debug(peer->log, "Didn't find request, ignoring.");
@@ -206,7 +235,7 @@ static void finish_todo(struct peer *peer,
 		log_add_enum(peer->log, enum protocol_pkt_type, type);
 		log_add(peer->log, " block ");
 		log_add_struct(peer->log, struct protocol_double_sha, blk);
-		log_add(peer->log, ":%u", shardnum);
+		log_add(peer->log, ":%u(%u)", shardnum, txoff);
 	}
 
 	if (success)
@@ -222,21 +251,29 @@ void todo_done_get_children(struct peer *peer,
 			    const struct protocol_double_sha *block,
 			    bool success)
 {
-	finish_todo(peer, PROTOCOL_PKT_GET_CHILDREN, block, 0, success);
+	finish_todo(peer, PROTOCOL_PKT_GET_CHILDREN, block, 0, 0, success);
 }
 
 void todo_done_get_block(struct peer *peer, 
 			 const struct protocol_double_sha *block,
 			 bool success)
 {
-	finish_todo(peer, PROTOCOL_PKT_GET_BLOCK, block, 0, success);
+	finish_todo(peer, PROTOCOL_PKT_GET_BLOCK, block, 0, 0, success);
 }
 
 void todo_done_get_shard(struct peer *peer,
 			 const struct protocol_double_sha *block,
 			 u16 shardnum, bool success)
 {
-	finish_todo(peer, PROTOCOL_PKT_GET_SHARD, block, shardnum, success);
+	finish_todo(peer, PROTOCOL_PKT_GET_SHARD, block, shardnum, 0, success);
+}
+
+void todo_done_get_tx_in_block(struct peer *peer,
+			       const struct protocol_double_sha *block,
+			       u16 shardnum, u8 txoff, bool success)
+{
+	finish_todo(peer, PROTOCOL_PKT_GET_TX_IN_BLOCK,
+		    block, shardnum, txoff, success);
 }
 
 void todo_forget_about_shard(struct state *state,
@@ -245,7 +282,7 @@ void todo_forget_about_shard(struct state *state,
 {
 	struct todo_request *todo;
 
-	todo = find_todo(state, PROTOCOL_PKT_GET_SHARD, block, shardnum);
+	todo = find_todo(state, PROTOCOL_PKT_GET_SHARD, block, shardnum, 0);
 	if (todo) {
 		list_del_from(&state->todo, &todo->list);
 		tal_free(todo);
