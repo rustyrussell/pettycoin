@@ -26,7 +26,7 @@
 
 /* Returns error if bad.  Not sufficient by itself: see check_tx_order,
  * shard_validate_transactions and check_block_prev_merkles! */
-enum protocol_error
+enum protocol_ecode
 check_block_header(struct state *state,
 		   const struct protocol_block_header *hdr,
 		   const u8 *shard_nums,
@@ -37,11 +37,11 @@ check_block_header(struct state *state,
 		   struct protocol_double_sha *sha)
 {
 	struct block *block = (*blockp) = tal(state, struct block);
-	enum protocol_error e;
+	enum protocol_ecode e;
 
 	/* Shouldn't happen, since we check in unmarshall. */
 	if (!version_ok(hdr->version)) {
-		e = PROTOCOL_ERROR_BLOCK_HIGH_VERSION;
+		e = PROTOCOL_ECODE_BLOCK_HIGH_VERSION;
 		memset(sha, 0, sizeof(*sha));
 		goto fail;
 	}
@@ -56,24 +56,24 @@ check_block_header(struct state *state,
 		*sha = block->sha;
 
 	if (!beats_target(&block->sha, le32_to_cpu(tailer->difficulty))) {
-		e = PROTOCOL_ERROR_INSUFFICIENT_WORK;
+		e = PROTOCOL_ECODE_INSUFFICIENT_WORK;
 		goto fail;
 	}
 
 	/* Don't just search on main chain! */
 	block->prev = block_find_any(state, &hdr->prev_block);
 	if (!block->prev) {
-		e = PROTOCOL_ERROR_PRIV_UNKNOWN_PREV;
+		e = PROTOCOL_ECODE_PRIV_UNKNOWN_PREV;
 		goto fail;
 	}
 
 	if (hdr->shard_order != next_shard_order(block->prev)) {
-		e = PROTOCOL_ERROR_BAD_SHARD_ORDER;
+		e = PROTOCOL_ECODE_BAD_SHARD_ORDER;
 		goto fail;
 	}
 
 	if (le32_to_cpu(hdr->depth) != le32_to_cpu(block->prev->hdr->depth)+1) {
-		e = PROTOCOL_ERROR_BAD_DEPTH;
+		e = PROTOCOL_ECODE_BAD_DEPTH;
 		goto fail;
 	}
 
@@ -82,14 +82,14 @@ check_block_header(struct state *state,
 
 	/* Can't go backwards, can't be more than 2 hours in future. */
 	if (!check_timestamp(state, le32_to_cpu(tailer->timestamp),block->prev)){
-		e = PROTOCOL_ERROR_BAD_TIMESTAMP;
+		e = PROTOCOL_ECODE_BAD_TIMESTAMP;
 		goto fail;
 	}
 
 	/* Based on previous blocks, how difficult should this be? */
 	if (le32_to_cpu(tailer->difficulty)
 	    != get_difficulty(state, block->prev)) {
-		e = PROTOCOL_ERROR_BAD_DIFFICULTY;
+		e = PROTOCOL_ECODE_BAD_DIFFICULTY;
 		goto fail;
 	}
 
@@ -107,7 +107,7 @@ check_block_header(struct state *state,
 	block->all_known = false;
 	list_head_init(&block->children);
 
-	return PROTOCOL_ERROR_NONE;
+	return PROTOCOL_ECODE_NONE;
 
 fail:
 	*blockp = tal_free(block);
@@ -306,7 +306,7 @@ void put_shard_of_hashes_into_block(struct state *state,
 }
 
 /* FIXME: Only used by generate.c as an assertion... */
-enum protocol_error
+enum protocol_ecode
 shard_validate_transactions(struct state *state,
 			    struct log *log,
 			    const struct block *block,
@@ -317,7 +317,7 @@ shard_validate_transactions(struct state *state,
 			      inputs[TRANSACTION_MAX_INPUTS])
 {
 	unsigned int i;
-	enum protocol_error err;
+	enum protocol_ecode err;
 
 	for (i = 0; i < block->shard_nums[shard->shardnum]; i++) {
 		u32 tx_shard;
@@ -330,7 +330,7 @@ shard_validate_transactions(struct state *state,
 			log_unusual(log, "Transaction %u in wrong shard"
 				    " (%u vs %u) ", *bad_trans,
 				    tx_shard, shard->shardnum);
-			return PROTOCOL_ERROR_BLOCK_BAD_TX_SHARD;
+			return PROTOCOL_ECODE_BLOCK_BAD_TX_SHARD;
 		}
 
 		/* Make sure transactions themselves are valid. */
@@ -341,12 +341,12 @@ shard_validate_transactions(struct state *state,
 			*bad_trans = get_shard_start(block, shard) + i;
 			log_unusual(log, "Transaction %u gave error ",
 				    *bad_trans);
-			log_add_enum(log, enum protocol_error, err);
+			log_add_enum(log, enum protocol_ecode, err);
 			return err;
 		}
 	}
 
-	return PROTOCOL_ERROR_NONE;
+	return PROTOCOL_ECODE_NONE;
 }
 
 /* Check what we can, using block->prev->...'s shards. */

@@ -155,7 +155,7 @@ int main(int argc, char *argv[])
 	struct block *b, *b2;
 	struct transaction_shard *shard;
 	u8 *prev_merkles;
-	enum protocol_error e;
+	enum protocol_ecode e;
 	struct update update;
 	struct protocol_input_ref *refs;
 
@@ -195,7 +195,7 @@ int main(int argc, char *argv[])
 
 	e = check_block_header(s, &w->hdr, w->shard_nums, w->merkles,
 			       w->prev_merkles, &w->tailer, &b, NULL);
-	assert(e == PROTOCOL_ERROR_NONE);
+	assert(e == PROTOCOL_ECODE_NONE);
 	assert(b);
 	block_add(s, b);
 
@@ -209,7 +209,7 @@ int main(int argc, char *argv[])
 
 	/* This should all be correct. */
 	assert(shard_validate_transactions(s, NULL, b, shard, NULL, NULL, NULL)
-	       == PROTOCOL_ERROR_NONE);
+	       == PROTOCOL_ECODE_NONE);
 	assert(check_tx_order(s, b, shard, NULL, NULL));
 	assert(shard_belongs_in_block(b, shard));
 
@@ -230,7 +230,7 @@ int main(int argc, char *argv[])
 
 	e = check_block_header(s, &w->hdr, w->shard_nums, w->merkles,
 			       w->prev_merkles, &w->tailer, &b2, NULL);
-	assert(e == PROTOCOL_ERROR_NONE);
+	assert(e == PROTOCOL_ECODE_NONE);
 	assert(b2);
 
 	/* This should be correct. */

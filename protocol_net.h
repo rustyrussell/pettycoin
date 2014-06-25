@@ -1,7 +1,7 @@
 #ifndef PETTYCOIN_PROTOCOL_NET_H
 #define PETTYCOIN_PROTOCOL_NET_H
 #include "protocol.h"
-#include "protocol_error.h"
+#include "protocol_ecode.h"
 
 #define PROTOCOL_MAX_PACKET_LEN (4 * 1024 * 1024)
 
@@ -144,7 +144,7 @@ struct protocol_pkt_children {
 	le32 type; /* PROTOCOL_PKT_CHILDREN */
 
 	struct protocol_double_sha block;
-	le32 err; /* PROTOCOL_ERROR_NONE or PROTOCOL_ERROR_UNKNOWN_BLOCK */
+	le32 err; /* PROTOCOL_ECODE_NONE or PROTOCOL_ERROR_UNKNOWN_BLOCK */
 	/* struct protocol_net_syncblock [] */
 };
 
@@ -172,15 +172,15 @@ struct protocol_pkt_block_tx_invalid {
 	le32 type; /* PROTOCOL_REQ_BLOCK_TX_INVALID */
 
 	/* What is wrong with it, one of:
-	 *  PROTOCOL_ERROR_TRANS_HIGH_VERSION
-	 *  PROTOCOL_ERROR_TRANS_LOW_VERSION
-	 *  PROTOCOL_ERROR_TRANS_UNKNOWN
-	 *  PROTOCOL_ERROR_TRANS_BAD_GATEWAY
-	 *  PROTOCOL_ERROR_TRANS_CROSS_SHARDS
-	 *  PROTOCOL_ERROR_TOO_LARGE
-	 *  PROTOCOL_ERROR_TRANS_BAD_SIG
-	 *  PROTOCOL_ERROR_TOO_MANY_INPUTS
-	 *  PROTOCOL_ERROR_SHARD_BAD_INPUT_REF
+	 *  PROTOCOL_ECODE_TRANS_HIGH_VERSION
+	 *  PROTOCOL_ECODE_TRANS_LOW_VERSION
+	 *  PROTOCOL_ECODE_TRANS_UNKNOWN
+	 *  PROTOCOL_ECODE_TRANS_BAD_GATEWAY
+	 *  PROTOCOL_ECODE_TRANS_CROSS_SHARDS
+	 *  PROTOCOL_ECODE_TOO_LARGE
+	 *  PROTOCOL_ECODE_TRANS_BAD_SIG
+	 *  PROTOCOL_ECODE_TOO_MANY_INPUTS
+	 *  PROTOCOL_ECODE_SHARD_BAD_INPUT_REF
 	 */
 	le32 error;
 
@@ -190,7 +190,7 @@ struct protocol_pkt_block_tx_invalid {
 };
 
 /* This block contains an transaction with an invalid input,
- * ie PROTOCOL_ERROR_PRIV_BLOCK_BAD_INPUT_REF. */
+ * ie PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF. */
 struct protocol_pkt_block_tx_bad_input {
 	le32 len; /* sizeof(struct protocol_req_block_tx_bad_input) */
 	le32 type; /* PROTOCOL_REQ_BLOCK_TX_BAD_INPUT */
@@ -205,7 +205,7 @@ struct protocol_pkt_block_tx_bad_input {
 };
 
 /* This block contains an input ref with an invalid input (wrong trans!)
- * ie PROTOCOL_ERROR_PRIV_BLOCK_BAD_INPUT_REF_TRANS. */
+ * ie PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF_TRANS. */
 struct protocol_pkt_block_bad_input_ref {
 	le32 len; /* sizeof(struct protocol_pkt_block_bad_input_ref) */
 	le32 type; /* PROTOCOL_PKT_BLOCK_BAD_INPUT_REF */
@@ -220,7 +220,7 @@ struct protocol_pkt_block_bad_input_ref {
 };
 
 /* This block contains an transaction with an invalid total,
- * ie PROTOCOL_ERROR_TRANS_BAD_AMOUNTS. */
+ * ie PROTOCOL_ECODE_TRANS_BAD_AMOUNTS. */
 struct protocol_pkt_block_tx_bad_amount {
 	le32 len; /* sizeof(struct protocol_req_block_tx_bad_amount) */
 	le32 type; /* PROTOCOL_REQ_BLOCK_TX_BAD_AMOUNT */
@@ -243,8 +243,8 @@ struct protocol_pkt_shard {
 
 	struct protocol_double_sha block;
 	le16 shard;
-	le16 err; /* May be PROTOCOL_ERROR_UNKNOWN_BLOCK or
-		     PROTOCOL_ERROR_UNKNOWN_SHARD */
+	le16 err; /* May be PROTOCOL_ECODE_UNKNOWN_BLOCK or
+		     PROTOCOL_ECODE_UNKNOWN_SHARD */
 
 	/* Only if !err:
 	   struct protocol_net_txrefhash hash[block->shard_nums[shard]];
@@ -394,6 +394,6 @@ struct protocol_pkt_piggyback {
 struct protocol_pkt_err {
 	le32 len; /* sizeof(struct protocol_pkt_err) */
 	le32 type; /* PROTOCOL_PKT_ERR */
-	le32 error; /* enum protocol_error */
+	le32 error; /* enum protocol_ecode */
 };
 #endif /* PETTYCOIN_PROTOCOL_NET_H */

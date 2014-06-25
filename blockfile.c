@@ -19,7 +19,7 @@
 static bool load_block(struct state *state, struct protocol_net_hdr *pkt)
 {
 	struct block *new;
-	enum protocol_error e;
+	enum protocol_ecode e;
 	const u8 *shard_nums;
 	const struct protocol_double_sha *merkles;
 	const u8 *prev_merkles;
@@ -29,12 +29,12 @@ static bool load_block(struct state *state, struct protocol_net_hdr *pkt)
 	e = unmarshall_block(state->log, (void *)pkt,
 			     &hdr, &shard_nums, &merkles, &prev_merkles,
 			     &tailer);
-	if (e != PROTOCOL_ERROR_NONE)
+	if (e != PROTOCOL_ECODE_NONE)
 		return false;
 
 	e = check_block_header(state, hdr, shard_nums, merkles, prev_merkles,
 			       tailer, &new, NULL);
-	if (e != PROTOCOL_ERROR_NONE)
+	if (e != PROTOCOL_ECODE_NONE)
 		return false;
 
 	block_add(state, new);

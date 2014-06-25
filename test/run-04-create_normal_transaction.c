@@ -157,7 +157,7 @@ int main(int argc, char *argv[])
 	struct transaction_shard *shard;
 	struct protocol_input inputs[1];
 	u8 *prev_merkles;
-	enum protocol_error e;
+	enum protocol_ecode e;
 	struct update update;
 	struct protocol_input_ref *refs;
 	union protocol_transaction *intxs[TRANSACTION_MAX_INPUTS];
@@ -193,7 +193,7 @@ int main(int argc, char *argv[])
 
 	e = check_block_header(s, &w->hdr, w->shard_nums, w->merkles,
 			       w->prev_merkles, &w->tailer, &b, NULL);
-	assert(e == PROTOCOL_ERROR_NONE);
+	assert(e == PROTOCOL_ECODE_NONE);
 	assert(b);
 	block_add(s, b);
 
@@ -207,7 +207,7 @@ int main(int argc, char *argv[])
 
 	/* This should all be correct. */
 	assert(shard_validate_transactions(s, NULL, b, shard, NULL, NULL, intxs)
-	       == PROTOCOL_ERROR_NONE);
+	       == PROTOCOL_ECODE_NONE);
 	assert(check_tx_order(s, b, shard, NULL, NULL));
 	assert(shard_belongs_in_block(b, shard));
 
@@ -253,7 +253,7 @@ int main(int argc, char *argv[])
 
 	e = check_block_header(s, &w2->hdr, w2->shard_nums, w2->merkles,
 			       w2->prev_merkles, &w2->tailer, &b2, NULL);
-	assert(e == PROTOCOL_ERROR_NONE);
+	assert(e == PROTOCOL_ECODE_NONE);
 	assert(b2);
 	block_add(s, b2);
 
@@ -267,7 +267,7 @@ int main(int argc, char *argv[])
 
 	/* Should work */
 	assert(shard_validate_transactions(s, NULL, b2, shard, NULL, NULL,intxs)
-	       == PROTOCOL_ERROR_NONE);
+	       == PROTOCOL_ECODE_NONE);
 	assert(check_tx_order(s, b2, shard, NULL, NULL));
 	assert(shard_belongs_in_block(b2, shard));
 

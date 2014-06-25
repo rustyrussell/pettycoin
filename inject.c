@@ -247,7 +247,7 @@ static void ignore_batch_request(int fd, struct protocol_net_hdr *hdr)
 
 	resp.len = cpu_to_le32(sizeof(resp));
 	resp.type = cpu_to_le32(PROTOCOL_RESP_BATCH);
-	resp.error = cpu_to_le32(PROTOCOL_ERROR_UNKNOWN_BLOCK);
+	resp.error = cpu_to_le32(PROTOCOL_ECODE_UNKNOWN_BLOCK);
 	resp.num = cpu_to_le32(0);
 
 	log_unusual(NULL, "Ignoring batch request");

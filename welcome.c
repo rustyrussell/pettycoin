@@ -90,7 +90,7 @@ static size_t popcount(const u8 *bits, size_t num_bits)
 	return n;
 }
 
-enum protocol_error check_welcome(const struct state *state,
+enum protocol_ecode check_welcome(const struct state *state,
 				  const struct protocol_pkt_welcome *w,
 				  const struct protocol_double_sha **blocks)
 {
@@ -99,28 +99,28 @@ enum protocol_error check_welcome(const struct state *state,
 	const struct block *genesis = genesis_block(state);
 
 	if (len < sizeof(*w))
-		return PROTOCOL_INVALID_LEN;
+		return PROTOCOL_ECODE_INVALID_LEN;
 	if (w->type != cpu_to_le32(PROTOCOL_PKT_WELCOME))
-		return PROTOCOL_ERROR_UNKNOWN_COMMAND;
+		return PROTOCOL_ECODE_UNKNOWN_COMMAND;
 	if (w->version != cpu_to_le32(current_version()))
-		return PROTOCOL_ERROR_HIGH_VERSION;
+		return PROTOCOL_ECODE_HIGH_VERSION;
 
 	len -= sizeof(*w);
 
 	/* Check number of shards and shard interest bitmap */
 	if (w->shard_order < PROTOCOL_INITIAL_SHARD_ORDER)
-		return PROTOCOL_ERROR_BAD_SHARD_ORDER;
+		return PROTOCOL_ECODE_BAD_SHARD_ORDER;
 	/* Must be reasonable. */
 	if (w->shard_order > PROTOCOL_MAX_SHARD_ORDER)
-		return PROTOCOL_ERROR_BAD_SHARD_ORDER;
+		return PROTOCOL_ECODE_BAD_SHARD_ORDER;
 
 	/* Interest map follows base welcome struct. */
 	interest = (u8 *)(w + 1);
 	interest_len = (((size_t)1 << w->shard_order) + 31) / 32 * 4;
 	if (len < interest_len)
-		return PROTOCOL_INVALID_LEN;
+		return PROTOCOL_ECODE_INVALID_LEN;
 	if (popcount(interest, (size_t)1 << w->shard_order) < 2)
-		return PROTOCOL_ERROR_NO_INTEREST;
+		return PROTOCOL_ECODE_NO_INTEREST;
 
 	len -= interest_len;
 
@@ -129,14 +129,14 @@ enum protocol_error check_welcome(const struct state *state,
 
 	/* At least one block. */
 	if (le16_to_cpu(w->num_blocks) < 1)
-		return PROTOCOL_INVALID_LEN;
+		return PROTOCOL_ECODE_INVALID_LEN;
 	if (len != le16_to_cpu(w->num_blocks) * sizeof((*blocks)[0]))
-		return PROTOCOL_INVALID_LEN;
+		return PROTOCOL_ECODE_INVALID_LEN;
 
 	/* We must agree on genesis block. */
 	if (memcmp(&(*blocks)[le16_to_cpu(w->num_blocks) - 1],
 		   &genesis->sha, sizeof(genesis->sha)) != 0) 
-		return PROTOCOL_ERROR_WRONG_GENESIS;
+		return PROTOCOL_ECODE_WRONG_GENESIS;
 
-	return PROTOCOL_ERROR_NONE;
+	return PROTOCOL_ECODE_NONE;
 }

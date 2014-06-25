@@ -10,7 +10,7 @@
 #include "log.h"
 #include <assert.h>
 
-enum protocol_error
+enum protocol_ecode
 unmarshall_block_into(struct log *log,
 		      size_t size, const struct protocol_block_header *hdr,
 		      const u8 **shard_nums,
@@ -23,12 +23,12 @@ unmarshall_block_into(struct log *log,
 	if (size < sizeof(*hdr)) {
 		log_unusual(log, "total size %zu < header size %zu",
 			    size, sizeof(*hdr));
-		return PROTOCOL_INVALID_LEN;
+		return PROTOCOL_ECODE_INVALID_LEN;
 	}
 
 	if (!version_ok(hdr->version)) {
 		log_unusual(log, "version %u not OK", hdr->version);
-		return PROTOCOL_ERROR_BLOCK_HIGH_VERSION;
+		return PROTOCOL_ECODE_BLOCK_HIGH_VERSION;
 	}
 
 	/* Make sure we can't ever overflow when we sum transactions. */
@@ -36,7 +36,7 @@ unmarshall_block_into(struct log *log,
 
 	if (hdr->shard_order > PROTOCOL_MAX_SHARD_ORDER) {
 		log_unusual(log, "shard_order %u not OK", hdr->shard_order);
-		return PROTOCOL_ERROR_BAD_SHARD_ORDER;
+		return PROTOCOL_ECODE_BAD_SHARD_ORDER;
 	}
 	len = sizeof(*hdr);
 
@@ -46,7 +46,7 @@ unmarshall_block_into(struct log *log,
 	shard_len = 1 << hdr->shard_order;
 	if (add_overflows(shard_len, len)) {
 		log_unusual(log, "shard_len %zu overflows", shard_len);
-		return PROTOCOL_INVALID_LEN;
+		return PROTOCOL_ECODE_INVALID_LEN;
 	}
 	len += shard_len;
 
@@ -56,14 +56,14 @@ unmarshall_block_into(struct log *log,
 	/* This can't actually happen, but be thorough. */
 	if (mul_overflows(shard_len, sizeof(struct protocol_double_sha))) {
 		log_unusual(log, "merkle_len %zu overflows", shard_len);
-		return PROTOCOL_INVALID_LEN;
+		return PROTOCOL_ECODE_INVALID_LEN;
 	}
 	merkle_len = shard_len * sizeof(struct protocol_double_sha);
 
 	if (add_overflows(len, merkle_len)) {
 		log_unusual(log, "len %zu + merkle_len %zu overflows",
 			    len, merkle_len);
-		return PROTOCOL_INVALID_LEN;
+		return PROTOCOL_ECODE_INVALID_LEN;
 	}
 
 	len += merkle_len;
@@ -73,7 +73,7 @@ unmarshall_block_into(struct log *log,
 	if (add_overflows(len, le32_to_cpu(hdr->num_prev_merkles))) {
 		log_unusual(log, "len %zu + prev_merkles %u overflows",
 			    len, le32_to_cpu(hdr->num_prev_merkles));
-		return PROTOCOL_INVALID_LEN;
+		return PROTOCOL_ECODE_INVALID_LEN;
 	}
 	len += le32_to_cpu(hdr->num_prev_merkles);
 
@@ -84,7 +84,7 @@ unmarshall_block_into(struct log *log,
 	if (add_overflows(len, sizeof(**tailer))) {
 		log_unusual(log, "len %zu + tailer %zu overflows",
 			    len, sizeof(**tailer));
-		return PROTOCOL_INVALID_LEN;
+		return PROTOCOL_ECODE_INVALID_LEN;
 	}
 
 	len += sizeof(**tailer);
@@ -92,14 +92,14 @@ unmarshall_block_into(struct log *log,
 	/* Size must be exactly right. */
 	if (size != len) {
 		log_unusual(log, "len %zu is not expected len %zu", size, len);
-		return PROTOCOL_INVALID_LEN;
+		return PROTOCOL_ECODE_INVALID_LEN;
 	}
 
 	log_debug(log, "unmarshalled block size %zu", size);
-	return PROTOCOL_ERROR_NONE;
+	return PROTOCOL_ECODE_NONE;
 }
 
-enum protocol_error
+enum protocol_ecode
 unmarshall_block(struct log *log,
 		 const struct protocol_pkt_block *pkt,
 		 const struct protocol_block_header **hdr,
@@ -181,62 +181,62 @@ marshall_block(const tal_t *ctx,
 }
 
 /* Make sure transaction is all there. */
-enum protocol_error unmarshall_transaction(const void *buffer, size_t size,
+enum protocol_ecode unmarshall_transaction(const void *buffer, size_t size,
 					   size_t *used)
 {
 	const union protocol_transaction *t = buffer;
 	size_t i, len;
 
 	if (size < sizeof(t->hdr))
-		return PROTOCOL_INVALID_LEN;
+		return PROTOCOL_ECODE_INVALID_LEN;
 
 	if (!version_ok(t->hdr.version))
-		return PROTOCOL_ERROR_TRANS_HIGH_VERSION;
+		return PROTOCOL_ECODE_TRANS_HIGH_VERSION;
 
 	switch (t->hdr.type) {
 	case TRANSACTION_NORMAL:
 		if (size < sizeof(t->normal))
-			return PROTOCOL_INVALID_LEN;
+			return PROTOCOL_ECODE_INVALID_LEN;
 		if (mul_overflows(sizeof(struct protocol_input),
 				  le32_to_cpu(t->normal.num_inputs)))
-			return PROTOCOL_INVALID_LEN;
+			return PROTOCOL_ECODE_INVALID_LEN;
 		i = sizeof(struct protocol_input)
 			* le32_to_cpu(t->normal.num_inputs);
 
 		if (add_overflows(sizeof(t->normal), i))
-			return PROTOCOL_INVALID_LEN;
+			return PROTOCOL_ECODE_INVALID_LEN;
 		len = sizeof(t->normal) + i;
 		break;
 	case TRANSACTION_FROM_GATEWAY:
 		if (size < sizeof(t->gateway))
-			return PROTOCOL_INVALID_LEN;
+			return PROTOCOL_ECODE_INVALID_LEN;
 		
 		if (mul_overflows(sizeof(struct protocol_gateway_payment),
 				  le16_to_cpu(t->gateway.num_outputs)))
-			return PROTOCOL_INVALID_LEN;
+			return PROTOCOL_ECODE_INVALID_LEN;
 		i = sizeof(struct protocol_gateway_payment)
 			* le16_to_cpu(t->gateway.num_outputs);
 
 		if (add_overflows(sizeof(t->gateway), i))
-			return PROTOCOL_INVALID_LEN;
+			return PROTOCOL_ECODE_INVALID_LEN;
 
 		len = sizeof(t->gateway) + i;
 		break;
 	default:
 		/* Unknown type. */
-		return PROTOCOL_ERROR_TRANS_UNKNOWN;
+		return PROTOCOL_ECODE_TRANS_UNKNOWN;
 	}
 
 	if (size < len)
-		return PROTOCOL_INVALID_LEN;
+		return PROTOCOL_ECODE_INVALID_LEN;
 
 	/* If caller expects a remainder, that's OK, otherwise an error. */
 	if (used)
 		*used = len;
 	else if (size != len)
-		return PROTOCOL_INVALID_LEN;
+		return PROTOCOL_ECODE_INVALID_LEN;
 
-	return PROTOCOL_ERROR_NONE;
+	return PROTOCOL_ECODE_NONE;
 }
 
 static size_t varsize_(size_t base, size_t num, size_t fieldsize)
@@ -270,17 +270,17 @@ size_t marshall_transaction_len(const union protocol_transaction *t)
 	abort();
 }
 
-enum protocol_error unmarshall_input_refs(const void *buffer, size_t size,
+enum protocol_ecode unmarshall_input_refs(const void *buffer, size_t size,
 					  const union protocol_transaction *t,
 					  size_t *used)
 {
 	size_t need = marshall_input_ref_len(t);
 
 	if (size < need)
-		return PROTOCOL_INVALID_LEN;
+		return PROTOCOL_ECODE_INVALID_LEN;
 	
 	*used = need;
-	return PROTOCOL_ERROR_NONE;
+	return PROTOCOL_ECODE_NONE;
 }
 
 /* Input refs don't need marshalling */

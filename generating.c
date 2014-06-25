@@ -160,7 +160,7 @@ static struct io_plan got_trans(struct io_conn *conn, struct generator *gen)
 
 	for (shard = 0; shard < (1 << gen->shard_order); shard++) {
 		struct transaction_shard *s;
-		enum protocol_error err;
+		enum protocol_ecode err;
 		unsigned int bad_trans, bad_trans2, bad_input_num;
 		union protocol_transaction *bad_input;
 
@@ -195,7 +195,7 @@ static struct io_plan got_trans(struct io_conn *conn, struct generator *gen)
 			log_broken(gen->log,
 				   "Generator %u gave invalid transaction",
 				   gen->pid);
-			log_add_enum(gen->log, enum protocol_error, err);
+			log_add_enum(gen->log, enum protocol_ecode, err);
 			return io_close();
 		}
 
@@ -238,7 +238,7 @@ static u32 count_transactions(const u8 *shard_nums, u8 shard_order)
 
 static struct io_plan got_solution(struct io_conn *conn, struct generator *gen)
 {
-	enum protocol_error e;
+	enum protocol_ecode e;
 	const u8 *shard_nums;
 	const struct protocol_double_sha *merkles;
 	const u8 *prev_merkles;
@@ -248,7 +248,7 @@ static struct io_plan got_solution(struct io_conn *conn, struct generator *gen)
 
 	e = unmarshall_block(gen->log, gen->pkt_in, &hdr, &shard_nums,
 			     &merkles, &prev_merkles, &tailer);
-	if (e != PROTOCOL_ERROR_NONE) {
+	if (e != PROTOCOL_ECODE_NONE) {
 		log_broken(gen->log, "Generator %u unmarshall error %u",
 			   gen->pid, e);
 		return io_close();
@@ -256,7 +256,7 @@ static struct io_plan got_solution(struct io_conn *conn, struct generator *gen)
 
 	e = check_block_header(gen->state, hdr, shard_nums, merkles,
 			       prev_merkles, tailer, &gen->new, NULL);
-	if (e != PROTOCOL_ERROR_NONE) {
+	if (e != PROTOCOL_ECODE_NONE) {
 		log_broken(gen->log, "Generator %u block error %u",
 			   gen->pid, e);
 		return io_close();

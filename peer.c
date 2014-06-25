@@ -220,7 +220,7 @@ void broadcast_to_peers(struct state *state, const struct protocol_net_hdr *pkt)
 }
 
 static struct protocol_pkt_err *err_pkt(struct peer *peer,
-					enum protocol_error e)
+					enum protocol_ecode e)
 {
 	struct protocol_pkt_err *pkt;
 
@@ -318,7 +318,7 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 		log_debug(peer->log, "Writing error packet ");
 		log_add_enum(peer->log, enum protocol_resp_type,
 			     ((struct protocol_net_hdr *)peer->error_pkt)->type);
-		log_add_enum(peer->log, enum protocol_error,
+		log_add_enum(peer->log, enum protocol_ecode,
 			     ((struct protocol_resp_err *)peer->error_pkt)->error);
 		return io_write_packet(peer, peer->error_pkt, io_close_cb);
 	}
@@ -401,7 +401,7 @@ static struct protocol_resp_err *
 receive_block(struct peer *peer, const struct protocol_req_new_block *req)
 {
 	struct block *new, *b;
-	enum protocol_error e;
+	enum protocol_ecode e;
 	const struct protocol_double_sha *merkles;
 	const u8 *prev_merkles;
 	const struct protocol_block_tailer *tailer;
@@ -411,7 +411,7 @@ receive_block(struct peer *peer, const struct protocol_req_new_block *req)
 
 	e = unmarshall_block_from(peer->log, blocklen, hdr,
 				  &merkles, &prev_merkles, &tailer);
-	if (e != PROTOCOL_ERROR_NONE) {
+	if (e != PROTOCOL_ECODE_NONE) {
 		log_unusual(peer->log, "unmarshalling new block gave %u", e);
 		goto fail;
 	}
@@ -421,7 +421,7 @@ receive_block(struct peer *peer, const struct protocol_req_new_block *req)
 
 	e = check_block_header(peer->state, hdr, merkles, prev_merkles,
 			       tailer, &new);
-	if (e != PROTOCOL_ERROR_NONE) {
+	if (e != PROTOCOL_ECODE_NONE) {
 		log_unusual(peer->log, "checking new block gave %u", e);
 		goto fail;
 	}
@@ -432,7 +432,7 @@ receive_block(struct peer *peer, const struct protocol_req_new_block *req)
 	/* Actually check the previous merkles are correct. */
 	if (!check_block_prev_merkles(peer->state, new)) {
 		log_unusual(peer->log, "new block has bad prev merkles");
-		e = PROTOCOL_ERROR_BAD_PREV_MERKLES;
+		e = PROTOCOL_ECODE_BAD_PREV_MERKLES;
 		/* FIXME: provide proof. */
 		goto fail;
 	}
@@ -479,7 +479,7 @@ receive_batch_req(struct peer *peer,
 	unsigned int i, num;
 
 	if (le32_to_cpu(req->len) != sizeof(*req))
-		return (void *)protocol_resp_err(peer, PROTOCOL_INVALID_LEN);
+		return (void *)protocol_resp_err(peer, PROTOCOL_ECODE_INVALID_LEN);
 
 	r = tal_packet(peer, struct protocol_resp_batch,
 		       PROTOCOL_RESP_BATCH);
@@ -492,7 +492,7 @@ receive_batch_req(struct peer *peer,
 			    "Peer asked PROTOCOL_REQ_BATCH for unknown block ");
 		log_add_struct(peer->log, struct protocol_double_sha,
 			       &req->block);
-		r->error = cpu_to_le32(PROTOCOL_ERROR_UNKNOWN_BLOCK);
+		r->error = cpu_to_le32(PROTOCOL_ECODE_UNKNOWN_BLOCK);
 		return r;
 	}
 
@@ -507,7 +507,7 @@ receive_batch_req(struct peer *peer,
 			num, num_batches_for_block(block));
 		log_add_struct(peer->log, struct protocol_double_sha,
 			       &req->block);
-		r->error = cpu_to_le32(PROTOCOL_ERROR_BAD_BATCHNUM);
+		r->error = cpu_to_le32(PROTOCOL_ECODE_BAD_BATCHNUM);
 		return r;
 	}
 
@@ -519,7 +519,7 @@ receive_batch_req(struct peer *peer,
 			  "We don't know batch %u of ", num);
 		log_add_struct(peer->log, struct protocol_double_sha,
 			       &req->block);
-		r->error = cpu_to_le32(PROTOCOL_ERROR_UNKNOWN_BATCH);
+		r->error = cpu_to_le32(PROTOCOL_ECODE_UNKNOWN_BATCH);
 		return r;
 	}
 
@@ -528,7 +528,7 @@ receive_batch_req(struct peer *peer,
 		tal_packet_append_trans_with_refs(&r, batch->t[i],
 						  batch->refs[i]);
 	r->num = cpu_to_le32(batch->count);
-	r->error = cpu_to_le32(PROTOCOL_ERROR_NONE);
+	r->error = cpu_to_le32(PROTOCOL_ECODE_NONE);
 
 	assert(!peer->response);
 	peer->response = r;
@@ -539,7 +539,7 @@ receive_batch_req(struct peer *peer,
 	return NULL;
 }
 
-static enum protocol_error
+static enum protocol_ecode
 unmarshall_batch(struct log *log,
 		 const struct block *block,
 		 size_t batchnum,
@@ -557,7 +557,7 @@ unmarshall_batch(struct log *log,
 		log_unusual(log, "Peer returned %u not %zu for batch %zu of ",
 			    le32_to_cpu(resp->num), max, batchnum);
 		log_add_struct(log, struct protocol_double_sha, &block->sha);
-		return PROTOCOL_ERROR_DISAGREE_BATCHSIZE;
+		return PROTOCOL_ECODE_DISAGREE_BATCHSIZE;
 	}
 
 	buffer = (char *)(resp + 1);
@@ -565,7 +565,7 @@ unmarshall_batch(struct log *log,
 
 	for (batch->count = 0; batch->count < max; batch->count++) {
 		size_t used;
-		enum protocol_error err;
+		enum protocol_ecode err;
 
 		batch->t[batch->count] = (union protocol_transaction *)buffer;
 		err = unmarshall_transaction(buffer, size, &used);
@@ -575,7 +575,7 @@ unmarshall_batch(struct log *log,
 				    batch->count, max,
 				    le32_to_cpu(resp->len) - size,
 				    le32_to_cpu(resp->len));
-			log_add_enum(log, enum protocol_error, err);
+			log_add_enum(log, enum protocol_ecode, err);
 			return err;
 		}
 		size -= used;
@@ -589,7 +589,7 @@ unmarshall_batch(struct log *log,
 				    batch->count, le32_to_cpu(resp->num),
 				    le32_to_cpu(resp->len) - size,
 				    le32_to_cpu(resp->len));
-			log_add_enum(log, enum protocol_error, err);
+			log_add_enum(log, enum protocol_ecode, err);
 			return err;
 		}
 		size -= used;
@@ -599,10 +599,10 @@ unmarshall_batch(struct log *log,
 	if (size) {
 		log_unusual(log, "Peer resp_batch leftover %zu bytes of %u",
 			    size, le32_to_cpu(resp->len));
-		return PROTOCOL_INVALID_LEN;
+		return PROTOCOL_ECODE_INVALID_LEN;
 	}
 
-	return PROTOCOL_ERROR_NONE;
+	return PROTOCOL_ECODE_NONE;
 }
 
 static struct protocol_req_err *
@@ -610,7 +610,7 @@ receive_batch_resp(struct peer *peer, struct protocol_resp_batch *resp)
 {
 	struct block *block = peer->batch_requested_block;
 	u32 batchnum = peer->batch_requested_num;
-	enum protocol_error err;
+	enum protocol_ecode err;
 	struct transaction_batch *batch;
 	unsigned int bad_transnum, bad_input, bad_transnum2;
 	union protocol_transaction *bad_intrans;
@@ -619,27 +619,27 @@ receive_batch_resp(struct peer *peer, struct protocol_resp_batch *resp)
 		log_unusual(peer->log,
 			    "Peer sent PROTOCOL_RESP_BATCH with bad length %u",
 			    le32_to_cpu(resp->len));
-		return protocol_req_err(peer, PROTOCOL_INVALID_LEN);
+		return protocol_req_err(peer, PROTOCOL_ECODE_INVALID_LEN);
 	}
 
 	switch (le32_to_cpu(resp->error)) {
-	case PROTOCOL_ERROR_NONE:
+	case PROTOCOL_ECODE_NONE:
 		break;
 
-	case PROTOCOL_ERROR_UNKNOWN_BLOCK:
+	case PROTOCOL_ECODE_UNKNOWN_BLOCK:
 		log_unusual(peer->log, "Peer does not know block for batch ");
 		log_add_struct(peer->log, struct protocol_double_sha,
 			       &block->sha);
 		return NULL;
 
-	case PROTOCOL_ERROR_BAD_BATCHNUM:
+	case PROTOCOL_ECODE_BAD_BATCHNUM:
 		log_unusual(peer->log, "Peer does not like batch number %u for ",
 			    batchnum);
 		log_add_struct(peer->log, struct protocol_double_sha,
 			       &block->sha);
-		return protocol_req_err(peer, PROTOCOL_ERROR_DISAGREE_BATCHNUM);
+		return protocol_req_err(peer, PROTOCOL_ECODE_DISAGREE_BATCHNUM);
 
-	case PROTOCOL_ERROR_UNKNOWN_BATCH:
+	case PROTOCOL_ECODE_UNKNOWN_BATCH:
 		/* FIXME: well, don't keep asking then! */
 		log_debug(peer->log, "Peer does not know batch ");
 		log_add_struct(peer->log, struct protocol_double_sha, &block->sha);
@@ -782,7 +782,7 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 		if (peer->curr_out_req != PROTOCOL_REQ_NEW_TRANSACTION)
 			goto unexpected_resp;
 
-		if (le32_to_cpu(resp->error) != PROTOCOL_ERROR_NONE) {
+		if (le32_to_cpu(resp->error) != PROTOCOL_ECODE_NONE) {
 			log_debug(peer->log,
 				  "Error %u on PROTOCOL_RESP_NEW_TRANSACTION ",
 				  le32_to_cpu(resp->error));
@@ -856,7 +856,7 @@ unexpected_resp:
 
 bad_resp_length:
 	log_unusual(peer->log, "Peer sent %u with bad length %u", type, len);
-	peer->error_pkt = protocol_req_err(peer, PROTOCOL_INVALID_LEN);
+	peer->error_pkt = protocol_req_err(peer, PROTOCOL_ECODE_INVALID_LEN);
 	goto send_error;
 
 send_error:
@@ -905,7 +905,7 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 	/* There was an error?  Send that then close. */
 	if (peer->error_pkt) {
 		log_debug(peer->log, "Writing error packet ");
-		log_add_enum(peer->log, enum protocol_error,
+		log_add_enum(peer->log, enum protocol_ecode,
 			     peer->error_pkt->error);
 		return io_write_packet(peer, peer->error_pkt, io_close_cb);
 	}
@@ -928,17 +928,17 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 	return io_wait(peer, plan_output, peer);
 }
 
-static enum protocol_error
+static enum protocol_ecode
 recv_set_filter(struct peer *peer, const struct protocol_pkt_set_filter *pkt)
 {
 	if (le32_to_cpu(pkt->len) != sizeof(*pkt))
-		return PROTOCOL_INVALID_LEN;
+		return PROTOCOL_ECODE_INVALID_LEN;
 
 	if (le64_to_cpu(pkt->filter) == 0)
-		return PROTOCOL_ERROR_FILTER_INVALID;
+		return PROTOCOL_ECODE_FILTER_INVALID;
 
 	if (le64_to_cpu(pkt->offset) > 19)
-		return PROTOCOL_ERROR_FILTER_INVALID;
+		return PROTOCOL_ECODE_FILTER_INVALID;
 
 #if 0 /* FIXME: Implement! */
 	peer->filter = le64_to_cpu(pkt->filter);
@@ -947,7 +947,7 @@ recv_set_filter(struct peer *peer, const struct protocol_pkt_set_filter *pkt)
 
 	/* This is our indication to send them unsolicited txs from now on */
 	peer->they_are_syncing = false;
-	return PROTOCOL_ERROR_NONE;
+	return PROTOCOL_ECODE_NONE;
 }
 
 /* Don't let them flood us with cheap, random blocks. */
@@ -971,11 +971,11 @@ static void seek_predecessor(struct state *state,
 	todo_add_get_block(state, prev);
 }
 
-static enum protocol_error
+static enum protocol_ecode
 recv_block(struct peer *peer, const struct protocol_pkt_block *pkt)
 {
 	struct block *new, *b;
-	enum protocol_error e;
+	enum protocol_ecode e;
 	const struct protocol_double_sha *merkles;
 	const u8 *shard_nums;
 	const u8 *prev_merkles;
@@ -986,7 +986,7 @@ recv_block(struct peer *peer, const struct protocol_pkt_block *pkt)
 	e = unmarshall_block(peer->log, pkt,
 			     &hdr, &shard_nums, &merkles, &prev_merkles,
 			     &tailer);
-	if (e != PROTOCOL_ERROR_NONE) {
+	if (e != PROTOCOL_ECODE_NONE) {
 		log_unusual(peer->log, "unmarshalling new block gave %u", e);
 		return e;
 	}
@@ -999,15 +999,15 @@ recv_block(struct peer *peer, const struct protocol_pkt_block *pkt)
 	/* In case we were asking for this, we're not any more. */
 	todo_done_get_block(peer, &sha, true);
 
-	if (e != PROTOCOL_ERROR_NONE) {
+	if (e != PROTOCOL_ECODE_NONE) {
 		log_unusual(peer->log, "checking new block gave ");
-		log_add_enum(peer->log, enum protocol_error, e);
+		log_add_enum(peer->log, enum protocol_ecode, e);
 
 		/* If it was due to unknown prev, ask about that. */
-		if (e == PROTOCOL_ERROR_PRIV_UNKNOWN_PREV) {
+		if (e == PROTOCOL_ECODE_PRIV_UNKNOWN_PREV) {
 			/* FIXME: Keep it around! */
 			seek_predecessor(peer->state, &sha, &hdr->prev_block);
-			return PROTOCOL_ERROR_NONE;
+			return PROTOCOL_ECODE_NONE;
 		}
 		return e;
 	}
@@ -1020,7 +1020,7 @@ recv_block(struct peer *peer, const struct protocol_pkt_block *pkt)
 		log_unusual(peer->log, "new block has bad prev merkles");
 		/* FIXME: provide proof. */
 		tal_free(new);
-		return PROTOCOL_ERROR_BAD_PREV_MERKLES;
+		return PROTOCOL_ECODE_BAD_PREV_MERKLES;
 	}
 
 	log_debug(peer->log, "New block %u is good!",
@@ -1049,7 +1049,7 @@ recv_block(struct peer *peer, const struct protocol_pkt_block *pkt)
 
 	/* FIXME: Try to guess the batches */
 
-	return PROTOCOL_ERROR_NONE;
+	return PROTOCOL_ECODE_NONE;
 }
 
 static void
@@ -1104,10 +1104,10 @@ complain_about_inputs(struct state *state,
 	todo_for_peer(peer, pkt);
 }
 
-static enum protocol_error
+static enum protocol_ecode
 recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 {
-	enum protocol_error e;
+	enum protocol_ecode e;
 	union protocol_transaction *trans;
 	u32 translen = le32_to_cpu(pkt->len) - sizeof(*pkt);
 	union protocol_transaction *inputs[TRANSACTION_MAX_INPUTS];
@@ -1122,10 +1122,10 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 			      inputs, &bad_input_num);
 
 	/* These two complaints are not fatal. */
-	if (e == PROTOCOL_ERROR_PRIV_TRANS_BAD_INPUT) {
+	if (e == PROTOCOL_ECODE_PRIV_TRANS_BAD_INPUT) {
 		complain_about_input(peer->state, peer, trans,
 				     inputs[bad_input_num], bad_input_num);
-	} else if (e == PROTOCOL_ERROR_PRIV_TRANS_BAD_AMOUNTS) {
+	} else if (e == PROTOCOL_ECODE_PRIV_TRANS_BAD_AMOUNTS) {
 		complain_about_inputs(peer->state, peer, trans);
 	} else if (e) {
 		/* Any other failure is something they should have known */
@@ -1136,20 +1136,20 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 		add_pending_transaction(peer, trans);
 	}
 
-	return PROTOCOL_ERROR_NONE;
+	return PROTOCOL_ECODE_NONE;
 }
 
-static enum protocol_error
+static enum protocol_ecode
 recv_unknown_block(struct peer *peer,
 		   const struct protocol_pkt_unknown_block *pkt)
 {
 	if (le32_to_cpu(pkt->len) != sizeof(*pkt))
-		return PROTOCOL_INVALID_LEN;
+		return PROTOCOL_ECODE_INVALID_LEN;
 
 	/* In case we were asking for this, ask someone else. */
 	todo_done_get_block(peer, &pkt->block, false);
 
-	return PROTOCOL_ERROR_NONE;
+	return PROTOCOL_ECODE_NONE;
 }
 
 static void try_resolve_hashes(struct state *state,
@@ -1179,7 +1179,7 @@ static void try_resolve_hashes(struct state *state,
 	}
 }
 
-static enum protocol_error
+static enum protocol_ecode
 recv_get_shard(struct peer *peer,
 	       const struct protocol_pkt_get_shard *pkt,
 	       void **reply)
@@ -1189,7 +1189,7 @@ recv_get_shard(struct peer *peer,
 	u16 shard;
 
 	if (le32_to_cpu(pkt->len) != sizeof(*pkt))
-		return PROTOCOL_INVALID_LEN;
+		return PROTOCOL_ECODE_INVALID_LEN;
 
 	r = tal_packet(peer, struct protocol_pkt_shard, PROTOCOL_PKT_SHARD);
 	r->block = pkt->block;
@@ -1200,25 +1200,25 @@ recv_get_shard(struct peer *peer,
 	if (!b) {
 		/* If we don't know it, that's OK.  Try to find out. */
 		todo_add_get_block(peer->state, &pkt->block);
-		r->err = cpu_to_le16(PROTOCOL_ERROR_UNKNOWN_BLOCK);
+		r->err = cpu_to_le16(PROTOCOL_ECODE_UNKNOWN_BLOCK);
 	} else if (shard >= num_shards(b->hdr)) {
 		log_unusual(peer->log, "Invalid get_shard for shard %u of ",
 			    shard);
 		log_add_struct(peer->log, struct protocol_double_sha,
 			       &pkt->block);
 		tal_free(r);
-		return PROTOCOL_ERROR_BAD_SHARDNUM;
+		return PROTOCOL_ECODE_BAD_SHARDNUM;
 	} else if (!shard_all_hashes(b, shard)) {
 		log_debug(peer->log, "Don't know all of shard %u of ",
 			    le16_to_cpu(pkt->shard));
 		log_add_struct(peer->log, struct protocol_double_sha,
 			       &pkt->block);
-		r->err = cpu_to_le16(PROTOCOL_ERROR_UNKNOWN_SHARD);
+		r->err = cpu_to_le16(PROTOCOL_ECODE_UNKNOWN_SHARD);
 	} else {
 		unsigned int i;
 
 		/* Success, give them all the hashes. */
-		r->err = cpu_to_le16(PROTOCOL_ERROR_NONE);
+		r->err = cpu_to_le16(PROTOCOL_ECODE_NONE);
 		for (i = 0; i < b->shard_nums[shard]; i++) {
 			struct protocol_net_txrefhash hashes;
 			const struct protocol_net_txrefhash *p;
@@ -1230,7 +1230,7 @@ recv_get_shard(struct peer *peer,
 	}
 
 	*reply = r;
-	return PROTOCOL_ERROR_NONE;
+	return PROTOCOL_ECODE_NONE;
 }
 
 /* If we don't know block, ask about block.
@@ -1240,7 +1240,7 @@ recv_get_shard(struct peer *peer,
  *      Otherwise, place in block.
  *	Save batch to disk.
  */
-static enum protocol_error
+static enum protocol_ecode
 recv_shard(struct peer *peer, const struct protocol_pkt_shard *pkt)
 {
 	struct block *b;
@@ -1250,7 +1250,7 @@ recv_shard(struct peer *peer, const struct protocol_pkt_shard *pkt)
 	struct transaction_shard *s;
 
 	if (le32_to_cpu(pkt->len) < sizeof(*pkt))
-		return PROTOCOL_INVALID_LEN;
+		return PROTOCOL_ECODE_INVALID_LEN;
 
 	shard = le16_to_cpu(pkt->shard);
 
@@ -1258,7 +1258,7 @@ recv_shard(struct peer *peer, const struct protocol_pkt_shard *pkt)
 	if (!b) {
 		/* If we don't know it, that's OK.  Try to find out. */
 		todo_add_get_block(peer->state, &pkt->block);
-		return PROTOCOL_ERROR_NONE;
+		return PROTOCOL_ECODE_NONE;
 	}
 
 	if (shard >= num_shards(b->hdr)) {
@@ -1266,27 +1266,27 @@ recv_shard(struct peer *peer, const struct protocol_pkt_shard *pkt)
 			    shard);
 		log_add_struct(peer->log, struct protocol_double_sha,
 			       &pkt->block);
-		return PROTOCOL_ERROR_BAD_SHARDNUM;
+		return PROTOCOL_ECODE_BAD_SHARDNUM;
 	}
 
-	if (le16_to_cpu(pkt->err) != PROTOCOL_ERROR_NONE) {
+	if (le16_to_cpu(pkt->err) != PROTOCOL_ECODE_NONE) {
 		/* Error can't have anything appended. */
 		if (le32_to_cpu(pkt->len) != sizeof(*pkt))
-			return PROTOCOL_INVALID_LEN;
+			return PROTOCOL_ECODE_INVALID_LEN;
 		/* We failed to get shard. */
 		todo_done_get_shard(peer, &pkt->block, shard, false);
-		if (le16_to_cpu(pkt->err) == PROTOCOL_ERROR_UNKNOWN_BLOCK)
+		if (le16_to_cpu(pkt->err) == PROTOCOL_ECODE_UNKNOWN_BLOCK)
 			/* Implies it doesn't know block, so don't ask. */
 			todo_done_get_block(peer, &pkt->block, false);
-		else if (le16_to_cpu(pkt->err) != PROTOCOL_ERROR_UNKNOWN_SHARD)
-			return PROTOCOL_ERROR_UNKNOWN_ERRCODE;
-		return PROTOCOL_ERROR_NONE;
+		else if (le16_to_cpu(pkt->err) != PROTOCOL_ECODE_UNKNOWN_SHARD)
+			return PROTOCOL_ECODE_UNKNOWN_ERRCODE;
+		return PROTOCOL_ECODE_NONE;
 	}
 
 	/* Should have appended all txrefhashes. */
 	if (le32_to_cpu(pkt->len)
 	    != sizeof(*pkt) + b->shard_nums[shard] * sizeof(*hash))
-		return PROTOCOL_INVALID_LEN;
+		return PROTOCOL_ECODE_INVALID_LEN;
 
 	hash = (struct protocol_net_txrefhash *)(pkt + 1);
 	s = new_shard(peer->state, shard, b->shard_nums[shard]);
@@ -1303,7 +1303,7 @@ recv_shard(struct peer *peer, const struct protocol_pkt_shard *pkt)
 
 	if (!shard_belongs_in_block(b, s)) {
 		tal_free(s);
-		return PROTOCOL_ERROR_BAD_MERKLE;
+		return PROTOCOL_ECODE_BAD_MERKLE;
 	}
 
 	/* This may resolve some of the txs if we know them already. */
@@ -1319,7 +1319,7 @@ recv_shard(struct peer *peer, const struct protocol_pkt_shard *pkt)
 	/* FIXME: re-check pending transactions with unknown inputs
 	 * now we know more, or pendings which might be invalidated. */
 
-	return PROTOCOL_ERROR_NONE;
+	return PROTOCOL_ECODE_NONE;
 }
 
 static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
@@ -1327,7 +1327,7 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 	const struct protocol_net_hdr *hdr = peer->incoming;
 	tal_t *ctx = tal_arr(peer, char, 0);
 	u32 len, type;
-	enum protocol_error err;
+	enum protocol_ecode err;
 	void *reply = NULL;
 
 	len = le32_to_cpu(hdr->len);
@@ -1344,7 +1344,7 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 		if (len == sizeof(struct protocol_pkt_err)) {
 			struct protocol_pkt_err *p = peer->incoming;
 			log_unusual(peer->log, "Received PROTOCOL_PKT_ERR ");
-			log_add_enum(peer->log, enum protocol_error,
+			log_add_enum(peer->log, enum protocol_ecode,
 				     cpu_to_le32(p->error));
 		} else {
 			log_unusual(peer->log,
@@ -1388,7 +1388,7 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 		 *	Save TX to disk.
 		 */
 	default:
-		err = PROTOCOL_ERROR_UNKNOWN_COMMAND;
+		err = PROTOCOL_ECODE_UNKNOWN_COMMAND;
 	}
 
 	if (err) {
@@ -1414,17 +1414,17 @@ static struct io_plan check_sync_or_horizon(struct io_conn *conn,
 					    struct peer *peer)
 {
 	const struct protocol_net_hdr *hdr = peer->incoming;
-	enum protocol_error err;
+	enum protocol_ecode err;
 
 	if (le32_to_cpu(hdr->type) == PROTOCOL_PKT_HORIZON)
 		err = recv_horizon_pkt(peer, peer->incoming);
 	else if (le32_to_cpu(hdr->type) == PROTOCOL_PKT_SYNC)
 		err = recv_sync_pkt(peer, peer->incoming);
 	else {
-		err = PROTOCOL_ERROR_UNKNOWN_COMMAND;
+		err = PROTOCOL_ECODE_UNKNOWN_COMMAND;
 	}
 
-	if (err != PROTOCOL_ERROR_NONE)
+	if (err != PROTOCOL_ECODE_NONE)
 		return io_write_packet(peer, err_pkt(peer, err), io_close_cb);
 
 	/* Time to go duplex on this connection. */
@@ -1450,7 +1450,7 @@ static struct io_plan recv_sync_or_horizon(struct io_conn *conn,
 static struct io_plan welcome_received(struct io_conn *conn, struct peer *peer)
 {
 	struct state *state = peer->state;
-	enum protocol_error e;
+	enum protocol_ecode e;
 	const struct block *mutual;
 
 	log_debug(peer->log, "Their welcome received");
@@ -1466,9 +1466,9 @@ static struct io_plan welcome_received(struct io_conn *conn, struct peer *peer)
 	}
 
 	e = check_welcome(state, peer->welcome, &peer->welcome_blocks);
-	if (e != PROTOCOL_ERROR_NONE) {
+	if (e != PROTOCOL_ECODE_NONE) {
 		log_unusual(peer->log, "Peer welcome was invalid:");
-		log_add_enum(peer->log, enum protocol_error, e);
+		log_add_enum(peer->log, enum protocol_ecode, e);
 		return io_write_packet(peer, err_pkt(peer, e), io_close_cb);
 	}
 

@@ -171,7 +171,7 @@ struct protocol_input_ref *block_get_refs(const struct block *block,
 
 void invalidate_block_badtrans(struct state *state,
 			       struct block *block,
-			       enum protocol_error err,
+			       enum protocol_ecode err,
 			       unsigned int bad_shardnum,
 			       unsigned int bad_txoff,
 			       unsigned int bad_input,

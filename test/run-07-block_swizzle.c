@@ -153,7 +153,7 @@ int main(int argc, char *argv[])
 	u8 *prev_merkles;
 	unsigned int i, j;
 	struct block *b[5], *b_alt[3], *prev;
-	enum protocol_error e;
+	enum protocol_ecode e;
 
 	pseudorand_init();
 	s = new_state(true);
@@ -173,7 +173,7 @@ int main(int argc, char *argv[])
 		e = check_block_header(s, &w->hdr, w->shard_nums, w->merkles,
 				       w->prev_merkles, &w->tailer, &b[i],
 				       NULL);
-		assert(e == PROTOCOL_ERROR_NONE);
+		assert(e == PROTOCOL_ECODE_NONE);
 		assert(b[i]);
 		block_add(s, b[i]);
 		assert(tal_count(s->longest_chains) == 1);
@@ -198,7 +198,7 @@ int main(int argc, char *argv[])
 		e = check_block_header(s, &w->hdr, w->shard_nums, w->merkles,
 				       w->prev_merkles, &w->tailer, &b_alt[i],
 				       NULL);
-		assert(e == PROTOCOL_ERROR_NONE);
+		assert(e == PROTOCOL_ECODE_NONE);
 		assert(b_alt[i]);
 		block_add(s, b_alt[i]);
 		if (i == 0) {
@@ -228,7 +228,7 @@ int main(int argc, char *argv[])
 	fake_time++;
 	e = check_block_header(s, &w->hdr, w->shard_nums, w->merkles,
 			       w->prev_merkles, &w->tailer, &b_alt[2], NULL);
-	assert(e == PROTOCOL_ERROR_NONE);
+	assert(e == PROTOCOL_ECODE_NONE);
 	assert(b_alt[2]);
 	block_add(s, b_alt[2]);
 
@@ -251,7 +251,7 @@ int main(int argc, char *argv[])
 	e = check_block_header(s, &w->hdr, w->shard_nums, w->merkles,
 			       w->prev_merkles, &w->tailer, &b[3],
 			       NULL);
-	assert(e == PROTOCOL_ERROR_NONE);
+	assert(e == PROTOCOL_ECODE_NONE);
 	assert(b[3]);
 	block_add(s, b[3]);
 
@@ -276,7 +276,7 @@ int main(int argc, char *argv[])
 	e = check_block_header(s, &w->hdr, w->shard_nums, w->merkles,
 			       w->prev_merkles, &w->tailer, &b[4],
 			       NULL);
-	assert(e == PROTOCOL_ERROR_NONE);
+	assert(e == PROTOCOL_ECODE_NONE);
 	assert(b[4]);
 	block_add(s, b[4]);
 

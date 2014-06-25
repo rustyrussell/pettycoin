@@ -178,7 +178,7 @@ void *sync_or_horizon_pkt(struct peer *peer, const struct block *mutual)
 	return sync_pkt(peer, horizon, mutual);
 }
 
-enum protocol_error recv_sync_pkt(struct peer *peer,
+enum protocol_ecode recv_sync_pkt(struct peer *peer,
 				  const struct protocol_pkt_sync *sync)
 {
 	u32 len, num;
@@ -189,31 +189,31 @@ enum protocol_error recv_sync_pkt(struct peer *peer,
 	len = le32_to_cpu(sync->len) - sizeof(struct protocol_net_hdr);
 	num = len / sizeof(struct protocol_net_syncblock);
 	if (len % sizeof(struct protocol_net_syncblock) || num == 0)
-		return PROTOCOL_INVALID_LEN;
+		return PROTOCOL_ECODE_INVALID_LEN;
 
 	s = (void *)(sync + 1);
 
 	for (i = num - 1; i < num; i--) {
 		b = block_find_any(peer->state, &s[i].block);
 		if (!b)
-			return PROTOCOL_ERROR_UNKNOWN_BLOCK;
+			return PROTOCOL_ECODE_UNKNOWN_BLOCK;
 
 		/* This means we ask if they're way ahead. */
 		if (num_children(b, prev, 0) < le32_to_cpu(s[i].children))
 			todo_add_get_children(peer->state, &b->sha);
 	}
 
-	return PROTOCOL_ERROR_NONE;
+	return PROTOCOL_ECODE_NONE;
 }
 
-enum protocol_error recv_horizon_pkt(struct peer *peer,
+enum protocol_ecode recv_horizon_pkt(struct peer *peer,
 				     const struct protocol_pkt_horizon *horiz)
 {
 	/* FIXME: Implement horizon! */
-	return PROTOCOL_ERROR_UNKNOWN_COMMAND; /* AKA: I suck */
+	return PROTOCOL_ECODE_UNKNOWN_COMMAND; /* AKA: I suck */
 }
 
-enum protocol_error
+enum protocol_ecode
 recv_get_children(struct peer *peer,
 		  const struct protocol_pkt_get_children *pkt,
 		  void **reply)
@@ -222,7 +222,7 @@ recv_get_children(struct peer *peer,
 	struct protocol_pkt_children *r;
 
 	if (le32_to_cpu(pkt->len) != sizeof(*pkt))
-		return PROTOCOL_INVALID_LEN;
+		return PROTOCOL_ECODE_INVALID_LEN;
 
 	*reply = r = tal_packet(peer, struct protocol_pkt_children,
 				PROTOCOL_PKT_CHILDREN);
@@ -234,10 +234,10 @@ recv_get_children(struct peer *peer,
 		log_debug(peer->log, "unknown get_children block ");
 		log_add_struct(peer->log, struct protocol_double_sha,
 			       &pkt->block);
-		r->err = cpu_to_le32(PROTOCOL_ERROR_UNKNOWN_BLOCK);
-		return PROTOCOL_ERROR_NONE;
+		r->err = cpu_to_le32(PROTOCOL_ECODE_UNKNOWN_BLOCK);
+		return PROTOCOL_ECODE_NONE;
 	}
-	r->err = cpu_to_le32(PROTOCOL_ERROR_NONE);
+	r->err = cpu_to_le32(PROTOCOL_ECODE_NONE);
 
 	log_debug(peer->log, "Creating children block for ");
 	log_add_struct(peer->log, struct protocol_double_sha,
@@ -257,10 +257,10 @@ recv_get_children(struct peer *peer,
 		assert(block_find_any(peer->state, &s.block));
 	}
 
-	return PROTOCOL_ERROR_NONE;
+	return PROTOCOL_ECODE_NONE;
 }
 
-enum protocol_error
+enum protocol_ecode
 recv_get_block(struct peer *peer,
 	       const struct protocol_pkt_get_block *pkt,
 	       void **reply)
@@ -268,7 +268,7 @@ recv_get_block(struct peer *peer,
 	struct block *b;
 
 	if (le32_to_cpu(pkt->len) != sizeof(*pkt))
-		return PROTOCOL_INVALID_LEN;
+		return PROTOCOL_ECODE_INVALID_LEN;
 
 	b = block_find_any(peer->state, &pkt->block);
 	if (b) {
@@ -289,10 +289,10 @@ recv_get_block(struct peer *peer,
 		*reply = r;
 	}
 
-	return PROTOCOL_ERROR_NONE;
+	return PROTOCOL_ECODE_NONE;
 }
 
-enum protocol_error recv_children(struct peer *peer,
+enum protocol_ecode recv_children(struct peer *peer,
 				  const struct protocol_pkt_children *pkt)
 {
 	u32 len, num, i;
@@ -300,17 +300,17 @@ enum protocol_error recv_children(struct peer *peer,
 	struct protocol_net_syncblock *s;
 
 	if (le32_to_cpu(pkt->len) < sizeof(*pkt))
-		return PROTOCOL_INVALID_LEN;
+		return PROTOCOL_ECODE_INVALID_LEN;
 
 	parent = block_find_any(peer->state, &pkt->block);
 	if (!parent)
-		return PROTOCOL_ERROR_UNKNOWN_BLOCK;
+		return PROTOCOL_ECODE_UNKNOWN_BLOCK;
 
-	if (le32_to_cpu(pkt->err) != PROTOCOL_ERROR_NONE) {
+	if (le32_to_cpu(pkt->err) != PROTOCOL_ECODE_NONE) {
 		if (le32_to_cpu(pkt->len) != sizeof(*pkt))
-			return PROTOCOL_INVALID_LEN;
-		if (le32_to_cpu(pkt->err) != PROTOCOL_ERROR_UNKNOWN_BLOCK)
-			return PROTOCOL_ERROR_UNKNOWN_COMMAND;
+			return PROTOCOL_ECODE_INVALID_LEN;
+		if (le32_to_cpu(pkt->err) != PROTOCOL_ECODE_UNKNOWN_BLOCK)
+			return PROTOCOL_ECODE_UNKNOWN_COMMAND;
 		/* They don't know the block.  OK. */
 		todo_done_get_children(peer, &pkt->block, false);
 	}
@@ -318,7 +318,7 @@ enum protocol_error recv_children(struct peer *peer,
 	len = le32_to_cpu(pkt->len) - sizeof(*pkt);
 	num = len / sizeof(struct protocol_net_syncblock);
 	if (len % sizeof(struct protocol_net_syncblock))
-		return PROTOCOL_INVALID_LEN;
+		return PROTOCOL_ECODE_INVALID_LEN;
 
 	s = (void *)(pkt + 1);
 	for (i = 0; i < num; i++) {
@@ -337,7 +337,7 @@ enum protocol_error recv_children(struct peer *peer,
 	/* FIXME: If we expected more children, mark this as false? */
 	todo_done_get_children(peer, &pkt->block, true);
 
-	return PROTOCOL_ERROR_NONE;
+	return PROTOCOL_ECODE_NONE;
 }
 			
 

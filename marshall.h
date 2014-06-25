@@ -8,7 +8,7 @@
 struct log;
 
 /* Unmarshall block from wire transfer. */
-enum protocol_error
+enum protocol_ecode
 unmarshall_block(struct log *log,
 		 const struct protocol_pkt_block *pkt,
 		 const struct protocol_block_header **hdr,
@@ -18,7 +18,7 @@ unmarshall_block(struct log *log,
 		 const struct protocol_block_tailer **tailer);
 
 /* Does version and simple sanity checks. */
-enum protocol_error
+enum protocol_ecode
 unmarshall_block_into(struct log *log,
 		      size_t size, const struct protocol_block_header *hdr,
 		      const u8 **shard_nums,
@@ -47,13 +47,13 @@ void marshall_block_into(void *dst,
 			 const struct protocol_block_tailer *tailer);
 
 /* Unmarshall transaction: does version and simple sanity checking. */
-enum protocol_error unmarshall_transaction(const void *buffer, size_t size,
+enum protocol_ecode unmarshall_transaction(const void *buffer, size_t size,
 					   size_t *used);
 
 /* Transactions don't need marshalling. */
 size_t marshall_transaction_len(const union protocol_transaction *t);
 
-enum protocol_error unmarshall_input_refs(const void *buffer, size_t size,
+enum protocol_ecode unmarshall_input_refs(const void *buffer, size_t size,
 					  const union protocol_transaction *t,
 					  size_t *used);
 /* Input refs don't need marshalling */

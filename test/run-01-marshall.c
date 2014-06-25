@@ -24,7 +24,7 @@ static void test_marshall(const struct protocol_block_header *hdr,
 
 	assert(unmarshall_block(NULL, pkt, &hdr2,
 				&shard_nums2, &merkles2, &prev_merkles2,
-				&tailer2) == PROTOCOL_ERROR_NONE);
+				&tailer2) == PROTOCOL_ECODE_NONE);
 	assert(memcmp(hdr2, hdr, sizeof(*hdr)) == 0);
 	assert(memcmp(shard_nums2, shard_nums, 
 		      sizeof(*shard_nums) << hdr->shard_order) == 0);

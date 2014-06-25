@@ -20,7 +20,7 @@ struct protocol_block_header *unmarshall_block_header(void *buffer,
    Not sufficient by itself: see check_block_prev_merkles! 
    sha is set if not NULL (even if error occurs).
 */
-enum protocol_error
+enum protocol_ecode
 check_block_header(struct state *state,
 		   const struct protocol_block_header *hdr,
 		   const u8 *shard_nums,
@@ -42,7 +42,7 @@ bool check_tx_order(struct state *state,
 		    unsigned int *bad_transnum2);
 
 /* Are all the transactions valid? */
-enum protocol_error
+enum protocol_ecode
 shard_validate_transactions(struct state *state,
 			    struct log *log,
 			    const struct block *block,

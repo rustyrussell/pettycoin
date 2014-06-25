@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 	assert(memcmp(&out[0].output_addr, helper_addr(0),
 		      sizeof(out[0].output_addr)) == 0);
 
-	assert(check_transaction(s, t, NULL, NULL, NULL, NULL) == PROTOCOL_ERROR_NONE);
+	assert(check_transaction(s, t, NULL, NULL, NULL, NULL) == PROTOCOL_ECODE_NONE);
 
 	/* Two payments (must be same shard!) */
 	payment = tal_arr(s, struct protocol_gateway_payment, 2);
@@ -76,61 +76,61 @@ int main(int argc, char *argv[])
 		      sizeof(out[1].output_addr)) == 0);
 
 	assert(check_transaction(s, t, NULL, NULL, NULL, NULL)
-	       == PROTOCOL_ERROR_NONE);
+	       == PROTOCOL_ECODE_NONE);
 
 	/* Now try changing it. */
 	t->gateway.version++;
 	assert(check_transaction(s, t, NULL, NULL, NULL, NULL)
-	       == PROTOCOL_ERROR_TRANS_HIGH_VERSION);
+	       == PROTOCOL_ECODE_TRANS_HIGH_VERSION);
 	t->gateway.version--;
 
 	t->gateway.features++;
 	assert(check_transaction(s, t, NULL, NULL, NULL, NULL)
-	       == PROTOCOL_ERROR_TRANS_BAD_SIG);
+	       == PROTOCOL_ECODE_TRANS_BAD_SIG);
 	t->gateway.features--;
 
 	t->gateway.type++;
 	assert(check_transaction(s, t, NULL, NULL, NULL, NULL)
-	       == PROTOCOL_ERROR_TRANS_UNKNOWN);
+	       == PROTOCOL_ECODE_TRANS_UNKNOWN);
 	t->gateway.type--;
 
 	t->gateway.num_outputs = cpu_to_le16(le16_to_cpu(t->gateway.num_outputs)
 					     - 1);
 	assert(check_transaction(s, t, NULL, NULL, NULL, NULL)
-	       == PROTOCOL_ERROR_TRANS_BAD_SIG);
+	       == PROTOCOL_ECODE_TRANS_BAD_SIG);
 	t->gateway.num_outputs = cpu_to_le16(le16_to_cpu(t->gateway.num_outputs)
 					     + 1);
 
 	out[0].send_amount ^= cpu_to_le32(1);
 	assert(check_transaction(s, t, NULL, NULL, NULL, NULL)
-	       == PROTOCOL_ERROR_TRANS_BAD_SIG);
+	       == PROTOCOL_ECODE_TRANS_BAD_SIG);
 	out[0].send_amount ^= cpu_to_le32(1);
 
 	out[0].output_addr.addr[0]++;
 	assert(check_transaction(s, t, NULL, NULL, NULL, NULL)
-	       == PROTOCOL_ERROR_TRANS_BAD_SIG);
+	       == PROTOCOL_ECODE_TRANS_BAD_SIG);
 	out[0].output_addr.addr[0]--;
 
 	out[1].send_amount ^= cpu_to_le32(1);
 	assert(check_transaction(s, t, NULL, NULL, NULL, NULL)
-	       == PROTOCOL_ERROR_TRANS_BAD_SIG);
+	       == PROTOCOL_ECODE_TRANS_BAD_SIG);
 	out[1].send_amount ^= cpu_to_le32(1);
 
 	out[1].output_addr.addr[0]++;
 	assert(check_transaction(s, t, NULL, NULL, NULL, NULL)
-	       == PROTOCOL_ERROR_TRANS_BAD_SIG);
+	       == PROTOCOL_ECODE_TRANS_BAD_SIG);
 	out[1].output_addr.addr[0]--;
 
 	/* We restored it ok? */
 	assert(check_transaction(s, t, NULL, NULL, NULL, NULL)
-	       == PROTOCOL_ERROR_NONE);
+	       == PROTOCOL_ECODE_NONE);
 
 	/* Try signing it with non-gateway key. */
 	t = create_gateway_transaction(s, helper_public_key(0),
 				       2, 12, payment,
 				       helper_private_key(0));
 	assert(check_transaction(s, t, NULL, NULL, NULL, NULL)
-	       == PROTOCOL_ERROR_TRANS_BAD_GATEWAY);
+	       == PROTOCOL_ECODE_TRANS_BAD_GATEWAY);
 
 	tal_free(s);
 	return 0;

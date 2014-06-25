@@ -268,7 +268,7 @@ invalidate_block_bad_amounts(struct state *state,
 static void
 invalidate_block_bad_transaction(struct state *state,
 				 struct block *block,
-				 enum protocol_error err,
+				 enum protocol_ecode err,
 				 const union protocol_transaction *trans,
 				 const struct protocol_input_ref *refs,
 				 unsigned int bad_shardnum,
@@ -282,7 +282,7 @@ invalidate_block_bad_transaction(struct state *state,
 		bad_txoff, bad_shardnum);
 	log_add_struct(state->log, union protocol_transaction, trans);
 	log_add(state->log, " error ");
-	log_add_enum(state->log, enum protocol_error, err);
+	log_add_enum(state->log, enum protocol_ecode, err);
 
 	req = tal_packet(block, struct protocol_pkt_block_tx_invalid,
 			 PROTOCOL_PKT_BLOCK_TX_INVALID);
@@ -361,10 +361,10 @@ invalidate_block_bad_input_ref_trans(struct state *state,
 }
 
 /* See check_trans_normal_inputs: bad_input and bad_intrans are valid
- * iff err = PROTOCOL_ERROR_PRIV_TRANS_BAD_INPUT. */
+ * iff err = PROTOCOL_ECODE_PRIV_TRANS_BAD_INPUT. */
 void invalidate_block_badtrans(struct state *state,
 			       struct block *block,
-			       enum protocol_error err,
+			       enum protocol_ecode err,
 			       unsigned int bad_shardnum,
 			       unsigned int bad_txoff,
 			       unsigned int bad_input,
@@ -377,25 +377,25 @@ void invalidate_block_badtrans(struct state *state,
 	refs = block_get_refs(block, bad_shardnum, bad_txoff);
 
 	switch (err) {
-	case PROTOCOL_ERROR_TRANS_HIGH_VERSION:
-	case PROTOCOL_ERROR_TRANS_LOW_VERSION:
-	case PROTOCOL_ERROR_TRANS_UNKNOWN:
-	case PROTOCOL_ERROR_TOO_LARGE:
-	case PROTOCOL_ERROR_TRANS_BAD_SIG:
+	case PROTOCOL_ECODE_TRANS_HIGH_VERSION:
+	case PROTOCOL_ECODE_TRANS_LOW_VERSION:
+	case PROTOCOL_ECODE_TRANS_UNKNOWN:
+	case PROTOCOL_ECODE_TOO_LARGE:
+	case PROTOCOL_ECODE_TRANS_BAD_SIG:
 		break;
 
-	case PROTOCOL_ERROR_TRANS_BAD_GATEWAY:
-	case PROTOCOL_ERROR_TRANS_CROSS_SHARDS:
+	case PROTOCOL_ECODE_TRANS_BAD_GATEWAY:
+	case PROTOCOL_ECODE_TRANS_CROSS_SHARDS:
 		assert(trans->hdr.type == TRANSACTION_FROM_GATEWAY);
 		break;
 
-	case PROTOCOL_ERROR_TOO_MANY_INPUTS:
-	case PROTOCOL_ERROR_PRIV_BLOCK_BAD_INPUT_REF:
-	case PROTOCOL_ERROR_BLOCK_BAD_TX_SHARD:
+	case PROTOCOL_ECODE_TOO_MANY_INPUTS:
+	case PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF:
+	case PROTOCOL_ECODE_BLOCK_BAD_TX_SHARD:
 		assert(trans->hdr.type == TRANSACTION_NORMAL);
 		break;
 
-	case PROTOCOL_ERROR_PRIV_TRANS_BAD_INPUT:
+	case PROTOCOL_ECODE_PRIV_TRANS_BAD_INPUT:
 		assert(trans->hdr.type == TRANSACTION_NORMAL);
 		/* FIXME: This means an unknown input.  We don't
 		 * complain. */
@@ -406,13 +406,13 @@ void invalidate_block_badtrans(struct state *state,
 					   bad_input, bad_intrans);
 		return;
 
-	case PROTOCOL_ERROR_PRIV_TRANS_BAD_AMOUNTS:
+	case PROTOCOL_ECODE_PRIV_TRANS_BAD_AMOUNTS:
 		assert(trans->hdr.type == TRANSACTION_NORMAL);
 		invalidate_block_bad_amounts(state, block, trans, refs,
 					     bad_shardnum, bad_txoff);
 		return;
 
-	case PROTOCOL_ERROR_PRIV_BLOCK_BAD_INPUT_REF_TRANS:
+	case PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF_TRANS:
 		assert(trans->hdr.type == TRANSACTION_NORMAL);
 		invalidate_block_bad_input_ref_trans(state, block, trans, refs,
 						     bad_shardnum, bad_txoff,
@@ -422,7 +422,7 @@ void invalidate_block_badtrans(struct state *state,
 	default:
 		log_broken(state->log,
 			   "Unknown invalidate_block_badtrans error ");
-		log_add_enum(state->log, enum protocol_error, err);
+		log_add_enum(state->log, enum protocol_ecode, err);
 		abort();
 	}
 

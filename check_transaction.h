@@ -13,11 +13,11 @@ struct protocol_proof;
 struct protocol_address;
 struct block;
 
-enum protocol_error
+enum protocol_ecode
 check_trans_normal_basic(struct state *state,
 			 const struct protocol_transaction_normal *t);
 
-enum protocol_error
+enum protocol_ecode
 check_trans_from_gateway(struct state *state,
 			 const struct block *block,
 			 const struct protocol_transaction_gateway *t);
@@ -27,7 +27,7 @@ bool check_transaction_proof(struct state *state,
 			     union protocol_transaction **trans,
 			     struct protocol_proof *proof);
 
-enum protocol_error check_transaction(struct state *state,
+enum protocol_ecode check_transaction(struct state *state,
 				      const union protocol_transaction *trans,
 				      const struct block *block,
 				      const struct protocol_input_ref *refs,

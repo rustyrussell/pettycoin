@@ -95,7 +95,7 @@ static size_t recheck_one_shard(struct state *state, u16 shard)
 		struct protocol_double_sha sha;
 		union protocol_transaction *inputs[TRANSACTION_MAX_INPUTS];
 		unsigned int bad_input_num;
-		enum protocol_error e;
+		enum protocol_ecode e;
 		struct thash_iter iter;
 		bool in_known_chain = false;
 
@@ -120,8 +120,8 @@ static size_t recheck_one_shard(struct state *state, u16 shard)
 				      NULL, NULL, inputs, &bad_input_num);
 		if (e) {
 			log_debug(state->log, "  %zu is now ", i);
-			log_add_enum(state->log, enum protocol_error, e);
-			if (e == PROTOCOL_ERROR_PRIV_TRANS_BAD_INPUT) {
+			log_add_enum(state->log, enum protocol_ecode, e);
+			if (e == PROTOCOL_ECODE_PRIV_TRANS_BAD_INPUT) {
 				log_add(state->log,
 					": input %u ", bad_input_num);
 				log_add_struct(state->log,

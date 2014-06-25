@@ -17,34 +17,34 @@
 #include <ccan/tal/tal.h>
 
 /* Check signature. */
-enum protocol_error
+enum protocol_ecode
 check_trans_normal_basic(struct state *state,
 			 const struct protocol_transaction_normal *t)
 {
 	if (!version_ok(t->version))
-		return PROTOCOL_ERROR_HIGH_VERSION;
+		return PROTOCOL_ECODE_HIGH_VERSION;
 
 	if (le32_to_cpu(t->send_amount) > MAX_SATOSHI)
-		return PROTOCOL_ERROR_TOO_LARGE;
+		return PROTOCOL_ECODE_TOO_LARGE;
 
 	if (le32_to_cpu(t->change_amount) > MAX_SATOSHI)
-		return PROTOCOL_ERROR_TOO_LARGE;
+		return PROTOCOL_ECODE_TOO_LARGE;
 
 	if (le32_to_cpu(t->num_inputs) > TRANSACTION_MAX_INPUTS)
-		return PROTOCOL_ERROR_TOO_MANY_INPUTS;
+		return PROTOCOL_ECODE_TOO_MANY_INPUTS;
 
 	if (le32_to_cpu(t->num_inputs) == 0)
-		return PROTOCOL_ERROR_TOO_MANY_INPUTS;
+		return PROTOCOL_ECODE_TOO_MANY_INPUTS;
 
 	if (!check_trans_sign((const union protocol_transaction *)t,
 			      &t->input_key, &t->signature))
-		return PROTOCOL_ERROR_TRANS_BAD_SIG;
+		return PROTOCOL_ECODE_TRANS_BAD_SIG;
 
-	return PROTOCOL_ERROR_NONE;
+	return PROTOCOL_ECODE_NONE;
 }
 
 /* We failed to find it in hash. */
-static enum protocol_error
+static enum protocol_ecode
 find_trans_for_ref(struct state *state,
 		   const struct block *block,
 		   const struct protocol_input_ref *ref,
@@ -55,41 +55,41 @@ find_trans_for_ref(struct state *state,
 
 	*trans = NULL;
 	if (le32_to_cpu(ref->blocks_ago) > le32_to_cpu(block->hdr->depth))
-		return PROTOCOL_ERROR_PRIV_BLOCK_BAD_INPUT_REF;
+		return PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF;
 
 	/* FIXME: slow */
 	bnum = le32_to_cpu(block->hdr->depth) - le32_to_cpu(ref->blocks_ago);
 	for (b = block; le32_to_cpu(b->hdr->depth) != bnum; b = b->prev);
 
 	if (le16_to_cpu(ref->shard) >= num_shards(b->hdr))
-		return PROTOCOL_ERROR_PRIV_BLOCK_BAD_INPUT_REF;
+		return PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF;
 
 	if (ref->txoff >= b->shard_nums[ref->shard])
-		return PROTOCOL_ERROR_PRIV_BLOCK_BAD_INPUT_REF;
+		return PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF;
 
 	if (le32_to_cpu(b->tailer->timestamp) + TRANSACTION_HORIZON_SECS
 	    < le32_to_cpu(block->tailer->timestamp))
-		return PROTOCOL_ERROR_PRIV_BLOCK_BAD_INPUT_REF;
+		return PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF;
 
 	*trans = block_get_tx(b, le16_to_cpu(ref->shard), ref->txoff);
 	if (!*trans)
 		/* We just don't know it.  OK */
-		return PROTOCOL_ERROR_NONE;
+		return PROTOCOL_ECODE_NONE;
 
 	/* Trans is actually not the correct one! */
-	return PROTOCOL_ERROR_PRIV_BLOCK_BAD_INPUT_REF_TRANS;
+	return PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF_TRANS;
 }	
 
 /*
  * Sets inputs[] if transaction has inputs.
- * Sets bad_input_num if PROTOCOL_ERROR_PRIV_TRANS_BAD_INPUT.
+ * Sets bad_input_num if PROTOCOL_ECODE_PRIV_TRANS_BAD_INPUT.
  * If refs is non-NULL, ensures that Nth input tx matches ref[N].
  *
  * Otherwise bad_input_num indicates an unknown input.
  *
  * FIXME: Detect double-spends!
  */
-static enum protocol_error
+static enum protocol_ecode
 check_trans_normal_inputs(struct state *state,
 			  const struct protocol_transaction_normal *t,
 			  const struct block *block,
@@ -155,7 +155,7 @@ check_trans_normal_inputs(struct state *state,
 			inputs[i] = NULL;
 			*bad_input_num = i;
 			if (refs) {
-				enum protocol_error err;
+				enum protocol_ecode err;
 				/* Do we know what was input_ref referred to? */
 				err = find_trans_for_ref(state, block, &refs[i],
 							 &inputs[i]);
@@ -171,7 +171,7 @@ check_trans_normal_inputs(struct state *state,
 		if (!find_output(inputs[i], le16_to_cpu(inp[i].output),
 				 &addr, &amount)) {
 			*bad_input_num = i;
-			return PROTOCOL_ERROR_PRIV_TRANS_BAD_INPUT;
+			return PROTOCOL_ECODE_PRIV_TRANS_BAD_INPUT;
 		}
 
 		/* Check it was to this address. */
@@ -180,7 +180,7 @@ check_trans_normal_inputs(struct state *state,
 			log_debug(state->log, "Address mismatch against output %i of ", le16_to_cpu(inp[i].output));
 			log_add_struct(state->log, union protocol_transaction,
 				       inputs[i]);
-			return PROTOCOL_ERROR_PRIV_TRANS_BAD_INPUT;
+			return PROTOCOL_ECODE_PRIV_TRANS_BAD_INPUT;
 		}
 
 		input_total += amount;
@@ -189,14 +189,14 @@ check_trans_normal_inputs(struct state *state,
 	if (*inputs_known == num) {
 		if (input_total != (le32_to_cpu(t->send_amount)
 				    + le32_to_cpu(t->change_amount))) {
-			return PROTOCOL_ERROR_PRIV_TRANS_BAD_AMOUNTS;
+			return PROTOCOL_ECODE_PRIV_TRANS_BAD_AMOUNTS;
 		}
 	}
-	return PROTOCOL_ERROR_NONE;
+	return PROTOCOL_ECODE_NONE;
 }
 
 /* block is NULL if we're not in a block (ie. pending tx) */
-enum protocol_error
+enum protocol_ecode
 check_trans_from_gateway(struct state *state,
 			 const struct block *block,
 			 const struct protocol_transaction_gateway *t)
@@ -207,10 +207,10 @@ check_trans_from_gateway(struct state *state,
 	struct protocol_gateway_payment *out;
 
 	if (!version_ok(t->version))
-		return PROTOCOL_ERROR_TRANS_HIGH_VERSION;
+		return PROTOCOL_ECODE_TRANS_HIGH_VERSION;
 
 	if (!accept_gateway(state, &t->gateway_key))
-		return PROTOCOL_ERROR_TRANS_BAD_GATEWAY;
+		return PROTOCOL_ECODE_TRANS_BAD_GATEWAY;
 
 	out = get_gateway_outputs(t);
 
@@ -224,16 +224,16 @@ check_trans_from_gateway(struct state *state,
 		if (i == 0)
 			the_shard = shard_of(&out[i].output_addr, shard_ord);
 		else if (shard_of(&out[i].output_addr, shard_ord) != the_shard)
-			return PROTOCOL_ERROR_TRANS_CROSS_SHARDS;
+			return PROTOCOL_ECODE_TRANS_CROSS_SHARDS;
 
 		if (le32_to_cpu(out[i].send_amount) > MAX_SATOSHI)
-			return PROTOCOL_ERROR_TOO_LARGE;
+			return PROTOCOL_ECODE_TOO_LARGE;
 	}
 
 	if (!check_trans_sign((const union protocol_transaction *)t,
 			      &t->gateway_key, &t->signature))
-		return PROTOCOL_ERROR_TRANS_BAD_SIG;
-	return PROTOCOL_ERROR_NONE;
+		return PROTOCOL_ECODE_TRANS_BAD_SIG;
+	return PROTOCOL_ECODE_NONE;
 }
 
 #if 0
@@ -253,7 +253,7 @@ static bool check_chain(struct state *state,
 	if (t->hdr.type == TRANSACTION_FROM_GATEWAY) {
 		/* Chain ends with a from-gateway transaction. */
 		if (check_trans_from_gateway(state, &t->gateway)
-		    != PROTOCOL_ERROR_NONE)
+		    != PROTOCOL_ECODE_NONE)
 			return false;
 
 		if (need_proof) {
@@ -355,7 +355,7 @@ bool check_transaction_proof(struct state *state,
 }
 #endif
 
-enum protocol_error check_transaction(struct state *state,
+enum protocol_ecode check_transaction(struct state *state,
 				      const union protocol_transaction *trans,
 				      const struct block *block,
 				      const struct protocol_input_ref *refs,
@@ -363,7 +363,7 @@ enum protocol_error check_transaction(struct state *state,
 				      inputs[TRANSACTION_MAX_INPUTS],
 				      unsigned int *bad_input_num)
 {
-	enum protocol_error e;
+	enum protocol_ecode e;
 
 	/* If we're in a block, we must have refs. */
 	assert(!refs == !block);
@@ -388,17 +388,17 @@ enum protocol_error check_transaction(struct state *state,
 						      bad_input_num);
 			/* FIXME: We currently insist on complete knowledge. */
 			if (!e && inputs_known != num_inputs(trans))
-				e = PROTOCOL_ERROR_PRIV_TRANS_BAD_INPUT;
+				e = PROTOCOL_ECODE_PRIV_TRANS_BAD_INPUT;
 		}
 		break;
 	default:
-		e = PROTOCOL_ERROR_TRANS_UNKNOWN;
+		e = PROTOCOL_ECODE_TRANS_UNKNOWN;
 		break;
 	}
 
 	if (e) {
 		log_debug(state->log, "It was bad: ");
-		log_add_enum(state->log, enum protocol_error, e);
+		log_add_enum(state->log, enum protocol_ecode, e);
 	}
 	return e;
 }
