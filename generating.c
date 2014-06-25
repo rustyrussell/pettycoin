@@ -166,16 +166,18 @@ static struct io_plan got_trans(struct io_conn *conn, struct generator *gen)
 
 		s = new_shard(gen, shard, gen->new->shard_nums[shard]);
 		for (i = 0; i < gen->new->shard_nums[shard]; i++) {
-			s->txp[i] = txptr_with_ref(s, gen->included[off]->t,
-						   gen->included[off]->refs);
-			s->count++;
+			/* Initialized this way... */
+			assert(shard_is_tx(s, i));
+			s->u[i].txp = txptr_with_ref(s, gen->included[off]->t,
+						     gen->included[off]->refs);
+			s->txcount++;
 			off++;
 		}
 
-		if (s->count != gen->new->shard_nums[shard]) {
+		if (s->txcount != gen->new->shard_nums[shard]) {
 			log_broken(gen->log,
 				   "Generator %u created short shard %u(%u)",
-				   gen->pid, shard, s->count);
+				   gen->pid, shard, s->txcount);
 			return io_close();
 		}
 
@@ -207,7 +209,7 @@ static struct io_plan got_trans(struct io_conn *conn, struct generator *gen)
 
 		put_shard_in_block(gen->state, gen->new, s);
 		log_debug(gen->log, "Added shard %u (%u trans)",
-			  shard, s->count);
+			  shard, s->txcount);
 	}
 	assert(off == tal_count(gen->included));
 

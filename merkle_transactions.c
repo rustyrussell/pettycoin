@@ -39,22 +39,43 @@ static void merkle_recurse(size_t off, size_t max_off, size_t num,
 struct merkle_txinfo {
 	const void *prefix;
 	size_t prefix_len;
-	const struct txptr_with_ref *txp;
+	const bitmap *txp_or_hash;
+	const union txp_or_hash *u;
 };
 
 static struct protocol_double_sha merkle_tx(size_t n, void *data)
 {
-	struct protocol_double_sha merkle;
 	struct merkle_txinfo *info = data;
+	struct protocol_double_sha merkle;
 
-	hash_tx_for_block(info->txp[n].tx, info->prefix, info->prefix_len,
-			  refs_for(info->txp[n]), num_inputs(info->txp[n].tx),
-			  &merkle);
+	/* Already got hashes?  Just hash together. */
+	if (bitmap_test_bit(info->txp_or_hash, n)) {
+		SHA256_CTX shactx;
+		const struct protocol_net_txrefhash *h;
+
+		h = info->u[n].hash;
+
+		SHA256_Init(&shactx);
+		SHA256_Update(&shactx, &h->txhash, sizeof(h->txhash));
+		SHA256_Update(&shactx, &h->refhash, sizeof(h->refhash));
+		SHA256_Double_Final(&shactx, &merkle);
+	} else {
+		const union protocol_transaction *tx;
+		const struct protocol_input_ref *refs;
+
+		tx = info->u[n].txp.tx;
+		refs = refs_for(info->u[n].txp);
+
+		hash_tx_for_block(tx, info->prefix, info->prefix_len, refs,
+				  num_inputs(tx), &merkle);
+	}
+
 	return merkle;
 }
 
 void merkle_transactions(const void *prefix, size_t prefix_len,
-			 const struct txptr_with_ref *txp,
+			 const bitmap *txp_or_hash,
+			 const union txp_or_hash *u,
 			 size_t off, size_t num_trans,
 			 struct protocol_double_sha *merkle)
 {
@@ -62,7 +83,8 @@ void merkle_transactions(const void *prefix, size_t prefix_len,
 
 	txinfo.prefix = prefix;
 	txinfo.prefix_len = prefix_len;
-	txinfo.txp = txp;
+	txinfo.txp_or_hash = txp_or_hash;
+	txinfo.u = u;
 
 	merkle_recurse(off, num_trans, 256, merkle_tx, &txinfo, merkle);
 }

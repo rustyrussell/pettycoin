@@ -1,6 +1,7 @@
 #ifndef PETTYCOIN_BLOCK_H
 #define PETTYCOIN_BLOCK_H
 #include <ccan/cast/cast.h>
+#include <ccan/bitmap/bitmap.h>
 #include "protocol.h"
 #include "protocol_net.h"
 #include "shard.h"
@@ -30,15 +31,32 @@ struct txptr_with_ref txptr_with_ref(const tal_t *ctx,
 				     const union protocol_transaction *tx,
 				     const struct protocol_input_ref *refs);
 
+union txp_or_hash {
+	/* Pointers to the actual transactions followed by refs */
+	struct txptr_with_ref txp;
+	/* hash_tx() of tx and hash_ref() of refs (we don't know them). */
+	const struct protocol_net_txrefhash *hash;
+};
+
 /* Only transactions we've proven are in block go in here! */
 struct transaction_shard {
 	/* Which shard is this? */
 	u16 shardnum;
 	/* How many transactions do we have?  Faster than counting NULLs */
-	u8 count;
-	/* Pointers to the actual transactions followed by refs */
-	struct txptr_with_ref txp[ /* block->shard_nums[shard] */ ];
+	u8 txcount;
+	/* How many transaction hashes do we have? */
+	u8 hashcount;
+
+	/* Bits to discriminate the union: 0 = txp, 1 == hash */
+	BITMAP_DECLARE(txp_or_hash, 255);
+
+	union txp_or_hash u[ /* block->shard_nums[shard] */ ];
 };
+
+static inline bool shard_is_tx(const struct transaction_shard *s, u8 txoff)
+{
+	return !bitmap_test_bit(s->txp_or_hash, txoff);
+}
 
 /* Allocate a new struct transaction_shard. */
 struct transaction_shard *new_shard(const tal_t *ctx, u16 shardnum, u8 num);
@@ -95,7 +113,7 @@ static inline bool shard_all_known(const struct block *block, u16 shardnum)
 {
 	u8 count;
 
-	count = block->shard[shardnum] ? block->shard[shardnum]->count : 0;
+	count = block->shard[shardnum] ? block->shard[shardnum]->txcount : 0;
 	return count == block->shard_nums[shardnum];
 }
 
@@ -124,7 +142,9 @@ block_get_tx(const struct block *block, u16 shardnum, u8 txoff)
 	if (!s)
 		return NULL;
 
-	return s->txp[txoff].tx;
+	/* Must not be a hash. */
+	assert(!bitmap_test_bit(s->txp_or_hash, txoff));
+	return s->u[txoff].txp.tx;
 }
 
 /* Get this numbered references inside block. */

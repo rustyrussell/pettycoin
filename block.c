@@ -38,7 +38,7 @@ struct transaction_shard *new_shard(const tal_t *ctx, u16 shardnum, u8 num)
 	struct transaction_shard *s;
 
 	s = tal_alloc_(ctx,
-		       offsetof(struct transaction_shard, txp[num]),
+		       offsetof(struct transaction_shard, u[num]),
 		       true, "struct transaction_shard");
 	s->shardnum = shardnum;
 	return s;
@@ -135,7 +135,10 @@ struct protocol_input_ref *block_get_refs(const struct block *block,
 	if (!s)
 		return NULL;
 
-	return cast_const(struct protocol_input_ref *, refs_for(s->txp[txoff]));
+	/* Must not be a hash. */
+	assert(shard_is_tx(s, txoff));
+	return cast_const(struct protocol_input_ref *,
+			  refs_for(s->u[txoff].txp));
 }
 
 static void complaint_on_all(struct block *block, const void *complaint)

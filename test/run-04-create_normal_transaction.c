@@ -203,8 +203,8 @@ int main(int argc, char *argv[])
 
 	/* Put the single transaction into a shard. */
 	shard = new_shard(s, update.shard, 1);
-	shard->count = 1;
-	shard->txp[0] = txptr_with_ref(shard, t, refs);
+	shard->txcount = 1;
+	shard->u[0].txp = txptr_with_ref(shard, t, refs);
 
 	/* This should all be correct. */
 	assert(shard_validate_transactions(s, NULL, b, shard, NULL, NULL, intxs)
@@ -263,8 +263,8 @@ int main(int argc, char *argv[])
 
 	/* Put the single transaction into a shard. */
 	shard = new_shard(s, update.shard, 1);
-	shard->count = 1;
-	shard->txp[0] = txptr_with_ref(shard, t, refs);
+	shard->txcount = 1;
+	shard->u[0].txp = txptr_with_ref(shard, t, refs);
 
 	/* Should work */
 	assert(shard_validate_transactions(s, NULL, b2, shard, NULL, NULL,intxs)

@@ -122,8 +122,10 @@ bool shard_belongs_in_block(const struct block *block,
 	if (shard->shardnum >= num_shards(block->hdr))
 		return false;
 
-	assert(shard->count == block->shard_nums[shard->shardnum]);
-	merkle_transactions(NULL, 0, shard->txp, 0,
+	/* merkle_transactions is happy with just the hashes. */
+	assert(shard->txcount + shard->hashcount
+	       == block->shard_nums[shard->shardnum]);
+	merkle_transactions(NULL, 0, shard->txp_or_hash, shard->u, 0,
 			    block->shard_nums[shard->shardnum], &merkle);
 	return memcmp(block->merkles[shard->shardnum].sha, merkle.sha,
 		      sizeof(merkle.sha)) == 0;
@@ -154,8 +156,13 @@ bool check_tx_order(struct state *state,
 	/* Is it in order? */
 	prev = NULL;
 	for (i = 0; i < block->shard_nums[shard->shardnum]; i++) {
-		const union protocol_transaction *t = shard->txp[i].tx;
+		const union protocol_transaction *t;
 
+		/* We can't determine order from the hash. */
+		if (!shard_is_tx(shard, i))
+			continue;
+
+		t = shard->u[i].txp.tx;
 		if (!t)
 			continue;
 
@@ -171,6 +178,7 @@ bool check_tx_order(struct state *state,
 	return true;
 }
 
+/* This is a fully known shard, add txs to thash. */
 static void add_to_thash(struct state *state,
 			 struct block *block,
 			 struct transaction_shard *shard)
@@ -182,10 +190,9 @@ static void add_to_thash(struct state *state,
 		struct protocol_double_sha sha;
 		struct thash_iter iter;
 
-		if (!shard->txp[i].tx)
-			continue;
+		assert(shard_is_tx(shard, i));
 
-		hash_tx(shard->txp[i].tx, &sha);
+		hash_tx(shard->u[i].txp.tx, &sha);
 
 		/* It could already be there (alternate chain, or previous
 		 * partial shard which we just overwrote). */
@@ -214,29 +221,16 @@ static void add_to_thash(struct state *state,
 	}
 }
 
+/* This is a fast-path used by generating.c */
 void put_shard_in_block(struct state *state,
 			struct block *block,
 			struct transaction_shard *shard)
 {
 	assert(shard_belongs_in_block(block, shard));
-	assert(shard->count == block->shard_nums[shard->shardnum]);
+	assert(shard->txcount == block->shard_nums[shard->shardnum]);
 	assert(check_tx_order(state, block, shard, NULL, NULL));
+	assert(!block->shard[shard->shardnum]);
 
-	/* If there are already some transactions, we should agree! */
-	if (block->shard[shard->shardnum]) {
-		unsigned int i;
-
-		for (i = 0; i < block->shard_nums[shard->shardnum]; i++) {
-			const union protocol_transaction *t;
-
-			t = block->shard[shard->shardnum]->txp[i].tx;
-			if (!t)
-				continue;
-			assert(transaction_cmp(t, shard->txp[i].tx) == 0);
-		}
-		/* FIXME: This leaves crap in thash! */
-		tal_free(block->shard[shard->shardnum]);
-	}
 	block->shard[shard->shardnum] = tal_steal(block, shard);
 
 	add_to_thash(state, block, shard);
@@ -248,6 +242,7 @@ void put_shard_in_block(struct state *state,
 	 * now we know more, or which we already added. */
 }
 
+/* FIXME: Only used by generate.c as an assertion... */
 enum protocol_error
 shard_validate_transactions(struct state *state,
 			    struct log *log,
@@ -264,10 +259,8 @@ shard_validate_transactions(struct state *state,
 	for (i = 0; i < block->shard_nums[shard->shardnum]; i++) {
 		u32 tx_shard;
 
-		if (!shard->txp[i].tx)
-			continue;
-
-		tx_shard = shard_of_tx(shard->txp[i].tx,
+		assert(shard_is_tx(shard, i));
+		tx_shard = shard_of_tx(shard->u[i].txp.tx,
 				       block->hdr->shard_order);
 		if (tx_shard != shard->shardnum) {
 			*bad_trans = get_shard_start(block, shard) + i;
@@ -278,8 +271,8 @@ shard_validate_transactions(struct state *state,
 		}
 
 		/* Make sure transactions themselves are valid. */
-		err = check_transaction(state, shard->txp[i].tx, block,
-					refs_for(shard->txp[i]),
+		err = check_transaction(state, shard->u[i].txp.tx, block,
+					refs_for(shard->u[i].txp),
 					inputs, bad_input_num);
 		if (err) {
 			*bad_trans = get_shard_start(block, shard) + i;
@@ -322,7 +315,8 @@ bool check_block_prev_merkles(struct state *state, const struct block *block)
 			 * can prove you know all the transactions. */
 			merkle_transactions(&block->hdr->fees_to,
 					    sizeof(block->hdr->fees_to),
-					    prev->shard[j]->txp,
+					    prev->shard[j]->txp_or_hash,
+					    prev->shard[j]->u,
 					    0, prev->shard_nums[j],
 					    &merkle);
 

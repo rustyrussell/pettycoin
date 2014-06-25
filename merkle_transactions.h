@@ -6,7 +6,8 @@
 
 /* Merkle together a shard of transactions */
 void merkle_transactions(const void *prefix, size_t prefix_len,
-			 const struct txptr_with_ref *txp,
+			 const bitmap *txp_or_hash,
+			 const union txp_or_hash *u,
 			 size_t off, size_t num_trans,
 			 struct protocol_double_sha *merkle);
 
