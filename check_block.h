@@ -56,6 +56,10 @@ void force_shard_into_block(struct state *state,
 			    struct block *block,
 			    struct transaction_shard *shard);
 
+void put_shard_of_hashes_into_block(struct state *state,
+				    struct block *block,
+				    struct transaction_shard *shard);
+
 /* Check what we can, using block->prev->...'s shards. */
 bool check_block_prev_merkles(struct state *state,
 			      const struct block *block);

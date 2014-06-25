@@ -8,6 +8,8 @@ enum protocol_error {
 	/* FIXME: Rename to PROTOCOL_ERROR_INVALID_LEN */
 	PROTOCOL_INVALID_LEN,
 	PROTOCOL_ERROR_SHOULD_BE_WAITING,
+	/* You filled in an error field in a packet with something unexpected */
+	PROTOCOL_ERROR_UNKNOWN_ERRCODE,
 
 	/* protocol_pkt_welcome: */
 	PROTOCOL_ERROR_HIGH_VERSION, /* version is unknown. */
@@ -41,10 +43,8 @@ enum protocol_error {
 	/* protocol_pkt_get_tx_in_block */
 	PROTOCOL_ERROR_BAD_TXPOS,
 
-	/* protocol_pkt_get_shard / protocol_pkt_get_txmap */
+	/* protocol_pkt_get_shard / protocol_pkt_shard */
 	PROTOCOL_ERROR_BAD_SHARDNUM,
-
-	/* The rest are fatal errors: peer should know better! */
 
 	/* protocol_pkt_block */
 	PROTOCOL_ERROR_BLOCK_HIGH_VERSION, /* block version unknown. */
@@ -67,6 +67,9 @@ enum protocol_error {
 
 	/* protocol_pkt_tx_in_block */
 	PROTOCOL_ERROR_BLOCK_BAD_TX_SHARD, /* TX was in wrong shard in block */
+
+	/* protocol_pkt_shard */
+	PROTOCOL_ERROR_BAD_MERKLE,
 
 	/* >= this is invalid. */
 	PROTOCOL_ERROR_MAX,

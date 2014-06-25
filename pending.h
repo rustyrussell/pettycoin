@@ -1,7 +1,9 @@
 #ifndef PETTYCOIN_PENDING_H
 #define PETTYCOIN_PENDING_H
 #include <ccan/short_types/short_types.h>
+#include <ccan/tal/tal.h>
 #include "protocol.h"
+#include "block.h"
 
 struct pending_trans {
 	const union protocol_transaction *t;
@@ -34,4 +36,10 @@ void add_pending_transaction(struct peer *peer,
 /* Get a new working block. */
 struct pending_block *new_pending_block(struct state *state);
 
+/* Look through pending to find if we have this tx & ref hash */
+struct txptr_with_ref
+find_pending_tx_with_ref(const tal_t *ctx,
+			 struct state *state,
+			 const struct block *block,
+			 const struct protocol_net_txrefhash *hash);
 #endif /* PETTYCOIN_PENDING_H */

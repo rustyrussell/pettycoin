@@ -161,6 +161,8 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "PROTOCOL_ERROR_NONE"; break;
 		case PROTOCOL_ERROR_UNKNOWN_COMMAND:
 			name = "PROTOCOL_ERROR_UNKNOWN_COMMAND"; break;
+		case PROTOCOL_ERROR_UNKNOWN_ERRCODE:
+			name = "PROTOCOL_ERROR_UNKNOWN_ERRCODE"; break;
 		case PROTOCOL_INVALID_LEN:
 			name = "PROTOCOL_INVALID_LEN"; break;
 		case PROTOCOL_ERROR_SHOULD_BE_WAITING:
@@ -221,6 +223,8 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "PROTOCOL_ERROR_TOO_MANY_INPUTS"; break;
 		case PROTOCOL_ERROR_BLOCK_BAD_TX_SHARD:
 			name = "PROTOCOL_ERROR_BLOCK_BAD_TX_SHARD"; break;
+		case PROTOCOL_ERROR_BAD_MERKLE:
+			name = "PROTOCOL_ERROR_BAD_MERKLE"; break;
 		case PROTOCOL_ERROR_PRIV_UNKNOWN_PREV:
 			name = "PROTOCOL_ERROR_PRIV_UNKNOWN_PREV"; break;
 		case PROTOCOL_ERROR_PRIV_TRANS_BAD_INPUT:

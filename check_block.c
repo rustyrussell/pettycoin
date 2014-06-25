@@ -15,6 +15,7 @@
 #include "prev_merkles.h"
 #include "generating.h"
 #include "check_transaction.h"
+#include "transaction.h"
 #include "chain.h"
 #include "shard.h"
 #include <ccan/array_size/array_size.h>
@@ -117,10 +118,6 @@ bool shard_belongs_in_block(const struct block *block,
 			    const struct transaction_shard *shard)
 {
 	struct protocol_double_sha merkle;
-
-	/* FIXME: Audit, can this happen?. */
-	if (shard->shardnum >= num_shards(block->hdr))
-		return false;
 
 	/* merkle_transactions is happy with just the hashes. */
 	assert(shard->txcount + shard->hashcount
@@ -240,6 +237,72 @@ void force_shard_into_block(struct state *state,
 	/* FIXME: re-check prev_merkles for any descendents. */
 	/* FIXME: re-check pending transactions with unknown inputs
 	 * now we know more, or which we already added. */
+}
+
+static struct txptr_with_ref dup_txp(const tal_t *ctx,
+				     const struct txptr_with_ref txp)
+{
+	struct txptr_with_ref ret;
+	size_t len;
+
+	len = marshall_transaction_len(txp.tx)
+		+ num_inputs(txp.tx) * sizeof(struct protocol_input_ref);
+
+	ret.tx = (void *)tal_dup(ctx, char, (char *)txp.tx, len, 0);
+	return ret;
+}
+
+static void copy_transactions(struct transaction_shard *new,
+			      const struct transaction_shard *old,
+			      u8 num)
+{
+	unsigned int i;
+
+	for (i = 0; i < num; i++) {
+		if (!shard_is_tx(old, i)) {
+			/* Both hashes must be identical. */
+			assert(memcmp(old->u[i].hash, new->u[i].hash,
+				      sizeof(*new->u[i].hash)) == 0);
+			continue;
+		}
+		if (!old->u[i].txp.tx)
+			continue;
+
+		/* Tx must match hash. */
+		{
+			struct protocol_net_txrefhash hashes;
+			hash_tx(old->u[i].txp.tx, &hashes.txhash);
+			hash_refs(refs_for(old->u[i].txp),
+				  num_inputs(old->u[i].txp.tx),
+				  &hashes.refhash);
+			assert(memcmp(new->u[i].hash, &hashes,
+				      sizeof(hashes)) == 0);
+		}
+		bitmap_clear_bit(new->txp_or_hash, i);
+		/* It's probably not a talloc pointer, so copy! */
+		new->u[i].txp = dup_txp(new, old->u[i].txp);
+	}
+}
+
+void put_shard_of_hashes_into_block(struct state *state,
+				    struct block *block,
+				    struct transaction_shard *shard)
+{
+	unsigned int num;
+
+	num = block->shard_nums[shard->shardnum];
+	assert(shard_belongs_in_block(block, shard));
+	assert(shard->txcount == 0);
+	assert(shard->hashcount == num);
+
+	/* If we know some transactions already, perform a merge. */
+	if (block->shard[shard->shardnum]) {
+		copy_transactions(shard, block->shard[shard->shardnum], num);
+		tal_free(block->shard[shard->shardnum]);
+	}
+
+	block->shard[shard->shardnum] = tal_steal(block, shard);
+	/* FIXME: add_to_thash(state, block, shard);? */
 }
 
 /* FIXME: Only used by generate.c as an assertion... */

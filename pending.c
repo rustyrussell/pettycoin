@@ -247,3 +247,50 @@ void add_pending_transaction(struct peer *peer,
 	tell_generator_new_pending(peer->state, shard, start);
 	send_trans_to_peers(peer->state, peer, t);
 }
+
+/* FIXME: SLOW! Put pending into txhash? */
+struct txptr_with_ref
+find_pending_tx_with_ref(const tal_t *ctx,
+			 struct state *state,
+			 const struct block *block,
+			 const struct protocol_net_txrefhash *hash)
+{
+	size_t shard;
+	struct protocol_input_ref *refs;
+	struct txptr_with_ref r;
+
+	for (shard = 0; shard < ARRAY_SIZE(state->pending->pend); shard++) {
+		struct pending_trans **pend = state->pending->pend[shard];
+		size_t i, num = tal_count(pend);
+
+		for (i = 0; i < num; i++) {
+			struct protocol_double_sha sha;
+
+			/* FIXME: Cache sha of tx in pending? */
+			hash_tx(pend[i]->t, &sha);
+			if (memcmp(&hash->txhash, &sha, sizeof(sha)) != 0)
+				continue;
+
+			/* FIXME: If peer->state->longest_knowns[0]->prev ==
+			   block->prev, then pending refs will be the same... */
+
+			/* This can fail if refs don't work for that block. */
+			refs = create_refs(state, block->prev, pend[i]->t);
+			if (!refs)
+				continue;
+
+			hash_refs(refs, tal_count(refs), &sha);
+			if (memcmp(&hash->refhash, &sha, sizeof(sha)) != 0) {
+				tal_free(refs);
+				continue;
+			}
+
+			r = txptr_with_ref(ctx, pend[i]->t, refs);
+			tal_free(refs);
+			return r;
+		}
+	}
+
+	r.tx = NULL;
+	return r;
+}

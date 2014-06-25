@@ -1152,6 +1152,33 @@ recv_unknown_block(struct peer *peer,
 	return PROTOCOL_ERROR_NONE;
 }
 
+static void try_resolve_hashes(struct state *state,
+			       struct block *block,
+			       u16 shardnum)
+{
+	unsigned int i, num = block->shard_nums[shardnum];
+	struct transaction_shard *shard = block->shard[shardnum];
+
+	/* If we know any of these transactions, resolve them now! */
+	for (i = 0; i < num; i++) {
+		struct txptr_with_ref txp;
+
+		if (shard_is_tx(shard, i))
+			continue;
+
+		/* FIXME: Search peer blocks too? */
+		txp = find_pending_tx_with_ref(shard, state, block,
+					       shard->u[i].hash);
+		if (txp.tx) {
+			bitmap_clear_bit(shard->txp_or_hash, i);
+			shard->u[i].txp = txp;
+		} else {
+			todo_add_get_tx_in_block(state, &block->sha, shardnum,
+						 i);
+		}
+	}
+}
+
 static enum protocol_error
 recv_get_shard(struct peer *peer,
 	       const struct protocol_pkt_get_shard *pkt,
@@ -1205,6 +1232,96 @@ recv_get_shard(struct peer *peer,
 	*reply = r;
 	return PROTOCOL_ERROR_NONE;
 }
+
+/* If we don't know block, ask about block.
+ * Otherwise, if it's in our interest:
+ *      If we don't know some inputs, ask for them and
+ *	  treat other txs as above.
+ *      Otherwise, place in block.
+ *	Save batch to disk.
+ */
+static enum protocol_error
+recv_shard(struct peer *peer, const struct protocol_pkt_shard *pkt)
+{
+	struct block *b;
+	u16 shard;
+	unsigned int i;
+	const struct protocol_net_txrefhash *hash;
+	struct transaction_shard *s;
+
+	if (le32_to_cpu(pkt->len) < sizeof(*pkt))
+		return PROTOCOL_INVALID_LEN;
+
+	shard = le16_to_cpu(pkt->shard);
+
+	b = block_find_any(peer->state, &pkt->block);
+	if (!b) {
+		/* If we don't know it, that's OK.  Try to find out. */
+		todo_add_get_block(peer->state, &pkt->block);
+		return PROTOCOL_ERROR_NONE;
+	}
+
+	if (shard >= num_shards(b->hdr)) {
+		log_unusual(peer->log, "Invalid shard for shard %u of ",
+			    shard);
+		log_add_struct(peer->log, struct protocol_double_sha,
+			       &pkt->block);
+		return PROTOCOL_ERROR_BAD_SHARDNUM;
+	}
+
+	if (le16_to_cpu(pkt->err) != PROTOCOL_ERROR_NONE) {
+		/* Error can't have anything appended. */
+		if (le32_to_cpu(pkt->len) != sizeof(*pkt))
+			return PROTOCOL_INVALID_LEN;
+		/* We failed to get shard. */
+		todo_done_get_shard(peer, &pkt->block, shard, false);
+		if (le16_to_cpu(pkt->err) == PROTOCOL_ERROR_UNKNOWN_BLOCK)
+			/* Implies it doesn't know block, so don't ask. */
+			todo_done_get_block(peer, &pkt->block, false);
+		else if (le16_to_cpu(pkt->err) != PROTOCOL_ERROR_UNKNOWN_SHARD)
+			return PROTOCOL_ERROR_UNKNOWN_ERRCODE;
+		return PROTOCOL_ERROR_NONE;
+	}
+
+	/* Should have appended all txrefhashes. */
+	if (le32_to_cpu(pkt->len)
+	    != sizeof(*pkt) + b->shard_nums[shard] * sizeof(*hash))
+		return PROTOCOL_INVALID_LEN;
+
+	hash = (struct protocol_net_txrefhash *)(pkt + 1);
+	s = new_shard(peer->state, shard, b->shard_nums[shard]);
+
+	/* Make shard own this packet. */
+	tal_steal(s, pkt);
+
+	/* Add hash pointers. */
+	for (i = 0; i < b->shard_nums[shard]; i++) {
+		s->hashcount++;
+		bitmap_set_bit(s->txp_or_hash, i);
+		s->u[i].hash = hash + i;
+	}
+
+	if (!shard_belongs_in_block(b, s)) {
+		tal_free(s);
+		return PROTOCOL_ERROR_BAD_MERKLE;
+	}
+
+	/* This may resolve some of the txs if we know them already. */
+	put_shard_of_hashes_into_block(peer->state, b, s);
+
+	/* This will try to match the rest, or trigger asking. */
+	try_resolve_hashes(peer->state, b, shard);
+
+	/* We save once we know the entire contents. */
+	if (shard_all_known(b, shard))
+		save_shard(peer->state, b, shard);
+
+	/* FIXME: re-check pending transactions with unknown inputs
+	 * now we know more, or pendings which might be invalidated. */
+
+	return PROTOCOL_ERROR_NONE;
+}
+
 static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 {
 	const struct protocol_net_hdr *hdr = peer->incoming;
@@ -1259,6 +1376,9 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 	case PROTOCOL_PKT_GET_SHARD:
 		err = recv_get_shard(peer, peer->incoming, &reply);
 		break;
+	case PROTOCOL_PKT_SHARD:
+		err = recv_shard(peer, peer->incoming);
+		break;
 	/* FIXME! */
 	case PROTOCOL_PKT_TX_IN_BLOCK:
 		/* If we don't know block, ask about block.
@@ -1266,14 +1386,6 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 		 *      If we don't know inputs, ask for them.
 		 *      Otherwise, place in block.
 		 *	Save TX to disk.
-		 */
-	case PROTOCOL_PKT_SHARD:
-		/* If we don't know block, ask about block.
-		 * Otherwise, if it's in our interest:
-		 *      If we don't know some inputs, ask for them and
-		 *	  treat other txs as above.
-		 *      Otherwise, place in block.
-		 *	Save batch to disk.
 		 */
 	default:
 		err = PROTOCOL_ERROR_UNKNOWN_COMMAND;
