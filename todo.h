@@ -64,10 +64,9 @@ void todo_done_get_tx_in_block(struct peer *peer,
 			       const struct protocol_double_sha *block,
 			       u16 shardnum, u8 txoff, bool success);
 
-/* Completely forget about this request (ie. block is invalid) */
-void todo_forget_about_shard(struct state *state,
-			     const struct protocol_double_sha *block,
-			     u16 shardnum);
+/* Completely forget about related requests (ie. block is invalid) */
+void todo_forget_about_block(struct state *state,
+			     const struct protocol_double_sha *block);
 
 /* Peer has closed, remove it from todo bitmaps */
 void remove_peer_from_todo(struct state *state, struct peer *peer);

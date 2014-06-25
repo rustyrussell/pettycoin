@@ -276,16 +276,22 @@ void todo_done_get_tx_in_block(struct peer *peer,
 		    block, shardnum, txoff, success);
 }
 
-void todo_forget_about_shard(struct state *state,
-			     const struct protocol_double_sha *block,
-			     u16 shardnum)
+void todo_forget_about_block(struct state *state,
+			     const struct protocol_double_sha *block)
 {
-	struct todo_request *todo;
+	struct todo_request *i, *next;
 
-	todo = find_todo(state, PROTOCOL_PKT_GET_SHARD, block, shardnum, 0);
-	if (todo) {
-		list_del_from(&state->todo, &todo->list);
-		tal_free(todo);
+	list_for_each_safe(&state->todo, i, next, list) {
+		struct protocol_double_sha *i_sha;
+		le16 *i_shardnum;
+		u8 *i_txoff;
+
+		get_todo_ptrs(state, i, &i_sha, &i_shardnum, &i_txoff);
+		if (memcmp(i_sha, block, sizeof(*i_sha)) != 0)
+			continue;
+
+		list_del_from(&state->todo, &i->list);
+		tal_free(i);
 	}
 }
 

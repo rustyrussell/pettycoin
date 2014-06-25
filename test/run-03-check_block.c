@@ -114,9 +114,8 @@ void todo_add_get_shard(struct state *state,
 {
 }
 
-void todo_forget_about_shard(struct state *state,
-			     const struct protocol_double_sha *block,
-			     u16 shardnum)
+void todo_forget_about_block(struct state *state,
+			     const struct protocol_double_sha *block)
 {
 }
 

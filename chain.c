@@ -409,21 +409,11 @@ void update_block_ptrs_new_shard(struct state *state, struct block *block,
 		update_known(state, block);
 }
 
-static void forget_about_block(struct state *state, const struct block *block)
-{
-	u16 i;
-
-	for (i = 0; i < num_shards(block->hdr); i++) {
-		if (!shard_all_known(block, i))
-			todo_forget_about_shard(state, &block->sha, i);
-	}
-}
-
 static void forget_about_all(struct state *state, const struct block *block)
 {
 	const struct block *b;
 
-	forget_about_block(state, block);
+	todo_forget_about_block(state, &block->sha);
 	list_for_each(&block->children, b, sibling)
 		forget_about_all(state, b);
 }
