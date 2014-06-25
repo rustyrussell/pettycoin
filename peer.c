@@ -1151,6 +1151,60 @@ recv_unknown_block(struct peer *peer,
 
 	return PROTOCOL_ERROR_NONE;
 }
+
+static enum protocol_error
+recv_get_shard(struct peer *peer,
+	       const struct protocol_pkt_get_shard *pkt,
+	       void **reply)
+{
+	struct block *b;
+	struct protocol_pkt_shard *r;
+	u16 shard;
+
+	if (le32_to_cpu(pkt->len) != sizeof(*pkt))
+		return PROTOCOL_INVALID_LEN;
+
+	r = tal_packet(peer, struct protocol_pkt_shard, PROTOCOL_PKT_SHARD);
+	r->block = pkt->block;
+	r->shard = pkt->shard;
+	shard = le16_to_cpu(pkt->shard);
+
+	b = block_find_any(peer->state, &pkt->block);
+	if (!b) {
+		/* If we don't know it, that's OK.  Try to find out. */
+		todo_add_get_block(peer->state, &pkt->block);
+		r->err = cpu_to_le16(PROTOCOL_ERROR_UNKNOWN_BLOCK);
+	} else if (shard >= num_shards(b->hdr)) {
+		log_unusual(peer->log, "Invalid get_shard for shard %u of ",
+			    shard);
+		log_add_struct(peer->log, struct protocol_double_sha,
+			       &pkt->block);
+		tal_free(r);
+		return PROTOCOL_ERROR_BAD_SHARDNUM;
+	} else if (!shard_all_hashes(b, shard)) {
+		log_debug(peer->log, "Don't know all of shard %u of ",
+			    le16_to_cpu(pkt->shard));
+		log_add_struct(peer->log, struct protocol_double_sha,
+			       &pkt->block);
+		r->err = cpu_to_le16(PROTOCOL_ERROR_UNKNOWN_SHARD);
+	} else {
+		unsigned int i;
+
+		/* Success, give them all the hashes. */
+		r->err = cpu_to_le16(PROTOCOL_ERROR_NONE);
+		for (i = 0; i < b->shard_nums[shard]; i++) {
+			struct protocol_net_txrefhash hashes;
+			const struct protocol_net_txrefhash *p;
+
+			/* shard_all_hashes() means p will not be NULL! */
+			p = txrefhash_in_shard(b, shard, i, &hashes);
+			tal_packet_append_txrefhash(&r, p);
+		}
+	}
+
+	*reply = r;
+	return PROTOCOL_ERROR_NONE;
+}
 static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 {
 	const struct protocol_net_hdr *hdr = peer->incoming;
@@ -1201,6 +1255,9 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 		break;
 	case PROTOCOL_PKT_UNKNOWN_BLOCK:
 		err = recv_unknown_block(peer, peer->incoming);
+		break;
+	case PROTOCOL_PKT_GET_SHARD:
+		err = recv_get_shard(peer, peer->incoming, &reply);
 		break;
 	/* FIXME! */
 	case PROTOCOL_PKT_TX_IN_BLOCK:

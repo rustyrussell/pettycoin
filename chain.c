@@ -405,8 +405,10 @@ void update_block_ptrs_new_block(struct state *state, struct block *block)
 void update_block_ptrs_new_shard(struct state *state, struct block *block,
 				 u16 shardnum)
 {
-	if (block_all_known(block, NULL))
+	if (block_all_known(block, NULL)) {
+		/* FIXME: re-check prev_merkles for any descendents. */
 		update_known(state, block);
+	}
 }
 
 static void forget_about_all(struct state *state, const struct block *block)

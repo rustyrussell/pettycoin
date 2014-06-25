@@ -181,6 +181,8 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "PROTOCOL_ERROR_FILTER_INVALID"; break;
 		case PROTOCOL_ERROR_UNKNOWN_BLOCK:
 			name = "PROTOCOL_ERROR_UNKNOWN_BLOCK"; break;
+		case PROTOCOL_ERROR_UNKNOWN_SHARD:
+			name = "PROTOCOL_ERROR_UNKNOWN_SHARD"; break;
 		case PROTOCOL_ERROR_UNKNOWN_TX:
 			name = "PROTOCOL_ERROR_UNKNOWN_TX"; break;
 		case PROTOCOL_ERROR_BAD_TXPOS:

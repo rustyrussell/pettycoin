@@ -141,6 +141,31 @@ struct protocol_input_ref *block_get_refs(const struct block *block,
 			  refs_for(s->u[txoff].txp));
 }
 
+/* If we have the transaction, hash it, otherwise return hash. */
+const struct protocol_net_txrefhash *
+txrefhash_in_shard(const struct block *b, u16 shard, u8 txoff,
+		   struct protocol_net_txrefhash *scratch)
+{
+	const struct transaction_shard *s = b->shard[shard];
+
+	assert(shard < num_shards(b->hdr));
+	assert(txoff < b->shard_nums[shard]);
+
+	if (!s)
+		return NULL;
+
+	if (shard_is_tx(s, txoff)) {
+		const union protocol_transaction *tx = s->u[txoff].txp.tx;
+		if (!tx)
+			return NULL;
+		hash_tx(tx, &scratch->txhash);
+		hash_refs(refs_for(s->u[txoff].txp), num_inputs(tx),
+			  &scratch->refhash);
+		return scratch;
+	} else
+		return s->u[txoff].hash;
+}
+
 static void complaint_on_all(struct block *block, const void *complaint)
 {
 	struct block *b;

@@ -58,6 +58,11 @@ static inline bool shard_is_tx(const struct transaction_shard *s, u8 txoff)
 	return !bitmap_test_bit(s->txp_or_hash, txoff);
 }
 
+/* Returns NULL if it we don't have this tx. */
+const struct protocol_net_txrefhash *
+txrefhash_in_shard(const struct block *b, u16 shard, u8 txoff,
+		   struct protocol_net_txrefhash *scratch);
+
 /* Allocate a new struct transaction_shard. */
 struct transaction_shard *new_shard(const tal_t *ctx, u16 shardnum, u8 num);
 
@@ -114,6 +119,19 @@ static inline bool shard_all_known(const struct block *block, u16 shardnum)
 	u8 count;
 
 	count = block->shard[shardnum] ? block->shard[shardnum]->txcount : 0;
+	return count == block->shard_nums[shardnum];
+}
+
+/* Do we have every tx or hash? */
+static inline bool shard_all_hashes(const struct block *block, u16 shardnum)
+{
+	u8 count;
+
+	if (block->shard[shardnum]) {
+		count = block->shard[shardnum]->txcount
+			+ block->shard[shardnum]->hashcount;
+	} else
+		count = 0;
 	return count == block->shard_nums[shardnum];
 }
 

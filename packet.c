@@ -92,3 +92,9 @@ void tal_packet_append_proof_(void *ppkt, const struct block *block,
 					   block_get_refs(block, shardnum,
 							  txoff));
 }
+
+void tal_packet_append_txrefhash_(void *ppkt,
+				  const struct protocol_net_txrefhash *hashes)
+{
+	tal_packet_append_(ppkt, hashes, sizeof(*hashes));
+}

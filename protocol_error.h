@@ -32,6 +32,9 @@ enum protocol_error {
 	*/
 	PROTOCOL_ERROR_UNKNOWN_BLOCK,
 
+	/* protocol_pkt_get_shard */
+	PROTOCOL_ERROR_UNKNOWN_SHARD,
+
 	/* protocol_pkt_get_tx / protocol_pkt_get_tx_in_block */
 	PROTOCOL_ERROR_UNKNOWN_TX,
 
