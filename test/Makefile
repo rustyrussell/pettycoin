@@ -42,7 +42,7 @@ ccan-time.o: $(CCANDIR)/ccan/time/time.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm -f $(BINS) *.o
+	rm -f $(BINS) *.o *.d
 
 .PHONY:
 	bins
