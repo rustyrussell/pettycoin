@@ -3,6 +3,7 @@
 #include "shadouble.h"
 #include "hash_tx.h"
 #include "protocol.h"
+#include "block_shard.h"
 #include <assert.h>
 #include <string.h>
 #include <ccan/tal/tal.h>

@@ -26,4 +26,5 @@ static inline u32 num_shards(const struct protocol_block_header *hdr)
 {
 	return 1 << hdr->shard_order;
 }
+
 #endif /* PETTYCOIN_SHARD_H */

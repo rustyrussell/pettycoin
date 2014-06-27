@@ -20,6 +20,7 @@
 #include "chain.h"
 #include "todo.h"
 #include "sync.h"
+#include "shard.h"
 #include "difficulty.h"
 #include <ccan/io/io.h>
 #include <ccan/time/time.h>
@@ -545,7 +546,7 @@ static void try_resolve_hashes(struct state *state,
 			       u16 shardnum)
 {
 	unsigned int i, num = block->shard_nums[shardnum];
-	struct tx_shard *shard = block->shard[shardnum];
+	struct block_shard *shard = block->shard[shardnum];
 
 	/* If we know any of these transactions, resolve them now! */
 	for (i = 0; i < num; i++) {
@@ -641,7 +642,7 @@ recv_shard(struct peer *peer, const struct protocol_pkt_shard *pkt)
 	u16 shard;
 	unsigned int i;
 	const struct protocol_net_txrefhash *hash;
-	struct tx_shard *s;
+	struct block_shard *s;
 
 	if (le32_to_cpu(pkt->len) < sizeof(*pkt))
 		return PROTOCOL_ECODE_INVALID_LEN;
@@ -693,7 +694,7 @@ recv_shard(struct peer *peer, const struct protocol_pkt_shard *pkt)
 		return PROTOCOL_ECODE_INVALID_LEN;
 
 	hash = (struct protocol_net_txrefhash *)(pkt + 1);
-	s = new_shard(peer->state, shard, b->shard_nums[shard]);
+	s = new_block_shard(peer->state, shard, b->shard_nums[shard]);
 
 	/* Make shard own this packet. */
 	tal_steal(s, pkt);

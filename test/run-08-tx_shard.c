@@ -5,6 +5,7 @@
 #include "../hash_tx.c"
 #include "../signature.c"
 #include "../shadouble.c"
+#include "../block_shard.c"
 #include "helper_key.h"
 #include "helper_gateway_key.h"
 
@@ -39,14 +40,14 @@ static struct block *mock_block(const tal_t *ctx)
 	hdr->shard_order = 2;
 	b->shard_nums = shard_nums = tal_arrz(b, u8, 1 << 2);
 	shard_nums[1] = 2;
-	b->shard = tal_arrz(b, struct tx_shard *, 1 << 2);
+	b->shard = tal_arrz(b, struct block_shard *, 1 << 2);
 
 	return b;
 }
 
 int main(void)
 {
-	struct tx_shard *shard;
+	struct block_shard *shard;
 	tal_t *ctx = tal(NULL, char);
 	struct protocol_input_ref refs[4];
 	struct protocol_gateway_payment payment[1];
@@ -70,7 +71,7 @@ int main(void)
 		}
 	}
 
-	shard = new_shard(ctx, 1, 2);
+	shard = new_block_shard(ctx, 1, 2);
 	assert(tal_parent(shard) == ctx);
 	assert(shard->shardnum == 1);
 	assert(tx_for(shard, 0) == NULL);

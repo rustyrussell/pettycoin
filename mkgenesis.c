@@ -221,13 +221,13 @@ int main(int argc, char *argv[])
 	printf("};\n");
 
 	for (i = 0; i < (1U << hdr->shard_order); i++) {
-		printf("static struct tx_shard genesis_shard%i = {\n",
+		printf("static struct block_shard genesis_shard%i = {\n",
 		       i);
 		printf("\t.shardnum = %i\n", i);
 		/* Rest all zeroes/NULLs. */
 		printf("};\n");
 	}
-	printf("static struct tx_shard *genesis_shards[] = {\n");
+	printf("static struct block_shard *genesis_shards[] = {\n");
 	for (i = 0; i < (1U << hdr->shard_order); i++)
 		printf("%s&genesis_shard%i",
 		       i == 0 ? "\t" : ", ", i);

@@ -8,7 +8,7 @@
 struct protocol_block_header;
 struct protocol_block_tailer;
 struct protocol_double_sha;
-struct tx_shard;
+struct block_shard;
 struct state;
 struct block;
 struct log;
@@ -31,12 +31,12 @@ check_block_header(struct state *state,
 
 /* Does merkle match? */
 bool shard_belongs_in_block(const struct block *block,
-			    const struct tx_shard *shard);
+			    const struct block_shard *shard);
 
 /* Is this shard ordering valid?  Can be called even if it's not full. */
 bool check_tx_order(struct state *state,
 		    const struct block *block,
-		    const struct tx_shard *shard,
+		    const struct block_shard *shard,
 		    unsigned int *bad_txoff1,
 		    unsigned int *bad_txoff2);
 
@@ -45,7 +45,7 @@ enum protocol_ecode
 shard_validate_txs(struct state *state,
 		   struct log *log,
 		   const struct block *block,
-		   struct tx_shard *shard,
+		   struct block_shard *shard,
 		   unsigned int *bad_trans,
 		   unsigned int *bad_input_num,
 		   union protocol_tx **bad_input);
@@ -53,17 +53,17 @@ shard_validate_txs(struct state *state,
 /* For generating.c: inserts a fully-populated shard. */
 void force_shard_into_block(struct state *state,
 			    struct block *block,
-			    struct tx_shard *shard);
+			    struct block_shard *shard);
 
 void put_shard_of_hashes_into_block(struct state *state,
 				    struct block *block,
-				    struct tx_shard *shard);
+				    struct block_shard *shard);
 
 /* May add complaint if it's out of order. */
 struct txptr_with_ref;
 void put_tx_in_block(struct state *state,
 		     struct block *block,
-		     struct tx_shard *shard, u8 txoff,
+		     struct block_shard *shard, u8 txoff,
 		     const struct txptr_with_ref *txp);
 
 /* Check what we can, using block->prev->...'s shards. */

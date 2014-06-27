@@ -29,6 +29,7 @@ static time_t my_time(time_t *p)
 #include "../create_tx.c"
 #include "../check_block.c"
 #include "../block.c"
+#include "../block_shard.c"
 #include "../complain.c"
 #include "../prev_merkles.c"
 #include "../minimal_log.c"
@@ -67,19 +68,19 @@ static const struct protocol_double_sha genesis_merkles[] = {
 { { 0x6d, 0x07, 0x57, 0x1d, 0xee, 0x2e, 0x35, 0xe1, 0x37, 0x8b, 0xc4, 0x3a, 0x8e, 0x13, 0x88, 0xd2, 0xfe, 0xf6, 0xb3, 0x02, 0x1c, 0xc9, 0x92, 0x4b, 0x88, 0x5d, 0x53, 0xb2, 0xce, 0x39, 0x0e, 0xa8  }} ,
 { { 0x6d, 0x07, 0x57, 0x1d, 0xee, 0x2e, 0x35, 0xe1, 0x37, 0x8b, 0xc4, 0x3a, 0x8e, 0x13, 0x88, 0xd2, 0xfe, 0xf6, 0xb3, 0x02, 0x1c, 0xc9, 0x92, 0x4b, 0x88, 0x5d, 0x53, 0xb2, 0xce, 0x39, 0x0e, 0xa8  }} ,
 };
-static struct tx_shard genesis_shard0 = {
+static struct block_shard genesis_shard0 = {
 	.shardnum = 0
 };
-static struct tx_shard genesis_shard1 = {
+static struct block_shard genesis_shard1 = {
 	.shardnum = 1
 };
-static struct tx_shard genesis_shard2 = {
+static struct block_shard genesis_shard2 = {
 	.shardnum = 2
 };
-static struct tx_shard genesis_shard3 = {
+static struct block_shard genesis_shard3 = {
 	.shardnum = 3
 };
-static struct tx_shard *genesis_shards[] = {
+static struct block_shard *genesis_shards[] = {
 	&genesis_shard0, &genesis_shard1, &genesis_shard2, &genesis_shard3
 };
 struct block genesis = {
@@ -155,7 +156,7 @@ int main(int argc, char *argv[])
 	union protocol_tx *t;
 	struct protocol_gateway_payment payment;
 	struct block *b, *b2;
-	struct tx_shard *shard;
+	struct block_shard *shard;
 	struct protocol_input inputs[1];
 	u8 *prev_merkles;
 	enum protocol_ecode e;
@@ -202,7 +203,7 @@ int main(int argc, char *argv[])
 	assert(check_block_prev_merkles(s, b));
 
 	/* Put the single tx into a shard. */
-	shard = new_shard(s, update.shard, 1);
+	shard = new_block_shard(s, update.shard, 1);
 	shard->txcount = 1;
 	shard->u[0].txp = txptr_with_ref(shard, t, refs);
 
@@ -262,7 +263,7 @@ int main(int argc, char *argv[])
 	assert(check_block_prev_merkles(s, b2));
 
 	/* Put the single tx into a shard. */
-	shard = new_shard(s, update.shard, 1);
+	shard = new_block_shard(s, update.shard, 1);
 	shard->txcount = 1;
 	shard->u[0].txp = txptr_with_ref(shard, t, refs);
 

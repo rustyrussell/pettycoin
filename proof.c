@@ -10,7 +10,7 @@ void create_proof(struct protocol_proof *proof,
 		  const struct block *block, u16 shardnum, u8 txoff)
 {
 	unsigned int i;
-	const struct tx_shard *s;
+	const struct block_shard *s;
 
 	assert(shardnum < num_shards(block->hdr));
 	assert(shard_all_known(block, shardnum));

@@ -104,7 +104,7 @@ check_block_header(struct state *state,
 			&block->prev->total_work,
 			&block->total_work);
 
-	block->shard = tal_arrz(block, struct tx_shard *, num_shards(hdr));
+	block->shard = tal_arrz(block, struct block_shard *, num_shards(hdr));
 	block->hdr = hdr;
 	block->shard_nums = shard_nums;
 	block->merkles = merkles;
@@ -123,7 +123,7 @@ fail:
 }
 
 bool shard_belongs_in_block(const struct block *block,
-			    const struct tx_shard *shard)
+			    const struct block_shard *shard)
 {
 	struct protocol_double_sha merkle;
 
@@ -136,7 +136,7 @@ bool shard_belongs_in_block(const struct block *block,
 }
 
 static u32 get_shard_start(const struct block *block,
-			   const struct tx_shard *shard)
+			   const struct block_shard *shard)
 {
 	unsigned int i;
 	u32 num = 0;
@@ -149,7 +149,7 @@ static u32 get_shard_start(const struct block *block,
 
 bool check_tx_order(struct state *state,
 		    const struct block *block,
-		    const struct tx_shard *shard,
+		    const struct block_shard *shard,
 		    unsigned int *bad_transnum1,
 		    unsigned int *bad_transnum2)
 {
@@ -181,7 +181,7 @@ bool check_tx_order(struct state *state,
 
 static void add_tx_to_txhash(struct state *state,
 			     struct block *block,
-			     struct tx_shard *shard,
+			     struct block_shard *shard,
 			     u8 txoff)
 {
 	struct txhash_elem *te;
@@ -217,7 +217,7 @@ static void add_tx_to_txhash(struct state *state,
 /* This is a fast-path used by generating.c */
 void force_shard_into_block(struct state *state,
 			    struct block *block,
-			    struct tx_shard *shard)
+			    struct block_shard *shard)
 {
 	unsigned int i;
 	assert(shard_belongs_in_block(block, shard));
@@ -252,7 +252,7 @@ static struct txptr_with_ref dup_txp(const tal_t *ctx,
 
 static void copy_old_txs(struct state *state,
 			 struct block *block,
-			 struct tx_shard *new, const struct tx_shard *old,
+			 struct block_shard *new, const struct block_shard *old,
 			 u8 num)
 {
 	unsigned int i;
@@ -275,7 +275,7 @@ static void copy_old_txs(struct state *state,
 
 void put_shard_of_hashes_into_block(struct state *state,
 				    struct block *block,
-				    struct tx_shard *shard)
+				    struct block_shard *shard)
 {
 	unsigned int num;
 
@@ -296,7 +296,7 @@ void put_shard_of_hashes_into_block(struct state *state,
 
 static void check_tx_ordering(struct state *state,
 			      struct block *block,
-			      struct tx_shard *shard, u8 a, u8 b)
+			      struct block_shard *shard, u8 a, u8 b)
 {
 	if (tx_cmp(tx_for(shard, a), tx_for(shard, b)) >= 0)
 		complain_misorder(state, block, shard->shardnum, a, b);
@@ -304,7 +304,7 @@ static void check_tx_ordering(struct state *state,
 
 void put_tx_in_block(struct state *state,
 		     struct block *block,
-		     struct tx_shard *shard, u8 txoff,
+		     struct block_shard *shard, u8 txoff,
 		     const struct txptr_with_ref *txp)
 {
 	int i;
@@ -352,7 +352,7 @@ enum protocol_ecode
 shard_validate_txs(struct state *state,
 		   struct log *log,
 		   const struct block *block,
-		   struct tx_shard *shard,
+		   struct block_shard *shard,
 		   unsigned int *bad_trans,
 		   unsigned int *bad_input_num,
 		   union protocol_tx *inputs[PROTOCOL_TX_MAX_INPUTS])

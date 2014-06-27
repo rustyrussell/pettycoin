@@ -10,6 +10,7 @@
 #include "../merkle_txs.c"
 #include "../hash_tx.c"
 #include "../tx.c"
+#include "../block_shard.c"
 #include <assert.h>
 #include "helper_gateway_key.h"
 #include "helper_key.h"
@@ -19,6 +20,14 @@ bool accept_gateway(const struct state *state,
 		    const struct protocol_pubkey *key)
 {
 	return (memcmp(key, helper_gateway_public_key(), sizeof(*key)) == 0);
+}
+
+/* Avoid pulling in block.c, since this is only used for checking
+ * normal txs. */
+union protocol_tx *block_get_tx(const struct block *block, u16 shardnum,
+				u8 txoff)
+{
+	abort();
 }
 
 int main(int argc, char *argv[])

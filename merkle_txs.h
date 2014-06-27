@@ -1,8 +1,11 @@
 #ifndef PETTYCOIN_MERKLE_TXS_H
 #define PETTYCOIN_MERKLE_TXS_H
+#include <ccan/bitmap/bitmap.h>
 #include <stddef.h>
 #include "protocol.h"
-#include "block.h"
+
+union txp_or_hash;
+struct protocol_double_sha;
 
 /* Merkle together a shard of transactions */
 void merkle_txs(const void *prefix, size_t prefix_len,

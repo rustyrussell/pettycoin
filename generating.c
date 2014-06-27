@@ -159,12 +159,12 @@ static struct io_plan got_tx(struct io_conn *conn, struct generator *gen)
 	u32 i, off = 0, shard;
 
 	for (shard = 0; shard < (1 << gen->shard_order); shard++) {
-		struct tx_shard *s;
+		struct block_shard *s;
 		enum protocol_ecode err;
 		unsigned int bad_tx, bad_tx2, bad_input_num;
 		union protocol_tx *bad_input;
 
-		s = new_shard(gen, shard, gen->new->shard_nums[shard]);
+		s = new_block_shard(gen, shard, gen->new->shard_nums[shard]);
 		for (i = 0; i < gen->new->shard_nums[shard]; i++) {
 			/* Initialized this way... */
 			assert(shard_is_tx(s, i));

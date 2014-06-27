@@ -14,37 +14,6 @@
 #include "shard.h"
 #include <string.h>
 
-/* For compactness, struct tx_shard needs tx and refs adjacent. */
-struct txptr_with_ref txptr_with_ref(const tal_t *ctx,
-				     const union protocol_tx *tx,
-				     const struct protocol_input_ref *refs)
-{
-	struct txptr_with_ref txp;
-	size_t txlen, reflen;
-	char *p;
-
-	txlen = marshal_tx_len(tx);
-	reflen = num_inputs(tx) * sizeof(struct protocol_input_ref);
-
-	p = tal_alloc_(ctx, txlen + reflen, false, "txptr_with_ref");
-	memcpy(p, tx, txlen);
-	memcpy(p + txlen, refs, reflen);
-
-	txp.tx = (union protocol_tx *)p;
-	return txp;
-}
-
-struct tx_shard *new_shard(const tal_t *ctx, u16 shardnum, u8 num)
-{
-	struct tx_shard *s;
-
-	s = tal_alloc_(ctx,
-		       offsetof(struct tx_shard, u[num]),
-		       true, "struct tx_shard");
-	s->shardnum = shardnum;
-	return s;
-}
-
 struct block *block_find(struct block *start, const u8 lower_sha[4])
 {
 	struct block *b = start;
@@ -128,7 +97,7 @@ bool block_all_known(const struct block *block, unsigned int *shardnum)
 struct protocol_input_ref *block_get_refs(const struct block *block,
 					  u16 shardnum, u8 txoff)
 {
-	const struct tx_shard *s = block->shard[shardnum];
+	const struct block_shard *s = block->shard[shardnum];
 
 	assert(shardnum < num_shards(block->hdr));
 	assert(txoff < block->shard_nums[shardnum]);
@@ -142,27 +111,18 @@ struct protocol_input_ref *block_get_refs(const struct block *block,
 			  refs_for(s->u[txoff].txp));
 }
 
-/* If we have the tx, hash it, otherwise return hash. */
-const struct protocol_net_txrefhash *
-txrefhash_in_shard(const struct block *b, u16 shard, u8 txoff,
-		   struct protocol_net_txrefhash *scratch)
+union protocol_tx *block_get_tx(const struct block *block,
+				u16 shardnum, u8 txoff)
 {
-	const struct tx_shard *s = b->shard[shard];
+	const struct block_shard *s = block->shard[shardnum];
 
-	assert(shard < num_shards(b->hdr));
-	assert(txoff < b->shard_nums[shard]);
+	assert(shardnum < num_shards(block->hdr));
+	assert(txoff < block->shard_nums[shardnum]);
 
 	if (!s)
 		return NULL;
 
-	if (shard_is_tx(s, txoff)) {
-		const union protocol_tx *tx = tx_for(s, txoff);
-		if (!tx)
-			return NULL;
-		hash_tx(tx, &scratch->txhash);
-		hash_refs(refs_for(s->u[txoff].txp), num_inputs(tx),
-			  &scratch->refhash);
-		return scratch;
-	} else
-		return s->u[txoff].hash;
+	/* Must not be a hash. */
+	assert(!bitmap_test_bit(s->txp_or_hash, txoff));
+	return s->u[txoff].txp.tx;
 }
