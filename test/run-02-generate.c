@@ -32,6 +32,7 @@ static time_t my_time(time_t *p)
 #include "../create_tx.c"
 #include "../signature.c"
 #include "../shard.c"
+#include "../packet.c"
 #include "../minimal_log.c"
 
 int main(int argc, char *argv[])
@@ -43,7 +44,7 @@ int main(int argc, char *argv[])
 	struct protocol_double_sha hash, hash2;
 	union protocol_tx *t;
 	struct protocol_gateway_payment payment;
-	struct update update;
+	struct gen_update update;
 
 	/* This creates a new genesis block. */
 	fake_time = 1403486777;
@@ -86,8 +87,8 @@ int main(int argc, char *argv[])
 	update.shard = shard_of_tx(t, w->hdr.shard_order);
 	update.txoff = 0;
 	update.features = 0;
-	update.cookie = t;
-	hash_tx(t, &update.hash);
+	update.unused = 0;
+	hash_tx_and_refs(t, NULL, &update.hashes);
 	assert(add_tx(w2, &update));
 
 	/* Since tx contains randomness, we don't know how long this

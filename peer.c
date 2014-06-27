@@ -22,6 +22,7 @@
 #include "sync.h"
 #include "shard.h"
 #include "difficulty.h"
+#include "recv_block.h"
 #include <ccan/io/io.h>
 #include <ccan/time/time.h>
 #include <ccan/tal/tal.h>
@@ -340,108 +341,6 @@ recv_set_filter(struct peer *peer, const struct protocol_pkt_set_filter *pkt)
 	return PROTOCOL_ECODE_NONE;
 }
 
-/* Don't let them flood us with cheap, random blocks. */
-static void seek_predecessor(struct state *state, 
-			     const struct protocol_double_sha *sha,
-			     const struct protocol_double_sha *prev)
-{
-	u32 diff;
-
-	/* Make sure they did at least 1/16 current work. */
-	diff = le32_to_cpu(state->preferred_chain->tailer->difficulty);
-	diff = difficulty_one_sixteenth(diff);
-
-	if (!beats_target(sha, diff)) {
-		log_debug(state->log, "Ignoring unknown prev in easy block");
-		return;
-	}
-
-	log_debug(state->log, "Seeking block prev ");
-	log_add_struct(state->log, struct protocol_double_sha, prev);
-	todo_add_get_block(state, prev);
-}
-
-static enum protocol_ecode
-recv_block(struct peer *peer, const struct protocol_pkt_block *pkt)
-{
-	struct block *new, *b;
-	enum protocol_ecode e;
-	const struct protocol_double_sha *merkles;
-	const u8 *shard_nums;
-	const u8 *prev_merkles;
-	const struct protocol_block_tailer *tailer;
-	const struct protocol_block_header *hdr;
-	struct protocol_double_sha sha;
-
-	e = unmarshal_block(peer->log, pkt,
-			    &hdr, &shard_nums, &merkles, &prev_merkles,
-			    &tailer);
-	if (e != PROTOCOL_ECODE_NONE) {
-		log_unusual(peer->log, "unmarshaling new block gave %u", e);
-		return e;
-	}
-
-	log_debug(peer->log, "version = %u, features = %u, shard_order = %u",
-		  hdr->version, hdr->features_vote, hdr->shard_order);
-
-	e = check_block_header(peer->state, hdr, shard_nums, merkles,
-			       prev_merkles, tailer, &new, &sha);
-	/* In case we were asking for this, we're not any more. */
-	todo_done_get_block(peer, &sha, true);
-
-	if (e != PROTOCOL_ECODE_NONE) {
-		log_unusual(peer->log, "checking new block gave ");
-		log_add_enum(peer->log, enum protocol_ecode, e);
-
-		/* If it was due to unknown prev, ask about that. */
-		if (e == PROTOCOL_ECODE_PRIV_UNKNOWN_PREV) {
-			/* FIXME: Keep it around! */
-			seek_predecessor(peer->state, &sha, &hdr->prev_block);
-			return PROTOCOL_ECODE_NONE;
-		}
-		return e;
-	}
-
-	/* Now new block owns the packet. */
-	tal_steal(new, pkt);
-
-	/* Actually check the previous merkles are correct. */
-	if (!check_block_prev_merkles(peer->state, new)) {
-		log_unusual(peer->log, "new block has bad prev merkles");
-		/* FIXME: provide proof. */
-		tal_free(new);
-		return PROTOCOL_ECODE_BAD_PREV_MERKLES;
-	}
-
-	log_debug(peer->log, "New block %u is good!",
-		  le32_to_cpu(new->hdr->depth));
-
-	if ((b = block_find_any(peer->state, &new->sha)) != NULL) {
-		log_debug(peer->log, "already knew about block %u",
-			  le32_to_cpu(new->hdr->depth));
-		tal_free(new);
-	} else {
-		block_add(peer->state, new);
-		save_block(peer->state, new);
-		/* If we're syncing, ask about children */
-		if (peer->we_are_syncing)
-			todo_add_get_children(peer->state, &new->sha);
-		else
-			/* Otherwise, tell peers about new block. */
-			send_block_to_peers(peer->state, peer, new);
-			
-		b = new;
-	}
-
-	/* If the block is known bad, tell them! */
-	if (b->complaint)
-		todo_for_peer(peer, tal_packet_dup(peer, b->complaint));
-
-	/* FIXME: Try to guess the batches */
-
-	return PROTOCOL_ECODE_NONE;
-}
-
 static void
 complain_about_input(struct state *state,
 		     struct peer *peer,
@@ -503,12 +402,16 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 	union protocol_tx *inputs[PROTOCOL_TX_MAX_INPUTS];
 	unsigned int bad_input_num;
 
+	log_debug(peer->log, "Received PKT_TX");
 	tx = (void *)(pkt + 1);
 	e = unmarshal_tx(tx, txlen, NULL);
 	if (e)
 		return e;
 
 	e = check_tx(peer->state, tx, NULL, NULL, inputs, &bad_input_num);
+
+	log_debug(peer->log, "check_tx said ");
+	log_add_enum(peer->log, enum protocol_ecode, e);
 
 	/* These two complaints are not fatal. */
 	if (e == PROTOCOL_ECODE_PRIV_TX_BAD_INPUT) {
@@ -539,32 +442,6 @@ recv_unknown_block(struct peer *peer,
 	todo_done_get_block(peer, &pkt->block, false);
 
 	return PROTOCOL_ECODE_NONE;
-}
-
-static void try_resolve_hashes(struct state *state,
-			       struct block *block,
-			       u16 shardnum)
-{
-	unsigned int i, num = block->shard_nums[shardnum];
-	struct block_shard *shard = block->shard[shardnum];
-
-	/* If we know any of these transactions, resolve them now! */
-	for (i = 0; i < num; i++) {
-		struct txptr_with_ref txp;
-
-		if (shard_is_tx(shard, i))
-			continue;
-
-		/* FIXME: Search peer blocks too? */
-		txp = find_pending_tx_with_ref(shard, state, block, shardnum,
-					       shard->u[i].hash);
-		if (txp.tx) {
-			put_tx_in_block(state, block, shard, i, &txp);
-		} else {
-			todo_add_get_tx_in_block(state, &block->sha, shardnum,
-						 i);
-		}
-	}
 }
 
 static enum protocol_ecode
@@ -628,105 +505,6 @@ recv_get_shard(struct peer *peer,
 	return PROTOCOL_ECODE_NONE;
 }
 
-/* If we don't know block, ask about block.
- * Otherwise, if it's in our interest:
- *      If we don't know some inputs, ask for them and
- *	  treat other txs as above.
- *      Otherwise, place in block.
- *	Save batch to disk.
- */
-static enum protocol_ecode
-recv_shard(struct peer *peer, const struct protocol_pkt_shard *pkt)
-{
-	struct block *b;
-	u16 shard;
-	unsigned int i;
-	const struct protocol_net_txrefhash *hash;
-	struct block_shard *s;
-
-	if (le32_to_cpu(pkt->len) < sizeof(*pkt))
-		return PROTOCOL_ECODE_INVALID_LEN;
-
-	shard = le16_to_cpu(pkt->shard);
-
-	/* FIXME: do block lookup and complaint in common code? */
-	b = block_find_any(peer->state, &pkt->block);
-	if (!b) {
-		/* If we don't know it, that's OK.  Try to find out. */
-		todo_add_get_block(peer->state, &pkt->block);
-		return PROTOCOL_ECODE_NONE;
-	}
-
-	if (b->complaint) {
-		log_debug(peer->log, "shard on invalid block ");
-		log_add_struct(peer->log, struct protocol_double_sha,
-			       &pkt->block);
-		/* Complain, but don't otherwise process. */
-		todo_for_peer(peer, tal_packet_dup(peer, b->complaint));
-		return PROTOCOL_ECODE_NONE;
-	}
-
-	if (shard >= num_shards(b->hdr)) {
-		log_unusual(peer->log, "Invalid shard for shard %u of ",
-			    shard);
-		log_add_struct(peer->log, struct protocol_double_sha,
-			       &pkt->block);
-		return PROTOCOL_ECODE_BAD_SHARDNUM;
-	}
-
-	if (le16_to_cpu(pkt->err) != PROTOCOL_ECODE_NONE) {
-		/* Error can't have anything appended. */
-		if (le32_to_cpu(pkt->len) != sizeof(*pkt))
-			return PROTOCOL_ECODE_INVALID_LEN;
-		/* We failed to get shard. */
-		todo_done_get_shard(peer, &pkt->block, shard, false);
-		if (le16_to_cpu(pkt->err) == PROTOCOL_ECODE_UNKNOWN_BLOCK)
-			/* Implies it doesn't know block, so don't ask. */
-			todo_done_get_block(peer, &pkt->block, false);
-		else if (le16_to_cpu(pkt->err) != PROTOCOL_ECODE_UNKNOWN_SHARD)
-			return PROTOCOL_ECODE_UNKNOWN_ERRCODE;
-		return PROTOCOL_ECODE_NONE;
-	}
-
-	/* Should have appended all txrefhashes. */
-	if (le32_to_cpu(pkt->len)
-	    != sizeof(*pkt) + b->shard_nums[shard] * sizeof(*hash))
-		return PROTOCOL_ECODE_INVALID_LEN;
-
-	hash = (struct protocol_net_txrefhash *)(pkt + 1);
-	s = new_block_shard(peer->state, shard, b->shard_nums[shard]);
-
-	/* Make shard own this packet. */
-	tal_steal(s, pkt);
-
-	/* Add hash pointers. */
-	for (i = 0; i < b->shard_nums[shard]; i++) {
-		s->hashcount++;
-		bitmap_set_bit(s->txp_or_hash, i);
-		s->u[i].hash = hash + i;
-	}
-
-	if (!shard_belongs_in_block(b, s)) {
-		tal_free(s);
-		return PROTOCOL_ECODE_BAD_MERKLE;
-	}
-
-	/* This may resolve some of the txs if we know them already. */
-	put_shard_of_hashes_into_block(peer->state, b, s);
-
-	/* This will try to match the rest, or trigger asking. */
-	try_resolve_hashes(peer->state, b, shard);
-
-	/* We save once we know the entire contents. */
-	if (shard_all_known(b, shard))
-		save_shard(peer->state, b, shard);
-
-	/* FIXME: re-check pending transactions with unknown inputs
-	 * now we know more, or pendings which might be invalidated. */
-
-	return PROTOCOL_ECODE_NONE;
-}
-
 static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 {
 	const struct protocol_net_hdr *hdr = peer->incoming;
@@ -767,7 +545,7 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 		err = recv_set_filter(peer, peer->incoming);
 		break;
 	case PROTOCOL_PKT_BLOCK:
-		err = recv_block(peer, peer->incoming);
+		err = recv_block_from_peer(peer, peer->incoming);
 		break;
 	case PROTOCOL_PKT_TX:
 		err = recv_tx(peer, peer->incoming);
@@ -782,7 +560,7 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 		err = recv_get_shard(peer, peer->incoming, &reply);
 		break;
 	case PROTOCOL_PKT_SHARD:
-		err = recv_shard(peer, peer->incoming);
+		err = recv_shard_from_peer(peer, peer->incoming);
 		break;
 	/* FIXME! */
 	case PROTOCOL_PKT_TX_IN_BLOCK:

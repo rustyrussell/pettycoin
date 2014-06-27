@@ -165,7 +165,7 @@ int main(int argc, char *argv[])
 	struct protocol_input inputs[1];
 	u8 *prev_merkles;
 	enum protocol_ecode e;
-	struct update update;
+	struct gen_update update;
 	struct protocol_input_ref *refs;
 	union protocol_tx *intxs[PROTOCOL_TX_MAX_INPUTS];
 
@@ -193,8 +193,8 @@ int main(int argc, char *argv[])
 	update.shard = shard_of_tx(t, next_shard_order(&genesis));
 	update.txoff = 0;
 	update.features = 0;
-	update.cookie = t;
-	hash_tx_for_block(t, NULL, 0, refs, num_inputs(t), &update.hash);
+	update.unused = 0;
+	hash_tx_and_refs(t, refs, &update.hashes);
 	assert(add_tx(w, &update));
 	for (i = 0; !solve_block(w); i++);
 
@@ -253,8 +253,8 @@ int main(int argc, char *argv[])
 	update.shard = shard_of_tx(t, next_shard_order(b));
 	update.txoff = 0;
 	update.features = 0;
-	update.cookie = t;
-	hash_tx_for_block(t, NULL, 0, refs, num_inputs(t), &update.hash);
+	update.unused = 0;
+	hash_tx_and_refs(t, refs, &update.hashes);
 	assert(add_tx(w2, &update));
 	for (i = 0; !solve_block(w2); i++);
 

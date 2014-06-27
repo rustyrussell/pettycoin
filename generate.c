@@ -26,6 +26,7 @@
 #include "marshal.h"
 #include "generate.h"
 #include "timestamp.h"
+#include "packet.h"
 #include <assert.h>
 
 static volatile bool input = true;
@@ -58,21 +59,24 @@ struct working_block {
 	struct protocol_double_sha *merkles;
 	u8 *prev_merkles;
 	struct protocol_block_tailer tailer;
-	struct protocol_double_sha ***trans_hashes;
+	struct protocol_net_txrefhash ***trans_hashes;
 	struct protocol_double_sha hash_of_merkles;
 	struct protocol_double_sha hash_of_prev_merkles;
 
 	/* Unfinished hash without tailer. */
 	SHA256_CTX partial;
+
+	/* Finished result. */
+	struct protocol_double_sha sha;
 };
 
 /* Update w->merkles[shard], and w->hash_of_merkles */
 static void merkle_hash_shard(struct working_block *w, u32 shard)
 {
-	const struct protocol_double_sha **hashes;
+	const struct protocol_net_txrefhash **hashes;
 
 	/* Introducing const here requires cast. */
-	hashes = (const struct protocol_double_sha **)w->trans_hashes[shard];
+	hashes = (const struct protocol_net_txrefhash **)w->trans_hashes[shard];
 	merkle_hashes(hashes, 0, w->shard_nums[shard], &w->merkles[shard]);
 }
 
@@ -123,7 +127,7 @@ new_working_block(const tal_t *ctx,
 
 	w->num_shards = 1 << shard_order;
 	w->num_trans = 0;
-	w->trans_hashes = tal_arr(w, struct protocol_double_sha **,
+	w->trans_hashes = tal_arr(w, struct protocol_net_txrefhash **,
 				  w->num_shards);
 	w->shard_nums = tal_arrz(w, u8, w->num_shards);
 	w->merkles = tal_arrz(w, struct protocol_double_sha, w->num_shards);
@@ -131,7 +135,7 @@ new_working_block(const tal_t *ctx,
 		return tal_free(w);
 	for (i = 0; i < w->num_shards; i++) {
 		w->trans_hashes[i] = tal_arr(w->trans_hashes,
-					     struct protocol_double_sha *,
+					     struct protocol_net_txrefhash *,
 					     0);
 		if (!w->trans_hashes[i])
 			return tal_free(w);
@@ -165,7 +169,7 @@ new_working_block(const tal_t *ctx,
 }
 
 /* Append a new transaction hash to the block. */
-static bool add_tx(struct working_block *w, struct update *update)
+static bool add_tx(struct working_block *w, struct gen_update *update)
 {
 	unsigned int i;
 	u8 new_features = 0;
@@ -185,7 +189,7 @@ static bool add_tx(struct working_block *w, struct update *update)
 		w->trans_hashes[update->shard] + update->txoff,
 		(num - update->txoff)
 		* sizeof(w->trans_hashes[update->shard][0]));
-	w->trans_hashes[update->shard][update->txoff] = &update->hash;
+	w->trans_hashes[update->shard][update->txoff] = &update->hashes;
 	w->shard_nums[update->shard]++;
 	w->num_trans++;
 
@@ -218,15 +222,14 @@ static void increment_nonce2(struct protocol_block_header *hdr)
 /* Try to solve the block. */
 static bool solve_block(struct working_block *w)
 {
-	struct protocol_double_sha sha;
 	SHA256_CTX ctx;
 	uint32_t *nonce1;
 
 	ctx = w->partial;
 	SHA256_Update(&ctx, &w->tailer, sizeof(w->tailer));
-	SHA256_Double_Final(&ctx, &sha);
+	SHA256_Double_Final(&ctx, &w->sha);
 
-	if (beats_target(&sha, le32_to_cpu(w->tailer.difficulty)))
+	if (beats_target(&w->sha, le32_to_cpu(w->tailer.difficulty)))
 		return true;
 
 	/* Keep sparse happy: we don't care about nonce endianness. */
@@ -278,13 +281,13 @@ static bool read_all_or_none(int fd, void *buf, size_t len)
 
 static void read_txs(struct working_block *w)
 {
-	struct update *update = tal(w, struct update);
+	struct gen_update *update = tal(w, struct gen_update);
 
 	/* Gratuitous initial read handles race */
 	while (read_all_or_none(STDIN_FILENO, update, sizeof(*update))) {
 		if (!add_tx(w, update))
 			err(1, "Adding transaction");
-		update = tal(w, struct update);
+		update = tal(w, struct gen_update);
 	}
 
 	tal_free(update);
@@ -327,22 +330,29 @@ static bool from_hex(const char *str, u8 *buf, size_t bufsize)
 static void write_block(int fd, const struct working_block *w)
 {
 	struct protocol_pkt_block *b;
+	struct protocol_pkt_shard *s;
 	u32 shard, i;
 
 	b = marshal_block(w, &w->hdr, w->shard_nums, w->merkles,
 			  w->prev_merkles, &w->tailer);
 	if (!write_all(fd, b, le32_to_cpu(b->len)))
-		err(1, "Writing out results: %s", strerror(errno));
+		err(1, "Writing out block: %s", strerror(errno));
 
-	/* Write out the cookies. */
+	/* Write out the shard hashes. */
 	for (shard = 0; shard < w->num_shards; shard++) {
-		for (i = 0; i < w->shard_nums[shard]; i++) {
-			/* cookie is just before hash */
-			void **cookie = (void *)w->trans_hashes[shard][i];
-			if (!write_all(fd, &cookie[-1], sizeof(void *)))
-				err(1, "Writing out cookie: %s",
-				    strerror(errno));
-		}
+		s = tal_packet(w, struct protocol_pkt_shard,
+			       PROTOCOL_PKT_SHARD);
+		s->block = w->sha;
+		s->shard = cpu_to_le16(shard);
+		s->err = cpu_to_le16(PROTOCOL_ECODE_NONE);
+
+		for (i = 0; i < w->shard_nums[shard]; i++)
+			tal_packet_append_txrefhash(&s,
+						    w->trans_hashes[shard][i]);
+
+		if (!write_all(fd, s, le32_to_cpu(s->len)))
+			err(1, "Writing out shard %i: %s",
+			    shard, strerror(errno));
 	}
 }
 

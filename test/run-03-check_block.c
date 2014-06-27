@@ -167,7 +167,7 @@ int main(int argc, char *argv[])
 	struct block_shard *shard;
 	u8 *prev_merkles;
 	enum protocol_ecode e;
-	struct update update;
+	struct gen_update update;
 	struct protocol_input_ref *refs;
 
 	/* We need enough of state to use the real init function here. */
@@ -199,8 +199,8 @@ int main(int argc, char *argv[])
 	update.shard = shard_of_tx(t, next_shard_order(&genesis));
 	update.txoff = 0;
 	update.features = 0;
-	update.cookie = t;
-	hash_tx_for_block(t, NULL, 0, refs, num_inputs(t), &update.hash);
+	update.unused = 0;
+	hash_tx_and_refs(t, refs, &update.hashes);
 	assert(add_tx(w, &update));
 	for (i = 0; !solve_block(w); i++);
 

@@ -1,5 +1,3 @@
-/* FIXME: update mechanism is still racy.  We should just stop the generator
- * before we update the pending transactions. */
 #include "generating.h"
 #include "difficulty.h"
 #include "state.h"
@@ -16,6 +14,7 @@
 #include "generate.h"
 #include "pending.h"
 #include "chain.h"
+#include "recv_block.h"
 #include "tx.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/io/io.h>
@@ -33,7 +32,16 @@ static const struct protocol_address *generating_address(struct state *state)
 
 struct pending_update {
 	struct list_node list;
-	struct update update;
+	struct gen_update update;
+};
+
+struct solution {
+	/* The solution it found. */
+	struct protocol_pkt_block *block;
+
+	unsigned int shards_read;
+	/* The hashes in the shards */
+	struct protocol_pkt_shard **shard;
 };
 
 struct generator {
@@ -41,14 +49,12 @@ struct generator {
 	struct log *log;
 	struct io_conn *update, *answer;
 	void *pkt_in;
-	/* The block it found. */
-	struct block *new;
-	/* The transactions it included */
-	struct pending_tx **included;
 	pid_t pid;
 	u8 shard_order;
 	/* Update list. */
 	struct list_head updates;
+
+	struct solution *solution;
 };
 
 /* After both fds close, this gets called. */
@@ -136,8 +142,9 @@ static struct io_plan do_send_tx(struct io_conn *conn, struct generator *gen)
 
 	u = list_top(&gen->updates, struct pending_update, list);
 	if (u) {
-		log_debug(gen->log, "Sending transaction update shard %u off %u cookie %p",
-			  u->update.shard, u->update.txoff, u->update.cookie);
+		log_debug(gen->log,
+			  "Sending transaction update shard %u off %u",
+			  u->update.shard, u->update.txoff);
 
 		return io_write(&u->update, sizeof(u->update), tx_sent, gen);
 	}
@@ -154,133 +161,31 @@ static struct io_plan send_go_byte(struct io_conn *conn, struct generator *gen)
 	return io_write("", 1, do_send_tx, gen);
 }
 
-static struct io_plan got_tx(struct io_conn *conn, struct generator *gen)
+static struct io_plan got_shard(struct io_conn *conn, struct generator *gen)
 {
-	u32 i, off = 0, shard;
+	gen->solution->shard[gen->solution->shards_read++]
+		= tal_steal(gen->solution, gen->pkt_in);
 
-	for (shard = 0; shard < (1 << gen->shard_order); shard++) {
-		struct block_shard *s;
-		enum protocol_ecode err;
-		unsigned int bad_tx, bad_tx2, bad_input_num;
-		union protocol_tx *bad_input;
+	if (gen->solution->shards_read != tal_count(gen->solution->shard))
+		return io_read_packet(&gen->pkt_in, got_shard, gen);
 
-		s = new_block_shard(gen, shard, gen->new->shard_nums[shard]);
-		for (i = 0; i < gen->new->shard_nums[shard]; i++) {
-			/* Initialized this way... */
-			assert(shard_is_tx(s, i));
-			s->u[i].txp = txptr_with_ref(s, gen->included[off]->tx,
-						     gen->included[off]->refs);
-			s->txcount++;
-			off++;
-		}
-
-		if (s->txcount != gen->new->shard_nums[shard]) {
-			log_broken(gen->log,
-				   "Generator %u created short shard %u(%u)",
-				   gen->pid, shard, s->txcount);
-			return io_close();
-		}
-
-		if (!shard_belongs_in_block(gen->new, s)) {
-			log_broken(gen->log,
-				   "Generator %u created invalid shard %u",
-				   gen->pid, shard);
-			return io_close();
-		}
-
-		err = shard_validate_txs(gen->state, gen->log,
-					 gen->new, s, &bad_tx,
-					 &bad_input_num, &bad_input);
-		if (err) {
-			log_broken(gen->log,
-				   "Generator %u gave invalid transaction",
-				   gen->pid);
-			log_add_enum(gen->log, enum protocol_ecode, err);
-			return io_close();
-		}
-
-		if (!check_tx_order(gen->state, gen->new, s,
-				    &bad_tx, &bad_tx2)) {
-			log_broken(gen->log,
-				   "Generator %u created bad order %u vs %u",
-				   gen->pid, bad_tx, bad_tx2);
-			return io_close();
-		}
-
-		force_shard_into_block(gen->state, gen->new, s);
-		log_debug(gen->log, "Added shard %u (%u trans)",
-			  shard, s->txcount);
-	}
-	assert(off == tal_count(gen->included));
-
-	/* Ignore return: we restart generating whether this is in main chain or not */
-	assert(block_all_known(gen->new, NULL));
-	block_add(gen->state, gen->new);
-	save_block(gen->state, gen->new);
-
-	for (shard = 0; shard < (1 << gen->shard_order); shard++)
-		save_shard(gen->state, gen->new, shard);
-
-	/* We may need to revise what we consider mutual blocks with peers. */
-	send_block_to_peers(gen->state, NULL, gen->new);
+	/* We've got all the shards! */
+	recv_block_from_generator(gen->state, gen->log, gen->solution->block,
+				  gen->solution->shard);
 
 	return io_close();
 }
 
-static u32 count_txs(const u8 *shard_nums, u8 shard_order)
-{
-	u32 i, total;
-
-	for (i = 0, total = 0; i < (1 << shard_order); i++)
-		total += shard_nums[i];
-	return total;
-}
-
 static struct io_plan got_solution(struct io_conn *conn, struct generator *gen)
 {
-	enum protocol_ecode e;
-	const u8 *shard_nums;
-	const struct protocol_double_sha *merkles;
-	const u8 *prev_merkles;
-	const struct protocol_block_tailer *tailer;
-	const struct protocol_block_header *hdr;
-	u32 total_txs;
+	gen->solution = tal(gen, struct solution);
+	gen->solution->block = tal_steal(gen->solution, gen->pkt_in);
 
-	e = unmarshal_block(gen->log, gen->pkt_in, &hdr, &shard_nums,
-			    &merkles, &prev_merkles, &tailer);
-	if (e != PROTOCOL_ECODE_NONE) {
-		log_broken(gen->log, "Generator %u unmarshal error %u",
-			   gen->pid, e);
-		return io_close();
-	}
-
-	e = check_block_header(gen->state, hdr, shard_nums, merkles,
-			       prev_merkles, tailer, &gen->new, NULL);
-	if (e != PROTOCOL_ECODE_NONE) {
-		log_broken(gen->log, "Generator %u block error %u",
-			   gen->pid, e);
-		return io_close();
-	}
-
-	total_txs = count_txs(shard_nums, gen->shard_order);
-
-	log_info(gen->log,
-		 "Solution received from generator for block %u (%u trans)",
-		 le32_to_cpu(gen->new->hdr->depth), total_txs);
-
-	/* Actually check the previous merkles are correct. */
-	if (!check_block_prev_merkles(gen->state, gen->new)) {
-		log_broken(gen->log,
-			   "Generator %u block %u bad prev_merkles",
-			   gen->pid, le32_to_cpu(gen->new->hdr->depth));
-		return io_close();
-	}
-
-	/* Read cookies back (actually, struct pending_tx *). */
-	gen->included = tal_arr(gen, struct pending_tx *, total_txs);
-	return io_read(gen->included,
-		       sizeof(struct pending_tx *) * total_txs,
-		       got_tx, gen);
+	gen->solution->shard = tal_arr(gen->solution,
+				       struct protocol_pkt_shard *,
+				       1 << gen->shard_order);
+	gen->solution->shards_read = 0;
+	return io_read_packet(&gen->pkt_in, got_shard, gen);
 }
 
 /* FIXME: If transaction may go over horizon, time out generation */
@@ -295,14 +200,12 @@ static void add_update(struct state *state,
 	update->update.shard = shard;
 	update->update.txoff = txoff;
 	update->update.unused = 0;
-	update->update.cookie = t;
+	hash_tx_and_refs(t->tx, t->refs, &update->update.hashes);
 
 	/* We shouldn't overflow. */
 	assert(update->update.shard == shard);
 	assert(update->update.txoff == txoff);
 
-	hash_tx_for_block(t->tx, NULL, 0, t->refs, num_inputs(t->tx),
-			  &update->update.hash);
 	list_add_tail(&state->gen->updates, &update->list);
 }
 

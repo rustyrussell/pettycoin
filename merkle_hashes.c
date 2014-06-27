@@ -1,16 +1,17 @@
 #include "merkle_hashes.h"
 #include "merkle_recurse.h"
 #include "protocol.h"
+#include "protocol_net.h"
 
 static void merkle_hash(size_t n, void *data,
 			struct protocol_double_sha *merkle)
 {
-	const struct protocol_double_sha **hashes = data;
+	const struct protocol_net_txrefhash **hashes = data;
 
-	*merkle = *hashes[n];
+	merkle_two_hashes(&hashes[n]->txhash, &hashes[n]->refhash, merkle);
 }
 
-void merkle_hashes(const struct protocol_double_sha **hashes,
+void merkle_hashes(const struct protocol_net_txrefhash **hashes,
 		   size_t off, size_t num_hashes,
 		   struct protocol_double_sha *merkle)
 {

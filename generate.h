@@ -1,15 +1,14 @@
 #ifndef PETTYCOIN_GENERATE_H
 #define PETTYCOIN_GENERATE_H
-#include <ccan/short_types/short_types.h>
+#include "protocol_net.h"
 
 /* Write this to generate's stdin to add a new transaction. */
-struct update {
+struct gen_update {
 	u16 shard;
 	u8 txoff;
 	u8 unused;
 	u32 features;
-	const void *cookie;
-	struct protocol_double_sha hash;
+	struct protocol_net_txrefhash hashes;
 };
 
 #endif /* PETTYCOIN_GENERATE_H */

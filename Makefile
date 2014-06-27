@@ -1,5 +1,5 @@
-PETTYCOIN_OBJS := block.o check_block.o check_tx.o difficulty.o shadouble.o timestamp.o gateways.o hash_tx.o pettycoin.o merkle_txs.o merkle_recurse.o tx_cmp.o genesis.o marshal.o hash_block.o prev_merkles.o state.o packet.o dns.o netaddr.o peer.o peer_cache.o pseudorand.o welcome.o log.o generating.o blockfile.o pending.o log_helper.o txhash.o signature.o proof.o chain.o features.o todo.o base58.o sync.o create_refs.o shard.o packet_io.o tx.o complain.o block_shard.o tal_packet_proof.o
-GENERATE_OBJS := generate.o merkle_hashes.o merkle_recurse.o hash_tx.o tx_cmp.o shadouble.o marshal.o minimal_log.o timestamp.o
+PETTYCOIN_OBJS := block.o check_block.o check_tx.o difficulty.o shadouble.o timestamp.o gateways.o hash_tx.o pettycoin.o merkle_txs.o merkle_recurse.o tx_cmp.o genesis.o marshal.o hash_block.o prev_merkles.o state.o packet.o dns.o netaddr.o peer.o peer_cache.o pseudorand.o welcome.o log.o generating.o blockfile.o pending.o log_helper.o txhash.o signature.o proof.o chain.o features.o todo.o base58.o sync.o create_refs.o shard.o packet_io.o tx.o complain.o block_shard.o recv_block.o tal_packet_proof.o
+GENERATE_OBJS := generate.o merkle_hashes.o merkle_recurse.o hash_tx.o tx_cmp.o shadouble.o marshal.o minimal_log.o timestamp.o packet.o
 MKGENESIS_OBJS := mkgenesis.o shadouble.o marshal.o hash_block.o minimal_log.o
 SIZES_OBJS := sizes.o
 MKPRIV_OBJS := mkpriv.o
