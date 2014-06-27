@@ -116,40 +116,14 @@ static EC_KEY *get_privkey(const char *arg, struct protocol_pubkey *gkey)
 	return priv;
 }
 
-static void discard_remainder(int fd, struct protocol_net_hdr *hdr)
+static void ignore_packet(int fd, struct protocol_net_hdr *hdr)
 {
 	size_t len = le32_to_cpu(hdr->len) - sizeof(*hdr);
+	void *p = tal_arr(NULL, char, len);
 
-	while (len) {
-		char buf[128];
-		size_t rlen = sizeof(buf);
-
-		if (rlen > len)
-			rlen = len;
-		if (!read_all(fd, buf, rlen))
-			err(1, "Reading discarding packet");
-		len -= rlen;
-	}
-}
-
-static void discard_packet(int fd, enum protocol_pkt_type type)
-{
-	struct protocol_net_hdr hdr;
-
-	if (!read_all(fd, &hdr, sizeof(hdr)))
-		err(1, "Reading discarding header");
-
-	if (le32_to_cpu(hdr.type) != type) {
-		log_broken(NULL, "Unexpected response, len %u type ",
-			   le32_to_cpu(hdr.len));
-		log_add_enum(NULL, enum protocol_pkt_type, le32_to_cpu(hdr.type));
-		log_broken(NULL, "(expecting ");
-		log_add_enum(NULL, enum protocol_pkt_type, type);
-		fprintf(stderr, "\n");
-		errx(1, "Discarding packet");
-	}
-
-	discard_remainder(fd, &hdr);
+	if (!read_all(fd, p, len))
+		err(1, "Reading packet");
+	tal_free(p);
 }
 
 static void welcome_and_init(int fd, const struct protocol_net_address *netaddr)
@@ -200,61 +174,7 @@ static void welcome_and_init(int fd, const struct protocol_net_address *netaddr)
 
 	if (!write_all(fd, &filter, sizeof(filter)))
 		err(1, "Writing filter");
-
-	/* They should send their filter, ignore. */
-	discard_packet(fd, PROTOCOL_PKT_SET_FILTER);
 }
-
-#if 0
-static void ignore_new_block(int fd, struct protocol_net_hdr *hdr)
-{
-	size_t len = le32_to_cpu(hdr->len);
-	struct protocol_req_new_block *nb;
-	const struct protocol_double_sha *merkles;
-	const u8 *prev_merkles;
-	const struct protocol_block_tailer *tailer;
-	struct protocol_block_header *bhdr;
-	struct protocol_resp_new_block resp;
-
-	nb = malloc(len);
-	memcpy(nb, hdr, sizeof(*hdr));
-	bhdr = (void *)nb->block;
-	len -= sizeof(*hdr);
-	if (!read_all(fd, bhdr, len))
-		err(1, "Reading new block");
-	if (unmarshall_block(NULL, len, bhdr, &merkles, &prev_merkles, &tailer))
-		err(1, "Unmarshalling block");
-
-	/* If we don't tell it that's our latest, it will keep sending. */
-	resp.len = cpu_to_le32(sizeof(resp));
-	resp.type = cpu_to_le32(PROTOCOL_RESP_NEW_BLOCK);
-	hash_block(bhdr, merkles, prev_merkles, tailer, &resp.final);
-
-	log_unusual(NULL, "Ignoring new block ");
-	log_add_struct(NULL, struct protocol_double_sha, &resp.final);
-	if (!write_all(fd, &resp, sizeof(resp)))
-		err(1, "Writing new block response");
-}
-
-static void ignore_batch_request(int fd, struct protocol_net_hdr *hdr)
-{
-	struct protocol_req_batch req;
-	struct protocol_resp_batch resp;
-
-	assert(le32_to_cpu(hdr->len) == sizeof(req));
-	if (!read_all(fd, (char *)&req + sizeof(*hdr), sizeof(req) - sizeof(*hdr)))
-		err(1, "Reading req batch");
-
-	resp.len = cpu_to_le32(sizeof(resp));
-	resp.type = cpu_to_le32(PROTOCOL_RESP_BATCH);
-	resp.error = cpu_to_le32(PROTOCOL_ECODE_UNKNOWN_BLOCK);
-	resp.num = cpu_to_le32(0);
-
-	log_unusual(NULL, "Ignoring batch request");
-	if (!write_all(fd, &resp, sizeof(resp)))
-		err(1, "Writing batch response");
-}
-#endif
 
 static volatile int closing_fd;
 
@@ -271,6 +191,7 @@ static void read_response(int fd)
 
 	/* We wait for up to a second, in case it sends courtesy error */
 	closing_fd = fd;
+again:
 	signal(SIGALRM, close_fd);
 	alarm(1);
 
@@ -280,7 +201,13 @@ static void read_response(int fd)
 		err(1, "Reading response");
 	}
 
-	/* FIXME: Handle non-error responses! */
+	if (le32_to_cpu(hdr.type) != PROTOCOL_PKT_ERR) {
+		warnx("Ignoring packet len %u type %u\n",
+		      le32_to_cpu(hdr.len), le32_to_cpu(hdr.type));
+		ignore_packet(fd, &hdr);
+		goto again;
+	}
+
 	log_broken(NULL, "Unexpected response, len %u type ",
 		   le32_to_cpu(hdr.len));
 	log_add_enum(NULL, enum protocol_pkt_type, le32_to_cpu(hdr.type));
