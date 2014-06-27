@@ -556,7 +556,7 @@ static void try_resolve_hashes(struct state *state,
 			continue;
 
 		/* FIXME: Search peer blocks too? */
-		txp = find_pending_tx_with_ref(shard, state, block,
+		txp = find_pending_tx_with_ref(shard, state, block, shardnum,
 					       shard->u[i].hash);
 		if (txp.tx) {
 			put_tx_in_block(state, block, shard, i, &txp);

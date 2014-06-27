@@ -40,5 +40,6 @@ struct txptr_with_ref
 find_pending_tx_with_ref(const tal_t *ctx,
 			 struct state *state,
 			 const struct block *block,
+			 u16 shard,
 			 const struct protocol_net_txrefhash *hash);
 #endif /* PETTYCOIN_PENDING_H */

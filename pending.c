@@ -265,48 +265,45 @@ struct txptr_with_ref
 find_pending_tx_with_ref(const tal_t *ctx,
 			 struct state *state,
 			 const struct block *block,
+			 u16 shard,
 			 const struct protocol_net_txrefhash *hash)
 {
-	size_t shard;
 	struct protocol_input_ref *refs;
 	struct txptr_with_ref r;
+	struct pending_tx **pend = state->pending->pend[shard];
+	size_t i, num = tal_count(pend);
 
 	/* If this block preceeds where we're mining, we would have to change.
 	 * But we always know everything about longest_knowns[0], so that
 	 * can't happen. */
 	assert(!block_preceeds(block, state->longest_knowns[0]));
 
-	for (shard = 0; shard < ARRAY_SIZE(state->pending->pend); shard++) {
-		struct pending_tx **pend = state->pending->pend[shard];
-		size_t i, num = tal_count(pend);
+	for (i = 0; i < num; i++) {
+		struct protocol_double_sha sha;
 
-		for (i = 0; i < num; i++) {
-			struct protocol_double_sha sha;
+		/* FIXME: Cache sha of tx in pending? */
+		hash_tx(pend[i]->tx, &sha);
+		if (!structeq(&hash->txhash, &sha))
+			continue;
 
-			/* FIXME: Cache sha of tx in pending? */
-			hash_tx(pend[i]->tx, &sha);
-			if (!structeq(&hash->txhash, &sha))
-				continue;
+		/* FIXME: If peer->state->longest_knowns[0]->prev ==
+		   block->prev, then pending refs will be the same... */
 
-			/* FIXME: If peer->state->longest_knowns[0]->prev ==
-			   block->prev, then pending refs will be the same... */
+		/* This can fail if refs don't work for that block. */
+		refs = create_refs(state, block->prev, pend[i]->tx);
+		if (!refs)
+			continue;
 
-			/* This can fail if refs don't work for that block. */
-			refs = create_refs(state, block->prev, pend[i]->tx);
-			if (!refs)
-				continue;
-
-			hash_refs(refs, tal_count(refs), &sha);
-			if (!structeq(&hash->refhash, &sha)) {
-				tal_free(refs);
-				continue;
-			}
-
-			r = txptr_with_ref(ctx, pend[i]->tx, refs);
+		hash_refs(refs, tal_count(refs), &sha);
+		if (!structeq(&hash->refhash, &sha)) {
 			tal_free(refs);
-			remove_pending_tx(state, shard, i);
-			return r;
+			continue;
 		}
+
+		r = txptr_with_ref(ctx, pend[i]->tx, refs);
+		tal_free(refs);
+		remove_pending_tx(state, shard, i);
+		return r;
 	}
 
 	r.tx = NULL;
