@@ -347,9 +347,9 @@ static void seek_predecessor(struct state *state,
 {
 	u32 diff;
 
-	/* Make sure they did at least 1/4 current work. */
+	/* Make sure they did at least 1/16 current work. */
 	diff = le32_to_cpu(state->preferred_chain->tailer->difficulty);
-	diff = ((diff & 0xFF000000) - 1) | ((diff & 0x00FFFFFF) >> 6);
+	diff = difficulty_one_sixteenth(diff);
 
 	if (!beats_target(sha, diff)) {
 		log_debug(state->log, "Ignoring unknown prev in easy block");

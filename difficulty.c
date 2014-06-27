@@ -26,6 +26,27 @@ bool decode_difficulty(u32 difficulty, BIGNUM *n)
 		return false;
 	return true;
 }
+
+u32 difficulty_one_sixteenth(u32 difficulty)
+{
+	u32 exp = (difficulty >> 24);
+	u32 mantissa = difficulty & 0x00FFFFFF;
+
+	/* Will it overflow? */
+	if ((mantissa << 4) & 0xFF000000) {
+		if (exp == SHA256_DIGEST_LENGTH - 1)
+			mantissa = 0x00FFFFFF;
+		else {
+			/* Make it 256 times easier. */
+			exp++;
+			/* Now make it 16 times harder. */
+			mantissa >>= 4;
+		}
+	} else
+		mantissa <<= 4;
+
+	return (exp << 24) | mantissa;
+}
 		
 static bool encode_difficulty(u32 *exp, u32 *mantissa, BIGNUM *target)
 {
