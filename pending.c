@@ -206,8 +206,12 @@ void add_pending_tx(struct peer *peer, const union protocol_tx *tx)
 	num = tal_count(pending->pend[shard]);
 
 	/* FIXME: put this into pending-awaiting list (and xmit) */
-	if (num == 255)
+	if (num == 255) {
+		log_unusual(peer->state->log,
+			    "Too many pending txs in shard %u: dropping",
+			    shard);
 		return;
+	}
 
 	start = 0;
 	end = num;
@@ -232,6 +236,7 @@ void add_pending_tx(struct peer *peer, const union protocol_tx *tx)
 	pend->refs = create_refs(peer->state, peer->state->longest_knowns[0],
 				 tx);
 	if (!pend->refs) {
+		log_debug(peer->log, "Could not create refs for tx");
 		/* FIXME: put this into pending-awaiting list! */
 		tal_free(pend);
 		return;
@@ -244,6 +249,7 @@ void add_pending_tx(struct peer *peer, const union protocol_tx *tx)
 		(num - start) * sizeof(*pending->pend[shard]));
 	pending->pend[shard][start] = pend;
 
+	log_debug(peer->log, "Added tx to shard %u position %zu", shard, start);
 	tell_generator_new_pending(peer->state, shard, start);
 	send_tx_to_peers(peer->state, peer, tx);
 }

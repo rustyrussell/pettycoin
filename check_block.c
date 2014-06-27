@@ -311,20 +311,24 @@ void put_tx_in_block(struct state *state,
 
 	/* All this work for assertion checking! */
 	if (shard_is_tx(shard, txoff)) {
-		if (tx_for(shard, txoff))
+		if (tx_for(shard, txoff)) {
 			assert(memcmp(txp->tx, tx_for(shard, txoff),
 				      marshal_tx_len(txp->tx)
 				      + marshal_input_ref_len(txp->tx)) == 0);
+			shard->txcount--;
+		}
 	} else {
 		/* Tx must match hash. */
 		struct protocol_net_txrefhash hashes;
 		hash_tx_and_refs(txp->tx, refs_for(*txp), &hashes);
 		assert(structeq(shard->u[txoff].hash, &hashes));
+		shard->hashcount--;
 	}
 
 	/* Now it's a transaction. */
 	bitmap_clear_bit(shard->txp_or_hash, txoff);
 	shard->u[txoff].txp = *txp;
+	shard->txcount++;
 
 	/* Record it in the hash. */
 	add_tx_to_txhash(state, block, shard, txoff);
