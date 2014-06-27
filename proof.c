@@ -10,19 +10,17 @@ void create_proof(struct protocol_proof *proof,
 		  const struct block *block, u16 shardnum, u8 txoff)
 {
 	unsigned int i;
-	const struct block_shard *s;
 
 	assert(shardnum < num_shards(block->hdr));
 	assert(shard_all_known(block, shardnum));
-	s = block->shard[shardnum];
 
 	for (i = 0; i < 8; i++) {
 		if (txoff & (1 << i))
 			/* Hash the left side together. */
-			merkle_txs(NULL, 0, s->txp_or_hash, s->u,
+			merkle_txs(NULL, 0, block, block->shard[shardnum],
 				   0, 1 << i, &proof->merkle[i]);
 		else
-			merkle_txs(NULL, 0, s->txp_or_hash, s->u,
+			merkle_txs(NULL, 0, block, block->shard[shardnum],
 				   1 << i, 1 << i, &proof->merkle[i]);
 	}
 }

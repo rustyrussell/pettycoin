@@ -130,8 +130,8 @@ bool shard_belongs_in_block(const struct block *block,
 	/* merkle_txs is happy with just the hashes. */
 	assert(shard->txcount + shard->hashcount
 	       == block->shard_nums[shard->shardnum]);
-	merkle_txs(NULL, 0, shard->txp_or_hash, shard->u, 0,
-		   block->shard_nums[shard->shardnum], &merkle);
+	merkle_txs(NULL, 0, block, shard,
+		   0, block->shard_nums[shard->shardnum], &merkle);
 	return structeq(&block->merkles[shard->shardnum], &merkle);
 }
 
@@ -419,8 +419,7 @@ bool check_block_prev_merkles(struct state *state, const struct block *block)
 			 * can prove you know all the transactions. */
 			merkle_txs(&block->hdr->fees_to,
 				   sizeof(block->hdr->fees_to),
-				   prev->shard[j]->txp_or_hash,
-				   prev->shard[j]->u,
+				   prev, prev->shard[j],
 				   0, prev->shard_nums[j],
 				   &merkle);
 

@@ -64,7 +64,9 @@ struct txptr_with_ref txptr_with_ref(const tal_t *ctx,
 
 /* Returns NULL if it we don't have this tx. */
 const struct protocol_net_txrefhash *
-txrefhash_in_shard(const struct block *b, u16 shard, u8 txoff,
+txrefhash_in_shard(const struct block *b,
+		   const struct block_shard *shard,
+		   u8 txoff,
 		   struct protocol_net_txrefhash *scratch);
 
 /* Do we have every tx in this shard? */

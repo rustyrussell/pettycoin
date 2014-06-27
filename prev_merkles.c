@@ -45,8 +45,7 @@ u8 *make_prev_merkles(const tal_t *ctx, const struct block *prev,
 			/* Merkle has block reward address prepended, so you
 			 * can prove you know all the transactions. */
 			merkle_txs(my_addr, sizeof(*my_addr),
-				   prev->shard[j]->txp_or_hash,
-				   prev->shard[j]->u,
+				   prev, prev->shard[j],
 				   0, prev->shard_nums[j],
 				   &merkle);
 

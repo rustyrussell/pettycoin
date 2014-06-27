@@ -619,7 +619,7 @@ recv_get_shard(struct peer *peer,
 			const struct protocol_net_txrefhash *p;
 
 			/* shard_all_hashes() means p will not be NULL! */
-			p = txrefhash_in_shard(b, shard, i, &hashes);
+			p = txrefhash_in_shard(b, b->shard[shard], i, &hashes);
 			tal_packet_append_txrefhash(&r, p);
 		}
 	}

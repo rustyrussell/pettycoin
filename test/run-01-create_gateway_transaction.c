@@ -8,6 +8,7 @@
 #include "../proof.c"
 #include "../shard.c"
 #include "../merkle_txs.c"
+#include "../merkle_recurse.c"
 #include "../hash_tx.c"
 #include "../tx.c"
 #include "../block_shard.c"

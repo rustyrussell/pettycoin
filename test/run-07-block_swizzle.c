@@ -24,6 +24,8 @@ static time_t my_time(time_t *p)
 #include "../shadouble.c"
 #include "../difficulty.c"
 #include "../merkle_txs.c"
+#include "../merkle_recurse.c"
+#include "../merkle_hashes.c"
 #include "../tx_cmp.c"
 #include "../marshal.c"
 #include "../hash_tx.c"

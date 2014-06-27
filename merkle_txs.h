@@ -1,23 +1,18 @@
 #ifndef PETTYCOIN_MERKLE_TXS_H
 #define PETTYCOIN_MERKLE_TXS_H
-#include <ccan/bitmap/bitmap.h>
+#include <ccan/short_types/short_types.h>
 #include <stddef.h>
-#include "protocol.h"
 
-union txp_or_hash;
+struct block;
+struct block_shard;
 struct protocol_double_sha;
 
-/* Merkle together a shard of transactions */
+/* Merkle together (some part of) a shard of transactions */
 void merkle_txs(const void *prefix, size_t prefix_len,
-		const bitmap *txp_or_hash,
-		const union txp_or_hash *u,
+		const struct block *block,
+		const struct block_shard *shard,
 		size_t off, size_t num_txs,
 		struct protocol_double_sha *merkle);
-
-/* For generator, which already has them as hashes. */
-void merkle_tx_hashes(const struct protocol_double_sha **hashes,
-		      size_t off, size_t num_hashes,
-		      struct protocol_double_sha *merkle);
 
 #endif /* PETTYCOIN_MERKLE_TXS_H */
 

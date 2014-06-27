@@ -37,13 +37,13 @@ struct block_shard *new_block_shard(const tal_t *ctx, u16 shardnum, u8 num)
 
 /* If we have the tx, hash it, otherwise return hash. */
 const struct protocol_net_txrefhash *
-txrefhash_in_shard(const struct block *b, u16 shard, u8 txoff,
+txrefhash_in_shard(const struct block *b,
+		   const struct block_shard *s,
+		   u8 txoff,
 		   struct protocol_net_txrefhash *scratch)
 {
-	const struct block_shard *s = b->shard[shard];
-
-	assert(shard < num_shards(b->hdr));
-	assert(txoff < b->shard_nums[shard]);
+	assert(s->shardnum < num_shards(b->hdr));
+	assert(txoff < b->shard_nums[s->shardnum]);
 
 	if (!s)
 		return NULL;

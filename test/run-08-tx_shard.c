@@ -139,11 +139,11 @@ int main(void)
 	assert(refs_for(shard->u[1].txp) == refs_for(txp2));
 
 	/* Get txrefhash of hash */
-	txrhp = txrefhash_in_shard(b, 1, 0, &scratch);
+	txrhp = txrefhash_in_shard(b, shard, 0, &scratch);
 	assert(structeq(txrhp, &txrhash));
 
 	/* Get txrefhash of tx (it will hash for us) */
-	txrhp = txrefhash_in_shard(b, 1, 1, &scratch);
+	txrhp = txrefhash_in_shard(b, shard, 1, &scratch);
 	hash_tx(tx2, &txrhash.txhash);
 	hash_refs(refs, 1, &txrhash.refhash);
 	assert(structeq(txrhp, &txrhash));

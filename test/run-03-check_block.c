@@ -23,6 +23,8 @@ static time_t my_time(time_t *p)
 #include "../shadouble.c"
 #include "../difficulty.c"
 #include "../merkle_txs.c"
+#include "../merkle_recurse.c"
+#include "../merkle_hashes.c"
 #include "../tx_cmp.c"
 #include "../marshal.c"
 #include "../hash_tx.c"
@@ -208,7 +210,7 @@ int main(int argc, char *argv[])
 	shard = new_block_shard(s, update.shard, 1);
 	shard->txcount = 1;
 	shard->u[0].txp = txptr_with_ref(shard, t, refs);
-
+	
 	/* This should all be correct. */
 	assert(shard_validate_txs(s, NULL, b, shard, NULL, NULL, NULL)
 	       == PROTOCOL_ECODE_NONE);

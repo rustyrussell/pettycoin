@@ -17,7 +17,7 @@
 #include "version.h"
 #include "features.h"
 #include "protocol.h"
-#include "merkle_txs.h"
+#include "merkle_hashes.h"
 #include "block.h"
 #include "shadouble.h"
 #include "version.h"
@@ -73,7 +73,7 @@ static void merkle_hash_shard(struct working_block *w, u32 shard)
 
 	/* Introducing const here requires cast. */
 	hashes = (const struct protocol_double_sha **)w->trans_hashes[shard];
-	merkle_tx_hashes(hashes, 0, w->shard_nums[shard], &w->merkles[shard]);
+	merkle_hashes(hashes, 0, w->shard_nums[shard], &w->merkles[shard]);
 }
 
 static void merkle_hash_changed(struct working_block *w)
