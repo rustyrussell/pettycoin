@@ -9,7 +9,6 @@ union protocol_tx *
 create_gateway_tx(struct state *state,
 		  const struct protocol_pubkey *gateway_key,
 		  u16 num_payments,
-		  u32 reward,
 		  struct protocol_gateway_payment *payment,
 		  EC_KEY *private_key);
 

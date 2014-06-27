@@ -277,7 +277,7 @@ int main(int argc, char *argv[])
 		log_add_struct(NULL, struct protocol_address,
 			       &payment.output_addr);
 
-		tx = create_gateway_tx(NULL, &gkey, 1, 0, &payment, key);
+		tx = create_gateway_tx(NULL, &gkey, 1, &payment, key);
 	} else if (normal) {
 		struct protocol_pubkey destkey;
 		EC_KEY *key;

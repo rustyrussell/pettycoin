@@ -40,7 +40,6 @@ union protocol_tx *
 create_gateway_tx(struct state *state,
 		  const struct protocol_pubkey *gateway_key,
 		  u16 num_payments,
-		  u32 reward,
 		  struct protocol_gateway_payment *payment,
 		  EC_KEY *private_key)
 {
@@ -53,7 +52,6 @@ create_gateway_tx(struct state *state,
 	gtx->gateway_key = *gateway_key;
 	gtx->num_outputs = cpu_to_le16(num_payments);
 	gtx->unused = 0;
-	gtx->reward = cpu_to_le32(reward);
 	memcpy(get_gateway_outputs(gtx), payment,
 	       sizeof(payment[0])*num_payments);
 

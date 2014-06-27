@@ -171,8 +171,6 @@ struct protocol_tx_gateway {
 	u8 features;
 	/* Key of the gateway crediting the funds. */
 	struct protocol_pubkey gateway_key;
-	/* Reward potential for this transaction. */
-	le32 reward;
 	/* Number of outputs we're sending. */
 	le16 num_outputs;
 	le16 unused;
