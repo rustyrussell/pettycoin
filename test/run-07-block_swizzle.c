@@ -48,6 +48,7 @@ static time_t my_time(time_t *p)
 #include "../create_refs.c"
 #include "../tx.c"
 #include "../block_shard.c"
+#include "../tal_packet_proof.c"
 
 /* Here's a genesis block we created earlier */
 static struct protocol_block_header genesis_hdr = {

@@ -3,6 +3,7 @@
 #include "block.h"
 #include "chain.h"
 #include "packet.h"
+#include "tal_packet_proof.h"
 #include "tx.h"
 
 static void complaint_on_all(struct block *block, const void *complaint)

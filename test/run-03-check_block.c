@@ -32,7 +32,6 @@ static time_t my_time(time_t *p)
 #include "../check_block.c"
 #include "../block.c"
 #include "../block_shard.c"
-#include "../complain.c"
 #include "../prev_merkles.c"
 #include "../minimal_log.c"
 #include "../signature.c"
@@ -146,6 +145,14 @@ void logv(struct log *log, enum log_level level, const char *fmt, va_list ap)
 }
 
 void log_to_file(int fd, const struct log *log)
+{
+}
+
+void complain_misorder(struct state *state,
+			       struct block *block,
+			       unsigned int bad_txoff1,
+			       unsigned int bad_txoff2,
+			       unsigned int bad_shardnum)
 {
 }
 

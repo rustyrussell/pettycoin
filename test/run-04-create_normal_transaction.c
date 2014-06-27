@@ -32,7 +32,6 @@ static time_t my_time(time_t *p)
 #include "../check_block.c"
 #include "../block.c"
 #include "../block_shard.c"
-#include "../complain.c"
 #include "../prev_merkles.c"
 #include "../minimal_log.c"
 #include "../signature.c"
@@ -123,8 +122,12 @@ void todo_forget_about_block(struct state *state,
 {
 }
 
-void create_proof(struct protocol_proof *proof,
-		  const struct block *block, u16 shardnum, u8 txoff)
+
+void complain_misorder(struct state *state,
+			       struct block *block,
+			       unsigned int bad_txoff1,
+			       unsigned int bad_txoff2,
+			       unsigned int bad_shardnum)
 {
 }
 
