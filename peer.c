@@ -10,7 +10,7 @@
 #include "block.h"
 #include "hash_block.h"
 #include "log.h"
-#include "marshall.h"
+#include "marshal.h"
 #include "check_block.h"
 #include "check_tx.h"
 #include "tx.h"
@@ -182,9 +182,9 @@ static struct protocol_pkt_block *block_pkt(tal_t *ctx, const struct block *b)
 {
 	struct protocol_pkt_block *blk;
  
-	blk = marshall_block(ctx,
-			     b->hdr, b->shard_nums, b->merkles, b->prev_merkles,
-			     b->tailer);
+	blk = marshal_block(ctx,
+			    b->hdr, b->shard_nums, b->merkles, b->prev_merkles,
+			    b->tailer);
 
 	return blk;
 }
@@ -372,11 +372,11 @@ recv_block(struct peer *peer, const struct protocol_pkt_block *pkt)
 	const struct protocol_block_header *hdr;
 	struct protocol_double_sha sha;
 
-	e = unmarshall_block(peer->log, pkt,
-			     &hdr, &shard_nums, &merkles, &prev_merkles,
-			     &tailer);
+	e = unmarshal_block(peer->log, pkt,
+			    &hdr, &shard_nums, &merkles, &prev_merkles,
+			    &tailer);
 	if (e != PROTOCOL_ECODE_NONE) {
-		log_unusual(peer->log, "unmarshalling new block gave %u", e);
+		log_unusual(peer->log, "unmarshaling new block gave %u", e);
 		return e;
 	}
 
@@ -503,7 +503,7 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 	unsigned int bad_input_num;
 
 	tx = (void *)(pkt + 1);
-	e = unmarshall_tx(tx, txlen, NULL);
+	e = unmarshal_tx(tx, txlen, NULL);
 	if (e)
 		return e;
 

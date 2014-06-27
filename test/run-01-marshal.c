@@ -1,8 +1,8 @@
-#include "../marshall.c"
+#include "../marshal.c"
 #include "../minimal_log.c"
 #include <assert.h>
 
-static void test_marshall(const struct protocol_block_header *hdr,
+static void test_marshal(const struct protocol_block_header *hdr,
 			  const u8 *shard_nums,
 			  const struct protocol_double_sha *merkles,
 			  const u8 *prev_merkles,
@@ -16,12 +16,12 @@ static void test_marshall(const struct protocol_block_header *hdr,
 	const struct protocol_block_tailer *tailer2;
 	char *ctx = tal(NULL, char);
 
-	pkt = marshall_block(ctx, hdr, shard_nums, merkles, prev_merkles,
+	pkt = marshal_block(ctx, hdr, shard_nums, merkles, prev_merkles,
 			     tailer);
 	assert(tal_parent(pkt) == ctx);
 	assert(tal_count(pkt) == le32_to_cpu(pkt->len));
 
-	assert(unmarshall_block(NULL, pkt, &hdr2,
+	assert(unmarshal_block(NULL, pkt, &hdr2,
 				&shard_nums2, &merkles2, &prev_merkles2,
 				&tailer2) == PROTOCOL_ECODE_NONE);
 	assert(memcmp(hdr2, hdr, sizeof(*hdr)) == 0);
@@ -62,22 +62,22 @@ int main(int argc, char *argv[])
 	tailer.difficulty = cpu_to_le32(0x1effffff);
 	tailer.nonce1 = cpu_to_le32(11);
 
-	test_marshall(&hdr, shard_nums, merkles, prev_merkles, &tailer);
+	test_marshal(&hdr, shard_nums, merkles, prev_merkles, &tailer);
 
 	/* Test feature vote works. */
 	hdr.features_vote = 0x10;
-	test_marshall(&hdr, shard_nums, merkles, prev_merkles, &tailer);
+	test_marshal(&hdr, shard_nums, merkles, prev_merkles, &tailer);
 
 	/* Test prev_merkles works. */
 	hdr.num_prev_merkles = cpu_to_le32(4);
 	memset(prev_merkles, 12, 4);
-	test_marshall(&hdr, shard_nums, merkles, prev_merkles, &tailer);
+	test_marshal(&hdr, shard_nums, merkles, prev_merkles, &tailer);
 
 	/* Test increasing shard order. */
 	hdr.shard_order = PROTOCOL_INITIAL_SHARD_ORDER + 1;
 	memset(shard_nums, 0, sizeof(shard_nums[0]) << hdr.shard_order);
 	memset(merkles, 13, sizeof(merkles[0]) << hdr.shard_order);
-	test_marshall(&hdr, shard_nums, merkles, prev_merkles, &tailer);
+	test_marshal(&hdr, shard_nums, merkles, prev_merkles, &tailer);
 
 	return 0;
 }

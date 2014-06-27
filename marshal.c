@@ -1,6 +1,6 @@
 #include <ccan/endian/endian.h>
 #include <ccan/build_assert/build_assert.h>
-#include "marshall.h"
+#include "marshal.h"
 #include "protocol_net.h"
 #include "overflows.h"
 #include "block.h"
@@ -11,12 +11,12 @@
 #include <assert.h>
 
 enum protocol_ecode
-unmarshall_block_into(struct log *log,
-		      size_t size, const struct protocol_block_header *hdr,
-		      const u8 **shard_nums,
-		      const struct protocol_double_sha **merkles,
-		      const u8 **prev_merkles,
-		      const struct protocol_block_tailer **tailer)
+unmarshal_block_into(struct log *log,
+		     size_t size, const struct protocol_block_header *hdr,
+		     const u8 **shard_nums,
+		     const struct protocol_double_sha **merkles,
+		     const u8 **prev_merkles,
+		     const struct protocol_block_tailer **tailer)
 {
 	size_t len, merkle_len, shard_len;
 
@@ -95,21 +95,21 @@ unmarshall_block_into(struct log *log,
 		return PROTOCOL_ECODE_INVALID_LEN;
 	}
 
-	log_debug(log, "unmarshalled block size %zu", size);
+	log_debug(log, "unmarshaled block size %zu", size);
 	return PROTOCOL_ECODE_NONE;
 }
 
 enum protocol_ecode
-unmarshall_block(struct log *log,
-		 const struct protocol_pkt_block *pkt,
-		 const struct protocol_block_header **hdr,
-		 const u8 **shard_nums,
-		 const struct protocol_double_sha **merkles,
-		 const u8 **prev_merkles,
-		 const struct protocol_block_tailer **tailer)
+unmarshal_block(struct log *log,
+		const struct protocol_pkt_block *pkt,
+		const struct protocol_block_header **hdr,
+		const u8 **shard_nums,
+		const struct protocol_double_sha **merkles,
+		const u8 **prev_merkles,
+		const struct protocol_block_tailer **tailer)
 {
 	*hdr = (void *)(pkt + 1);
-	return unmarshall_block_into(log, le32_to_cpu(pkt->len) - sizeof(*pkt),
+	return unmarshal_block_into(log, le32_to_cpu(pkt->len) - sizeof(*pkt),
 				     *hdr, shard_nums, merkles, prev_merkles,
 				     tailer);
 }
@@ -128,19 +128,19 @@ static size_t block_lengths(const struct protocol_block_header *hdr,
 		+ sizeof(struct protocol_block_tailer);
 }
 
-size_t marshall_block_len(const struct protocol_block_header *hdr)
+size_t marshal_block_len(const struct protocol_block_header *hdr)
 {
 	size_t shardnum_len, merkle_len, prev_merkle_len;
 
 	return block_lengths(hdr, &shardnum_len, &merkle_len, &prev_merkle_len);
 }
 
-void marshall_block_into(void *dst,
-			 const struct protocol_block_header *hdr,
-			 const u8 *shard_nums,
-			 const struct protocol_double_sha *merkles,
-			 const u8 *prev_merkles,
-			 const struct protocol_block_tailer *tailer)
+void marshal_block_into(void *dst,
+			const struct protocol_block_header *hdr,
+			const u8 *shard_nums,
+			const struct protocol_double_sha *merkles,
+			const u8 *prev_merkles,
+			const struct protocol_block_tailer *tailer)
 {
 	char *dest = dst;
 	size_t shardnum_len, merkle_len, prev_merkle_len;
@@ -159,29 +159,29 @@ void marshall_block_into(void *dst,
 }
 
 struct protocol_pkt_block *
-marshall_block(const tal_t *ctx,
-	       const struct protocol_block_header *hdr,
-	       const u8 *shard_nums,
-	       const struct protocol_double_sha *merkles,
-	       const u8 *prev_merkles,
-	       const struct protocol_block_tailer *tailer)
+marshal_block(const tal_t *ctx,
+	      const struct protocol_block_header *hdr,
+	      const u8 *shard_nums,
+	      const struct protocol_double_sha *merkles,
+	      const u8 *prev_merkles,
+	      const struct protocol_block_tailer *tailer)
 {
 	struct protocol_pkt_block *ret;
 	size_t len;
 
-	len = marshall_block_len(hdr);
+	len = marshal_block_len(hdr);
 	ret = (void *)tal_arr(ctx, char, sizeof(*ret) + len);
 
 	ret->len = cpu_to_le32(sizeof(*ret) + len);
 	ret->type = cpu_to_le32(PROTOCOL_PKT_BLOCK);
 
-	marshall_block_into(ret + 1,
+	marshal_block_into(ret + 1,
 			    hdr, shard_nums, merkles, prev_merkles, tailer);
 	return ret;
 }
 
 /* Make sure transaction is all there. */
-enum protocol_ecode unmarshall_tx(const void *buffer, size_t size, size_t *used)
+enum protocol_ecode unmarshal_tx(const void *buffer, size_t size, size_t *used)
 {
 	const union protocol_tx *tx = buffer;
 	size_t i, len;
@@ -255,7 +255,7 @@ static size_t varsize_(size_t base, size_t num, size_t fieldsize)
 	varsize_(sizeof(type), (num), sizeof(extra))
 
 /* Returns 0 on length overflow! */
-size_t marshall_tx_len(const union protocol_tx *tx)
+size_t marshal_tx_len(const union protocol_tx *tx)
 {
 	switch (tx->hdr.type) {
 	case TX_NORMAL:
@@ -269,11 +269,11 @@ size_t marshall_tx_len(const union protocol_tx *tx)
 	abort();
 }
 
-enum protocol_ecode unmarshall_input_refs(const void *buffer, size_t size,
-					  const union protocol_tx *tx,
-					  size_t *used)
+enum protocol_ecode unmarshal_input_refs(const void *buffer, size_t size,
+					 const union protocol_tx *tx,
+					 size_t *used)
 {
-	size_t need = marshall_input_ref_len(tx);
+	size_t need = marshal_input_ref_len(tx);
 
 	if (size < need)
 		return PROTOCOL_ECODE_INVALID_LEN;
@@ -282,8 +282,8 @@ enum protocol_ecode unmarshall_input_refs(const void *buffer, size_t size,
 	return PROTOCOL_ECODE_NONE;
 }
 
-/* Input refs don't need marshalling */
-size_t marshall_input_ref_len(const union protocol_tx *tx)
+/* Input refs don't need marshaling */
+size_t marshal_input_ref_len(const union protocol_tx *tx)
 {
 	return num_inputs(tx) * sizeof(struct protocol_input_ref);
 }

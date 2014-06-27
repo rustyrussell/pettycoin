@@ -6,7 +6,7 @@
 #include "log.h"
 #include "pseudorand.h"
 #include "protocol_net.h"
-#include "marshall.h"
+#include "marshal.h"
 #include "check_block.h"
 #include "block.h"
 #include "prev_merkles.h"
@@ -246,10 +246,10 @@ static struct io_plan got_solution(struct io_conn *conn, struct generator *gen)
 	const struct protocol_block_header *hdr;
 	u32 total_txs;
 
-	e = unmarshall_block(gen->log, gen->pkt_in, &hdr, &shard_nums,
-			     &merkles, &prev_merkles, &tailer);
+	e = unmarshal_block(gen->log, gen->pkt_in, &hdr, &shard_nums,
+			    &merkles, &prev_merkles, &tailer);
 	if (e != PROTOCOL_ECODE_NONE) {
-		log_broken(gen->log, "Generator %u unmarshall error %u",
+		log_broken(gen->log, "Generator %u unmarshal error %u",
 			   gen->pid, e);
 		return io_close();
 	}

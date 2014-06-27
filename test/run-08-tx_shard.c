@@ -1,6 +1,6 @@
 #include "../block.c"
 #include "../create_tx.c"
-#include "../marshall.c"
+#include "../marshal.c"
 #include "../minimal_log.c"
 #include "../hash_tx.c"
 #include "../signature.c"
@@ -91,8 +91,8 @@ int main(void)
 	/* Test txptr_with_ref on tx without any refs. */
 	txp1 = txptr_with_ref(ctx, tx1, NULL);
 	assert(tal_parent(txp1.tx) == ctx);
-	memcmp(txp1.tx, tx1, marshall_tx_len(tx1));
-	memcmp(refs_for(txp1), (void *)1, marshall_input_ref_len(tx1));
+	memcmp(txp1.tx, tx1, marshal_tx_len(tx1));
+	memcmp(refs_for(txp1), (void *)1, marshal_input_ref_len(tx1));
 
 	/* Now try with some refs. */
 	hash_tx(tx1, &input[0].input);
@@ -112,8 +112,8 @@ int main(void)
 
 	txp2 = txptr_with_ref(ctx, tx2, refs);
 	assert(tal_parent(txp2.tx) == ctx);
-	memcmp(txp2.tx, tx2, marshall_tx_len(tx2));
-	memcmp(refs_for(txp2), refs, marshall_input_ref_len(tx2));
+	memcmp(txp2.tx, tx2, marshal_tx_len(tx2));
+	memcmp(refs_for(txp2), refs, marshal_input_ref_len(tx2));
 
 	/* Put the first one in the shard as a hash. */
 	hash_tx(txp1.tx, &txrhash.txhash);

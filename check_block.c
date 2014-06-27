@@ -46,7 +46,7 @@ check_block_header(struct state *state,
 	struct block *block = (*blockp) = tal(state, struct block);
 	enum protocol_ecode e;
 
-	/* Shouldn't happen, since we check in unmarshall. */
+	/* Shouldn't happen, since we check in unmarshal. */
 	if (!version_ok(hdr->version)) {
 		e = PROTOCOL_ECODE_BLOCK_HIGH_VERSION;
 		memset(sha, 0, sizeof(*sha));
@@ -243,7 +243,7 @@ static struct txptr_with_ref dup_txp(const tal_t *ctx,
 	struct txptr_with_ref ret;
 	size_t len;
 
-	len = marshall_tx_len(txp.tx)
+	len = marshal_tx_len(txp.tx)
 		+ num_inputs(txp.tx) * sizeof(struct protocol_input_ref);
 
 	ret.tx = (void *)tal_dup(ctx, char, (char *)txp.tx, len, 0);
@@ -313,8 +313,8 @@ void put_tx_in_block(struct state *state,
 	if (shard_is_tx(shard, txoff)) {
 		if (tx_for(shard, txoff))
 			assert(memcmp(txp->tx, tx_for(shard, txoff),
-				      marshall_tx_len(txp->tx)
-				      + marshall_input_ref_len(txp->tx)) == 0);
+				      marshal_tx_len(txp->tx)
+				      + marshal_input_ref_len(txp->tx)) == 0);
 	} else {
 		/* Tx must match hash. */
 		struct protocol_net_txrefhash hashes;

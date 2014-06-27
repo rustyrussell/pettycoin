@@ -1,6 +1,6 @@
 #include "protocol_net.h"
 #include "state.h"
-#include "marshall.h"
+#include "marshal.h"
 #include "check_block.h"
 #include "block.h"
 #include "blockfile.h"
@@ -26,9 +26,9 @@ static bool load_block(struct state *state, struct protocol_net_hdr *pkt)
 	const struct protocol_block_tailer *tailer;
 	const struct protocol_block_header *hdr;
 
-	e = unmarshall_block(state->log, (void *)pkt,
-			     &hdr, &shard_nums, &merkles, &prev_merkles,
-			     &tailer);
+	e = unmarshal_block(state->log, (void *)pkt,
+			    &hdr, &shard_nums, &merkles, &prev_merkles,
+			    &tailer);
 	if (e != PROTOCOL_ECODE_NONE)
 		return false;
 
@@ -111,9 +111,9 @@ void save_block(struct state *state, struct block *new)
 	struct protocol_pkt_block *blk;
 	size_t len;
 
-	blk = marshall_block(state,
-			     new->hdr, new->shard_nums, new->merkles,
-			     new->prev_merkles, new->tailer);
+	blk = marshal_block(state,
+			    new->hdr, new->shard_nums, new->merkles,
+			    new->prev_merkles, new->tailer);
 	len = le32_to_cpu(blk->len);
 	if (!write_all(state->blockfd, blk, len))
 		err(1, "writing block to blockfile");

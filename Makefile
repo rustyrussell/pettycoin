@@ -1,9 +1,9 @@
-PETTYCOIN_OBJS := block.o check_block.o check_tx.o difficulty.o shadouble.o timestamp.o gateways.o hash_tx.o pettycoin.o merkle_txs.o tx_cmp.o genesis.o marshall.o hash_block.o prev_merkles.o state.o packet.o dns.o netaddr.o peer.o peer_cache.o pseudorand.o welcome.o log.o generating.o blockfile.o pending.o log_helper.o txhash.o signature.o proof.o chain.o features.o todo.o base58.o sync.o create_refs.o shard.o packet_io.o tx.o complain.o
-GENERATE_OBJS := generate.o merkle_txs.o hash_tx.o tx_cmp.o shadouble.o marshall.o minimal_log.o timestamp.o
-MKGENESIS_OBJS := mkgenesis.o shadouble.o marshall.o hash_block.o minimal_log.o
+PETTYCOIN_OBJS := block.o check_block.o check_tx.o difficulty.o shadouble.o timestamp.o gateways.o hash_tx.o pettycoin.o merkle_txs.o tx_cmp.o genesis.o marshal.o hash_block.o prev_merkles.o state.o packet.o dns.o netaddr.o peer.o peer_cache.o pseudorand.o welcome.o log.o generating.o blockfile.o pending.o log_helper.o txhash.o signature.o proof.o chain.o features.o todo.o base58.o sync.o create_refs.o shard.o packet_io.o tx.o complain.o
+GENERATE_OBJS := generate.o merkle_txs.o hash_tx.o tx_cmp.o shadouble.o marshal.o minimal_log.o timestamp.o
+MKGENESIS_OBJS := mkgenesis.o shadouble.o marshal.o hash_block.o minimal_log.o
 SIZES_OBJS := sizes.o
 MKPRIV_OBJS := mkpriv.o
-INJECT_OBJS := inject.o base58.o create_tx.o marshall.o netaddr.o hash_tx.o minimal_log.o shadouble.o signature.o hash_block.o
+INJECT_OBJS := inject.o base58.o create_tx.o marshal.o netaddr.o hash_tx.o minimal_log.o shadouble.o signature.o hash_block.o
 CCAN_OBJS := ccan-asort.o ccan-breakpoint.o ccan-tal.o ccan-tal-path.o ccan-tal-str.o ccan-take.o ccan-list.o ccan-str.o ccan-opt-helpers.o ccan-opt.o ccan-opt-parse.o ccan-opt-usage.o ccan-read_write_all.o ccan-htable.o ccan-io-io.o ccan-io-poll.o ccan-timer.o ccan-time.o ccan-noerr.o ccan-hash.o ccan-isaac64.o ccan-net.o ccan-err.o
 CCANDIR=../ccan/
 VERSION:=$(shell git describe --dirty --always 2>/dev/null || echo Unknown)

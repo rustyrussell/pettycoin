@@ -6,7 +6,7 @@
 #include "protocol_net.h"
 #include "shard.h"
 #include "state.h"
-#include "marshall.h"
+#include "marshal.h"
 #include <stdbool.h>
 #include <ccan/list/list.h>
 #include <openssl/bn.h>
@@ -49,7 +49,7 @@ static inline const struct protocol_input_ref *refs_for(struct txptr_with_ref t)
 {
 	char *p;
 
-	p = (char *)t.tx + marshall_tx_len(t.tx);
+	p = (char *)t.tx + marshal_tx_len(t.tx);
 	return (struct protocol_input_ref *)p;
 }
 

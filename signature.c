@@ -1,4 +1,4 @@
-#include "marshall.h"
+#include "marshal.h"
 #include "shadouble.h"
 #include "signature.h"
 #include <ccan/cast/cast.h>
@@ -27,7 +27,7 @@ static struct protocol_signature *get_signature(const union protocol_tx *tx)
 static void sighash_tx(const union protocol_tx *tx,
 		       struct protocol_double_sha *sha)
 {
-	size_t sig_offset, len = marshall_tx_len(tx);
+	size_t sig_offset, len = marshal_tx_len(tx);
 	const char *p;
 	SHA256_CTX shactx;
 

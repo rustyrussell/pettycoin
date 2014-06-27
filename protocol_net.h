@@ -109,7 +109,7 @@ struct protocol_pkt_horizon {
 	le32 len; /* sizeof(struct protocol_pkt_horizon) ... */
 	le32 type; /* PROTOCOL_PKT_HORIZON */
 
-	/* marshalled blocks, backwards from horizon to mutual, skipping. */
+	/* marshaled blocks, backwards from horizon to mutual, skipping. */
 };
 
 struct protocol_net_syncblock {
@@ -163,7 +163,7 @@ struct protocol_pkt_block {
 	le32 len; /* sizeof(struct protocol_pkt_block) + ... */
 	le32 type; /* PROTOCOL_PKT_BLOCK */
 
-	/* Marshalled block */
+	/* Marshaled block */
 };
 
 /* This block contains an invalid transaction. */
@@ -273,7 +273,7 @@ struct protocol_pkt_tx {
 	le32 len; /* sizeof(struct protocol_pkt_tx) + ... */
 	le32 type; /* PROTOCOL_PKT_TX */
 
-	/* marshalled transaction */
+	/* marshaled transaction */
 };
 
 /* When we've discovered a tx input is bad. */

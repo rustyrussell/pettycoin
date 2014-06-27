@@ -13,8 +13,7 @@ struct state;
 struct block;
 struct log;
 
-struct protocol_block_header *unmarshall_block_header(void *buffer,
-						      size_t size);
+struct protocol_block_header *unmarshal_block_header(void *buffer, size_t size);
 
 /* Returns error if bad, otherwise *blockp is placed in chain.
    Not sufficient by itself: see check_block_prev_merkles! 

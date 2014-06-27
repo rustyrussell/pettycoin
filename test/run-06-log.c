@@ -15,7 +15,7 @@ static struct timeabs my_time;
 #include "../log_helper.c"
 #include "../base58.c"
 #include "../hash_tx.c"
-#include "../marshall.c"
+#include "../marshal.c"
 #include "../shadouble.c"
 
 static char *read_from(const tal_t *ctx, int fd)

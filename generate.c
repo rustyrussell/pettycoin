@@ -23,7 +23,7 @@
 #include "version.h"
 #include "tx_cmp.h"
 #include "difficulty.h"
-#include "marshall.h"
+#include "marshal.h"
 #include "generate.h"
 #include "timestamp.h"
 #include <assert.h>
@@ -329,8 +329,8 @@ static void write_block(int fd, const struct working_block *w)
 	struct protocol_pkt_block *b;
 	u32 shard, i;
 
-	b = marshall_block(w, &w->hdr, w->shard_nums, w->merkles,
-			   w->prev_merkles, &w->tailer);
+	b = marshal_block(w, &w->hdr, w->shard_nums, w->merkles,
+			  w->prev_merkles, &w->tailer);
 	if (!write_all(fd, b, le32_to_cpu(b->len)))
 		err(1, "Writing out results: %s", strerror(errno));
 

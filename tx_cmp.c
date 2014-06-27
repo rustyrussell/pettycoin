@@ -1,6 +1,6 @@
 #include "tx_cmp.h"
 #include "protocol.h"
-#include "marshall.h"
+#include "marshal.h"
 #include "addr.h"
 #include "tx.h"
 #include <string.h>
@@ -46,8 +46,8 @@ int tx_cmp(const union protocol_tx *a,
 		return ret;
 
 	/* We need some (arbitrary but deterministic) secondary order */
-	lena = marshall_tx_len(a);
-	lenb = marshall_tx_len(b);
+	lena = marshal_tx_len(a);
+	lenb = marshal_tx_len(b);
 
 	if (lena < lenb) {
 		ret = memcmp(a, b, lena);

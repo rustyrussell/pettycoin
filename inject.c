@@ -24,7 +24,7 @@
 #include "base58.h"
 #include "create_tx.h"
 #include "protocol_net.h"
-#include "marshall.h"
+#include "marshal.h"
 #include "netaddr.h"
 #include "addr.h"
 #include "hash_tx.h"
@@ -318,9 +318,9 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	len = marshall_tx_len(tx);
+	len = marshal_tx_len(tx);
 	if (!len)
-		errx(1, "Marshalling transaction failed");
+		errx(1, "Marshaling transaction failed");
 
 	a = net_client_lookup(argv[3], argv[4], AF_UNSPEC, SOCK_STREAM);
 	if (!a)

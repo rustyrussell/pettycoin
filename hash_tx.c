@@ -1,5 +1,5 @@
 #include "hash_tx.h"
-#include "marshall.h"
+#include "marshal.h"
 #include "protocol.h"
 #include "shadouble.h"
 #include <assert.h>
@@ -48,7 +48,7 @@ void hash_tx_for_block(const union protocol_tx *tx,
 	SHA256_Init(&shactx);
 	/* Note: if hash_prefix_len == 0, this is exactly hash_tx() */
 	SHA256_Update(&shactx, hash_prefix, hash_prefix_len);
-	SHA256_Update(&shactx, tx, marshall_tx_len(tx));
+	SHA256_Update(&shactx, tx, marshal_tx_len(tx));
 	SHA256_Double_Final(&shactx, &txsha);
 
 	/* Get double sha of references (may be 0 for non-normal trans) */
@@ -64,6 +64,6 @@ void hash_tx(const union protocol_tx *tx,
 	SHA256_CTX shactx;
 
 	SHA256_Init(&shactx);
-	SHA256_Update(&shactx, tx, marshall_tx_len(tx));
+	SHA256_Update(&shactx, tx, marshal_tx_len(tx));
 	SHA256_Double_Final(&shactx, sha);
 }

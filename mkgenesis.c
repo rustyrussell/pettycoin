@@ -18,7 +18,7 @@
 #include <assert.h>
 #include "protocol.h"
 #include "shadouble.h"
-#include "marshall.h"
+#include "marshal.h"
 #include "hash_block.h"
 
 struct worker {
@@ -134,8 +134,8 @@ solve(const tal_t *ctx,
 	tal_free(children);
 
 	/* prev_merkles will be empty. */
-	unmarshall_block(NULL, ret,
-			 &hdr, shard_nums, merkles, &prev_merkles, tailer);
+	unmarshal_block(NULL, ret,
+			&hdr, shard_nums, merkles, &prev_merkles, tailer);
 
 	return hdr;
 }
