@@ -29,6 +29,7 @@ static time_t my_time(time_t *p)
 #include "../create_tx.c"
 #include "../check_block.c"
 #include "../block.c"
+#include "../complain.c"
 #include "../prev_merkles.c"
 #include "../minimal_log.c"
 #include "../signature.c"

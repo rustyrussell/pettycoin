@@ -178,19 +178,4 @@ block_get_tx(const struct block *block, u16 shardnum, u8 txoff)
 /* Get this numbered references inside block. */
 struct protocol_input_ref *block_get_refs(const struct block *block,
 					  u16 shardnum, u8 txoff);
-
-void invalidate_block_badtx(struct state *state,
-			    struct block *block,
-			    enum protocol_ecode err,
-			    unsigned int bad_shardnum,
-			    unsigned int bad_txoff,
-			    unsigned int bad_input,
-			    union protocol_tx *bad_intx);
-
-void invalidate_block_misorder(struct state *state,
-			       struct block *block,
-			       unsigned int bad_txoff1,
-			       unsigned int bad_txoff2,
-			       unsigned int bad_shardnum);
-
 #endif /* PETTYCOIN_BLOCK_H */

@@ -19,6 +19,7 @@
 #include "tx.h"
 #include "chain.h"
 #include "shard.h"
+#include "complain.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/tal.h>
 #include <stdlib.h>
@@ -291,7 +292,7 @@ static void check_tx_ordering(struct state *state,
 			      struct tx_shard *shard, u8 a, u8 b)
 {
 	if (tx_cmp(tx_for(shard, a), tx_for(shard, b)) >= 0)
-		invalidate_block_misorder(state, block, a, b, shard->shardnum);
+		complain_misorder(state, block, shard->shardnum, a, b);
 }
 
 void put_tx_in_block(struct state *state,
