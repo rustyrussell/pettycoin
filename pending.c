@@ -248,6 +248,18 @@ void add_pending_tx(struct peer *peer, const union protocol_tx *tx)
 	send_tx_to_peers(peer->state, peer, tx);
 }
 
+static void remove_pending_tx(struct state *state,
+			      u16 shard, unsigned int i)
+{
+	struct pending_block *pending = state->pending;
+	size_t num = tal_count(pending->pend[shard]);
+
+	memmove(pending->pend[shard] + i,
+		pending->pend[shard] + i + 1,
+		(num - i - 1) * sizeof(*pending->pend[shard]));
+	tal_resize(&pending->pend[shard], num - 1);
+}
+
 /* FIXME: SLOW! Put pending into txhash? */
 struct txptr_with_ref
 find_pending_tx_with_ref(const tal_t *ctx,
@@ -258,6 +270,11 @@ find_pending_tx_with_ref(const tal_t *ctx,
 	size_t shard;
 	struct protocol_input_ref *refs;
 	struct txptr_with_ref r;
+
+	/* If this block preceeds where we're mining, we would have to change.
+	 * But we always know everything about longest_knowns[0], so that
+	 * can't happen. */
+	assert(!block_preceeds(block, state->longest_knowns[0]));
 
 	for (shard = 0; shard < ARRAY_SIZE(state->pending->pend); shard++) {
 		struct pending_tx **pend = state->pending->pend[shard];
@@ -287,6 +304,7 @@ find_pending_tx_with_ref(const tal_t *ctx,
 
 			r = txptr_with_ref(ctx, pend[i]->tx, refs);
 			tal_free(refs);
+			remove_pending_tx(state, shard, i);
 			return r;
 		}
 	}
