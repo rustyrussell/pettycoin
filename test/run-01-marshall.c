@@ -14,7 +14,6 @@ static void test_marshall(const struct protocol_block_header *hdr,
 	const struct protocol_double_sha *merkles2;
 	const u8 *prev_merkles2;
 	const struct protocol_block_tailer *tailer2;
-
 	char *ctx = tal(NULL, char);
 
 	pkt = marshall_block(ctx, hdr, shard_nums, merkles, prev_merkles,
@@ -34,7 +33,7 @@ static void test_marshall(const struct protocol_block_header *hdr,
 		      le32_to_cpu(hdr->num_prev_merkles)) == 0);
 	assert(memcmp(tailer2, tailer, sizeof(*tailer)) == 0);
 
-	tal_free(pkt);
+	tal_free(ctx);
 }
 
 int main(int argc, char *argv[])

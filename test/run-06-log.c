@@ -18,11 +18,11 @@ static struct timeabs my_time;
 #include "../marshall.c"
 #include "../shadouble.c"
 
-static char *read_from(int fd)
+static char *read_from(const tal_t *ctx, int fd)
 {
 	size_t max = 128, done = 0;
 	int r;
-	char *p = tal_arr(NULL, char, max);
+	char *p = tal_arr(ctx, char, max);
 
 	while ((r = read(fd, p + done, max - done)) > 0) {
 		done += r;
@@ -43,8 +43,10 @@ int main(void)
 	char *p, *mem1, *mem2, *mem3;
 	int status;
 	size_t maxmem = sizeof(struct log_entry) * 4 + 25 + 25 + 28 + 144;
-	struct log *log = new_log(NULL, NULL, "PREFIX", LOG_BROKEN+1, maxmem);
+	void *ctx = tal(NULL, char);
+	struct log *log = new_log(ctx, NULL, "PREFIX", LOG_BROKEN+1, maxmem);
 
+	assert(tal_parent(log) == ctx);
 	my_time.ts.tv_sec = 1384064855;
 	my_time.ts.tv_nsec = 500;
 
@@ -79,11 +81,12 @@ int main(void)
 	case 0:
 		close(fds[0]);
 		log_to_file(fds[1], log);
+		tal_free(ctx);
 		exit(0);
 	}
 
 	close(fds[1]);
-	p = read_from(fds[0]);
+	p = read_from(ctx, fds[0]);
 	/* Shouldn't contain any NUL chars */
 	assert(strlen(p) + 1 == tal_count(p));
 
@@ -110,12 +113,13 @@ int main(void)
 	case 0:
 		close(fds[0]);
 		log_to_file(fds[1], log);
+		tal_free(ctx);
 		exit(0);
 	}
 
 	close(fds[1]);
 
-	p = read_from(fds[0]);
+	p = read_from(ctx, fds[0]);
 	/* Shouldn't contain any NUL chars */
 	assert(strlen(p) + 1 == tal_count(p));
 
@@ -127,7 +131,7 @@ int main(void)
 	assert(atoi(mem1) < maxmem);
 	assert(atoi(mem2) >= maxmem);
 	assert(atoi(mem3) < maxmem);
-	tal_free(p);
+	tal_free(ctx);
 	wait(&status);
 	assert(WIFEXITED(status) && WEXITSTATUS(status) == 0);
 	return 0;

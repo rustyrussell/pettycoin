@@ -284,16 +284,28 @@ static const struct protocol_pubkey *public_keys[] = {
 
 static struct protocol_address public_addr[ARRAY_SIZE(public_keys)];
 
-EC_KEY *helper_private_key(int index)
+static void free_helper_key(EC_KEY **p)
+{
+	EC_KEY_free(*p);
+}
+
+EC_KEY *helper_private_key(const tal_t *ctx, int index)
 {
 	const unsigned char *p = private_keys[index];
 	EC_KEY *priv = EC_KEY_new_by_curve_name(NID_secp256k1);
+	EC_KEY **ptr;
 
 	if (!d2i_ECPrivateKey(&priv, &p, sizeof(private_key1)))
 		abort();
 
 	/* We *always* used compressed form keys. */
 	EC_KEY_set_conv_form(priv, POINT_CONVERSION_COMPRESSED);
+
+	/* To get tal to clean it up... */
+	ptr = tal(ctx, EC_KEY *);
+	*ptr = priv;
+	tal_add_destructor(ptr, free_helper_key);
+
 	return priv;
 }
 

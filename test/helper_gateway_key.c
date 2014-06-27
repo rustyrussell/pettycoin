@@ -23,16 +23,28 @@ static const unsigned char gateway_key[] = {
 	0x52,0x77,0xbe,0x0f,0xec,0xde,0xb2,0x08,0x06,0x4e
 };
 
-EC_KEY *helper_gateway_key(void)
+static void free_gateway_key(EC_KEY **p)
+{
+	EC_KEY_free(*p);
+}
+
+EC_KEY *helper_gateway_key(const tal_t *ctx)
 {
 	const unsigned char *p = gateway_key;
 	EC_KEY *priv = EC_KEY_new_by_curve_name(NID_secp256k1);
+	EC_KEY **ptr;
 
 	if (!d2i_ECPrivateKey(&priv, &p, sizeof(gateway_key)))
 		abort();
 
 	/* We *always* used compressed form keys. */
 	EC_KEY_set_conv_form(priv, POINT_CONVERSION_COMPRESSED);
+
+	/* To get tal to clean it up... */
+	ptr = tal(ctx, EC_KEY *);
+	*ptr = priv;
+	tal_add_destructor(ptr, free_gateway_key);
+
 	return priv;
 }
 

@@ -84,7 +84,7 @@ int main(void)
 	payment[0].send_amount = cpu_to_le32(1000);
 	payment[0].output_addr = *helper_addr(0);
 	tx1 = create_gateway_tx(ctx, helper_gateway_public_key(),
-				1, payment, helper_gateway_key());
+				1, payment, helper_gateway_key(ctx));
 	assert(tal_parent(tx1) == ctx);
 	assert(num_inputs(tx1) == 0);
 	
@@ -101,7 +101,7 @@ int main(void)
 
 	tx2 = create_normal_tx(ctx, helper_addr(1),
 			       500, 500, 1, input,
-			       helper_private_key(0));
+			       helper_private_key(ctx, 0));
 	assert(tal_parent(tx2) == ctx);
 	assert(num_inputs(tx2) == 1);
 

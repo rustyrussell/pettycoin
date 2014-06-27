@@ -33,7 +33,7 @@ int main(int argc, char *argv[])
 	payment[0].send_amount = cpu_to_le32(1000);
 	payment[0].output_addr = *helper_addr(0);
 	t = create_gateway_tx(s, helper_gateway_public_key(),
-				       1, payment, helper_gateway_key());
+			      1, payment, helper_gateway_key(s));
 	assert(t);
 	out = get_gateway_outputs(&t->gateway);
 	assert(t->gateway.version == current_version());
@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
 	payment[1].send_amount = cpu_to_le32(2000);
 	payment[1].output_addr = *helper_addr(1);
 	t = create_gateway_tx(s, helper_gateway_public_key(),
-				       2, payment, helper_gateway_key());
+				       2, payment, helper_gateway_key(s));
 	assert(t);
 	out = get_gateway_outputs(&t->gateway);
 	assert(t->gateway.version == current_version());
@@ -125,8 +125,8 @@ int main(int argc, char *argv[])
 
 	/* Try signing it with non-gateway key. */
 	t = create_gateway_tx(s, helper_public_key(0),
-				       2, payment,
-				       helper_private_key(0));
+			      2, payment,
+			      helper_private_key(s, 0));
 	assert(check_tx(s, t, NULL, NULL, NULL, NULL)
 	       == PROTOCOL_ECODE_TX_BAD_GATEWAY);
 

@@ -10,6 +10,13 @@
 #include "peer.h"
 #include "pending.h"
 
+/* This keeps valgrind happy! */
+static void destroy_state(struct state *state)
+{
+	txhash_clear(&state->txhash);
+	BN_free(&genesis.total_work);
+}
+
 struct state *new_state(bool test_net)
 {
 	struct state *s = tal(NULL, struct state);
@@ -38,6 +45,8 @@ struct state *new_state(bool test_net)
 	s->log_level = LOG_BROKEN;
 	s->log = new_log(s, NULL, "", s->log_level, STATE_LOG_MAX);
 	s->generate = "pettycoin-generate";
+
+	tal_add_destructor(s, destroy_state);
 
 	/* Set up genesis block */
 	BN_init(&genesis.total_work);

@@ -26,6 +26,11 @@
 #include <string.h>
 #include <assert.h>
 
+static void destroy_block(struct block *b)
+{
+	BN_free(&b->total_work);
+}
+
 /* Returns error if bad.  Not sufficient by itself: see check_tx_order,
  * shard_validate_transactions and check_block_prev_merkles! */
 enum protocol_ecode
@@ -107,6 +112,8 @@ check_block_header(struct state *state,
 	block->tailer = tailer;
 	block->all_known = false;
 	list_head_init(&block->children);
+
+	tal_add_destructor(block, destroy_block);
 
 	return PROTOCOL_ECODE_NONE;
 
