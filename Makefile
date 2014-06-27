@@ -1,4 +1,4 @@
-PETTYCOIN_OBJS := block.o check_block.o check_tx.o difficulty.o shadouble.o timestamp.o gateways.o hash_tx.o pettycoin.o merkle_txs.o create_tx.o tx_cmp.o genesis.o marshall.o hash_block.o prev_merkles.o state.o packet.o dns.o netaddr.o peer.o peer_cache.o pseudorand.o welcome.o log.o generating.o blockfile.o pending.o log_helper.o txhash.o signature.o proof.o chain.o features.o todo.o base58.o sync.o create_refs.o shard.o packet_io.o tx.o
+PETTYCOIN_OBJS := block.o check_block.o check_tx.o difficulty.o shadouble.o timestamp.o gateways.o hash_tx.o pettycoin.o merkle_txs.o tx_cmp.o genesis.o marshall.o hash_block.o prev_merkles.o state.o packet.o dns.o netaddr.o peer.o peer_cache.o pseudorand.o welcome.o log.o generating.o blockfile.o pending.o log_helper.o txhash.o signature.o proof.o chain.o features.o todo.o base58.o sync.o create_refs.o shard.o packet_io.o tx.o
 GENERATE_OBJS := generate.o merkle_txs.o hash_tx.o tx_cmp.o shadouble.o marshall.o minimal_log.o timestamp.o
 MKGENESIS_OBJS := mkgenesis.o shadouble.o marshall.o hash_block.o minimal_log.o
 SIZES_OBJS := sizes.o

@@ -37,7 +37,7 @@ alloc_tx(const tal_t *ctx, enum protocol_tx_type type, u16 num)
 }
 
 union protocol_tx *
-create_gateway_tx(struct state *state,
+create_gateway_tx(const tal_t *ctx,
 		  const struct protocol_pubkey *gateway_key,
 		  u16 num_payments,
 		  struct protocol_gateway_payment *payment,
@@ -46,7 +46,7 @@ create_gateway_tx(struct state *state,
 	union protocol_tx *tx;
 	struct protocol_tx_gateway *gtx;
 
-	tx = alloc_tx(state, TX_FROM_GATEWAY, num_payments);
+	tx = alloc_tx(ctx, TX_FROM_GATEWAY, num_payments);
 	gtx = &tx->gateway;
 
 	gtx->gateway_key = *gateway_key;
@@ -62,7 +62,7 @@ create_gateway_tx(struct state *state,
 }
 
 union protocol_tx *
-create_normal_tx(struct state *state,
+create_normal_tx(const tal_t *ctx,
 		 const struct protocol_address *pay_to,
 		 u32 send_amount,
 		 u32 change_amount,
@@ -75,7 +75,7 @@ create_normal_tx(struct state *state,
 	unsigned char *p;
 	unsigned int i;
 
-	tx = alloc_tx(state, TX_NORMAL, num_inputs);
+	tx = alloc_tx(ctx, TX_NORMAL, num_inputs);
 	ntx = &tx->normal;
 
 	/* Create public key ourselves, saves them passing it in. */
