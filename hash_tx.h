@@ -5,6 +5,7 @@
 union protocol_tx;
 struct protocol_double_sha;
 struct protocol_input_ref;
+struct protocol_net_txrefhash;
 
 /* Get txhash, by which we refer to transaction. */
 void hash_tx(const union protocol_tx *tx,
@@ -23,8 +24,9 @@ void hash_tx_for_block(const union protocol_tx *tx,
 		       size_t num_refs,
 		       struct protocol_double_sha *sha);
 
-/* Helper to merkle two hashes together: SHA256(SHA256([a][b])) */
-void merkle_two_hashes(const struct protocol_double_sha *a,
-		       const struct protocol_double_sha *b,
-		       struct protocol_double_sha *merkle);
+/* Combo deal. */
+void hash_tx_and_refs(const union protocol_tx *tx,
+		      const struct protocol_input_ref *refs,
+		      struct protocol_net_txrefhash *txrefhash);
+
 #endif /* PETTYCOIN_HASH_TX_H */

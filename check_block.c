@@ -318,8 +318,7 @@ void put_tx_in_block(struct state *state,
 	} else {
 		/* Tx must match hash. */
 		struct protocol_net_txrefhash hashes;
-		hash_tx(txp->tx, &hashes.txhash);
-		hash_refs(refs_for(*txp), num_inputs(txp->tx), &hashes.refhash);
+		hash_tx_and_refs(txp->tx, refs_for(*txp), &hashes);
 		assert(structeq(shard->u[txoff].hash, &hashes));
 	}
 

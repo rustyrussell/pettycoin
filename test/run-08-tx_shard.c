@@ -6,6 +6,7 @@
 #include "../signature.c"
 #include "../shadouble.c"
 #include "../block_shard.c"
+#include "../merkle_recurse.c"
 #include "helper_key.h"
 #include "helper_gateway_key.h"
 

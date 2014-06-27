@@ -52,9 +52,7 @@ txrefhash_in_shard(const struct block *b,
 		const union protocol_tx *tx = tx_for(s, txoff);
 		if (!tx)
 			return NULL;
-		hash_tx(tx, &scratch->txhash);
-		hash_refs(refs_for(s->u[txoff].txp), num_inputs(tx),
-			  &scratch->refhash);
+		hash_tx_and_refs(tx, refs_for(s->u[txoff].txp), scratch);
 		return scratch;
 	} else
 		return s->u[txoff].hash;

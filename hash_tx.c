@@ -2,19 +2,9 @@
 #include "marshal.h"
 #include "protocol.h"
 #include "shadouble.h"
+#include "merkle_recurse.h"
+#include "tx.h"
 #include <assert.h>
-
-void merkle_two_hashes(const struct protocol_double_sha *a,
-		       const struct protocol_double_sha *b,
-		       struct protocol_double_sha *merkle)
-{
-	SHA256_CTX shactx;
-
-	SHA256_Init(&shactx);
-	SHA256_Update(&shactx, a, sizeof(*a));
-	SHA256_Update(&shactx, b, sizeof(*b));
-	SHA256_Double_Final(&shactx, merkle);
-}
 
 void hash_refs(const struct protocol_input_ref *refs,
 	       size_t num_refs,
@@ -28,6 +18,14 @@ void hash_refs(const struct protocol_input_ref *refs,
 	SHA256_Double_Final(&shactx, sha);
 }
 
+void hash_tx_and_refs(const union protocol_tx *tx,
+		      const struct protocol_input_ref *refs,
+		      struct protocol_net_txrefhash *txrefhash)
+{
+	hash_tx(tx, &txrefhash->txhash);
+	hash_refs(refs, num_inputs(tx), &txrefhash->refhash);
+}
+ 
 /*
  * Inside a block, the hash is combined with the input
  * back-references.  To demonstrate our knowledge of previous blocks,

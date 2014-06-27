@@ -14,9 +14,14 @@ static struct timeabs my_time;
 #include "../log.c"
 #include "../log_helper.c"
 #include "../base58.c"
-#include "../hash_tx.c"
 #include "../marshal.c"
 #include "../shadouble.c"
+
+void hash_tx(const union protocol_tx *tx,
+	     struct protocol_double_sha *sha)
+{
+	abort();
+}
 
 static char *read_from(const tal_t *ctx, int fd)
 {

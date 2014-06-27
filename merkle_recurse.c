@@ -4,6 +4,18 @@
 #include <assert.h>
 #include <string.h>
 
+void merkle_two_hashes(const struct protocol_double_sha *a,
+		       const struct protocol_double_sha *b,
+		       struct protocol_double_sha *merkle)
+{
+	SHA256_CTX shactx;
+
+	SHA256_Init(&shactx);
+	SHA256_Update(&shactx, a, sizeof(*a));
+	SHA256_Update(&shactx, b, sizeof(*b));
+	SHA256_Double_Final(&shactx, merkle);
+}
+
 void merkle_recurse(size_t off, size_t max_off, size_t num,
 		    void (*fn)(size_t, void *, struct protocol_double_sha *),
 		    void *data,
