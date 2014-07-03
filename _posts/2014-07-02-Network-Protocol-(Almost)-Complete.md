@@ -59,6 +59,8 @@ There are only two parts of the network protocol now missing.  First
 is dealing with skiplist of blocks before the horizon
 (`protocol_pkt_horizon`) and the second is broadcast of double spends
 and complaining about them if they're inside a block.
+*[Wait, scratch that.  I still have fee collection and to-gateway payments to implement as well]*
+
 
 But first, I took some time to write some more unit tests: I'm way
 behind, still.
