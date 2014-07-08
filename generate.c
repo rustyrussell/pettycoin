@@ -1,5 +1,8 @@
 /* This helper tries to generate a block: stdin can add (verified)
- * transactions. */
+ * transactions.
+ *
+ * Lyrics by The Who.
+ */
 #include <ccan/asort/asort.h>
 #include <ccan/str/str.h>
 #include <ccan/err/err.h>
@@ -184,7 +187,7 @@ static bool add_tx(struct working_block *w, struct gen_update *update)
 	/* Assumes NULL == bitwise 0! */
 	tal_resizez(&w->trans_hashes[update->shard], num + 1);
 
-	/* Move later transactions. */
+	/* ''Just because we get around.'' */
 	memmove(w->trans_hashes[update->shard] + update->txoff + 1,
 		w->trans_hashes[update->shard] + update->txoff,
 		(num - update->txoff)
@@ -238,7 +241,7 @@ static bool solve_block(struct working_block *w)
 	/* Increment nonce1. */
 	(*nonce1)++;
 
-	/* And occasionally timestamp. */
+	/* ''I hope I die before I get old'' */
 	if ((*nonce1 & 0xFFFF) == 0) {
 		w->tailer.timestamp = cpu_to_le32(time(NULL));
 
@@ -252,6 +255,7 @@ static bool solve_block(struct working_block *w)
 	return false;
 }
 
+/* ''And don't try to d-dig what we all s-s-say'' */
 static bool read_all_or_none(int fd, void *buf, size_t len)
 {
 	size_t off = 0;
@@ -262,7 +266,7 @@ static bool read_all_or_none(int fd, void *buf, size_t len)
 			/* Terminated cleanly? */
 			if (off == 0)
 				return false;
-			errx(1, "Short reading transaction");
+			errx(1, "''Things they do look awful c-c-cold''");
 		}
 		if (r == -1) {
 			if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -272,7 +276,7 @@ static bool read_all_or_none(int fd, void *buf, size_t len)
 				/* May spin, but shouldn't be long. */
 				continue;
 			}
-			err(1, "Reading transaction");
+			errx(1, "''Things they do look awful c-c-cold!''");
 		}
 		off += r;
 	}
@@ -326,7 +330,7 @@ static bool from_hex(const char *str, u8 *buf, size_t bufsize)
 	return bufsize == 0;
 }
 
-/* 32 bit length, then block: caller knows transactions already. */
+/* ''Talkin' 'bout my generation...''  */
 static void write_block(int fd, const struct working_block *w)
 {
 	struct protocol_pkt_block *b;
@@ -336,7 +340,7 @@ static void write_block(int fd, const struct working_block *w)
 	b = marshal_block(w, &w->hdr, w->shard_nums, w->merkles,
 			  w->prev_merkles, &w->tailer);
 	if (!write_all(fd, b, le32_to_cpu(b->len)))
-		err(1, "Writing out block: %s", strerror(errno));
+		err(1, "''I'm not trying to cause a b-big s-s-sensation''");
 
 	/* Write out the shard hashes. */
 	for (shard = 0; shard < w->num_shards; shard++) {
@@ -351,8 +355,8 @@ static void write_block(int fd, const struct working_block *w)
 						    w->trans_hashes[shard][i]);
 
 		if (!write_all(fd, s, le32_to_cpu(s->len)))
-			err(1, "Writing out shard %i: %s",
-			    shard, strerror(errno));
+			err(1, "''I'm just talkin' 'bout my g-g-generation''"
+			    " %i", shard);
 	}
 }
 
@@ -417,6 +421,7 @@ int main(int argc, char *argv[])
 
 	write_block(STDOUT_FILENO, w);
 
+	/* ''Why don't you all f-fade away'' */
 	tal_free(ctx);
 	return 0;
 }
