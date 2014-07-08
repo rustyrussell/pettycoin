@@ -33,28 +33,6 @@ check_block_header(struct state *state,
 bool shard_belongs_in_block(const struct block *block,
 			    const struct block_shard *shard);
 
-/* Is this shard ordering valid?  Can be called even if it's not full. */
-bool check_tx_order(struct state *state,
-		    const struct block *block,
-		    const struct block_shard *shard,
-		    unsigned int *bad_txoff1,
-		    unsigned int *bad_txoff2);
-
-/* Are all the transactions valid? */
-enum protocol_ecode
-shard_validate_txs(struct state *state,
-		   struct log *log,
-		   const struct block *block,
-		   struct block_shard *shard,
-		   unsigned int *bad_trans,
-		   unsigned int *bad_input_num,
-		   union protocol_tx **bad_input);
-
-/* For generating.c: inserts a fully-populated shard. */
-void force_shard_into_block(struct state *state,
-			    struct block *block,
-			    struct block_shard *shard);
-
 void put_shard_of_hashes_into_block(struct state *state,
 				    struct block *block,
 				    struct block_shard *shard);

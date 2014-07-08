@@ -136,50 +136,6 @@ bool shard_belongs_in_block(const struct block *block,
 	return structeq(&block->merkles[shard->shardnum], &merkle);
 }
 
-static u32 get_shard_start(const struct block *block,
-			   const struct block_shard *shard)
-{
-	unsigned int i;
-	u32 num = 0;
-
-	for (i = 0; i < shard->shardnum; i++)
-		num += block->shard_nums[i];
-
-	return num;
-}
-
-bool check_tx_order(struct state *state,
-		    const struct block *block,
-		    const struct block_shard *shard,
-		    unsigned int *bad_transnum1,
-		    unsigned int *bad_transnum2)
-{
-	int i;
-	const union protocol_tx *prev;
-	u32 shard_start = get_shard_start(block, shard);
-
-	/* Is it in order? */
-	prev = NULL;
-	for (i = 0; i < block->shard_nums[shard->shardnum]; i++) {
-		const union protocol_tx *tx;
-
-		/* We can't determine order from the hash, or empty tx */
-		tx = tx_for(shard, i);
-		if (!tx)
-			continue;
-
-		if (prev && tx_cmp(prev, tx) >= 0) {
-			if (bad_transnum2)
-				*bad_transnum2 = shard_start + i;
-			return false;
-		}
-		prev = tx;
-		if (bad_transnum1)
-			*bad_transnum1 = shard_start + i;
-	}
-	return true;
-}
-
 static void add_tx_to_txhash(struct state *state,
 			     struct block *block,
 			     struct block_shard *shard,
@@ -213,29 +169,6 @@ static void add_tx_to_txhash(struct state *state,
 	/* FIXME:
 	   tal_add_destructor(te, delete_from_txhash);
 	*/
-}
-
-/* This is a fast-path used by generating.c */
-void force_shard_into_block(struct state *state,
-			    struct block *block,
-			    struct block_shard *shard)
-{
-	unsigned int i;
-	assert(shard_belongs_in_block(block, shard));
-	assert(shard->txcount == block->shard_nums[shard->shardnum]);
-	assert(check_tx_order(state, block, shard, NULL, NULL));
-	assert(!block->shard[shard->shardnum]);
-
-	block->shard[shard->shardnum] = tal_steal(block, shard);
-
-	for (i = 0; i < block->shard_nums[shard->shardnum]; i++)
-		add_tx_to_txhash(state, block, shard, i);
-
-	update_block_ptrs_new_shard(state, block, shard->shardnum);
-
-	/* FIXME: re-check prev_merkles for any descendents. */
-	/* FIXME: re-check pending transactions with unknown inputs
-	 * now we know more, or which we already added. */
 }
 
 static struct txptr_with_ref dup_txp(const tal_t *ctx,
@@ -348,49 +281,6 @@ void put_tx_in_block(struct state *state,
 			break;
 		}
 	}
-}
-
-/* FIXME: Only used by generate.c as an assertion... */
-enum protocol_ecode
-shard_validate_txs(struct state *state,
-		   struct log *log,
-		   const struct block *block,
-		   struct block_shard *shard,
-		   unsigned int *bad_trans,
-		   unsigned int *bad_input_num,
-		   union protocol_tx *inputs[PROTOCOL_TX_MAX_INPUTS])
-{
-	unsigned int i;
-	enum protocol_ecode err;
-
-	for (i = 0; i < block->shard_nums[shard->shardnum]; i++) {
-		u32 tx_shard;
-
-		assert(shard_is_tx(shard, i));
-		tx_shard = shard_of_tx(tx_for(shard, i),
-				       block->hdr->shard_order);
-		if (tx_shard != shard->shardnum) {
-			*bad_trans = get_shard_start(block, shard) + i;
-			log_unusual(log, "Transaction %u in wrong shard"
-				    " (%u vs %u) ", *bad_trans,
-				    tx_shard, shard->shardnum);
-			return PROTOCOL_ECODE_BLOCK_BAD_TX_SHARD;
-		}
-
-		/* Make sure transactions themselves are valid. */
-		err = check_tx(state, tx_for(shard, i), block,
-			       refs_for(shard->u[i].txp),
-			       inputs, bad_input_num);
-		if (err) {
-			*bad_trans = get_shard_start(block, shard) + i;
-			log_unusual(log, "Transaction %u gave error ",
-				    *bad_trans);
-			log_add_enum(log, enum protocol_ecode, err);
-			return err;
-		}
-	}
-
-	return PROTOCOL_ECODE_NONE;
 }
 
 /* Check what we can, using block->prev->...'s shards. */

@@ -122,7 +122,6 @@ int main(int argc, char *argv[])
 	enum protocol_ecode e;
 	struct gen_update update;
 	struct protocol_input_ref *refs;
-	union protocol_tx *intxs[PROTOCOL_TX_MAX_INPUTS];
 
 	/* We need enough of state to use the real init function here. */
 	pseudorand_init();
@@ -164,16 +163,11 @@ int main(int argc, char *argv[])
 
 	/* Put the single tx into a shard. */
 	shard = new_block_shard(s, update.shard, 1);
-	shard->txcount = 1;
-	shard->u[0].txp = txptr_with_ref(shard, t, refs);
+	b->shard[shard->shardnum] = shard;
+	put_tx_in_block(s, b, shard, 0, txptr_with_ref(shard, t, refs));
 
 	/* This should all be correct. */
-	assert(shard_validate_txs(s, NULL, b, shard, NULL, NULL, intxs)
-	       == PROTOCOL_ECODE_NONE);
-	assert(check_tx_order(s, b, shard, NULL, NULL));
-	assert(shard_belongs_in_block(b, shard));
-
-	force_shard_into_block(s, b, shard);
+	check_block_shard(s, b, shard);
 	assert(block_all_known(b, NULL));
 
 	prev_merkles = make_prev_merkles(s, b, helper_addr(1));
@@ -224,16 +218,13 @@ int main(int argc, char *argv[])
 
 	/* Put the single tx into a shard. */
 	shard = new_block_shard(s, update.shard, 1);
-	shard->txcount = 1;
-	shard->u[0].txp = txptr_with_ref(shard, t, refs);
+	b2->shard[shard->shardnum] = shard;
+	put_tx_in_block(s, b2, shard, 0, txptr_with_ref(shard, t, refs));
 
 	/* Should work */
-	assert(shard_validate_txs(s, NULL, b2, shard, NULL, NULL,intxs)
-	       == PROTOCOL_ECODE_NONE);
-	assert(check_tx_order(s, b2, shard, NULL, NULL));
-	assert(shard_belongs_in_block(b2, shard));
+	check_block_shard(s, b2, shard);
 
-	force_shard_into_block(s, b2, shard);
+	b2->shard[shard->shardnum] = shard;
 	assert(block_all_known(b2, NULL));
 
 	tal_free(s);

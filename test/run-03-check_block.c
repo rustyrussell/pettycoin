@@ -173,14 +173,10 @@ int main(int argc, char *argv[])
 	shard = new_block_shard(s, update.shard, 1);
 	shard->txcount = 1;
 	shard->u[0].txp = txptr_with_ref(shard, t, refs);
-	
-	/* This should all be correct. */
-	assert(shard_validate_txs(s, NULL, b, shard, NULL, NULL, NULL)
-	       == PROTOCOL_ECODE_NONE);
-	assert(check_tx_order(s, b, shard, NULL, NULL));
-	assert(shard_belongs_in_block(b, shard));
 
-	force_shard_into_block(s, b, shard);
+	/* This should all be correct. */
+	check_block_shard(s, b, shard);
+	b->shard[shard->shardnum] = shard;
 
 	/* Should require a prev_merkle per shard for each of 2 prev blocks. */
 	assert(num_prev_merkles(b) == (2 << genesis.hdr->shard_order));
