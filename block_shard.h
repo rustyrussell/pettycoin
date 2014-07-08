@@ -4,6 +4,7 @@
 #include "marshal.h"
 
 struct block;
+struct state;
 
 /* Each of these is followed by:
    struct protocol_input_ref ref[num_inputs(tx)];
@@ -78,4 +79,8 @@ bool shard_all_hashes(const struct block *block, u16 shardnum);
 /* Allocate a new struct transaction_shard. */
 struct block_shard *new_block_shard(const tal_t *ctx, u16 shardnum, u8 num);
 
+/* Various assertions about a shard */
+void check_block_shard(struct state *state,
+		       const struct block *block,
+		       const struct block_shard *shard);
 #endif /* PETTYCOIN_BLOCK_SHARD_H */

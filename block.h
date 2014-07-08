@@ -76,4 +76,7 @@ union protocol_tx *block_get_tx(const struct block *block, u16 shardnum,
 /* Get this numbered references inside block. */
 struct protocol_input_ref *block_get_refs(const struct block *block,
 					  u16 shardnum, u8 txoff);
+
+/* Various assertions about a block */
+void check_block(struct state *state, const struct block *block);
 #endif /* PETTYCOIN_BLOCK_H */

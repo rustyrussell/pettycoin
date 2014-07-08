@@ -1,7 +1,10 @@
+#include <ccan/structeq/structeq.h>
 #include "block_shard.h"
 #include "tx.h"
 #include "block.h"
 #include "shard.h"
+#include "merkle_txs.h"
+#include "check_tx.h"
 #include <assert.h>
 
 /* For compactness, struct block_shard needs tx and refs adjacent. */
@@ -78,3 +81,43 @@ bool shard_all_hashes(const struct block *block, u16 shardnum)
 		count = 0;
 	return count == block->shard_nums[shardnum];
 }
+
+void check_block_shard(struct state *state,
+		       const struct block *block,
+		       const struct block_shard *shard)
+{
+	unsigned int i, txcount = 0, hashcount = 0, num;
+
+	num = block->shard_nums[shard->shardnum];
+	for (i = 0; i < num; i++) {
+		if (shard_is_tx(shard, i)) {
+			if (shard->u[i].txp.tx) {
+				enum protocol_ecode e;
+				union protocol_tx *inp[PROTOCOL_TX_MAX_INPUTS];
+				unsigned int bad_input_num;
+				e = check_tx(state, shard->u[i].txp.tx, block,
+					     refs_for(shard->u[i].txp), inp,
+					     &bad_input_num);
+				/* This can happen if we don't know input */
+				if (e == PROTOCOL_ECODE_PRIV_TX_BAD_INPUT)
+					assert(!inp[bad_input_num]);
+				else
+					assert(e == PROTOCOL_ECODE_NONE);
+				txcount++;
+			}
+		} else {
+			assert(shard->u[i].hash);
+			hashcount++;
+		}
+	}
+	assert(txcount == shard->txcount);
+	assert(hashcount == shard->hashcount);
+
+	assert(txcount + hashcount <= num);
+	if (txcount + hashcount == num) {
+		struct protocol_double_sha sha;
+		merkle_txs(NULL, 0, block, shard, 0, num, &sha);
+		assert(structeq(&sha, &block->merkles[shard->shardnum]));
+	}
+}
+	

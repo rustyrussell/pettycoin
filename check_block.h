@@ -70,4 +70,6 @@ void put_tx_in_block(struct state *state,
 bool check_block_prev_merkles(struct state *state,
 			      const struct block *block);
 
+/* Various assertions about a block */
+void check_block(struct state *state, const struct block *block);
 #endif /* PETTYCOIN_CHECK_BLOCK_H */

@@ -15,7 +15,7 @@ u8 pending_features(const struct block *block)
 	abort();
 }
 
-void check_chains(const struct state *state)
+void check_chains(struct state *state)
 {
 	abort();
 }
@@ -26,6 +26,25 @@ void update_block_ptrs_new_block(struct state *state, struct block *block)
 }
 
 void broadcast_to_peers(struct state *state, const struct protocol_net_hdr *pkt)
+{
+	abort();
+}
+
+enum protocol_ecode check_tx(struct state *state,
+			     const union protocol_tx *tx,
+			     const struct block *block,
+			     const struct protocol_input_ref *refs,
+			     union protocol_tx *inputs[PROTOCOL_TX_MAX_INPUTS],
+			     unsigned int *bad_input_num)
+{
+	abort();
+}
+
+void merkle_txs(const void *prefix, size_t prefix_len,
+		const struct block *block,
+		const struct block_shard *shard,
+		size_t off, size_t num_txs,
+		struct protocol_double_sha *merkle)
 {
 	abort();
 }

@@ -20,6 +20,7 @@
 #include "chain.h"
 #include "shard.h"
 #include "complain.h"
+#include "block_shard.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/tal.h>
 #include <stdlib.h>
@@ -438,4 +439,35 @@ bool check_block_prev_merkles(struct state *state, const struct block *block)
 
 	/* Must have exactly the right number of previous merkle hashes. */
 	return off == le32_to_cpu(block->hdr->num_prev_merkles);
+}
+
+void check_block(struct state *state, const struct block *block)
+{
+	u32 diff = le32_to_cpu(block->tailer->difficulty);
+	struct protocol_double_sha sha;
+	unsigned int shard;
+
+	if (block != genesis_block(state)) {
+		assert(beats_target(&block->sha, diff));
+		assert(tal_count(block->shard) == num_shards(block->hdr));
+	}
+	hash_block(block->hdr, block->shard_nums, block->merkles,
+		   block->prev_merkles, block->tailer, &sha);
+	assert(structeq(&sha, &block->sha));
+
+	if (block->prev) {
+		if (block->all_known)
+			assert(block->prev->all_known);
+
+		if (block->prev->complaint)
+			assert(block->complaint);
+
+	}
+
+	/* FIXME: check block->prev_merkles! */
+
+	for (shard = 0; shard < num_shards(block->hdr); shard++) {
+		if (block->shard[shard])
+			check_block_shard(state, block, block->shard[shard]);
+	}
 }

@@ -77,7 +77,7 @@ static bool find_connected_pair(const struct state *state,
 	return false;
 }
 
-void check_chains(const struct state *state)
+void check_chains(struct state *state)
 {
 	const struct block *i;
 	size_t n, num_next_level = 1;
@@ -118,6 +118,7 @@ void check_chains(const struct state *state)
 				num_next_level++;
 				assert(b->prev == i);
 			}
+			check_block(state, i);
 		}
 		assert(num_this_level == 0);
 	}
