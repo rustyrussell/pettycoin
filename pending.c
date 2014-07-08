@@ -42,7 +42,7 @@ static struct pending_tx *new_pending_tx(const tal_t *ctx,
 static void shard_to_pending(struct state *state,
 			     const struct block *block, u16 shard)
 {
-	size_t curr = tal_count(state->pending->pend), num, added = 0, i;
+	size_t curr = tal_count(state->pending->pend[shard]), num, added = 0, i;
 
 	num = block->shard_nums[shard];
 
