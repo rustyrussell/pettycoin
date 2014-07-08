@@ -1,9 +1,12 @@
+/* FIXME: name prev_merkles is obsolete! */
 #include <ccan/array_size/array_size.h>
 #include "merkle_txs.h"
 #include "prev_merkles.h"
 #include "protocol.h"
 #include "block.h"
 #include "check_block.h"
+#include "shard.h"
+#include "shadouble.h"
 
 size_t num_prev_merkles(const struct block *prev)
 {
@@ -12,11 +15,38 @@ size_t num_prev_merkles(const struct block *prev)
 
 	for (i = 0;
 	     i < PROTOCOL_PREV_BLOCK_MERKLES && prev;
-	     i++, prev = prev->prev) {
-		num += (1 << prev->hdr->shard_order);
-	}
+	     i++, prev = prev->prev)
+		num += num_shards(prev->hdr);
 
 	return num;
+}
+
+/* Hash has block reward address prepended, so you can prove you know
+ * all the transactions. */
+u8 prev_txhash(const struct protocol_address *addr,
+	       const struct block *block, u16 shard)
+{
+	SHA256_CTX shactx;
+	struct protocol_double_sha sha;
+	unsigned int i, num_txs = block->shard_nums[shard];
+
+	SHA256_Init(&shactx);
+	SHA256_Update(&shactx, addr, sizeof(*addr));
+
+	for (i = 0; i < num_txs; i++) {
+		const union protocol_tx *tx;
+		const struct protocol_input_ref *refs;
+
+		tx = block_get_tx(block, shard, i);
+		refs = block_get_refs(block, shard, i);
+
+		SHA256_Update(&shactx, tx, marshal_tx_len(tx));
+		SHA256_Update(&shactx, refs, marshal_input_ref_len(tx));
+	}
+	SHA256_Double_Final(&shactx, &sha);
+
+	/* We only use top byte. */
+	return sha.sha[0];
 }
 
 u8 *make_prev_merkles(const tal_t *ctx, const struct block *prev,
@@ -34,23 +64,13 @@ u8 *make_prev_merkles(const tal_t *ctx, const struct block *prev,
 	     i++, prev = prev->prev) {
 		unsigned int j;
 
-		for (j = 0; j < (1 << prev->hdr->shard_order); j++) {
-			struct protocol_double_sha merkle;
-
+		for (j = 0; j < num_shards(prev->hdr); j++) {
 			/* We need to know everything in shard to check
 			 * previous merkle. */
 			if (!shard_all_known(prev, j))
 				return tal_free(m);
 
-			/* Merkle has block reward address prepended, so you
-			 * can prove you know all the transactions. */
-			merkle_txs(my_addr, sizeof(*my_addr),
-				   prev, prev->shard[j],
-				   0, prev->shard_nums[j],
-				   &merkle);
-
-			/* We only save one byte. */
-			*p = merkle.sha[0];
+			*p = prev_txhash(my_addr, prev, j);
 			p++;
 		}
 	}

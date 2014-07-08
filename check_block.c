@@ -411,30 +411,24 @@ bool check_block_prev_merkles(struct state *state, const struct block *block)
 			return false;
 
 		for (j = 0; j < num_shards(prev->hdr); j++) {
-			struct protocol_double_sha merkle;
+			u8 prev_txh;
 
 			/* We need to know everything in shard to check
 			 * previous merkle. */
 			if (!shard_all_known(prev, j))
 				continue;
 
-			/* Merkle has block reward address prepended, so you
-			 * can prove you know all the transactions. */
-			merkle_txs(&block->hdr->fees_to,
-				   sizeof(block->hdr->fees_to),
-				   prev, prev->shard[j],
-				   0, prev->shard_nums[j],
-				   &merkle);
+			prev_txh = prev_txhash(&block->hdr->fees_to, prev, j);
 
 			/* We only check one byte; that's enough. */
-			if (merkle.sha[0] != block->prev_merkles[off+j]) {
+			if (prev_txh != block->prev_merkles[off+j]) {
 				log_unusual(state->log,
 					    "Incorrect merkle for block %u:"
 					    " block %u shard %u was %u not %u",
 					    le32_to_cpu(block->hdr->depth),
 					    le32_to_cpu(block->hdr->depth) - i,
 					    j,
-					    merkle.sha[0],
+					    prev_txh,
 					    block->prev_merkles[off+j]);
 				return false;
 			}
