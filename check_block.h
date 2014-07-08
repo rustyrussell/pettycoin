@@ -4,11 +4,11 @@
 #include <stddef.h>
 #include <ccan/short_types/short_types.h>
 #include "protocol_net.h"
+#include "block_shard.h"
 
 struct protocol_block_header;
 struct protocol_block_tailer;
 struct protocol_double_sha;
-struct block_shard;
 struct state;
 struct block;
 struct log;
@@ -60,11 +60,10 @@ void put_shard_of_hashes_into_block(struct state *state,
 				    struct block_shard *shard);
 
 /* May add complaint if it's out of order. */
-struct txptr_with_ref;
 void put_tx_in_block(struct state *state,
 		     struct block *block,
 		     struct block_shard *shard, u8 txoff,
-		     const struct txptr_with_ref *txp);
+		     const struct txptr_with_ref txp);
 
 /* Check what we can, using block->prev->...'s shards. */
 bool check_block_prev_merkles(struct state *state,

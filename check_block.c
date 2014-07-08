@@ -257,7 +257,6 @@ static void copy_old_txs(struct state *state,
 			 u8 num)
 {
 	unsigned int i;
-	struct txptr_with_ref txp;
 
 	for (i = 0; i < num; i++) {
 		if (!shard_is_tx(old, i)) {
@@ -269,8 +268,8 @@ static void copy_old_txs(struct state *state,
 			continue;
 
 		/* It's probably not a talloc pointer, so copy! */
-		txp = dup_txp(new, old->u[i].txp);
-		put_tx_in_block(state, block, new, i, &txp);
+		put_tx_in_block(state, block, new, i,
+				dup_txp(new, old->u[i].txp));
 	}
 }
 
@@ -306,29 +305,29 @@ static void check_tx_ordering(struct state *state,
 void put_tx_in_block(struct state *state,
 		     struct block *block,
 		     struct block_shard *shard, u8 txoff,
-		     const struct txptr_with_ref *txp)
+		     struct txptr_with_ref txp)
 {
 	int i;
 
 	/* All this work for assertion checking! */
 	if (shard_is_tx(shard, txoff)) {
 		if (tx_for(shard, txoff)) {
-			assert(memcmp(txp->tx, tx_for(shard, txoff),
-				      marshal_tx_len(txp->tx)
-				      + marshal_input_ref_len(txp->tx)) == 0);
+			assert(memcmp(txp.tx, tx_for(shard, txoff),
+				      marshal_tx_len(txp.tx)
+				      + marshal_input_ref_len(txp.tx)) == 0);
 			shard->txcount--;
 		}
 	} else {
 		/* Tx must match hash. */
 		struct protocol_net_txrefhash hashes;
-		hash_tx_and_refs(txp->tx, refs_for(*txp), &hashes);
+		hash_tx_and_refs(txp.tx, refs_for(txp), &hashes);
 		assert(structeq(shard->u[txoff].hash, &hashes));
 		shard->hashcount--;
 	}
 
 	/* Now it's a transaction. */
 	bitmap_clear_bit(shard->txp_or_hash, txoff);
-	shard->u[txoff].txp = *txp;
+	shard->u[txoff].txp = txp;
 	shard->txcount++;
 
 	/* Record it in the hash. */
