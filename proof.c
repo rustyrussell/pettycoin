@@ -4,6 +4,7 @@
 #include "block.h"
 #include "shadouble.h"
 #include "shard.h"
+#include "merkle_recurse.h"
 #include <assert.h>
 
 void create_proof(struct protocol_proof *proof,
@@ -28,38 +29,36 @@ void create_proof(struct protocol_proof *proof,
 
 /* What does proof say the merkle should be? */
 static void proof_merkles_to(const union protocol_tx *tx,
+			     const struct protocol_input_ref *refs,
 			     u8 txoff,
 			     const struct protocol_proof *proof,
 			     struct protocol_double_sha *sha)
 {
 	unsigned int i;
+	struct protocol_net_txrefhash txrefhash;
 
 	/* Start with hash of transaction. */
-	hash_tx(tx, sha);
+	hash_tx_and_refs(tx, refs, &txrefhash);
+
+	/* Combine them together. */
+	merkle_two_hashes(&txrefhash.txhash, &txrefhash.refhash, sha);
 
 	for (i = 0; i < 8; i++) {
-		SHA256_CTX shactx;
-
-		SHA256_Init(&shactx);
 		if (txoff & (1 << i)) {
 			/* We're on the right. */
-			SHA256_Update(&shactx, &proof->merkle[i],
-				      sizeof(proof->merkle[i]));
-			SHA256_Update(&shactx, sha->sha, sizeof(sha->sha));
+			merkle_two_hashes(&proof->merkle[i], sha, sha);
 		} else {
 			/* We're on the left. */
-			SHA256_Update(&shactx, sha->sha, sizeof(sha->sha));
-			SHA256_Update(&shactx, &proof->merkle[i],
-				      sizeof(proof->merkle[i]));
+			merkle_two_hashes(sha, &proof->merkle[i], sha);
 		}
-		SHA256_Double_Final(&shactx, sha);
 	}
 }
 
 bool check_proof(const struct protocol_proof *proof,
 		 const struct block *b,
+		 u16 shardnum, u8 txoff,
 		 const union protocol_tx *tx,
-		 u16 shardnum, u8 txoff)
+		 const struct protocol_input_ref *refs)
 {
 	struct protocol_double_sha merkle;
 
@@ -71,7 +70,7 @@ bool check_proof(const struct protocol_proof *proof,
 	if (txoff >= b->shard_nums[shardnum])
 		return false;
 
-	proof_merkles_to(tx, txoff, proof, &merkle);
+	proof_merkles_to(tx, refs, txoff, proof, &merkle);
 
 	return structeq(&b->merkles[shardnum], &merkle);
 }
