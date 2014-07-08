@@ -194,8 +194,7 @@ struct protocol_proof {
 	struct protocol_double_sha merkle[8];
 };
 
-/* Proof that a transaction (with inputs refs) was in a block. */
-struct protocol_tx_with_proof {
+struct protocol_position {
 	/* The block it's in. */
 	struct protocol_double_sha block;
 	/* Shard it's in. */
@@ -203,6 +202,12 @@ struct protocol_tx_with_proof {
 	/* Transaction number within the shard. */
 	u8 txoff;
 	u8 unused;
+};
+
+/* Proof that a transaction (with inputs refs) was in a block. */
+struct protocol_tx_with_proof {
+	/* The block/shard/txoff */
+	struct protocol_position pos;
 	/* This is the tree of double shas which proves it. */
 	struct protocol_proof proof;
 

@@ -29,9 +29,9 @@ static void get_todo_ptrs(struct state *state,
 		*txoff = NULL;
 		break;
 	case PROTOCOL_PKT_GET_TX_IN_BLOCK:
-		*blk = &todo->pkt.get_tx_in_block.block;
-		*shardnum = &todo->pkt.get_tx_in_block.shard;
-		*txoff = &todo->pkt.get_tx_in_block.txoff;
+		*blk = &todo->pkt.get_tx_in_block.pos.block;
+		*shardnum = &todo->pkt.get_tx_in_block.pos.shard;
+		*txoff = &todo->pkt.get_tx_in_block.pos.txoff;
 		break;
 	default:
 		log_broken(state->log, "Unknown todo type ");

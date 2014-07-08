@@ -188,8 +188,8 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "PROTOCOL_ECODE_UNKNOWN_SHARD"; break;
 		case PROTOCOL_ECODE_UNKNOWN_TX:
 			name = "PROTOCOL_ECODE_UNKNOWN_TX"; break;
-		case PROTOCOL_ECODE_BAD_TXPOS:
-			name = "PROTOCOL_ECODE_BAD_TXPOS"; break;
+		case PROTOCOL_ECODE_BAD_TXOFF:
+			name = "PROTOCOL_ECODE_BAD_TXOFF"; break;
 		case PROTOCOL_ECODE_BAD_SHARDNUM:
 			name = "PROTOCOL_ECODE_BAD_SHARDNUM"; break;
 		case PROTOCOL_ECODE_BLOCK_HIGH_VERSION:

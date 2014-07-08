@@ -40,7 +40,7 @@ enum protocol_ecode {
 	PROTOCOL_ECODE_UNKNOWN_TX,
 
 	/* protocol_pkt_get_tx_in_block */
-	PROTOCOL_ECODE_BAD_TXPOS,
+	PROTOCOL_ECODE_BAD_TXOFF,
 
 	/* protocol_pkt_get_shard / protocol_pkt_shard */
 	PROTOCOL_ECODE_BAD_SHARDNUM,

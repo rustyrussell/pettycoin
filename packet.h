@@ -25,6 +25,8 @@ void *tal_packet_dup(const tal_t *ctx, const void *pkt);
 	tal_packet_append_sha_(ptr_to_ptr(ppkt), (sha))
 #define tal_packet_append_txrefhash(ppkt, hashes)		\
 	tal_packet_append_txrefhash_(ptr_to_ptr(ppkt), (hashes))
+#define tal_packet_append_pos(ppkt, block, shard, txoff)		\
+	tal_packet_append_pos_(ptr_to_ptr(ppkt), (block), (shard), (txoff))
 
 union protocol_tx;
 void tal_packet_append_tx_(void *ppkt, const union protocol_tx *tx);
@@ -45,4 +47,6 @@ struct protocol_net_txrefhash;
 void tal_packet_append_txrefhash_(void *ppkt,
 				  const struct protocol_net_txrefhash *hashes);
 
+void tal_packet_append_pos_(void *ppkt, const struct block *block,
+			    u16 shardnum, u8 txoff);
 #endif

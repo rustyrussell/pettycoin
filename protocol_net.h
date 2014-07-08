@@ -255,7 +255,12 @@ struct protocol_pkt_tx_in_block {
 	le32 len; /* sizeof(struct protocol_pkt_tx_in_block) + ... */
 	le32 type; /* PROTOCOL_PKT_TX_IN_BLOCK */
 
-	/* struct protocol_trans_with_proof */
+	le32 err; /* PROTOCOL_ECODE_UNKNOWN_BLOCK,
+		   * PROTOCOL_ECODE_UNKNOWN_TX,
+		   * or PROTOCOL_ECODE_NONE */
+
+	/* struct protocol_tx_with_proof, or if ecode, just
+	 * struct protocol_position. */
 };
 
 /* This block contains out-of-order transaction. */
@@ -333,10 +338,7 @@ struct protocol_pkt_get_tx_in_block {
 	le32 len; /* sizeof(struct protocol_pkt_get_tx_in_block) */
 	le32 type; /* PROTOCOL_PKT_GET_TX_IN_BLOCK */
 
-	struct protocol_double_sha block;
-	le16 shard;
-	u8 txoff;
-	u8 unused;
+	struct protocol_position pos;
 };
 
 /* Ask for a specific shard (reply will be PROTOCOL_PKT_SHARD). */

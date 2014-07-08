@@ -23,6 +23,7 @@
 #include "shard.h"
 #include "difficulty.h"
 #include "recv_block.h"
+#include "tal_packet_proof.h"
 #include <ccan/io/io.h>
 #include <ccan/time/time.h>
 #include <ccan/tal/tal.h>
@@ -505,6 +506,66 @@ recv_get_shard(struct peer *peer,
 	return PROTOCOL_ECODE_NONE;
 }
 
+static enum protocol_ecode
+recv_get_tx_in_block(struct peer *peer,
+		     const struct protocol_pkt_get_tx_in_block *pkt,
+		     void **reply)
+{
+	struct block *b;
+	struct protocol_pkt_tx_in_block *r;
+	union protocol_tx *tx;
+	u16 shard;
+	u8 txoff;
+
+	if (le32_to_cpu(pkt->len) != sizeof(*pkt))
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	r = tal_packet(peer, struct protocol_pkt_tx_in_block,
+		       PROTOCOL_PKT_TX_IN_BLOCK);
+		       
+	shard = le16_to_cpu(pkt->pos.shard);
+	txoff = pkt->pos.txoff;
+
+	b = block_find_any(peer->state, &pkt->pos.block);
+	if (!b) {
+		/* If we don't know it, that's OK.  Try to find out. */
+		todo_add_get_block(peer->state, &pkt->pos.block);
+		r->err = cpu_to_le32(PROTOCOL_ECODE_UNKNOWN_BLOCK);
+		goto unknown;
+	} else if (shard >= num_shards(b->hdr)) {
+		log_unusual(peer->log, "Invalid get_tx for shard %u of ",
+			    shard);
+		log_add_struct(peer->log, struct protocol_double_sha,
+			       &pkt->pos.block);
+		tal_free(r);
+		return PROTOCOL_ECODE_BAD_SHARDNUM;
+	} else if (txoff >= b->shard_nums[shard]) {
+		log_unusual(peer->log, "Invalid get_tx for txoff %u of shard %u of ",
+			    txoff, shard);
+		log_add_struct(peer->log, struct protocol_double_sha,
+			       &pkt->pos.block);
+		tal_free(r);
+		return PROTOCOL_ECODE_BAD_TXOFF;
+	}
+
+	tx = block_get_tx(b, shard, txoff);
+	if (!tx) {
+		r->err = cpu_to_le32(PROTOCOL_ECODE_UNKNOWN_TX);
+		goto unknown;
+	}
+
+	r->err = cpu_to_le32(PROTOCOL_ECODE_NONE);
+	tal_packet_append_proof(&r, b, shard, txoff);
+
+done:
+	*reply = r;
+	return PROTOCOL_ECODE_NONE;
+
+unknown:
+	tal_packet_append_pos(&r, b, shard, txoff);
+	goto done;
+}
+
 static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 {
 	const struct protocol_net_hdr *hdr = peer->incoming;
@@ -562,6 +623,10 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 	case PROTOCOL_PKT_SHARD:
 		err = recv_shard_from_peer(peer, peer->incoming);
 		break;
+	case PROTOCOL_PKT_GET_TX_IN_BLOCK:
+		err = recv_get_tx_in_block(peer, peer->incoming, &reply);
+		break;
+
 	/* FIXME! */
 	case PROTOCOL_PKT_TX_IN_BLOCK:
 		/* If we don't know block, ask about block.
