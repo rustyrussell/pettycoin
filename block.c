@@ -102,11 +102,9 @@ struct protocol_input_ref *block_get_refs(const struct block *block,
 	assert(shardnum < num_shards(block->hdr));
 	assert(txoff < block->shard_nums[shardnum]);
 
-	if (!s)
+	if (!s || !shard_is_tx(s, txoff))
 		return NULL;
 
-	/* Must not be a hash. */
-	assert(shard_is_tx(s, txoff));
 	return cast_const(struct protocol_input_ref *,
 			  refs_for(s->u[txoff].txp));
 }
@@ -119,10 +117,8 @@ union protocol_tx *block_get_tx(const struct block *block,
 	assert(shardnum < num_shards(block->hdr));
 	assert(txoff < block->shard_nums[shardnum]);
 
-	if (!s)
+	if (!s || !shard_is_tx(s, txoff))
 		return NULL;
 
-	/* Must not be a hash. */
-	assert(!bitmap_test_bit(s->txp_or_hash, txoff));
 	return s->u[txoff].txp.tx;
 }
