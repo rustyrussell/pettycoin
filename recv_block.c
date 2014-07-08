@@ -98,16 +98,14 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 	} else {
 		block_add(state, new);
 		save_block(state, new);
-		if (peer) {
-			/* If we're syncing, ask about children */
-			if (peer->we_are_syncing)
-				todo_add_get_children(state, &new->sha);
-			else
-				/* Otherwise, tell peers about new block. */
-				send_block_to_peers(state, peer, new);
-			
-			b = new;
-		}
+		/* If we're syncing, ask about children */
+		if (peer && peer->we_are_syncing)
+			todo_add_get_children(state, &new->sha);
+		else
+			/* Otherwise, tell peers about new block. */
+			send_block_to_peers(state, peer, new);
+
+		b = new;
 	}
 
 	/* If the block is known bad, tell them! */
