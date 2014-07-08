@@ -40,10 +40,8 @@ enum protocol_ecode check_tx(struct state *state,
 	abort();
 }
 
-void merkle_txs(const void *prefix, size_t prefix_len,
-		const struct block *block,
+void merkle_txs(const struct block *block,
 		const struct block_shard *shard,
-		size_t off, size_t num_txs,
 		struct protocol_double_sha *merkle)
 {
 	abort();

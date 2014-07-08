@@ -116,7 +116,7 @@ void check_block_shard(struct state *state,
 	assert(txcount + hashcount <= num);
 	if (txcount + hashcount == num) {
 		struct protocol_double_sha sha;
-		merkle_txs(NULL, 0, block, shard, 0, num, &sha);
+		merkle_txs(block, shard, &sha);
 		assert(structeq(&sha, &block->merkles[shard->shardnum]));
 	}
 }

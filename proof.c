@@ -17,11 +17,12 @@ void create_proof(struct protocol_proof *proof,
 	for (i = 0; i < 8; i++) {
 		if (txoff & (1 << i))
 			/* Hash the left side together. */
-			merkle_txs(NULL, 0, block, block->shard[shardnum],
-				   0, 1 << i, &proof->merkle[i]);
+			merkle_some_txs(block, block->shard[shardnum],
+					0, 1 << i, &proof->merkle[i]);
 		else
-			merkle_txs(NULL, 0, block, block->shard[shardnum],
-				   1 << i, 1 << i, &proof->merkle[i]);
+			/* Hash the right side together */
+			merkle_some_txs(block, block->shard[shardnum],
+					1 << i, 1 << i, &proof->merkle[i]);
 	}
 }
 

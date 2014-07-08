@@ -4,13 +4,12 @@
 #include "hash_tx.h"
 #include "protocol.h"
 #include "block_shard.h"
+#include "block.h"
 #include <assert.h>
 #include <string.h>
 #include <ccan/tal/tal.h>
 
 struct merkle_txinfo {
-	const void *prefix;
-	size_t prefix_len;
 	const struct block *block;
 	const struct block_shard *shard;
 };
@@ -25,18 +24,22 @@ static void merkle_tx(size_t n, void *data, struct protocol_double_sha *merkle)
 	merkle_two_hashes(&h->txhash, &h->refhash, merkle);
 }
 
-void merkle_txs(const void *prefix, size_t prefix_len,
-		const struct block *block,
-		const struct block_shard *shard,
-		size_t off, size_t num_txs,
-		struct protocol_double_sha *merkle)
+void merkle_some_txs(const struct block *block,
+		     const struct block_shard *shard,
+		     size_t off, size_t max,
+		     struct protocol_double_sha *merkle)
 {
 	struct merkle_txinfo txinfo;
 
-	txinfo.prefix = prefix;
-	txinfo.prefix_len = prefix_len;
 	txinfo.block = block;
 	txinfo.shard = shard;
 
-	merkle_recurse(off, num_txs, 256, merkle_tx, &txinfo, merkle);
+	merkle_recurse(off, block->shard_nums[shard->shardnum], max,
+		       merkle_tx, &txinfo, merkle);
+}
+
+void merkle_txs(const struct block *block, const struct block_shard *shard,
+		struct protocol_double_sha *merkle)
+{
+	merkle_some_txs(block, shard, 0, 256, merkle);
 }

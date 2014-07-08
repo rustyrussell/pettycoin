@@ -131,8 +131,7 @@ bool shard_belongs_in_block(const struct block *block,
 	/* merkle_txs is happy with just the hashes. */
 	assert(shard->txcount + shard->hashcount
 	       == block->shard_nums[shard->shardnum]);
-	merkle_txs(NULL, 0, block, shard,
-		   0, block->shard_nums[shard->shardnum], &merkle);
+	merkle_txs(block, shard, &merkle);
 	return structeq(&block->merkles[shard->shardnum], &merkle);
 }
 
