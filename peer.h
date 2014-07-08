@@ -6,7 +6,7 @@
 
 #define MAX_PEERS 64
 
-struct pending_tx;
+struct block;
 
 struct peer {
 	/* state->peers list */
@@ -33,35 +33,16 @@ struct peer {
 	/* Packet we are sending (freed after sending). */
 	const void *outgoing;
 
-	/* Pending response to their last request. */
-	const void *response;
-
 	/* Packet we have just received. */
 	void *incoming;
 
-#if 0
-	/* Outstanding request, if any. */
-	enum protocol_req_type curr_in_req, curr_out_req;
-#endif
-
 	/* The other end's address. */
 	struct protocol_net_address you;
-
-	/* For when we sent PROTOCOL_REQ_NEW_TRANS: */
-	const struct trans_for_peer *new_trans_pending;
-
-	/* For when we sent PROTOCOL_REQ_BATCH: */
-	struct block *batch_requested_block;
-	u32 batch_requested_num;
-
 	/* We keep this. */
 	struct protocol_pkt_welcome *welcome;
 
 	/* This points inside welcome. */
 	const struct protocol_double_sha *welcome_blocks;
-
-	/* Last block it knows about. */
-	struct block *mutual;
 
 	/* Number of requests we have outstanding (see todo.c) */
 	unsigned int requests_outstanding;

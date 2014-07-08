@@ -742,8 +742,6 @@ static struct peer *alloc_peer(const tal_t *ctx, struct state *state)
 	peer->welcome = NULL;
 	peer->outgoing = NULL;
 	peer->incoming = NULL;
-	peer->response = NULL;
-	peer->mutual = NULL;
 	peer->requests_outstanding = 0;
 	list_head_init(&peer->todo);
 	peer->peer_num = peernum;
