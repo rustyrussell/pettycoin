@@ -1030,29 +1030,15 @@ recv_tx_bad_input(struct peer *peer,
 	return PROTOCOL_ECODE_NONE;
 }
 
+/* The marshalled txs are the same between protocol_pkt_tx_bad_amount
+ * and protocol_pkt_complain_tx_bad_amount, so share this code: */
 static enum protocol_ecode
-recv_tx_bad_amount(struct peer *peer,
-		   const struct protocol_pkt_tx_bad_amount *pkt)
+unmarshal_and_check_bad_amount(struct state *state, const union protocol_tx *tx,
+			       const char *p, size_t len)
 {
-	const union protocol_tx *tx, *in[PROTOCOL_TX_MAX_INPUTS];
-	struct protocol_double_sha sha;
-	enum protocol_ecode e;
-	struct txhash_elem *te;
-	struct txhash_iter ti;
+	const union protocol_tx *in[PROTOCOL_TX_MAX_INPUTS];
 	unsigned int i;
-	const char *p;
 	u32 total = 0;
-	size_t len = le32_to_cpu(pkt->len);
-
-	if (len < sizeof(*pkt))
-		return PROTOCOL_ECODE_INVALID_LEN;
-
-	p = (const char *)(pkt + 1);
-	len -= sizeof(*pkt);
-
-	e = unmarshal_and_check_tx(peer->state, &p, &len, &tx);
-	if (e)
-		return e;
 
 	/* It doesn't make sense to complain about inputs if there are none! */
 	if (num_inputs(tx) == 0)
@@ -1060,15 +1046,15 @@ recv_tx_bad_amount(struct peer *peer,
 
 	/* Unmarshall and check input transactions. */
 	for (i = 0; i < num_inputs(tx); i++) {
+		enum protocol_ecode e;
 		enum input_ecode ierr;
 
-		e = unmarshal_and_check_tx(peer->state, &p, &len, &in[i]);
+		e = unmarshal_and_check_tx(state, &p, &len, &in[i]);
 		if (e)
 			return e;
 
 		/* Make sure this tx match the bad input */
-		e = verify_problem_input(peer->state, tx, i, in[i], &ierr,
-					 &total);
+		e = verify_problem_input(state, tx, i, in[i], &ierr, &total);
 		if (e)
 			return e;
 		if (ierr != ECODE_INPUT_OK)
@@ -1084,9 +1070,37 @@ recv_tx_bad_amount(struct peer *peer,
 		      + le32_to_cpu(tx->normal.change_amount)))
 		return PROTOCOL_ECODE_COMPLAINT_INVALID;
 
-	hash_tx(tx, &sha);
+	return PROTOCOL_ECODE_NONE;
+}
+
+static enum protocol_ecode
+recv_tx_bad_amount(struct peer *peer,
+		   const struct protocol_pkt_tx_bad_amount *pkt)
+{
+	const union protocol_tx *tx, *in[PROTOCOL_TX_MAX_INPUTS];
+	struct protocol_double_sha sha;
+	enum protocol_ecode e;
+	struct txhash_elem *te;
+	struct txhash_iter ti;
+	const char *p;
+	size_t len = le32_to_cpu(pkt->len);
+
+	if (len < sizeof(*pkt))
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	p = (const char *)(pkt + 1);
+	len -= sizeof(*pkt);
+
+	e = unmarshal_and_check_tx(peer->state, &p, &len, &tx);
+	if (e)
+		return e;
+
+	e = unmarshal_and_check_bad_amount(peer->state, tx, p, len);
+	if (e)
+		return e;
 
 	/* OK, it's bad.  Is it in any blocks? */
+	hash_tx(tx, &sha);
 	for (te = txhash_firstval(&peer->state->txhash, &sha, &ti);
 	     te;
 	     te = txhash_nextval(&peer->state->txhash, &sha, &ti)) {
@@ -1338,6 +1352,45 @@ recv_complain_tx_bad_input(struct peer *peer,
 	return PROTOCOL_ECODE_NONE;
 }
 
+static enum protocol_ecode
+recv_complain_tx_bad_amount(struct peer *peer,
+			const struct protocol_pkt_complain_tx_bad_amount *pkt)
+{
+	const union protocol_tx *tx;
+	const struct protocol_position *pos;
+	enum protocol_ecode e;
+	struct block *b;
+	const char *p;
+	size_t len = le32_to_cpu(pkt->len);
+
+	if (len < sizeof(*pkt))
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	p = (const char *)(pkt + 1);
+	len -= sizeof(*pkt);
+
+	e = unmarshal_proven_tx(peer->state, &p, &len, &b, &tx, &pos);
+	if (e) {
+		if (e == PROTOCOL_ECODE_UNKNOWN_BLOCK) {
+			/* If we don't know it, that's OK.  Try to find out. */
+			todo_add_get_block(peer->state, &pos->block);
+			/* FIXME: Keep complaint in this case? */
+			return PROTOCOL_ECODE_NONE;
+		}
+		return e;
+	}
+
+	e = unmarshal_and_check_bad_amount(peer->state, tx, p, len);
+	if (e)
+		return e;
+
+	/* FIXME: We could look for the same tx in other blocks, too. */
+
+	/* Mark it invalid, and tell everyone else if it wasn't already. */
+	publish_complaint(peer->state, b, tal_packet_dup(b, pkt), peer);
+	return PROTOCOL_ECODE_NONE;
+}
+
 static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 {
 	const struct protocol_net_hdr *hdr = peer->incoming;
@@ -1423,9 +1476,11 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 	case PROTOCOL_PKT_COMPLAIN_TX_BAD_INPUT:
 		err = recv_complain_tx_bad_input(peer, peer->incoming);
 		break;
+	case PROTOCOL_PKT_COMPLAIN_TX_BAD_AMOUNT:
+		err = recv_complain_tx_bad_amount(peer, peer->incoming);
+		break;
 
 	/* FIXME: Implement complaints. */
-	case PROTOCOL_PKT_COMPLAIN_TX_BAD_AMOUNT:
 	case PROTOCOL_PKT_COMPLAIN_BAD_INPUT_REF:
 
 	/* These should not be used after sync. */
