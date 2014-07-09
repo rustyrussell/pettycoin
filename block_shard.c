@@ -98,17 +98,15 @@ void check_block_shard(struct state *state,
 	for (i = 0; i < num; i++) {
 		if (shard_is_tx(shard, i)) {
 			if (shard->u[i].txp.tx) {
-				enum protocol_ecode e;
-				union protocol_tx *inp[PROTOCOL_TX_MAX_INPUTS];
-				unsigned int bad_input_num;
-				e = check_tx(state, shard->u[i].txp.tx, block,
-					     refs_for(shard->u[i].txp), inp,
-					     &bad_input_num);
-				/* This can happen if we don't know input */
-				if (e == PROTOCOL_ECODE_PRIV_TX_BAD_INPUT)
-					assert(!inp[bad_input_num]);
-				else
-					assert(e == PROTOCOL_ECODE_NONE);
+				unsigned int bad;
+				assert(check_tx(state, shard->u[i].txp.tx,
+						block)
+				       == PROTOCOL_ECODE_NONE);
+				/* We don't put TXs in with unknown inputs. */
+				assert(check_tx_inputs(state,
+						       shard->u[i].txp.tx,
+						       &bad)
+				       == ECODE_INPUT_OK);
 				txcount++;
 			}
 		} else {

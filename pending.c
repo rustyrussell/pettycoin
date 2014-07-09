@@ -94,9 +94,8 @@ static size_t recheck_one_shard(struct state *state, u16 shard)
 	for (i = 0; i < num; i++) {
 		struct txhash_elem *te;
 		struct protocol_double_sha sha;
-		union protocol_tx *inputs[PROTOCOL_TX_MAX_INPUTS];
 		unsigned int bad_input_num;
-		enum protocol_ecode e;
+		enum input_ecode e;
 		struct txhash_iter iter;
 		bool in_known_chain = false;
 
@@ -117,18 +116,11 @@ static size_t recheck_one_shard(struct state *state, u16 shard)
 		log_debug(state->log, "  %zu is NOT FOUND", i);
 
 		/* Discard if no longer valid (inputs already spent) */
-		e = check_tx(state, pend[i]->tx,
-			     NULL, NULL, inputs, &bad_input_num);
+		e = check_tx_inputs(state, pend[i]->tx, &bad_input_num);
 		if (e) {
 			log_debug(state->log, "  %zu is now ", i);
-			log_add_enum(state->log, enum protocol_ecode, e);
-			if (e == PROTOCOL_ECODE_PRIV_TX_BAD_INPUT) {
-				log_add(state->log,
-					": input %u ", bad_input_num);
-				log_add_struct(state->log,
-					       union protocol_tx,
-					       inputs[bad_input_num]);
-			}
+			log_add_enum(state->log, enum input_ecode, e);
+			log_add(state->log, ": input %u ", bad_input_num);
 			goto discard;
 		}
 

@@ -5,6 +5,7 @@
 #include "tx.h"
 #include "base58.h"
 #include "addr.h"
+#include "check_tx.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -239,6 +240,17 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			break;
 		case PROTOCOL_ECODE_MAX:
 			break; /* Shouldn't happen! */
+		}
+	} else if (streq(enumname, "enum input_ecode")) {
+		switch ((enum input_ecode)val) {
+		case ECODE_INPUT_OK:
+			name = "ECODE_INPUT_OK"; break;
+		case ECODE_INPUT_UNKNOWN:
+			name = "ECODE_INPUT_UNKNOWN"; break;
+		case ECODE_INPUT_BAD:
+			name = "ECODE_INPUT_BAD"; break;
+		case ECODE_INPUT_BAD_AMOUNT:
+			name = "ECODE_INPUT_BAD_AMOUNT"; break;
 		}
 	}
 	if (name)

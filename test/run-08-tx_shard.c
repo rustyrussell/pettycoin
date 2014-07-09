@@ -32,10 +32,14 @@ void broadcast_to_peers(struct state *state, const struct protocol_net_hdr *pkt)
 
 enum protocol_ecode check_tx(struct state *state,
 			     const union protocol_tx *tx,
-			     const struct block *block,
-			     const struct protocol_input_ref *refs,
-			     union protocol_tx *inputs[PROTOCOL_TX_MAX_INPUTS],
-			     unsigned int *bad_input_num)
+			     const struct block *block)
+{
+	abort();
+}
+
+enum input_ecode check_tx_inputs(struct state *state,
+				 const union protocol_tx *tx,
+				 unsigned int *bad_input_num)
 {
 	abort();
 }

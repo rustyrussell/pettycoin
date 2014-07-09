@@ -57,7 +57,8 @@ int main(int argc, char *argv[])
 	assert(memcmp(&out[0].output_addr, helper_addr(0),
 		      sizeof(out[0].output_addr)) == 0);
 
-	assert(check_tx(s, t, NULL, NULL, NULL, NULL) == PROTOCOL_ECODE_NONE);
+	assert(check_tx(s, t, NULL) == PROTOCOL_ECODE_NONE);
+	assert(check_tx_inputs(s, t, NULL) == ECODE_INPUT_OK);
 
 	/* Two payments (must be same shard!) */
 	payment = tal_arr(s, struct protocol_gateway_payment, 2);
@@ -83,62 +84,53 @@ int main(int argc, char *argv[])
 	assert(memcmp(&out[1].output_addr, helper_addr(1),
 		      sizeof(out[1].output_addr)) == 0);
 
-	assert(check_tx(s, t, NULL, NULL, NULL, NULL)
-	       == PROTOCOL_ECODE_NONE);
+	assert(check_tx(s, t, NULL) == PROTOCOL_ECODE_NONE);
+	assert(check_tx_inputs(s, t, NULL) == ECODE_INPUT_OK);
 
 	/* Now try changing it. */
 	t->gateway.version++;
-	assert(check_tx(s, t, NULL, NULL, NULL, NULL)
-	       == PROTOCOL_ECODE_TX_HIGH_VERSION);
+	assert(check_tx(s, t, NULL) == PROTOCOL_ECODE_TX_HIGH_VERSION);
 	t->gateway.version--;
 
 	t->gateway.features++;
-	assert(check_tx(s, t, NULL, NULL, NULL, NULL)
-	       == PROTOCOL_ECODE_TX_BAD_SIG);
+	assert(check_tx(s, t, NULL) == PROTOCOL_ECODE_TX_BAD_SIG);
 	t->gateway.features--;
 
 	t->gateway.type++;
-	assert(check_tx(s, t, NULL, NULL, NULL, NULL)
-	       == PROTOCOL_ECODE_TX_UNKNOWN);
+	assert(check_tx(s, t, NULL) == PROTOCOL_ECODE_TX_UNKNOWN);
 	t->gateway.type--;
 
 	t->gateway.num_outputs = cpu_to_le16(le16_to_cpu(t->gateway.num_outputs)
 					     - 1);
-	assert(check_tx(s, t, NULL, NULL, NULL, NULL)
-	       == PROTOCOL_ECODE_TX_BAD_SIG);
+	assert(check_tx(s, t, NULL) == PROTOCOL_ECODE_TX_BAD_SIG);
 	t->gateway.num_outputs = cpu_to_le16(le16_to_cpu(t->gateway.num_outputs)
 					     + 1);
 
 	out[0].send_amount ^= cpu_to_le32(1);
-	assert(check_tx(s, t, NULL, NULL, NULL, NULL)
-	       == PROTOCOL_ECODE_TX_BAD_SIG);
+	assert(check_tx(s, t, NULL) == PROTOCOL_ECODE_TX_BAD_SIG);
 	out[0].send_amount ^= cpu_to_le32(1);
 
 	out[0].output_addr.addr[0]++;
-	assert(check_tx(s, t, NULL, NULL, NULL, NULL)
-	       == PROTOCOL_ECODE_TX_BAD_SIG);
+	assert(check_tx(s, t, NULL) == PROTOCOL_ECODE_TX_BAD_SIG);
 	out[0].output_addr.addr[0]--;
 
 	out[1].send_amount ^= cpu_to_le32(1);
-	assert(check_tx(s, t, NULL, NULL, NULL, NULL)
-	       == PROTOCOL_ECODE_TX_BAD_SIG);
+	assert(check_tx(s, t, NULL) == PROTOCOL_ECODE_TX_BAD_SIG);
 	out[1].send_amount ^= cpu_to_le32(1);
 
 	out[1].output_addr.addr[0]++;
-	assert(check_tx(s, t, NULL, NULL, NULL, NULL)
-	       == PROTOCOL_ECODE_TX_BAD_SIG);
+	assert(check_tx(s, t, NULL) == PROTOCOL_ECODE_TX_BAD_SIG);
 	out[1].output_addr.addr[0]--;
 
 	/* We restored it ok? */
-	assert(check_tx(s, t, NULL, NULL, NULL, NULL)
-	       == PROTOCOL_ECODE_NONE);
+	assert(check_tx(s, t, NULL) == PROTOCOL_ECODE_NONE);
+	assert(check_tx_inputs(s, t, NULL) == ECODE_INPUT_OK);
 
 	/* Try signing it with non-gateway key. */
 	t = create_gateway_tx(s, helper_public_key(0),
 			      2, payment,
 			      helper_private_key(s, 0));
-	assert(check_tx(s, t, NULL, NULL, NULL, NULL)
-	       == PROTOCOL_ECODE_TX_BAD_GATEWAY);
+	assert(check_tx(s, t, NULL) == PROTOCOL_ECODE_TX_BAD_GATEWAY);
 
 	tal_free(s);
 	return 0;

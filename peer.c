@@ -344,34 +344,31 @@ recv_set_filter(struct peer *peer, const struct protocol_pkt_set_filter *pkt)
 }
 
 static void
-complain_about_input(struct state *state,
-		     struct peer *peer,
-		     const union protocol_tx *tx,
-		     const union protocol_tx *bad_input,
-		     unsigned int bad_input_num)
+tell_peer_about_bad_input(struct state *state,
+			  struct peer *peer,
+			  const union protocol_tx *tx,
+			  unsigned int bad_input_num)
 {
 	struct protocol_pkt_tx_bad_input *pkt;
-
-	/* FIXME: We do this since we expect perfect knowledge
-	   (unknown input).  We can't prove anything is wrong in this
-	   case though! */
-	if (!bad_input)
-		return;
+	const union protocol_tx *bad_tx;
 
 	pkt = tal_packet(peer, struct protocol_pkt_tx_bad_input,
 			 PROTOCOL_PKT_TX_BAD_INPUT);
 	pkt->inputnum = cpu_to_le32(bad_input_num);
 
+	bad_tx = txhash_gettx(&state->txhash,
+			      &tx_input(tx, bad_input_num)->input);
+
 	tal_packet_append_tx(&pkt, tx);
-	tal_packet_append_tx(&pkt, bad_input);
+	tal_packet_append_tx(&pkt, bad_tx);
 
 	todo_for_peer(peer, pkt);
 }
 
 static void
-complain_about_inputs(struct state *state,
-		      struct peer *peer,
-		      const union protocol_tx *tx)
+tell_peer_about_bad_amount(struct state *state,
+			   struct peer *peer,
+			   const union protocol_tx *tx)
 {
 	struct protocol_pkt_tx_bad_amount *pkt;
 	struct protocol_input *inp;
@@ -399,9 +396,10 @@ static enum protocol_ecode
 recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 {
 	enum protocol_ecode e;
+	enum input_ecode ierr;
 	union protocol_tx *tx;
+	struct protocol_double_sha sha;
 	u32 txlen = le32_to_cpu(pkt->len) - sizeof(*pkt);
-	union protocol_tx *inputs[PROTOCOL_TX_MAX_INPUTS];
 	unsigned int bad_input_num;
 
 	log_debug(peer->log, "Received PKT_TX");
@@ -427,25 +425,35 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 	if (e)
 		return e;
 
-	e = check_tx(peer->state, tx, NULL, NULL, inputs, &bad_input_num);
-
-	log_debug(peer->log, "check_tx said ");
-	log_add_enum(peer->log, enum protocol_ecode, e);
-
-	/* These two complaints are not fatal. */
-	if (e == PROTOCOL_ECODE_PRIV_TX_BAD_INPUT) {
-		complain_about_input(peer->state, peer, tx,
-				     inputs[bad_input_num], bad_input_num);
-	} else if (e == PROTOCOL_ECODE_PRIV_TX_BAD_AMOUNTS) {
-		complain_about_inputs(peer->state, peer, tx);
-	} else if (e) {
-		/* Any other failure is something they should have known */
+	e = check_tx(peer->state, tx, NULL);
+	if (e)
 		return e;
-	} else {
-		/* OK, we own it now. */
-		tal_steal(peer->state, pkt);
-		add_pending_tx(peer, tx);
+
+	ierr = check_tx_inputs(peer->state, tx, &bad_input_num);
+	hash_tx(tx, &sha);
+	todo_done_get_tx(peer, &sha, ierr == ECODE_INPUT_OK);
+
+	/* If inputs are malformed, it might not have known so don't hang up. */
+	switch (ierr) {
+	case ECODE_INPUT_OK:
+		break;
+	case ECODE_INPUT_UNKNOWN:
+		/* Ask about this input. */
+		todo_add_get_tx(peer->state,
+				&tx_input(tx, bad_input_num)->input);
+		/* FIXME: Keep unresolved pending transaction. */
+		return PROTOCOL_ECODE_NONE;
+	case ECODE_INPUT_BAD:
+		tell_peer_about_bad_input(peer->state, peer, tx, bad_input_num);
+		return PROTOCOL_ECODE_NONE;
+	case ECODE_INPUT_BAD_AMOUNT:
+		tell_peer_about_bad_amount(peer->state, peer, tx);
+		return PROTOCOL_ECODE_NONE;
 	}
+
+	/* OK, we own it now. */
+	tal_steal(peer->state, pkt);
+	add_pending_tx(peer, tx);
 
 	return PROTOCOL_ECODE_NONE;
 }

@@ -22,11 +22,20 @@ check_tx_from_gateway(struct state *state,
 		      const struct block *block,
 		      const struct protocol_tx_gateway *gtx);
 
-enum protocol_ecode check_tx(struct state *state,
-			     const union protocol_tx *trans,
-			     const struct block *block,
-			     const struct protocol_input_ref *refs,
-			     union protocol_tx *inputs[PROTOCOL_TX_MAX_INPUTS],
-			     unsigned int *bad_input_num);
+/* After this, call check_tx_inputs! 
+ * inside_block is what block the tx is in (can be NULL).
+ */
+enum protocol_ecode check_tx(struct state *state, const union protocol_tx *tx,
+			     const struct block *inside_block);
 
+enum input_ecode {
+	ECODE_INPUT_OK,
+	ECODE_INPUT_UNKNOWN,
+	ECODE_INPUT_BAD,
+	ECODE_INPUT_BAD_AMOUNT
+};
+
+enum input_ecode check_tx_inputs(struct state *state,
+				 const union protocol_tx *tx,
+				 unsigned int *bad_input_num);
 #endif /* PETTYCOIN_CHECK_TX_H */
