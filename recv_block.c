@@ -182,7 +182,7 @@ find_tx_with_ref(const tal_t *ctx,
 			continue;
 
 		/* Try creating input referneces back from this block */
-		refs = create_refs(state, block, tx);
+		refs = create_refs(state, block, tx, 0);
 		if (!refs)
 			continue;
 

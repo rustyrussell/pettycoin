@@ -15,6 +15,7 @@ static bool resolve_input(struct state *state,
 			  const struct block *prev_block,
 			  const union protocol_tx *tx,
 			  u32 num,
+			  int offset,
 			  struct protocol_input_ref *ref)
 {
 	const struct protocol_double_sha *sha;
@@ -35,10 +36,10 @@ static bool resolve_input(struct state *state,
 	    < current_time())
 		return false;
 
-	/* Add 1 since this will go into *next* block */
+	/* Add offset: it might be going to go into *next* block */
 	ref->blocks_ago = 
 		cpu_to_le32(le32_to_cpu(prev_block->hdr->depth) -
-			    le32_to_cpu(te->u.block->hdr->depth) + 1);
+			    le32_to_cpu(te->u.block->hdr->depth) + offset);
 	ref->shard = cpu_to_le16(te->shardnum);
 	ref->txoff = te->txoff;
 	ref->unused = 0;
@@ -47,8 +48,9 @@ static bool resolve_input(struct state *state,
 
 /* Try to find the inputs in block and its ancestors */
 struct protocol_input_ref *create_refs(struct state *state,
-				       const struct block *prev_block,
-				       const union protocol_tx *tx)
+				       const struct block *block,
+				       const union protocol_tx *tx,
+				       int offset)
 {
 	u32 i, num = num_inputs(tx);
 	struct protocol_input_ref *refs;
@@ -56,7 +58,7 @@ struct protocol_input_ref *create_refs(struct state *state,
 	refs = tal_arr(state, struct protocol_input_ref, num);
 
 	for (i = 0; i < num; i++)
-		if (!resolve_input(state, prev_block, tx, i, &refs[i]))
+		if (!resolve_input(state, block, tx, i, offset, &refs[i]))
 			return tal_free(refs);
 
 	return refs;

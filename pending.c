@@ -121,7 +121,7 @@ static bool insert_pending_tx(struct state *state, const union protocol_tx *tx)
 		abort();
 
 	pend = new_pending_tx(state->pending, tx);
-	pend->refs = create_refs(state, state->longest_knowns[0], tx);
+	pend->refs = create_refs(state, state->longest_knowns[0], tx, 1);
 	/* If check_tx_inputs() passed, this can't fail. */
 	assert(pend->refs);
 

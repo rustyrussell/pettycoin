@@ -177,7 +177,7 @@ int main(int argc, char *argv[])
 	t = create_gateway_tx(s, helper_gateway_public_key(),
 				       1, &payment, helper_gateway_key(s));
 	/* Gateway txs have empty refs, so this gives 0-len array. */
-	refs = create_refs(s, &genesis, t);
+	refs = create_refs(s, &genesis, t, 1);
 
 	update.shard = shard_of_tx(t, next_shard_order(&genesis));
 	update.txoff = 0;
@@ -231,7 +231,7 @@ int main(int argc, char *argv[])
 	assert(num_inputs(t) == 1);
 
 	/* This should create a reference back to the gateway tx */
-	refs = create_refs(s, b, t);
+	refs = create_refs(s, b, t, 1);
 	assert(tal_count(refs) == num_inputs(t));
 	assert(refs[0].blocks_ago == cpu_to_le32(1));
 	assert(refs[0].shard == cpu_to_le16(update.shard));

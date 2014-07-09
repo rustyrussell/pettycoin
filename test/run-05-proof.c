@@ -177,7 +177,7 @@ int main(int argc, char *argv[])
 	t = create_gateway_tx(s, helper_gateway_public_key(),
 				       1, &payment, helper_gateway_key(s));
 	/* Gateway txs have empty refs, so this gives 0-len array. */
-	refs = create_refs(s, &genesis, t);
+	refs = create_refs(s, &genesis, t, 1);
 
 	update.shard = shard_of_tx(t, next_shard_order(&genesis));
 	update.txoff = 0;
