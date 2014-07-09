@@ -47,6 +47,21 @@ void complain_bad_input_ref(struct state *state,
 			    unsigned int bad_refnum,
 			    const struct block *block_referred_to);
 
+/* We found two transactions which spend the same inputs, in blocks
+ * which are in the same chain (even the same block!).
+ * block1 preceeds block2, so block2 is bad. */
+void complain_doublespend(struct state *state,
+			  struct block *block1,
+			  u32 input1,
+			  const struct protocol_proof *proof1,
+			  const union protocol_tx *tx1,
+			  const struct protocol_input_ref *refs1,
+			  struct block *block2,
+			  u32 input2,
+			  const struct protocol_proof *proof2,
+			  const union protocol_tx *tx2,
+			  const struct protocol_input_ref *refs2);
+
 /* tx/refs belongs in block at shardnum/tx, but it's out of order when
  * compared with the already-known tx conflict_txoff. */
 void complain_misorder(struct state *state,

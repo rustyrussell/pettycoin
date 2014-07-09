@@ -194,6 +194,37 @@ void complain_bad_input_ref(struct state *state,
 	publish_complaint(state, block, pkt, NULL);
 }
 
+/* block1 preceeds block2, so block2 is bad. */
+void complain_doublespend(struct state *state,
+			  struct block *block1,
+			  u32 input1,
+			  const struct protocol_proof *proof1,
+			  const union protocol_tx *tx1,
+			  const struct protocol_input_ref *refs1,
+			  struct block *block2,
+			  u32 input2,
+			  const struct protocol_proof *proof2,
+			  const union protocol_tx *tx2,
+			  const struct protocol_input_ref *refs2)
+{
+	struct protocol_pkt_complain_doublespend *pkt;	
+
+	assert(block_preceeds(block1, block2));
+	
+	pkt = tal_packet(block2, struct protocol_pkt_complain_doublespend,
+			 PROTOCOL_PKT_COMPLAIN_DOUBLESPEND);
+	pkt->input1 = cpu_to_le32(input1);
+	pkt->input2 = cpu_to_le32(input2);
+	
+	tal_packet_append_proof(&pkt, proof1);
+	tal_packet_append_tx_with_refs(&pkt, tx1, refs1);
+
+	tal_packet_append_proof(&pkt, proof2);
+	tal_packet_append_tx_with_refs(&pkt, tx2, refs2);
+
+	publish_complaint(state, block2, pkt, NULL);
+}
+
 /* Simple single-transacion error. */
 void complain_bad_tx(struct state *state,
 		     struct block *block,

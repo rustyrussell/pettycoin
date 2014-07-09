@@ -145,12 +145,16 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "PROTOCOL_PKT_TX_BAD_INPUT"; break;
 		case PROTOCOL_PKT_TX_BAD_AMOUNT:
 			name = "PROTOCOL_PKT_TX_BAD_AMOUNT"; break;
+		case PROTOCOL_PKT_TX_DOUBLESPEND:
+			name = "PROTOCOL_PKT_TX_DOUBLESPEND"; break;
 		case PROTOCOL_PKT_COMPLAIN_TX_MISORDER:
 			name = "PROTOCOL_PKT_COMPLAIN_TX_MISORDER"; break;
 		case PROTOCOL_PKT_COMPLAIN_TX_INVALID:
 			name = "PROTOCOL_PKT_COMPLAIN_TX_INVALID"; break;
 		case PROTOCOL_PKT_COMPLAIN_TX_BAD_INPUT:
 			name = "PROTOCOL_PKT_COMPLAIN_TX_BAD_INPUT"; break;
+		case PROTOCOL_PKT_COMPLAIN_DOUBLESPEND:
+			name = "PROTOCOL_PKT_COMPLAIN_DOUBLESPEND"; break;
 		case PROTOCOL_PKT_COMPLAIN_BAD_INPUT_REF:
 			name = "PROTOCOL_PKT_COMPLAIN_BAD_INPUT_REF"; break;
 		case PROTOCOL_PKT_COMPLAIN_TX_BAD_AMOUNT:
@@ -242,6 +246,8 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "PROTOCOL_ECODE_COMPLAINT_INVALID"; break;
 		case PROTOCOL_ECODE_BAD_MISORDER_POS:
 			name = "PROTOCOL_ECODE_BAD_MISORDER_POS"; break;
+		case PROTOCOL_ECODE_BAD_DOUBLESPEND_BLOCKS:
+			name = "PROTOCOL_ECODE_BAD_DOUBLESPEND_BLOCKS"; break;
 		case PROTOCOL_ECODE_PRIV_UNKNOWN_PREV:
 			name = "PROTOCOL_ECODE_PRIV_UNKNOWN_PREV"; break;
 		case PROTOCOL_ECODE_MAX:
@@ -257,6 +263,8 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "ECODE_INPUT_BAD"; break;
 		case ECODE_INPUT_BAD_AMOUNT:
 			name = "ECODE_INPUT_BAD_AMOUNT"; break;
+		case ECODE_INPUT_DOUBLESPEND:
+			name = "ECODE_INPUT_DOUBLESPEND"; break;
 		}
 	} else if (streq(enumname, "enum ref_ecode")) {
 		switch ((enum ref_ecode)val) {

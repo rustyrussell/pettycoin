@@ -41,6 +41,8 @@ enum protocol_ecode check_tx(struct state *state,
 }
 
 enum input_ecode check_tx_inputs(struct state *state,
+				 const struct block *block,
+				 const struct txhash_elem *me,
 				 const union protocol_tx *tx,
 				 unsigned int *bad_input_num)
 {

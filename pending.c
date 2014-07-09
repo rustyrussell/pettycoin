@@ -115,7 +115,8 @@ static size_t recheck_one_shard(struct state *state, u16 shard)
 		log_debug(state->log, "  %zu is NOT FOUND", i);
 
 		/* Discard if no longer valid (inputs already spent) */
-		e = check_tx_inputs(state, pend[i]->tx, &bad_input_num);
+		e = check_tx_inputs(state, state->longest_knowns[0], NULL,
+				    pend[i]->tx, &bad_input_num);
 		if (e) {
 			log_debug(state->log, "  %zu is now ", i);
 			log_add_enum(state->log, enum input_ecode, e);

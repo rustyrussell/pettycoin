@@ -85,12 +85,16 @@ enum protocol_ecode {
 	 * or any protocol_pkt_complaint */
 	PROTOCOL_ECODE_COMPLAINT_INVALID,
 
-	/* protocol_pkt_tx_bad_input / protocol_pkt_tx_bad_amount */
+	/* protocol_pkt_tx_bad_input / protocol_pkt_tx_bad_amount /
+	 * protocol_pkt_complain_doublespend */
 	PROTOCOL_ECODE_BAD_INPUTNUM,
 	PROTOCOL_ECODE_BAD_INPUT,
 
 	/* protocol_pkt_complain_tx_misorder */
 	PROTOCOL_ECODE_BAD_MISORDER_POS,
+
+	/* protocol_pkt_complain_doublespend */
+	PROTOCOL_ECODE_BAD_DOUBLESPEND_BLOCKS,
 
 	/* >= this is invalid. */
 	PROTOCOL_ECODE_MAX,

@@ -3,6 +3,7 @@
 #include "../shadouble.c"
 #include "../signature.c"
 #include "../txhash.c"
+#include "../inputhash.c"
 #include "../minimal_log.c"
 #include "../marshal.c"
 #include "../proof.c"
@@ -58,7 +59,7 @@ int main(int argc, char *argv[])
 		      sizeof(out[0].output_addr)) == 0);
 
 	assert(check_tx(s, t, NULL) == PROTOCOL_ECODE_NONE);
-	assert(check_tx_inputs(s, t, NULL) == ECODE_INPUT_OK);
+	assert(check_tx_inputs(s, NULL, NULL, t, NULL) == ECODE_INPUT_OK);
 
 	/* Two payments (must be same shard!) */
 	payment = tal_arr(s, struct protocol_gateway_payment, 2);
@@ -85,7 +86,7 @@ int main(int argc, char *argv[])
 		      sizeof(out[1].output_addr)) == 0);
 
 	assert(check_tx(s, t, NULL) == PROTOCOL_ECODE_NONE);
-	assert(check_tx_inputs(s, t, NULL) == ECODE_INPUT_OK);
+	assert(check_tx_inputs(s, NULL, NULL, t, NULL) == ECODE_INPUT_OK);
 
 	/* Now try changing it. */
 	t->gateway.version++;
@@ -124,7 +125,7 @@ int main(int argc, char *argv[])
 
 	/* We restored it ok? */
 	assert(check_tx(s, t, NULL) == PROTOCOL_ECODE_NONE);
-	assert(check_tx_inputs(s, t, NULL) == ECODE_INPUT_OK);
+	assert(check_tx_inputs(s, NULL, NULL, t, NULL) == ECODE_INPUT_OK);
 
 	/* Try signing it with non-gateway key. */
 	t = create_gateway_tx(s, helper_public_key(0),

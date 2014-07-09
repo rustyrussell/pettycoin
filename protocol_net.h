@@ -69,11 +69,13 @@ enum protocol_pkt_type {
 	/* Various complaints about a TX. */
 	PROTOCOL_PKT_TX_BAD_INPUT,
 	PROTOCOL_PKT_TX_BAD_AMOUNT,
+	PROTOCOL_PKT_TX_DOUBLESPEND,
 
 	/* Various complaints about a block. */
 	PROTOCOL_PKT_COMPLAIN_TX_MISORDER,
 	PROTOCOL_PKT_COMPLAIN_TX_INVALID,
 	PROTOCOL_PKT_COMPLAIN_TX_BAD_INPUT,
+	PROTOCOL_PKT_COMPLAIN_DOUBLESPEND,
 	PROTOCOL_PKT_COMPLAIN_BAD_INPUT_REF,
 	PROTOCOL_PKT_COMPLAIN_TX_BAD_AMOUNT,
 
@@ -227,6 +229,20 @@ struct protocol_pkt_tx_bad_input {
 	     union protocol_tx trans ...; 
 	   The bad input:
 	     union protocol_tx input ...;
+	*/
+};
+
+/* When we've discovered a tx input was spent by another tx. */
+struct protocol_pkt_tx_doublespend {
+	le32 len; /* sizeof(struct protocol_pkt_tx_bad_input) */
+	le32 type; /* PROTOCOL_PKT_TX_BAD_INPUT */
+
+	/* The inputs we're complaining about. */
+	le32 input1, input2;
+
+	/* The transactions which use the same input:
+	     union protocol_tx t1 ...; 
+	     union protocol_tx t2 ...;
 	*/
 };
 
@@ -403,6 +419,24 @@ struct protocol_pkt_complain_tx_bad_amount {
 	     union protocol_tx input[t->normal.num_inputs];
 	*/
 };
+
+/*
+ * These blocks contains two transactions which spend the same input.
+ * The earlier block is invalid.
+ */
+struct protocol_pkt_complain_doublespend {
+	le32 len; /* sizeof(struct protocol_pkt_complain_doublespend) + ... */
+	le32 type; /* PROTOCOL_PKT_COMPLAIN_DOUBLESPEND */
+
+	/* The two inputs which conflict. */
+	le32 input1, input2;
+
+	/*
+	  struct protocol_trans_with_proof proof1;
+	  struct protocol_trans_with_proof proof2;
+	*/
+};
+
 
 /* This block contains out-of-order transaction. */
 struct protocol_pkt_complain_tx_misorder {

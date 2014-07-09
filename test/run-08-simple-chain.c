@@ -47,6 +47,8 @@ enum protocol_ecode check_tx(struct state *state, const union protocol_tx *tx,
 			     const struct block *inside_block) { abort(); }
 /* Generated stub for check_tx_inputs */
 enum input_ecode check_tx_inputs(struct state *state,
+				 const struct block *block,
+				 const struct txhash_elem *me,
 				 const union protocol_tx *tx,
 				 unsigned int *bad_input_num) { abort(); }
 /* Generated stub for check_proof */

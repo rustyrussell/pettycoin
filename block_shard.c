@@ -86,11 +86,19 @@ void check_block_shard(struct state *state,
 		if (shard_is_tx(shard, i)) {
 			if (shard->u[i].txp.tx) {
 				unsigned int bad;
+				struct txhash_elem me;
+
 				assert(check_tx(state, shard->u[i].txp.tx,
 						block)
 				       == PROTOCOL_ECODE_NONE);
+				/* We are already in hash, so make sure it
+				 * doesn't think we're a double-spend! */
+				me.block = cast_const(struct block *, block);
+				me.shardnum = shard->shardnum;
+				me.txoff = i;
+
 				/* We don't put TXs in with unknown inputs. */
-				assert(check_tx_inputs(state,
+				assert(check_tx_inputs(state, block, &me,
 						       shard->u[i].txp.tx,
 						       &bad)
 				       == ECODE_INPUT_OK);

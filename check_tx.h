@@ -13,6 +13,7 @@ struct protocol_tx_gateway;
 struct protocol_proof;
 struct protocol_address;
 struct block;
+struct txhash_elem;
 
 enum protocol_ecode
 check_tx_normal_basic(struct state *state,
@@ -33,17 +34,29 @@ enum input_ecode {
 	ECODE_INPUT_OK,
 	ECODE_INPUT_UNKNOWN,
 	ECODE_INPUT_BAD,
-	ECODE_INPUT_BAD_AMOUNT
+	ECODE_INPUT_BAD_AMOUNT,
+	ECODE_INPUT_DOUBLESPEND
 };
 
 enum input_ecode check_tx_inputs(struct state *state,
+				 const struct block *block,
+				 const struct txhash_elem *me,
 				 const union protocol_tx *tx,
 				 unsigned int *bad_input_num);
 
 /* Useful for checking complaints. */
 enum input_ecode check_one_input(struct state *state,
+				 const struct block *block,
+				 const struct txhash_elem *me,
 				 const struct protocol_input *inp,
 				 const union protocol_tx *intx,
 				 const struct protocol_address *my_addr,
 				 u32 *amount);
+
+/* Gets result if above return ECODE_INPUT_DOUBLESPEND */
+struct txhash_elem *tx_find_doublespend(struct state *state,
+					const struct block *block,
+					const struct txhash_elem *ignore,
+					const struct protocol_input *inp);
+
 #endif /* PETTYCOIN_CHECK_TX_H */

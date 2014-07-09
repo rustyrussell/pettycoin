@@ -447,6 +447,48 @@ tell_peer_about_bad_input(struct state *state,
 	todo_for_peer(peer, pkt);
 }
 
+static u32 find_matching_input(const union protocol_tx *tx,
+			       const struct protocol_input *inp)
+{
+	unsigned int i;
+
+	/* Figure out which input of other did the spend. */
+	for (i = 0; i < num_inputs(tx); i++) {
+		if (structeq(&tx_input(tx, i)->input, &inp->input)
+		    && tx_input(tx, i)->output == inp->output)
+			return i;
+	}
+	abort();
+}
+
+static void tell_peer_about_doublespend(struct state *state,
+					const struct block *block,
+					struct peer *peer,
+					const union protocol_tx *tx,
+					unsigned int ds_input_num)
+{
+	struct protocol_pkt_tx_doublespend *pkt;
+	struct txhash_elem *other;
+	const union protocol_tx *other_tx;
+
+	pkt = tal_packet(peer, struct protocol_pkt_tx_doublespend,
+			 PROTOCOL_PKT_TX_DOUBLESPEND);
+	pkt->input1 = cpu_to_le32(ds_input_num);
+
+	other = tx_find_doublespend(state, block, NULL,
+				    tx_input(tx, ds_input_num));
+	other_tx = block_get_tx(other->block, other->shardnum, other->txoff);
+
+	pkt->input2 = cpu_to_le32(find_matching_input(other_tx,
+						tx_input(tx, ds_input_num)));
+
+	tal_packet_append_tx(&pkt, tx);
+	tal_packet_append_tx(&pkt, other_tx);
+
+	todo_for_peer(peer, pkt);
+}
+
+
 static void
 tell_peer_about_bad_amount(struct state *state,
 			   struct peer *peer,
@@ -511,8 +553,16 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 	if (e)
 		return e;
 
-	ierr = check_tx_inputs(peer->state, tx, &bad_input_num);
 	hash_tx(tx, &sha);
+
+	/* Stop now if we already have it in block (otherwise we'd
+	 * report a doublespend). */
+	if (txhash_gettx(&peer->state->txhash, &sha))
+		return PROTOCOL_ECODE_NONE;
+
+	/* We check inputs for where *we* would mine it. */
+	ierr = check_tx_inputs(peer->state, peer->state->longest_knowns[0],
+			       NULL, tx, &bad_input_num);
 	todo_done_get_tx(peer, &sha, ierr == ECODE_INPUT_OK);
 
 	/* If inputs are malformed, it might not have known so don't hang up. */
@@ -530,6 +580,11 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 		return PROTOCOL_ECODE_NONE;
 	case ECODE_INPUT_BAD_AMOUNT:
 		tell_peer_about_bad_amount(peer->state, peer, tx);
+		return PROTOCOL_ECODE_NONE;
+	case ECODE_INPUT_DOUBLESPEND:
+		tell_peer_about_doublespend(peer->state,
+					    peer->state->longest_knowns[0],
+					    peer, tx, bad_input_num);
 		return PROTOCOL_ECODE_NONE;
 	}
 
@@ -852,7 +907,7 @@ recv_tx_in_block(struct peer *peer, const struct protocol_pkt_tx_in_block *pkt)
 	todo_done_get_tx(peer, &sha, true);
 
 	/* Now it's proven that it's in the block, handle bad inputs. */
-	ierr = check_tx_inputs(peer->state, tx, &bad_input_num);
+	ierr = check_tx_inputs(peer->state, b, NULL, tx, &bad_input_num);
 	switch (ierr) {
 	case ECODE_INPUT_OK:
 		break;
@@ -884,6 +939,42 @@ recv_tx_in_block(struct peer *peer, const struct protocol_pkt_tx_in_block *pkt)
 		complain_bad_amount(peer->state, b, &proof->proof,
 				    tx, refs, inputs);
 		return PROTOCOL_ECODE_NONE;
+	}
+	case ECODE_INPUT_DOUBLESPEND: {
+		struct txhash_elem *other;
+		const union protocol_tx *other_tx;
+		const struct protocol_input_ref *other_refs;
+		const struct protocol_input *inp = tx_input(tx, bad_input_num);
+		struct protocol_proof other_proof;
+
+		other = tx_find_doublespend(peer->state, b, NULL, inp);
+		create_proof(&other_proof, other->block, other->shardnum,
+			     other->txoff);
+		other_tx = block_get_tx(other->block, other->shardnum,
+					other->txoff);
+		other_refs = block_get_refs(other->block, other->shardnum,
+					    other->txoff);
+
+		if (block_preceeds(other->block, b)) {
+			/* b is invalid. Tell everyone. */
+			complain_doublespend(peer->state,
+					     other->block,
+					     find_matching_input(other_tx, inp),
+					     &other_proof, other_tx, other_refs,
+					     b, bad_input_num,
+					     &proof->proof, tx, refs);
+			/* And we're done. */
+			return PROTOCOL_ECODE_NONE;
+		}
+
+		/* other->block is invalid.  Tell everyone. */
+		complain_doublespend(peer->state, b, bad_input_num,
+				     &proof->proof, tx, refs,
+				     other->block,
+				     find_matching_input(other_tx, inp),
+				     &other_proof, other_tx, other_refs);
+
+		/* Nothing wrong with this block though! */
 	}
 	}
 
@@ -1056,7 +1147,8 @@ verify_problem_input(struct state *state,
 
 	pubkey_to_addr(&tx->normal.input_key, &tx_addr);
 
-	*ierr = check_one_input(state, input, in, &tx_addr, &amount);
+	*ierr = check_one_input(state, NULL, NULL,
+				input, in, &tx_addr, &amount);
 	if (total)
 		*total += amount;
 	return PROTOCOL_ECODE_NONE;
@@ -1098,8 +1190,9 @@ recv_tx_bad_input(struct peer *peer,
 	if (e)
 		return e;
 
-	/* The input should give an error though. */
-	if (ierr == ECODE_INPUT_OK)
+	/* The input should give an error though (and you can't use this
+	 * to report double-spends!) */
+	if (ierr == ECODE_INPUT_OK || ierr == ECODE_INPUT_DOUBLESPEND)
 		return PROTOCOL_ECODE_COMPLAINT_INVALID;
 
 	hash_tx(tx, &sha);
@@ -1206,6 +1299,108 @@ recv_tx_bad_amount(struct peer *peer,
 
 	drop_pending_tx(peer->state, tx);
 	return PROTOCOL_ECODE_NONE;
+}
+
+static enum protocol_ecode
+recv_tx_doublespend(struct peer *peer,
+		    const struct protocol_pkt_tx_doublespend *pkt)
+{
+	const union protocol_tx *tx_a, *tx_b;
+	const char *p;
+	size_t len = le32_to_cpu(pkt->len);
+	const struct protocol_input *inp_a, *inp_b;
+	enum protocol_ecode e;
+	struct txhash_elem *te_a, *te_b;
+	struct txhash_iter ti_a, ti_b;
+	struct protocol_double_sha sha_a, sha_b;
+
+	if (len < sizeof(*pkt))
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	p = (const char *)(pkt + 1);
+	len -= sizeof(*pkt);
+
+	e = unmarshal_and_check_tx(peer->state, &p, &len, &tx_a);
+	if (e)
+		return e;
+
+	if (le32_to_cpu(pkt->input1) >= num_inputs(tx_a))
+		return PROTOCOL_ECODE_BAD_INPUTNUM;
+	inp_a = tx_input(tx_a, le32_to_cpu(pkt->input1));
+
+	e = unmarshal_and_check_tx(peer->state, &p, &len, &tx_b);
+	if (e)
+		return e;
+
+	if (len != 0)
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	if (le32_to_cpu(pkt->input2) >= num_inputs(tx_b))
+		return PROTOCOL_ECODE_BAD_INPUTNUM;
+	inp_b = tx_input(tx_b, le32_to_cpu(pkt->input2));
+
+	if (!structeq(&inp_a->input, &inp_b->input)
+	    || inp_a->output != inp_b->output)
+		return PROTOCOL_ECODE_BAD_INPUT;
+
+	/* So, they conflict.  First, remove them from pending. */
+	drop_pending_tx(peer->state, tx_a);
+	drop_pending_tx(peer->state, tx_b);
+
+	hash_tx(tx_a, &sha_a);
+	hash_tx(tx_b, &sha_b);
+
+	/* Now, for each block tx_a appears in, if tx_b appears in the same
+	 * chain, invalidate the earlier block. */
+	for (te_a = txhash_firstval(&peer->state->txhash, &sha_a, &ti_a);
+	     te_a;
+	     te_a = txhash_nextval(&peer->state->txhash, &sha_a, &ti_a)) {
+		for (te_b = txhash_firstval(&peer->state->txhash, &sha_b,&ti_b);
+		     te_b;
+		     te_b = txhash_nextval(&peer->state->txhash,&sha_b,&ti_b)) {
+			struct protocol_proof proof1, proof2;
+			struct txhash_elem *te1, *te2;
+			unsigned int input1, input2;
+			const union protocol_tx *tx1, *tx2;
+			const struct protocol_input_ref *refs1, *refs2;
+
+			if (block_preceeds(te_a->block, te_b->block)) {
+				te1 = te_a;
+				te2 = te_b;
+				tx1 = tx_a;
+				tx2 = tx_b;
+				input1 = le32_to_cpu(pkt->input1);
+				input2 = le32_to_cpu(pkt->input2);
+			} else if (block_preceeds(te_b->block, te_a->block)) {
+				te1 = te_b;
+				te2 = te_a;
+				tx1 = tx_b;
+				tx2 = tx_a;
+				input1 = le32_to_cpu(pkt->input2);
+				input2 = le32_to_cpu(pkt->input1);
+			} else
+				continue;
+
+			create_proof(&proof1, te1->block, te1->shardnum,
+				     te1->txoff);
+			create_proof(&proof2, te2->block, te2->shardnum,
+				     te2->txoff);
+
+			refs1 = block_get_refs(te1->block, te1->shardnum,
+					       te1->txoff);
+			refs2 = block_get_refs(te2->block, te2->shardnum,
+					       te2->txoff);
+
+			/* FIXME: when complain deletes from hash, this
+			 * iteration will be unreliable! */
+			complain_doublespend(peer->state,
+					     te1->block, input1, &proof1, 
+					     tx1, refs1,
+					     te2->block, input2, &proof2, 
+					     tx2, refs2);
+		}
+	}
+	return PROTOCOL_ECODE_BAD_INPUT;
 }
 
 static enum protocol_ecode
@@ -1481,6 +1676,70 @@ recv_complain_tx_bad_amount(struct peer *peer,
 }
 
 static enum protocol_ecode
+recv_complain_doublespend(struct peer *peer,
+			  const struct protocol_pkt_complain_doublespend *pkt)
+{
+	const union protocol_tx *tx1, *tx2;
+	const struct protocol_position *pos1, *pos2;
+	const struct protocol_input *inp1, *inp2;
+	struct block *b1, *b2;
+	enum protocol_ecode e;
+	const char *p;
+	size_t len = le32_to_cpu(pkt->len);
+
+	if (len < sizeof(*pkt))
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	p = (const char *)(pkt + 1);
+	len -= sizeof(*pkt);
+
+	e = unmarshal_proven_tx(peer->state, &p, &len, &b1, &tx1, &pos1);
+	if (e) {
+		if (e == PROTOCOL_ECODE_UNKNOWN_BLOCK) {
+			/* If we don't know it, that's OK.  Try to find out. */
+			todo_add_get_block(peer->state, &pos1->block);
+			/* FIXME: Keep complaint in this case? */
+			return PROTOCOL_ECODE_NONE;
+		}
+		return e;
+	}
+
+	if (le32_to_cpu(pkt->input1) >= num_inputs(tx1))
+		return PROTOCOL_ECODE_BAD_INPUTNUM;
+	inp1 = tx_input(tx1, le32_to_cpu(pkt->input1));
+
+	e = unmarshal_proven_tx(peer->state, &p, &len, &b2, &tx2, &pos2);
+	if (e) {
+		if (e == PROTOCOL_ECODE_UNKNOWN_BLOCK) {
+			/* If we don't know it, that's OK.  Try to find out. */
+			todo_add_get_block(peer->state, &pos2->block);
+			/* FIXME: Keep complaint in this case? */
+			return PROTOCOL_ECODE_NONE;
+		}
+		return e;
+	}
+
+	if (len != 0)
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	if (le32_to_cpu(pkt->input2) >= num_inputs(tx2))
+		return PROTOCOL_ECODE_BAD_INPUTNUM;
+	inp2 = tx_input(tx2, le32_to_cpu(pkt->input2));
+
+	if (!structeq(&inp1->input, &inp2->input)
+	    || inp1->output != inp2->output)
+		return PROTOCOL_ECODE_BAD_INPUT;
+
+	/* Since b1 comes first, b2 is wrong. */
+	if (!block_preceeds(b1, b2))
+		return PROTOCOL_ECODE_BAD_DOUBLESPEND_BLOCKS;
+
+	/* Mark it invalid, and tell everyone else if it wasn't already. */
+	publish_complaint(peer->state, b2, tal_packet_dup(b2, pkt), peer);
+	return PROTOCOL_ECODE_NONE;
+}
+
+static enum protocol_ecode
 recv_complain_bad_input_ref(struct peer *peer,
 		    const struct protocol_pkt_complain_bad_input_ref *pkt)
 {
@@ -1630,6 +1889,9 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 	case PROTOCOL_PKT_TX_BAD_AMOUNT:
 		err = recv_tx_bad_amount(peer, peer->incoming);
 		break;
+	case PROTOCOL_PKT_TX_DOUBLESPEND:
+		err = recv_tx_doublespend(peer, peer->incoming);
+		break;
 
 	case PROTOCOL_PKT_COMPLAIN_TX_MISORDER:
 		err = recv_complain_tx_misorder(peer, peer->incoming);
@@ -1642,6 +1904,9 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 		break;
 	case PROTOCOL_PKT_COMPLAIN_TX_BAD_AMOUNT:
 		err = recv_complain_tx_bad_amount(peer, peer->incoming);
+		break;
+	case PROTOCOL_PKT_COMPLAIN_DOUBLESPEND:
+		err = recv_complain_doublespend(peer, peer->incoming);
 		break;
 	case PROTOCOL_PKT_COMPLAIN_BAD_INPUT_REF:
 		err = recv_complain_bad_input_ref(peer, peer->incoming);
