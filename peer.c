@@ -29,6 +29,7 @@
 #include "input_refs.h"
 #include "peer_wants.h"
 #include "addr.h"
+#include "tx_cmp.h"
 #include <ccan/io/io.h>
 #include <ccan/time/time.h>
 #include <ccan/tal/tal.h>
@@ -1089,6 +1090,109 @@ recv_tx_bad_amount(struct peer *peer,
 	return PROTOCOL_ECODE_NONE;
 }
 
+static enum protocol_ecode
+unmarshal_proven_tx(struct state *state,
+		    const char **p, size_t *len,
+		    struct block **b,
+		    const union protocol_tx **tx,
+		    const struct protocol_position **pos)
+{
+	enum protocol_ecode e;
+	const struct protocol_tx_with_proof *proof;
+	const struct protocol_input_ref *refs;
+	size_t used;
+
+	if (*len < sizeof(*proof))
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	proof = (const struct protocol_tx_with_proof *)*p;
+	*len -= sizeof(*proof);
+	*pos = &proof->pos;
+
+	/* FIXME: change unmarshall to a pull-style function to do this? */
+	e = unmarshal_tx(*p, *len, &used);
+	if (e)
+		return e;
+	*tx = (const void *)*p;
+	*p += used;
+	*len -= used;
+
+	e = unmarshal_input_refs(*p, *len, *tx, &used);
+	if (e)
+		return e;
+	refs = (const void *)*p;
+	*p += used;
+	*len -= used;
+
+	*b = block_find_any(state, &(*pos)->block);
+	if (!*b)
+		return PROTOCOL_ECODE_UNKNOWN_BLOCK;
+
+	e = check_tx(state, *tx, *b);
+	if (e)
+		return e;
+
+	if (!check_proof(&proof->proof, *b, le16_to_cpu((*pos)->shard),
+			 (*pos)->txoff, *tx, refs))
+		return PROTOCOL_ECODE_BAD_PROOF;
+
+	return PROTOCOL_ECODE_NONE;
+}
+
+static enum protocol_ecode
+recv_complain_tx_misorder(struct peer *peer,
+			  const struct protocol_pkt_complain_tx_misorder *pkt)
+{
+	const union protocol_tx *tx1, *tx2;
+	const struct protocol_position *pos1, *pos2;
+	enum protocol_ecode e;
+	struct block *b;
+	const char *p;
+	size_t len = le32_to_cpu(pkt->len);
+
+	if (len < sizeof(*pkt))
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	p = (const char *)(pkt + 1);
+	len -= sizeof(*pkt);
+
+	e = unmarshal_proven_tx(peer->state, &p, &len, &b, &tx1, &pos1);
+	if (e) {
+		if (e == PROTOCOL_ECODE_UNKNOWN_BLOCK) {
+			/* If we don't know it, that's OK.  Try to find out. */
+			todo_add_get_block(peer->state, &pos1->block);
+			/* FIXME: Keep complaint in this case? */
+			return PROTOCOL_ECODE_NONE;
+		}
+		return e;
+	}
+
+	/* This one shouldn't be unknown: it should be the same block */
+	e = unmarshal_proven_tx(peer->state, &p, &len, &b, &tx2, &pos2);
+	if (e)
+		return e;
+
+	if (!structeq(&pos1->block, &pos2->block))
+		return PROTOCOL_ECODE_BAD_MISORDER_POS;
+
+	if (pos1->shard != pos2->shard)
+		return PROTOCOL_ECODE_BAD_MISORDER_POS;
+
+	if (pos1->txoff < pos2->txoff) {
+		if (tx_cmp(tx1, tx2) < 0)
+			return PROTOCOL_ECODE_MISORDER_IS_ORDERED;
+	} else if (pos1->txoff > pos2->txoff) {
+		if (tx_cmp(tx1, tx2) > 0)
+			return PROTOCOL_ECODE_MISORDER_IS_ORDERED;
+	} else
+		/* Same position?  Weird. */
+		return PROTOCOL_ECODE_BAD_MISORDER_POS;
+
+	/* Mark it invalid, and tell everyone else if it wasn't already. */
+	publish_complaint(peer->state, b, tal_packet_dup(b, pkt), peer);
+	return PROTOCOL_ECODE_NONE;
+}
+
 static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 {
 	const struct protocol_net_hdr *hdr = peer->incoming;
@@ -1165,8 +1269,10 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 		err = recv_tx_bad_amount(peer, peer->incoming);
 		break;
 
-	/* FIXME: Implement complaints. */
 	case PROTOCOL_PKT_COMPLAIN_TX_MISORDER:
+		err = recv_complain_tx_misorder(peer, peer->incoming);
+		break;
+
 	case PROTOCOL_PKT_COMPLAIN_TX_INVALID:
 	case PROTOCOL_PKT_COMPLAIN_TX_BAD_INPUT:
 	case PROTOCOL_PKT_COMPLAIN_TX_BAD_AMOUNT:

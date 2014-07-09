@@ -238,6 +238,10 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "PROTOCOL_ECODE_BAD_INPUT"; break;
 		case PROTOCOL_ECODE_INPUT_NOT_BAD:
 			name = "PROTOCOL_ECODE_INPUT_NOT_BAD"; break;
+		case PROTOCOL_ECODE_BAD_MISORDER_POS:
+			name = "PROTOCOL_ECODE_BAD_MISORDER_POS"; break;
+		case PROTOCOL_ECODE_MISORDER_IS_ORDERED:
+			name = "PROTOCOL_ECODE_MISORDER_IS_ORDERED"; break;
 		case PROTOCOL_ECODE_PRIV_UNKNOWN_PREV:
 			name = "PROTOCOL_ECODE_PRIV_UNKNOWN_PREV"; break;
 		case PROTOCOL_ECODE_MAX:
