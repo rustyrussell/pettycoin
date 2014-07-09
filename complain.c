@@ -43,7 +43,6 @@ void publish_complaint(struct state *state,
 
 void complain_bad_input(struct state *state,
 			struct block *block,
-			u16 shardnum, u8 txoff,
 			const struct protocol_proof *proof,
 			const union protocol_tx *tx,
 			const struct protocol_input_ref *refs,
@@ -56,7 +55,7 @@ void complain_bad_input(struct state *state,
 	log_unusual(state->log, "Block %u ", le32_to_cpu(block->hdr->depth));
 	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
 	log_add(state->log, " invalid due to tx %u in shard %u ",
-		txoff, shardnum);
+		proof->pos.txoff, le16_to_cpu(proof->pos.shard));
 	log_add_struct(state->log, union protocol_tx, tx);
 	log_add(state->log, " with bad input %u ", bad_input);
 	log_add_struct(state->log, union protocol_tx, intx);
@@ -65,7 +64,8 @@ void complain_bad_input(struct state *state,
 			 PROTOCOL_PKT_COMPLAIN_TX_BAD_INPUT);
 	pkt->inputnum = cpu_to_le32(bad_input);
 
-	tal_packet_append_proof(&pkt, block, shardnum, txoff, proof, tx, refs);
+	tal_packet_append_proof(&pkt, proof);
+	tal_packet_append_tx_with_refs(&pkt, tx, refs);
 	tal_packet_append_tx(&pkt, intx);
 
 	publish_complaint(state, block, pkt, NULL);
@@ -73,7 +73,6 @@ void complain_bad_input(struct state *state,
 
 void complain_bad_amount(struct state *state,
 			 struct block *block,
-			 u16 shardnum, u8 txoff,
 			 const struct protocol_proof *proof,
 			 const union protocol_tx *tx,
 			 const struct protocol_input_ref *refs,
@@ -86,14 +85,14 @@ void complain_bad_amount(struct state *state,
 	log_unusual(state->log, "Block %u ", le32_to_cpu(block->hdr->depth));
 	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
 	log_add(state->log, " invalid amounts in tx %u of shard %u ",
-		txoff, shardnum);
+		proof->pos.txoff, le16_to_cpu(proof->pos.shard));
 	log_add_struct(state->log, union protocol_tx, tx);
 	log_add(state->log, " with inputs: ");
 
 	pkt = tal_packet(block, struct protocol_pkt_complain_tx_bad_amount,
 			 PROTOCOL_PKT_COMPLAIN_TX_BAD_AMOUNT);
-	tal_packet_append_proof(&pkt, block, shardnum, txoff, proof,
-				tx, refs);
+	tal_packet_append_proof(&pkt, proof);
+	tal_packet_append_tx_with_refs(&pkt, tx, refs);
 
 	/* FIXME: What if input is pending? */
 	for (i = 0; i < num_inputs(tx); i++) {
@@ -111,7 +110,6 @@ void complain_bad_amount(struct state *state,
  * shows another tx which is misordered relative to that. */
 void complain_misorder(struct state *state,
 		       struct block *block,
-		       u16 shardnum, u8 txoff,
 		       const struct protocol_proof *proof,
 		       const union protocol_tx *tx,
 		       const struct protocol_input_ref *refs,
@@ -121,6 +119,7 @@ void complain_misorder(struct state *state,
 	const union protocol_tx *conflict_tx;
 	const struct protocol_input_ref *conflict_refs;
 	struct protocol_proof conflict_proof;
+	u16 shardnum = le16_to_cpu(proof->pos.shard);
 
 	conflict_tx = block_get_tx(block, shardnum, conflict_txoff);
 	conflict_refs = block_get_refs(block, shardnum, conflict_txoff);
@@ -128,18 +127,19 @@ void complain_misorder(struct state *state,
 	log_unusual(state->log, "Block %u ", le32_to_cpu(block->hdr->depth));
 	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
 	log_add(state->log, " invalid due to misorder shard %u tx %u vs %u ",
-		shardnum, conflict_txoff, txoff);
+		shardnum, conflict_txoff, proof->pos.txoff);
 	log_add_struct(state->log, union protocol_tx, conflict_tx);
 	log_add(state->log, " vs ");
 	log_add_struct(state->log, union protocol_tx, tx);
 
 	pkt = tal_packet(block, struct protocol_pkt_complain_tx_misorder,
 			 PROTOCOL_PKT_COMPLAIN_TX_MISORDER);
-	tal_packet_append_proof(&pkt, block, shardnum, txoff, proof, tx, refs);
+	tal_packet_append_proof(&pkt, proof);
+	tal_packet_append_tx_with_refs(&pkt, tx, refs);
 
-	create_proof(&conflict_proof, block->shard[shardnum], conflict_txoff);
-	tal_packet_append_proof(&pkt, block, shardnum, conflict_txoff,
-				&conflict_proof, conflict_tx, conflict_refs);
+	create_proof(&conflict_proof, block, shardnum, conflict_txoff);
+	tal_packet_append_proof(&pkt, &conflict_proof);
+	tal_packet_append_tx_with_refs(&pkt, conflict_tx, conflict_refs);
 
 	publish_complaint(state, block, pkt, NULL);
 }
@@ -147,7 +147,6 @@ void complain_misorder(struct state *state,
 /* refs[bad_refnum] points to the wrong tx! */
 void complain_bad_input_ref(struct state *state,
 			    struct block *block,
-			    u16 shardnum, u8 txoff,
 			    const struct protocol_proof *proof,
 			    const union protocol_tx *tx,
 			    const struct protocol_input_ref *refs,
@@ -169,7 +168,8 @@ void complain_bad_input_ref(struct state *state,
 
 	log_unusual(state->log, "Block %u ", le32_to_cpu(block->hdr->depth));
 	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
-	log_unusual(state->log, " tx %u of shard %u ", txoff, shardnum);
+	log_unusual(state->log, " tx %u of shard %u ",
+		    proof->pos.txoff, le16_to_cpu(proof->pos.shard));
 	log_add_struct(state->log, union protocol_tx, tx);
 	log_add(state->log, 
 		" invalid due to wrong input %u reference %u ago tx %u/%u ",
@@ -182,15 +182,14 @@ void complain_bad_input_ref(struct state *state,
 	pkt->inputnum = cpu_to_le32(bad_refnum);
 
 	/* This is the tx which has the bad reference. */
-	tal_packet_append_proof(&pkt, block, shardnum, txoff, proof, tx, refs);
+	tal_packet_append_proof(&pkt, proof);
+	tal_packet_append_tx_with_refs(&pkt, tx, refs);
 
 	/* This is where the ref points to. */
-	create_proof(&ref_proof,
-		     block_referred_to->shard[le16_to_cpu(bad_ref->shard)],
-		     bad_ref->txoff);
-	tal_packet_append_proof(&pkt, block,
-				le16_to_cpu(bad_ref->shard), bad_ref->txoff,
-				&ref_proof, bad_intx, bad_intx_refs);
+	create_proof(&ref_proof, block_referred_to,
+		     le16_to_cpu(bad_ref->shard), bad_ref->txoff);
+	tal_packet_append_proof(&pkt, &ref_proof);
+	tal_packet_append_tx_with_refs(&pkt, bad_intx, bad_intx_refs);
 
 	publish_complaint(state, block, pkt, NULL);
 }
@@ -199,7 +198,6 @@ void complain_bad_input_ref(struct state *state,
 void complain_bad_tx(struct state *state,
 		     struct block *block,
 		     enum protocol_ecode err,
-		     u16 shardnum, u8 txoff,
 		     const struct protocol_proof *proof,
 		     const union protocol_tx *tx,
 		     const struct protocol_input_ref *refs)
@@ -233,7 +231,7 @@ void complain_bad_tx(struct state *state,
 	log_unusual(state->log, "Block %u ", le32_to_cpu(block->hdr->depth));
 	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
 	log_add(state->log, " invalid due to tx %u of shard %u ",
-		txoff, shardnum);
+		proof->pos.txoff, le16_to_cpu(proof->pos.shard));
 	log_add(state->log, " error ");
 	log_add_enum(state->log, enum protocol_ecode, err);
 	/* FIXME: Would be nice to log something about invalid tx! */
@@ -242,7 +240,8 @@ void complain_bad_tx(struct state *state,
 			 PROTOCOL_PKT_COMPLAIN_TX_INVALID);
 	pkt->error = cpu_to_le32(err);
 
-	tal_packet_append_proof(&pkt, block, shardnum, txoff, proof, tx, refs);
+	tal_packet_append_proof(&pkt, proof);
+	tal_packet_append_tx_with_refs(&pkt, tx, refs);
 
 	publish_complaint(state, block, pkt, NULL);
 }

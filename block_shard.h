@@ -34,6 +34,7 @@ struct block_shard {
 	u8 size;
 
 	/* If we don't know all hashes, we store array of proofs here. */
+	/* FIXME: We actually only need the protocol_proof_merkles. */
 	struct protocol_proof **proof;
 
 	/* Bits to discriminate the union: 0 = txp, 1 == hash */

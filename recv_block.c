@@ -147,9 +147,9 @@ static void try_resolve_hashes(struct state *state,
 
 				/* We can generate proof, since we at
 				 * least have hashes. */
-				create_proof(&proof, shard, i);
+				create_proof(&proof, block, shardnum, i);
 
-				complain_misorder(state, block, shardnum, i,
+				complain_misorder(state, block,
 						  &proof, txp.tx, refs_for(txp),
 						  conflict_txoff);
 				/* This block is invalid, don't waste time. */

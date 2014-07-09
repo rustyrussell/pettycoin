@@ -261,9 +261,10 @@ void put_tx_in_shard(struct state *state,
 
 void put_proof_in_shard(struct state *state,
 			struct block *block,
-			struct block_shard *shard, u8 txoff,
 			const struct protocol_proof *proof)
 {
+	struct block_shard *shard = block->shard[le16_to_cpu(proof->pos.shard)];
+
 	/* If we have all hashes, we don't need to keep proof. */
 	if (shard_all_hashes(shard))
 		return;
@@ -272,10 +273,11 @@ void put_proof_in_shard(struct state *state,
 		shard->proof = tal_arrz(shard, struct protocol_proof *,
 					block->shard_nums[shard->shardnum]);
 
-	if (shard->proof[txoff])
+	if (shard->proof[proof->pos.txoff])
 		return;
 
-	shard->proof[txoff] = tal_dup(shard, struct protocol_proof, proof, 1,0);
+	shard->proof[proof->pos.txoff]
+		= tal_dup(shard, struct protocol_proof, proof, 1, 0);
 }
 
 /* Check what we can, using prev->...'s shards. */

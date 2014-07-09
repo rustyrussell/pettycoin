@@ -228,9 +228,10 @@ void send_tx_in_block_to_peers(struct state *state, const struct peer *exclude,
 	pkt = tal_packet(state, struct protocol_pkt_tx_in_block,
 			 PROTOCOL_PKT_TX_IN_BLOCK);
 	pkt->err = cpu_to_le32(PROTOCOL_ECODE_NONE);
-	create_proof(&proof, block->shard[shard], txoff);
-	tal_packet_append_proof(&pkt, block, shard, txoff, &proof, tx,
-				block_get_refs(block, shard, txoff));
+	create_proof(&proof, block, shard, txoff);
+	tal_packet_append_proof(&pkt, &proof);
+	tal_packet_append_tx_with_refs(&pkt, tx,
+				       block_get_refs(block, shard, txoff));
 
 	send_to_interested_peers(state, exclude, tx, true, pkt);
 	tal_free(pkt);
@@ -650,9 +651,9 @@ recv_get_tx_in_block(struct peer *peer,
 	}
 
 	r->err = cpu_to_le32(PROTOCOL_ECODE_NONE);
-	create_proof(&proof, b->shard[shard], txoff);
-	tal_packet_append_proof(&r, b, shard, txoff, &proof, tx,
-				block_get_refs(b, shard, txoff));
+	create_proof(&proof, b, shard, txoff);
+	tal_packet_append_proof(&r, &proof);
+	tal_packet_append_tx_with_refs(&r, tx, block_get_refs(b, shard, txoff));
 
 done:
 	*reply = r;
@@ -687,11 +688,12 @@ recv_get_tx(struct peer *peer,
 			       PROTOCOL_PKT_TX_IN_BLOCK);
 		r->err = cpu_to_le32(PROTOCOL_ECODE_NONE);
 		tx = block_get_tx(te->block, te->shardnum, te->txoff);
-		create_proof(&proof, b->shard[te->shardnum], te->txoff);
-		tal_packet_append_proof(&r, b, te->shardnum, te->txoff, &proof,
-					tx, block_get_refs(te->block,
-							   te->shardnum,
-							   te->txoff));
+		create_proof(&proof, b, te->shardnum, te->txoff);
+		tal_packet_append_proof(&r, &proof);
+		tal_packet_append_tx_with_refs(&r, 
+					       tx, block_get_refs(te->block,
+								  te->shardnum,
+								  te->txoff));
 		*reply = r;
 		return PROTOCOL_ECODE_NONE;
 	}
@@ -756,11 +758,11 @@ recv_tx_in_block(struct peer *peer, const struct protocol_pkt_tx_in_block *pkt)
 	len -= sizeof(*proof);
 
 	proof = (void *)(pkt + 1);
-	shard = le16_to_cpu(proof->pos.shard);
+	shard = le16_to_cpu(proof->proof.pos.shard);
 
-	b = block_find_any(peer->state, &proof->pos.block);
+	b = block_find_any(peer->state, &proof->proof.pos.block);
 	if (!b) {
-		todo_add_get_block(peer->state, &proof->pos.block);
+		todo_add_get_block(peer->state, &proof->proof.pos.block);
 		/* FIXME: should we extract transaction? */
 		return PROTOCOL_ECODE_NONE;
 	}
@@ -792,12 +794,12 @@ recv_tx_in_block(struct peer *peer, const struct protocol_pkt_tx_in_block *pkt)
 	if (e)
 		return e;
 
-	if (!check_proof(&proof->proof, b, shard, proof->pos.txoff, tx, refs))
+	if (!check_proof(&proof->proof, b, tx, refs))
 		return PROTOCOL_ECODE_BAD_PROOF;
 
 	/* Whatever happens from here, no point asking others for tx. */
-	todo_done_get_tx_in_block(peer, &proof->pos.block,
-				  shard, proof->pos.txoff, true);
+	todo_done_get_tx_in_block(peer, &proof->proof.pos.block,
+				  shard, proof->proof.pos.txoff, true);
 
 	/* This may have been a response to GET_TX as well. */
 	hash_tx(tx, &sha);
@@ -820,8 +822,7 @@ recv_tx_in_block(struct peer *peer, const struct protocol_pkt_tx_in_block *pkt)
 		input = txhash_gettx(&peer->state->txhash,
 				      &tx_input(tx, bad_input_num)->input);
 		/* This whole block is invalid.  Tell everyone. */
-		complain_bad_input(peer->state, b, shard,
-				   proof->pos.txoff, &proof->proof,
+		complain_bad_input(peer->state, b, &proof->proof,
 				   tx, refs, bad_input_num, input);
 		return PROTOCOL_ECODE_NONE;
 	}
@@ -834,8 +835,7 @@ recv_tx_in_block(struct peer *peer, const struct protocol_pkt_tx_in_block *pkt)
 						 &tx_input(tx, i)->input);
 
 		/* This whole block is invalid.  Tell everyone. */
-		complain_bad_amount(peer->state, b, shard,
-				    proof->pos.txoff, &proof->proof,
+		complain_bad_amount(peer->state, b, &proof->proof,
 				    tx, refs, inputs);
 		return PROTOCOL_ECODE_NONE;
 	}
@@ -855,28 +855,25 @@ recv_tx_in_block(struct peer *peer, const struct protocol_pkt_tx_in_block *pkt)
 		return PROTOCOL_ECODE_NONE;
 	case ECODE_REF_BAD_HASH:
 		/* Tell everyone this block is bad due to bogus input_ref */
-		complain_bad_input_ref(peer->state, b, shard,
-				       proof->pos.txoff, &proof->proof,
+		complain_bad_input_ref(peer->state, b, &proof->proof,
 				       tx, refs, bad_input_num,
 				       block_referred_to);
 		return PROTOCOL_ECODE_NONE;
 	}
 
 	if (!check_tx_ordering(peer->state, b, b->shard[shard],
-			       proof->pos.txoff, tx, &conflict_txoff)) {
+			       proof->proof.pos.txoff, tx, &conflict_txoff)) {
 		/* Tell everyone that txs are out of order in block */
-		complain_misorder(peer->state, b, shard,
-				  proof->pos.txoff, &proof->proof,
+		complain_misorder(peer->state, b, &proof->proof,
 				  tx, refs, conflict_txoff);
 		return PROTOCOL_ECODE_NONE;
 	}
 
 	/* Copy in tx and refs. */
-	put_tx_in_shard(peer->state, b, b->shard[shard], proof->pos.txoff,
+	put_tx_in_shard(peer->state, b, b->shard[shard], proof->proof.pos.txoff,
 			txptr_with_ref(b->shard[shard], tx, refs));
 	/* Keep proof in case anyone asks. */
-	put_proof_in_shard(peer->state, b, b->shard[shard], proof->pos.txoff,
-			   &proof->proof);
+	put_proof_in_shard(peer->state, b, &proof->proof);
 
 	/* Reuse packet as shortcut for send_tx_in_block_to_peers */
 	send_to_interested_peers(peer->state, peer, tx, true, pkt);
@@ -1066,12 +1063,11 @@ recv_tx_bad_input(struct peer *peer,
 	     te;
 	     te = txhash_nextval(&peer->state->txhash, &sha, &ti)) {
 		struct protocol_proof proof;
-		struct block_shard *shard = te->block->shard[te->shardnum];
 
-		create_proof(&proof, shard, te->txoff);
-		complain_bad_input(peer->state, te->block, te->shardnum,
-				   te->txoff, &proof, tx,
-				   refs_for(shard->u[te->txoff].txp),
+		create_proof(&proof, te->block, te->shardnum, te->txoff);
+		complain_bad_input(peer->state, te->block, &proof, tx,
+				   block_get_refs(te->block, te->shardnum,
+						  te->txoff),
 				   le32_to_cpu(pkt->inputnum), in);
 	}
 
@@ -1154,12 +1150,12 @@ recv_tx_bad_amount(struct peer *peer,
 	     te;
 	     te = txhash_nextval(&peer->state->txhash, &sha, &ti)) {
 		struct protocol_proof proof;
-		struct block_shard *shard = te->block->shard[te->shardnum];
 
-		create_proof(&proof, shard, te->txoff);
-		complain_bad_amount(peer->state, te->block, te->shardnum,
-				    te->txoff, &proof, tx,
-				    refs_for(shard->u[te->txoff].txp), in);
+		create_proof(&proof, te->block, te->shardnum, te->txoff);
+		complain_bad_amount(peer->state, te->block, &proof, tx,
+				    block_get_refs(te->block,
+						   te->shardnum, te->txoff),
+				    in);
 	}
 
 	drop_pending_tx(peer->state, tx);
@@ -1183,7 +1179,7 @@ unmarshal_proven_tx(struct state *state,
 
 	proof = (const struct protocol_tx_with_proof *)*p;
 	*len -= sizeof(*proof);
-	*pos = &proof->pos;
+	*pos = &proof->proof.pos;
 
 	/* FIXME: change unmarshall to a pull-style function to do this? */
 	e = unmarshal_tx(*p, *len, &used);
@@ -1208,8 +1204,7 @@ unmarshal_proven_tx(struct state *state,
 	if (e)
 		return e;
 
-	if (!check_proof(&proof->proof, *b, le16_to_cpu((*pos)->shard),
-			 (*pos)->txoff, *tx, refs))
+	if (!check_proof(&proof->proof, *b, *tx, refs))
 		return PROTOCOL_ECODE_BAD_PROOF;
 
 	return PROTOCOL_ECODE_NONE;
@@ -1295,10 +1290,10 @@ recv_complain_tx_invalid(struct peer *peer,
 	len -= sizeof(*proof);
 	p += sizeof(*proof);
 
-	b = block_find_any(peer->state, &proof->pos.block);
+	b = block_find_any(peer->state, &proof->proof.pos.block);
 	if (!b) {
 		/* If we don't know it, that's OK.  Try to find out. */
-		todo_add_get_block(peer->state, &proof->pos.block);
+		todo_add_get_block(peer->state, &proof->proof.pos.block);
 		/* FIXME: Keep complaint in this case? */
 		return PROTOCOL_ECODE_NONE;
 	}
@@ -1337,8 +1332,7 @@ recv_complain_tx_invalid(struct peer *peer,
 	SHA256_Update(&shactx, refs, reflen);
 	SHA256_Double_Final(&shactx, &txrefhash.refhash);
 
-	if (!check_proof_byhash(&proof->proof, b, le16_to_cpu(proof->pos.shard),
-				proof->pos.txoff, &txrefhash))
+	if (!check_proof_byhash(&proof->proof, b, &txrefhash))
 		return PROTOCOL_ECODE_BAD_PROOF;
 
 	/* FIXME: We could look for the same hash in other blocks, too. */

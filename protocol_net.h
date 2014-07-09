@@ -394,7 +394,7 @@ struct protocol_pkt_complain_tx_bad_amount {
 	le32 type; /* PROTOCOL_PKT_COMPLAIN_TX_BAD_AMOUNT */
 
 	/*
-	  struct protocol_trans_with_proof proof;
+	  struct protocol_tx_with_proof proof;
 	  The inputs:
 	     union protocol_tx input[t->normal.num_inputs];
 	*/
@@ -406,8 +406,8 @@ struct protocol_pkt_complain_tx_misorder {
 	le32 type; /* PROTOCOL_PKT_COMPLAIN_TX_MISORDER */
 
 	/* These must refer to the same block!
-	  struct protocol_trans_with_proof proof1;
-	  struct protocol_trans_with_proof proof2;
+	  struct protocol_tx_with_proof proof1;
+	  struct protocol_tx_with_proof proof2;
 	*/
 };
 

@@ -92,13 +92,7 @@ void tal_packet_append_pos_(void *ppkt, const struct block *block,
 	tal_packet_append_(ppkt, &pos, sizeof(pos));
 }
 
-void tal_packet_append_proof_(void *ppkt, const struct block *block,
-			      u16 shardnum, u8 txoff,
-			      const struct protocol_proof *proof,
-			      const union protocol_tx *tx,
-			      const struct protocol_input_ref *refs)
+void tal_packet_append_proof_(void *ppkt, const struct protocol_proof *proof)
 {
-	tal_packet_append_pos_(ppkt, block, shardnum, txoff);
 	tal_packet_append_(ppkt, proof, sizeof(*proof));
-	tal_packet_append_tx_with_refs_(ppkt, tx, refs);
 }

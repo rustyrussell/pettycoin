@@ -53,7 +53,6 @@ void put_tx_in_shard(struct state *state,
 /* After you've put in tx, you put in proof. */
 void put_proof_in_shard(struct state *state,
 			struct block *block,
-			struct block_shard *shard, u8 txoff,
 			const struct protocol_proof *proof);
 
 /* Check what we can, using block->prev->...'s shards. */

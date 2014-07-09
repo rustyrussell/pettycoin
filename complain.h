@@ -16,7 +16,6 @@ struct peer;
 void complain_bad_tx(struct state *state,
 		     struct block *block,
 		     enum protocol_ecode err,
-		     u16 shardnum, u8 txoff,
 		     const struct protocol_proof *proof,
 		     const union protocol_tx *tx,
 		     const struct protocol_input_ref *refs);
@@ -24,18 +23,15 @@ void complain_bad_tx(struct state *state,
 /* tx/refs belongs in block at shardnum/tx, but input bad_input is bad. */
 void complain_bad_input(struct state *state,
 			struct block *block,
-			u16 shardnum, u8 txoff,
 			const struct protocol_proof *proof,
 			const union protocol_tx *tx,
 			const struct protocol_input_ref *refs,
 			unsigned int bad_input,
 			const union protocol_tx *intx);
 
-
 /* tx/refs belongs in block at shardnum/tx, but inputs don't add up. */
 void complain_bad_amount(struct state *state,
 			 struct block *block,
-			 u16 shardnum, u8 txoff,
 			 const struct protocol_proof *proof,
 			 const union protocol_tx *tx,
 			 const struct protocol_input_ref *refs,
@@ -45,7 +41,6 @@ void complain_bad_amount(struct state *state,
  * different tx to the tx referred to by tx->input. */
 void complain_bad_input_ref(struct state *state,
 			    struct block *block,
-			    u16 shardnum, u8 txoff,
 			    const struct protocol_proof *proof,
 			    const union protocol_tx *tx,
 			    const struct protocol_input_ref *refs,
@@ -56,7 +51,6 @@ void complain_bad_input_ref(struct state *state,
  * compared with the already-known tx conflict_txoff. */
 void complain_misorder(struct state *state,
 		       struct block *block,
-		       u16 shardnum, u8 txoff,
 		       const struct protocol_proof *proof,
 		       const union protocol_tx *tx,
 		       const struct protocol_input_ref *refs,

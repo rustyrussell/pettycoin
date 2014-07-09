@@ -196,11 +196,6 @@ union protocol_tx {
 
 /* FIXME: Multi-transactions proofs could be much more efficient. */
 
-/* Merkle proof, used to show tx (+ refs) is in a shard. */
-struct protocol_proof {
-	struct protocol_double_sha merkle[8];
-};
-
 struct protocol_position {
 	/* The block it's in. */
 	struct protocol_double_sha block;
@@ -211,10 +206,18 @@ struct protocol_position {
 	u8 unused;
 };
 
+/* Merkle proof, used to show tx (+ refs) is in a shard. */
+struct protocol_proof_merkles {
+	struct protocol_double_sha merkle[8];
+};
+
+struct protocol_proof {
+	struct protocol_position pos;
+	struct protocol_proof_merkles merkles;
+};
+
 /* Proof that a transaction (with inputs refs) was in a block. */
 struct protocol_tx_with_proof {
-	/* The block/shard/txoff */
-	struct protocol_position pos;
 	/* This is the tree of double shas which proves it. */
 	struct protocol_proof proof;
 

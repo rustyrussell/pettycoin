@@ -34,7 +34,6 @@ enum input_ecode check_tx_inputs(struct state *state,
 /* Generated stub for check_proof */
 bool check_proof(const struct protocol_proof *proof,
 		 const struct block *b,
-		 u16 shardnum, u8 txoff,
 		 const union protocol_tx *tx,
 		 const struct protocol_input_ref *refs) { abort(); }
 /* Generated stub for merkle_txs */

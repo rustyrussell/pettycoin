@@ -97,7 +97,6 @@ void check_block_shard(struct state *state,
 				if (shard->proof)
 					assert(check_proof(shard->proof[i],
 							   block,
-							   shard->shardnum, i,
 							   shard->u[i].txp.tx,
 							   refs_for(shard->u[i]
 								    .txp)));
