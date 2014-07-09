@@ -58,5 +58,4 @@ struct txhash_elem *tx_find_doublespend(struct state *state,
 					const struct block *block,
 					const struct txhash_elem *ignore,
 					const struct protocol_input *inp);
-
 #endif /* PETTYCOIN_CHECK_TX_H */

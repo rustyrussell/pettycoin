@@ -1,5 +1,6 @@
 #include "addr.h"
 #include "tx.h"
+#include <ccan/structeq/structeq.h>
 
 bool find_output(const union protocol_tx *tx, u16 output_num,
 		 struct protocol_address *addr, u32 *amount)
@@ -31,3 +32,16 @@ bool find_output(const union protocol_tx *tx, u16 output_num,
 	abort();
 }
 
+u32 find_matching_input(const union protocol_tx *tx,
+			const struct protocol_input *inp)
+{
+	unsigned int i;
+
+	/* Figure out which input of other did the spend. */
+	for (i = 0; i < num_inputs(tx); i++) {
+		if (structeq(&tx_input(tx, i)->input, &inp->input)
+		    && tx_input(tx, i)->output == inp->output)
+			return i;
+	}
+	abort();
+}

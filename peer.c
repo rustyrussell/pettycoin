@@ -447,20 +447,6 @@ tell_peer_about_bad_input(struct state *state,
 	todo_for_peer(peer, pkt);
 }
 
-static u32 find_matching_input(const union protocol_tx *tx,
-			       const struct protocol_input *inp)
-{
-	unsigned int i;
-
-	/* Figure out which input of other did the spend. */
-	for (i = 0; i < num_inputs(tx); i++) {
-		if (structeq(&tx_input(tx, i)->input, &inp->input)
-		    && tx_input(tx, i)->output == inp->output)
-			return i;
-	}
-	abort();
-}
-
 static void tell_peer_about_doublespend(struct state *state,
 					const struct block *block,
 					struct peer *peer,
@@ -818,14 +804,11 @@ static enum protocol_ecode
 recv_tx_in_block(struct peer *peer, const struct protocol_pkt_tx_in_block *pkt)
 {
 	enum protocol_ecode e;
-	enum input_ecode ierr;
-	enum ref_ecode rerr;
 	union protocol_tx *tx;
 	struct protocol_input_ref *refs;
 	struct protocol_tx_with_proof *proof;
-	struct block *b, *block_referred_to;
+	struct block *b;
 	struct protocol_double_sha sha;
-	unsigned int bad_input_num;
 	u16 shard;
 	u8 conflict_txoff;
 	size_t len = le32_to_cpu(pkt->len), used;
@@ -906,98 +889,12 @@ recv_tx_in_block(struct peer *peer, const struct protocol_pkt_tx_in_block *pkt)
 	hash_tx(tx, &sha);
 	todo_done_get_tx(peer, &sha, true);
 
-	/* Now it's proven that it's in the block, handle bad inputs. */
-	ierr = check_tx_inputs(peer->state, b, NULL, tx, &bad_input_num);
-	switch (ierr) {
-	case ECODE_INPUT_OK:
-		break;
-	case ECODE_INPUT_UNKNOWN:
-		/* Ask about this input. */
-		todo_add_get_tx(peer->state,
-				&tx_input(tx, bad_input_num)->input);
-		/* FIXME: Keep tx and proof around for later! */
+	/* Now it's proven that it's in the block, handle bad inputs/refs.
+	 * We don't hang up on them, since they may not have known. */
+	if (!check_tx_inputs_and_refs(peer->state, b, &proof->proof, tx, refs))
 		return PROTOCOL_ECODE_NONE;
-	case ECODE_INPUT_BAD: {
-		union protocol_tx *input;
 
-		input = txhash_gettx(&peer->state->txhash,
-				      &tx_input(tx, bad_input_num)->input);
-		/* This whole block is invalid.  Tell everyone. */
-		complain_bad_input(peer->state, b, &proof->proof,
-				   tx, refs, bad_input_num, input);
-		return PROTOCOL_ECODE_NONE;
-	}
-	case ECODE_INPUT_BAD_AMOUNT: {
-		unsigned int i;
-		const union protocol_tx *inputs[PROTOCOL_TX_MAX_INPUTS];
-
-		for (i = 0; i < num_inputs(tx); i++)
-			inputs[i] = txhash_gettx(&peer->state->txhash,
-						 &tx_input(tx, i)->input);
-
-		/* This whole block is invalid.  Tell everyone. */
-		complain_bad_amount(peer->state, b, &proof->proof,
-				    tx, refs, inputs);
-		return PROTOCOL_ECODE_NONE;
-	}
-	case ECODE_INPUT_DOUBLESPEND: {
-		struct txhash_elem *other;
-		const union protocol_tx *other_tx;
-		const struct protocol_input_ref *other_refs;
-		const struct protocol_input *inp = tx_input(tx, bad_input_num);
-		struct protocol_proof other_proof;
-
-		other = tx_find_doublespend(peer->state, b, NULL, inp);
-		create_proof(&other_proof, other->block, other->shardnum,
-			     other->txoff);
-		other_tx = block_get_tx(other->block, other->shardnum,
-					other->txoff);
-		other_refs = block_get_refs(other->block, other->shardnum,
-					    other->txoff);
-
-		if (block_preceeds(other->block, b)) {
-			/* b is invalid. Tell everyone. */
-			complain_doublespend(peer->state,
-					     other->block,
-					     find_matching_input(other_tx, inp),
-					     &other_proof, other_tx, other_refs,
-					     b, bad_input_num,
-					     &proof->proof, tx, refs);
-			/* And we're done. */
-			return PROTOCOL_ECODE_NONE;
-		}
-
-		/* other->block is invalid.  Tell everyone. */
-		complain_doublespend(peer->state, b, bad_input_num,
-				     &proof->proof, tx, refs,
-				     other->block,
-				     find_matching_input(other_tx, inp),
-				     &other_proof, other_tx, other_refs);
-
-		/* Nothing wrong with this block though! */
-	}
-	}
-
-	rerr = check_tx_refs(peer->state, b, tx, refs,
-			     &bad_input_num, &block_referred_to);
-	switch (rerr) {
-	case ECODE_REF_OK:
-		break;
-	case ECODE_REF_UNKNOWN:
-		/* This can happen if we know the tx, but don't know it
-		 * is at that position.  We need to get it. */
-		todo_add_get_tx_in_block(peer->state, &block_referred_to->sha,
-					 shard, refs[bad_input_num].txoff);
-		/* FIXME: Keep tx and proof around for later! */
-		return PROTOCOL_ECODE_NONE;
-	case ECODE_REF_BAD_HASH:
-		/* Tell everyone this block is bad due to bogus input_ref */
-		complain_bad_input_ref(peer->state, b, &proof->proof,
-				       tx, refs, bad_input_num,
-				       block_referred_to);
-		return PROTOCOL_ECODE_NONE;
-	}
-
+	/* Simularly, they might not know if it was misordered. */
 	if (!check_tx_ordering(peer->state, b, b->shard[shard],
 			       proof->proof.pos.txoff, tx, &conflict_txoff)) {
 		/* Tell everyone that txs are out of order in block */

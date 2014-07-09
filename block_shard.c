@@ -87,6 +87,7 @@ void check_block_shard(struct state *state,
 			if (shard->u[i].txp.tx) {
 				unsigned int bad;
 				struct txhash_elem me;
+				enum input_ecode ierr;
 
 				assert(check_tx(state, shard->u[i].txp.tx,
 						block)
@@ -97,11 +98,11 @@ void check_block_shard(struct state *state,
 				me.shardnum = shard->shardnum;
 				me.txoff = i;
 
-				/* We don't put TXs in with unknown inputs. */
-				assert(check_tx_inputs(state, block, &me,
+				ierr = check_tx_inputs(state, block, &me,
 						       shard->u[i].txp.tx,
-						       &bad)
-				       == ECODE_INPUT_OK);
+						       &bad);
+				assert(ierr == ECODE_INPUT_OK
+				       || ierr == ECODE_INPUT_UNKNOWN);
 				if (shard->proof)
 					assert(check_proof(shard->proof[i],
 							   block,

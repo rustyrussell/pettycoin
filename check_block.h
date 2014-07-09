@@ -64,6 +64,13 @@ bool check_block_prev_txhashes(struct log *log, const struct block *prev,
 			       const struct protocol_block_header *hdr,
 			       const u8 *prev_txhashes);
 
+/* Check both inputs and references for this transaction. */
+bool check_tx_inputs_and_refs(struct state *state,
+			      struct block *block,
+			      const struct protocol_proof *proof,
+			      union protocol_tx *tx,
+			      struct protocol_input_ref *refs);
+
 /* Various assertions about a block */
 void check_block(struct state *state, const struct block *block);
 #endif /* PETTYCOIN_CHECK_BLOCK_H */

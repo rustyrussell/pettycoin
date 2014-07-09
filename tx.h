@@ -23,9 +23,25 @@ static inline u32 num_inputs(const union protocol_tx *tx)
 	abort();
 }
 
+static inline u32 num_outputs(const union protocol_tx *tx)
+{
+	switch (tx_type(tx)) {
+	case TX_NORMAL:
+		/* A normal tx has a spend and a change output. */
+		return 2;
+	case TX_FROM_GATEWAY:
+		return le16_to_cpu(tx->gateway.num_outputs);
+	}
+	abort();
+}
+
 /* Find the output_num'th output in trans */
 bool find_output(const union protocol_tx *trans, u16 output_num,
 		 struct protocol_address *addr, u32 *amount);
+
+/* We know tx duplicated inp, but which one? */
+u32 find_matching_input(const union protocol_tx *tx,
+			const struct protocol_input *inp);
 
 static inline struct protocol_input *
 get_normal_inputs(const struct protocol_tx_normal *tx)

@@ -39,6 +39,8 @@ void publish_complaint(struct state *state,
 
 	/* Tell everyone (except origin!) */
 	broadcast_to_peers(state, complaint, origin);
+
+	/* FIXME: Remove transactions and inputs from hashes. */
 }
 
 void complain_bad_input(struct state *state,
