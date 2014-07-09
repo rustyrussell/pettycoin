@@ -20,10 +20,9 @@ struct pending_block *new_pending_block(struct state *state)
 	struct pending_block *b = tal(state, struct pending_block);
 	unsigned int i;
 
-	for (i = 0; i < ARRAY_SIZE(b->pending_counts); i++) {
-		b->pending_counts[i] = 0;
+	for (i = 0; i < ARRAY_SIZE(b->pend); i++)
 		b->pend[i] = tal_arr(b, struct pending_tx *, 0);
-	}
+
 	/* FIXME: time out or limit unknown txs. */
 	list_head_init(&b->unknown_tx);
 	b->num_unknown = 0;

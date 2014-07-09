@@ -20,7 +20,6 @@ struct pending_unknown_tx {
 struct pending_block {
 	u8 *prev_txhashes;
 	/* FIXME: make this [num_shards(state->preferred_chain)]! */
-	u32 pending_counts[1 << PROTOCOL_INITIAL_SHARD_ORDER];
 	/* Available for the next block. */
 	struct pending_tx **pend[1 << PROTOCOL_INITIAL_SHARD_ORDER];
 
