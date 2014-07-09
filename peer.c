@@ -25,6 +25,8 @@
 #include "recv_block.h"
 #include "tal_packet_proof.h"
 #include "proof.h"
+#include "complain.h"
+#include "input_refs.h"
 #include <ccan/io/io.h>
 #include <ccan/time/time.h>
 #include <ccan/tal/tal.h>
@@ -596,6 +598,165 @@ unknown:
 	goto done;
 }
 
+static enum protocol_ecode
+recv_tx_in_block(struct peer *peer, const struct protocol_pkt_tx_in_block *pkt)
+{
+	enum protocol_ecode e;
+	enum input_ecode ierr;
+	enum ref_ecode rerr;
+	union protocol_tx *tx;
+	struct protocol_input_ref *refs;
+	struct protocol_tx_with_proof *proof;
+	struct block *b, *block_referred_to;
+	struct protocol_double_sha sha;
+	unsigned int bad_input_num;
+	u16 shard;
+	size_t len = le32_to_cpu(pkt->len), used;
+
+	if (len < sizeof(*pkt))
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	len -= sizeof(*pkt);
+
+	e = le32_to_cpu(pkt->err);
+	if (e) {
+		struct protocol_position *pos = (void *)(pkt + 1);
+
+		if (len != sizeof(*pos))
+			return PROTOCOL_ECODE_INVALID_LEN;
+
+		if (e == PROTOCOL_ECODE_UNKNOWN_BLOCK) {
+			/* They don't know block at all, so don't ask. */
+			todo_done_get_block(peer, &pos->block, false);
+		} else if (e != PROTOCOL_ECODE_UNKNOWN_TX)
+			return PROTOCOL_ECODE_UNKNOWN_ERRCODE;
+
+		todo_done_get_tx_in_block(peer, &pos->block,
+					  le16_to_cpu(pos->shard),
+					  pos->txoff, false);
+		return PROTOCOL_ECODE_NONE;
+	}
+
+	if (len < sizeof(*proof))
+		return PROTOCOL_ECODE_INVALID_LEN;
+	len -= sizeof(*proof);
+
+	proof = (void *)(pkt + 1);
+	shard = le16_to_cpu(proof->pos.shard);
+
+	b = block_find_any(peer->state, &proof->pos.block);
+	if (!b) {
+		todo_add_get_block(peer->state, &proof->pos.block);
+		/* FIXME: should we extract transaction? */
+		return PROTOCOL_ECODE_NONE;
+	}
+
+	/* FIXME: We could check the proof before we check the tx & refs,
+	 * then if a buggy implementation tried to send us invalid tx
+	 * and refs we could turn it into a complaint. */
+
+	tx = (void *)(proof + 1);
+	e = unmarshal_tx(tx, len, &used);
+	if (e)
+		return e;
+	len -= used;
+
+	/* You can't send us bad txs this way: use a complaint packet. */
+	e = check_tx(peer->state, tx, b);
+	if (e)
+		return e;
+
+	refs = (void *)((char *)tx + used);
+	e = unmarshal_input_refs(refs, len, tx, &used);
+	if (e)
+		return e;
+
+	if (used != len)
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	e = check_refs(peer->state, b, refs, num_inputs(tx));
+	if (e)
+		return e;
+
+	if (!check_proof(&proof->proof, b, shard, proof->pos.txoff, tx, refs))
+		return PROTOCOL_ECODE_BAD_PROOF;
+
+	/* Whatever happens from here, no point asking others for tx. */
+	todo_done_get_tx_in_block(peer, &proof->pos.block,
+				  shard, proof->pos.txoff, true);
+
+	/* This may have been a response to GET_TX as well. */
+	hash_tx(tx, &sha);
+	todo_done_get_tx(peer, &sha, true);
+
+	/* Now it's proven that it's in the block, handle bad inputs. */
+	ierr = check_tx_inputs(peer->state, tx, &bad_input_num);
+	switch (ierr) {
+	case ECODE_INPUT_OK:
+		break;
+	case ECODE_INPUT_UNKNOWN:
+		/* Ask about this input. */
+		todo_add_get_tx(peer->state,
+				&tx_input(tx, bad_input_num)->input);
+		/* FIXME: Keep tx and proof around for later! */
+		return PROTOCOL_ECODE_NONE;
+	case ECODE_INPUT_BAD:
+		/* This whole block is invalid.  Tell everyone. */
+		complain_bad_input(peer->state, b, shard,
+				   proof->pos.txoff, &proof->proof,
+				   tx, refs, bad_input_num);
+		return PROTOCOL_ECODE_NONE;
+	case ECODE_INPUT_BAD_AMOUNT:
+		/* This whole block is invalid.  Tell everyone. */
+		complain_bad_amount(peer->state, b, shard,
+				    proof->pos.txoff, &proof->proof,
+				    tx, refs);
+		return PROTOCOL_ECODE_NONE;
+	}
+
+	rerr = check_tx_refs(peer->state, b, tx, refs,
+			     &bad_input_num, &block_referred_to);
+	switch (rerr) {
+	case ECODE_REF_OK:
+		break;
+	case ECODE_REF_UNKNOWN:
+		/* This can happen if we know the tx, but don't know it
+		 * is at that position.  We need to get it. */
+		todo_add_get_tx_in_block(peer->state, &block_referred_to->sha,
+					 shard, refs[bad_input_num].txoff);
+		/* FIXME: Keep tx and proof around for later! */
+		return PROTOCOL_ECODE_NONE;
+	case ECODE_REF_BAD_HASH:
+		/* Tell everyone this block is bad due to bogus input_ref */
+		complain_bad_input_ref(peer->state, b, shard,
+				       proof->pos.txoff, &proof->proof,
+				       tx, refs, bad_input_num,
+				       block_referred_to);
+		return PROTOCOL_ECODE_NONE;
+	}
+
+	if (!b->shard[shard]) {
+		b->shard[shard] = new_block_shard(b, shard,
+						  num_txs_in_shard(b, shard));
+		/* Don't need to check order when it's empty. */
+	} else {
+		u8 conflict_txoff;
+		if (!check_tx_ordering(peer->state, b, b->shard[shard],
+				       proof->pos.txoff, tx, &conflict_txoff)) {
+			/* Tell everyone that txs are out of order in block */
+			complain_misorder(peer->state, b, shard,
+					  proof->pos.txoff, &proof->proof,
+					  tx, refs, conflict_txoff);
+			return PROTOCOL_ECODE_NONE;
+		}
+	}
+
+	/* Copy in tx and refs. */
+	put_tx_in_shard(peer->state, b, b->shard[shard], proof->pos.txoff,
+			txptr_with_ref(b->shard[shard], tx, refs));
+	return PROTOCOL_ECODE_NONE;
+}
+
 static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 {
 	const struct protocol_net_hdr *hdr = peer->incoming;
@@ -656,15 +817,28 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 	case PROTOCOL_PKT_GET_TX_IN_BLOCK:
 		err = recv_get_tx_in_block(peer, peer->incoming, &reply);
 		break;
-
-	/* FIXME! */
 	case PROTOCOL_PKT_TX_IN_BLOCK:
-		/* If we don't know block, ask about block.
-		 * Otherwise, if it's in our interest:
-		 *      If we don't know inputs, ask for them.
-		 *      Otherwise, place in block.
-		 *	Save TX to disk.
-		 */
+		err = recv_tx_in_block(peer, peer->incoming);
+		break;
+
+	/* FIXME: Implement! */
+	case PROTOCOL_PKT_GET_TX:
+	case PROTOCOL_PKT_GET_TXMAP:	
+	case PROTOCOL_PKT_TXMAP:
+	case PROTOCOL_PKT_TX_BAD_INPUT:
+	case PROTOCOL_PKT_TX_BAD_AMOUNT:
+
+	/* FIXME: Implement complaints. */
+	case PROTOCOL_PKT_BLOCK_TX_MISORDER:
+	case PROTOCOL_PKT_BLOCK_TX_INVALID:
+	case PROTOCOL_PKT_BLOCK_TX_BAD_INPUT:
+	case PROTOCOL_PKT_BLOCK_BAD_INPUT_REF:
+	case PROTOCOL_PKT_BLOCK_TX_BAD_AMOUNT:
+
+	/* These should not be used after sync. */
+	case PROTOCOL_PKT_WELCOME:
+	case PROTOCOL_PKT_HORIZON:
+	case PROTOCOL_PKT_SYNC:
 	default:
 		err = PROTOCOL_ECODE_UNKNOWN_COMMAND;
 	}

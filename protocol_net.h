@@ -34,7 +34,7 @@ enum protocol_pkt_type {
 	/* Please tell me about this block */
 	PROTOCOL_PKT_GET_BLOCK,
 	/* Response to the above */
-	PROTOCOL_PKT_UNKNOWN_BLOCK,
+	PROTOCOL_PKT_UNKNOWN_BLOCK, /* FIXME: Put err in PKT_BLOCK */
 	/* Here's a block (may be response to GET_BLOCK, or spontaneous) */
 	PROTOCOL_PKT_BLOCK,
 	/* Please tell me about this shard */

@@ -224,6 +224,8 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "PROTOCOL_ECODE_TX_BAD_SIG"; break;
 		case PROTOCOL_ECODE_TX_TOO_MANY_INPUTS:
 			name = "PROTOCOL_ECODE_TX_TOO_MANY_INPUTS"; break;
+		case PROTOCOL_ECODE_BAD_PROOF:
+			name = "PROTOCOL_ECODE_BAD_PROOF"; break;
 		case PROTOCOL_ECODE_REF_BAD_BLOCKS_AGO:
 			name = "PROTOCOL_ECODE_REF_BAD_BLOCKS_AGO"; break;
 		case PROTOCOL_ECODE_REF_BAD_SHARD:
