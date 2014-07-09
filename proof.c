@@ -33,20 +33,15 @@ void create_proof(struct protocol_proof *proof,
 }
 
 /* What does proof say the merkle should be? */
-static void proof_merkles_to(const union protocol_tx *tx,
-			     const struct protocol_input_ref *refs,
+static void proof_merkles_to(const struct protocol_net_txrefhash *txrefhash,
 			     u8 txoff,
 			     const struct protocol_proof *proof,
 			     struct protocol_double_sha *sha)
 {
 	unsigned int i;
-	struct protocol_net_txrefhash txrefhash;
-
-	/* Start with hash of transaction. */
-	hash_tx_and_refs(tx, refs, &txrefhash);
 
 	/* Combine them together. */
-	merkle_two_hashes(&txrefhash.txhash, &txrefhash.refhash, sha);
+	merkle_two_hashes(&txrefhash->txhash, &txrefhash->refhash, sha);
 
 	for (i = 0; i < 8; i++) {
 		if (txoff & (1 << i)) {
@@ -59,11 +54,10 @@ static void proof_merkles_to(const union protocol_tx *tx,
 	}
 }
 
-bool check_proof(const struct protocol_proof *proof,
-		 const struct block *b,
-		 u16 shardnum, u8 txoff,
-		 const union protocol_tx *tx,
-		 const struct protocol_input_ref *refs)
+bool check_proof_byhash(const struct protocol_proof *proof,
+			const struct block *b,
+			u16 shardnum, u8 txoff,
+			const struct protocol_net_txrefhash *txrefhash)
 {
 	struct protocol_double_sha merkle;
 
@@ -75,7 +69,21 @@ bool check_proof(const struct protocol_proof *proof,
 	if (txoff >= b->shard_nums[shardnum])
 		return false;
 
-	proof_merkles_to(tx, refs, txoff, proof, &merkle);
+	proof_merkles_to(txrefhash, txoff, proof, &merkle);
 
 	return structeq(&b->merkles[shardnum], &merkle);
+}
+
+bool check_proof(const struct protocol_proof *proof,
+		 const struct block *b,
+		 u16 shardnum, u8 txoff,
+		 const union protocol_tx *tx,
+		 const struct protocol_input_ref *refs)
+{
+	struct protocol_net_txrefhash txrefhash;
+
+	/* Start with hash of transaction. */
+	hash_tx_and_refs(tx, refs, &txrefhash);
+
+	return check_proof_byhash(proof, b, shardnum, txoff, &txrefhash);
 }

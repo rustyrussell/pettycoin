@@ -30,6 +30,7 @@
 #include "peer_wants.h"
 #include "addr.h"
 #include "tx_cmp.h"
+#include "shadouble.h"
 #include <ccan/io/io.h>
 #include <ccan/time/time.h>
 #include <ccan/tal/tal.h>
@@ -1193,6 +1194,83 @@ recv_complain_tx_misorder(struct peer *peer,
 	return PROTOCOL_ECODE_NONE;
 }
 
+static enum protocol_ecode
+recv_complain_tx_invalid(struct peer *peer,
+			 const struct protocol_pkt_complain_tx_invalid *pkt)
+{
+	const void *tx, *refs;
+	const struct protocol_tx_with_proof *proof;
+	enum protocol_ecode e;
+	struct block *b;
+	const char *p;
+	size_t len = le32_to_cpu(pkt->len), txlen, reflen;
+	struct protocol_net_txrefhash txrefhash;
+	SHA256_CTX shactx;
+
+	if (len < sizeof(*pkt))
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	p = (const char *)(pkt + 1);
+	len -= sizeof(*pkt);
+
+	if (len < sizeof(*proof))
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	proof = (const struct protocol_tx_with_proof *)p;
+	len -= sizeof(*proof);
+	p += sizeof(*proof);
+
+	b = block_find_any(peer->state, &proof->pos.block);
+	if (!b) {
+		/* If we don't know it, that's OK.  Try to find out. */
+		todo_add_get_block(peer->state, &proof->pos.block);
+		/* FIXME: Keep complaint in this case? */
+		return PROTOCOL_ECODE_NONE;
+	}
+
+	/* These may be malformed, so we don't rely on unmarshal_tx */
+	txlen = le32_to_cpu(pkt->txlen);
+	if (len < txlen)
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	tx = (const void *)p;
+	len -= txlen;
+	p += txlen;
+
+	reflen = len;
+	refs = (const void *)p;
+
+	/* Figure out what's wrong with it. */
+	e = unmarshal_tx(tx, txlen, NULL);
+	if (e == PROTOCOL_ECODE_NONE) {
+		e = check_tx(peer->state, tx, b);
+		if (e == PROTOCOL_ECODE_NONE)
+			return PROTOCOL_ECODE_COMPLAINT_INVALID;
+	}
+
+	/* In theory we don't need to know the error, but it's good for
+	 * diagnosing problems. */
+	if (e != le32_to_cpu(pkt->error))
+		return PROTOCOL_ECODE_COMPLAINT_INVALID;
+
+	/* Treat tx and refs as blobs for hashing. */
+	SHA256_Init(&shactx);
+	SHA256_Update(&shactx, tx, txlen);
+	SHA256_Double_Final(&shactx, &txrefhash.txhash);
+
+	SHA256_Init(&shactx);
+	SHA256_Update(&shactx, refs, reflen);
+	SHA256_Double_Final(&shactx, &txrefhash.refhash);
+
+	if (!check_proof_byhash(&proof->proof, b, le16_to_cpu(proof->pos.shard),
+				proof->pos.txoff, &txrefhash))
+		return PROTOCOL_ECODE_BAD_PROOF;
+
+	/* Mark it invalid, and tell everyone else if it wasn't already. */
+	publish_complaint(peer->state, b, tal_packet_dup(b, pkt), peer);
+	return PROTOCOL_ECODE_NONE;
+}
+
 static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 {
 	const struct protocol_net_hdr *hdr = peer->incoming;
@@ -1272,8 +1350,11 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 	case PROTOCOL_PKT_COMPLAIN_TX_MISORDER:
 		err = recv_complain_tx_misorder(peer, peer->incoming);
 		break;
-
 	case PROTOCOL_PKT_COMPLAIN_TX_INVALID:
+		err = recv_complain_tx_invalid(peer, peer->incoming);
+		break;
+
+	/* FIXME: Implement complaints. */
 	case PROTOCOL_PKT_COMPLAIN_TX_BAD_INPUT:
 	case PROTOCOL_PKT_COMPLAIN_TX_BAD_AMOUNT:
 	case PROTOCOL_PKT_COMPLAIN_BAD_INPUT_REF:

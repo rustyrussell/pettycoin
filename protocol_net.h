@@ -329,6 +329,7 @@ struct protocol_pkt_complain_tx_invalid {
 	le32 type; /* PROTOCOL_PKT_COMPLAIN_TX_INVALID */
 
 	/* What is wrong with it, one of:
+	 *  PROTOCOL_ECODE_INVALID_LEN
 	 *  PROTOCOL_ECODE_TX_HIGH_VERSION
 	 *  PROTOCOL_ECODE_TX_LOW_VERSION
 	 *  PROTOCOL_ECODE_TX_TYPE_UNKNOWN
@@ -337,12 +338,15 @@ struct protocol_pkt_complain_tx_invalid {
 	 *  PROTOCOL_ECODE_TX_TOO_LARGE
 	 *  PROTOCOL_ECODE_TX_BAD_SIG
 	 *  PROTOCOL_ECODE_TX_TOO_MANY_INPUTS
-	 *  PROTOCOL_ECODE_SHARD_BAD_INPUT_REF
 	 */
 	le32 error;
 
+	/* It may not be unmarshallable (PROTOCOL_ECODE_TX_HIGH_VERSION
+	 * or PROTOCOL_ECODE_TX_TYPE_UNKNOWN), so explicitly say how big */
+	le32 txlen;
+
 	/*
-	  struct protocol_trans_with_proof proof;
+	  struct protocol_tx_with_proof proof;
 	*/
 };
 
