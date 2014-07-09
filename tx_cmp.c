@@ -1,11 +1,11 @@
-#include "tx_cmp.h"
-#include "protocol.h"
-#include "marshal.h"
 #include "addr.h"
+#include "marshal.h"
+#include "protocol.h"
 #include "tx.h"
-#include <string.h>
-#include <stdlib.h>
+#include "tx_cmp.h"
 #include <assert.h>
+#include <stdlib.h>
+#include <string.h>
 
 /* Returns < 0 if a before b, > 0 if a after b, 0 if equal. */
 int tx_cmp(const union protocol_tx *a,

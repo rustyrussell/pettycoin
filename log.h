@@ -1,5 +1,6 @@
 #ifndef PETTYCOIN_LOG_H
 #define PETTYCOIN_LOG_H
+#include "config.h"
 #include <ccan/tal/tal.h>
 #include <stdarg.h>
 

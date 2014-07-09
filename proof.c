@@ -1,11 +1,11 @@
-#include <ccan/structeq/structeq.h>
-#include "proof.h"
-#include "merkle_txs.h"
 #include "block.h"
+#include "merkle_recurse.h"
+#include "merkle_txs.h"
+#include "proof.h"
 #include "shadouble.h"
 #include "shard.h"
-#include "merkle_recurse.h"
 #include <assert.h>
+#include <ccan/structeq/structeq.h>
 
 void create_proof(struct protocol_proof *proof,
 		  const struct block_shard *shard, u8 txoff)

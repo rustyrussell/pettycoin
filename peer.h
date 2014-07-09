@@ -1,5 +1,6 @@
 #ifndef PETTYCOIN_PEER_H
 #define PETTYCOIN_PEER_H
+#include "config.h"
 #include "protocol_net.h"
 #include <ccan/list/list.h>
 #include <stdbool.h>

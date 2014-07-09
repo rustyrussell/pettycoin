@@ -1,7 +1,8 @@
 #ifndef PETTYCOIN_MARSHAL_H
 #define PETTYCOIN_MARSHAL_H
-#include <ccan/tal/tal.h>
+#include "config.h"
 #include "protocol_net.h"
+#include <ccan/tal/tal.h>
 
 /* FIXME: This got ugly fast :(  Rewrite in terms of pull and push-styl
  * primitives. */

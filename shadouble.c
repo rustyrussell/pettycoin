@@ -1,5 +1,5 @@
-#include "shadouble.h"
 #include "protocol.h"
+#include "shadouble.h"
 
 /* Double SHA256, as per bitcoin */
 void SHA256_Double_Final(SHA256_CTX *ctx,

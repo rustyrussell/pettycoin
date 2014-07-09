@@ -1,5 +1,6 @@
 #ifndef PETTYCOIN_CREATE_REFS_H
 #define PETTYCOIN_CREATE_REFS_H
+#include "config.h"
 
 struct state;
 struct block;

@@ -1,5 +1,5 @@
-#include "features.h"
 #include "block.h"
+#include "features.h"
 #include <ccan/array_size/array_size.h>
 
 u8 pending_features(const struct block *block)

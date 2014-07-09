@@ -1,11 +1,11 @@
 #include "marshal.h"
 #include "shadouble.h"
 #include "signature.h"
-#include <ccan/cast/cast.h>
-#include <ccan/array_size/array_size.h>
-#include <openssl/ecdsa.h>
 #include <assert.h>
+#include <ccan/array_size/array_size.h>
+#include <ccan/cast/cast.h>
 #include <openssl/bn.h>
+#include <openssl/ecdsa.h>
 #include <openssl/ecdsa.h>
 #include <openssl/obj_mac.h>
 

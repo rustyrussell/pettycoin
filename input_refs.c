@@ -1,9 +1,9 @@
-#include <ccan/structeq/structeq.h>
-#include "input_refs.h"
-#include "chain.h"
-#include "shard.h"
 #include "block_shard.h"
+#include "chain.h"
+#include "input_refs.h"
+#include "shard.h"
 #include "tx.h"
+#include <ccan/structeq/structeq.h>
 
 static enum protocol_ecode check_ref(struct state *state,
 				     const struct block *block,

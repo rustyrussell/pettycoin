@@ -1,5 +1,6 @@
 #ifndef PETTYCOIN_MERKLE_RECURSE_H
 #define PETTYCOIN_MERKLE_RECURSE_H
+#include "config.h"
 #include <stddef.h>
 
 struct protocol_double_sha;

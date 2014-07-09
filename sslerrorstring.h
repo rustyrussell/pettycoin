@@ -1,5 +1,6 @@
 #ifndef PETTYCOIN_SSLERRORSTRING_H
 #define PETTYCOIN_SSLERRORSTRING_H
+#include "config.h"
 #include <openssl/err.h>
 
 static inline const char *ssl_error_string(void)

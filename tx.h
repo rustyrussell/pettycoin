@@ -1,9 +1,10 @@
 #ifndef PETTYCOIN_TX_H
 #define PETTYCOIN_TX_H
+#include "config.h"
 #include "protocol.h"
-#include <stdlib.h>
-#include <stdbool.h>
 #include <assert.h>
+#include <stdbool.h>
+#include <stdlib.h>
 
 /* Only normal transactions have inputs; 0 for others. */
 static inline u32 num_inputs(const union protocol_tx *tx)

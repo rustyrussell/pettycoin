@@ -1,8 +1,9 @@
 /* FIXME: rename to tal_packet */
 #ifndef PETTYCOIN_PACKET_H
 #define PETTYCOIN_PACKET_H
-#include <ccan/tal/tal.h>
+#include "config.h"
 #include <ccan/short_types/short_types.h>
+#include <ccan/tal/tal.h>
 
 #define tal_packet(ctx, type, enumtype) \
 	((type *)tal_packet_((ctx), sizeof(type), (enumtype)))

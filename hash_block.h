@@ -1,5 +1,6 @@
 #ifndef PETTYCOIN_HASH_BLOCK_H
 #define PETTYCOIN_HASH_BLOCK_H
+#include "config.h"
 #include "protocol.h"
 
 void hash_block(const struct protocol_block_header *hdr,

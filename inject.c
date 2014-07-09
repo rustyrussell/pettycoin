@@ -14,26 +14,26 @@
  cUjJCgPjWAdsJBm85zwCg7ekLYkeeRRoUmkNk3wYydrhbHYKxnwt
  $ ./inject tx cTQSBNmMkbCUdFetsnSfzdAiJcdngQsKLyYWVTKgm6fE9GLN74qR localhost 56344 50 50 mv5fpRMAhaPV9LBrAk3MaBH8FG13TpqTxD 6ac5ce095cb096d16ab81cf276486615df8714105bc0672639bbc31bfd8071c1/0
 */
+#include "addr.h"
+#include "base58.h"
+#include "create_tx.h"
+#include "hash_block.h"
+#include "hash_tx.h"
+#include "log.h"
+#include "marshal.h"
+#include "netaddr.h"
+#include "protocol_net.h"
+#include <assert.h>
 #include <ccan/err/err.h>
 #include <ccan/net/net.h>
 #include <ccan/read_write_all/read_write_all.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <stdio.h>
 #include <netdb.h>
-#include "base58.h"
-#include "create_tx.h"
-#include "protocol_net.h"
-#include "marshal.h"
-#include "netaddr.h"
-#include "addr.h"
-#include "hash_tx.h"
-#include "hash_block.h"
-#include "log.h"
-#include <string.h>
-#include <assert.h>
 #include <openssl/obj_mac.h>
 #include <signal.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 // Thus function based on bitcoin's key.cpp:

@@ -1,5 +1,6 @@
 #ifndef PETTYCOIN_MERKLE_TXS_H
 #define PETTYCOIN_MERKLE_TXS_H
+#include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <stddef.h>
 

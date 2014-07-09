@@ -1,20 +1,20 @@
-#include <ccan/structeq/structeq.h>
-#include "check_tx.h"
-#include "tx.h"
+#include "addr.h"
 #include "block.h"
 #include "chain.h"
+#include "check_tx.h"
 #include "gateways.h"
 #include "hash_tx.h"
 #include "overflows.h"
 #include "protocol.h"
-#include "addr.h"
 #include "shadouble.h"
+#include "shard.h"
 #include "signature.h"
 #include "state.h"
-#include "shard.h"
+#include "tx.h"
 #include "version.h"
 #include <assert.h>
 #include <ccan/endian/endian.h>
+#include <ccan/structeq/structeq.h>
 #include <ccan/tal/tal.h>
 
 /* Check signature. */

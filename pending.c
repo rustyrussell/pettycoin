@@ -1,17 +1,17 @@
-#include <ccan/asort/asort.h>
-#include <ccan/structeq/structeq.h>
-#include <ccan/array_size/array_size.h>
-#include "pending.h"
-#include "state.h"
-#include "generating.h"
-#include "tx_cmp.h"
+#include "block.h"
+#include "chain.h"
 #include "check_tx.h"
 #include "create_refs.h"
-#include "block.h"
+#include "generating.h"
 #include "peer.h"
-#include "chain.h"
-#include "timestamp.h"
+#include "pending.h"
 #include "shard.h"
+#include "state.h"
+#include "timestamp.h"
+#include "tx_cmp.h"
+#include <ccan/array_size/array_size.h>
+#include <ccan/asort/asort.h>
+#include <ccan/structeq/structeq.h>
 
 struct pending_block *new_pending_block(struct state *state)
 {

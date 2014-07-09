@@ -1,5 +1,6 @@
 #ifndef PETTYCOIN_PACKET_IO_H
 #define PETTYCOIN_PACKET_IO_H
+#include "config.h"
 #include <ccan/io/io.h>
 
 /* All packets are "le32 len, type" then len-8 bytes. */

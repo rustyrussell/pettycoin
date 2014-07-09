@@ -1,13 +1,13 @@
-#include "merkle_txs.h"
-#include "merkle_recurse.h"
-#include "tx.h"
-#include "hash_tx.h"
-#include "protocol.h"
-#include "block_shard.h"
 #include "block.h"
+#include "block_shard.h"
+#include "hash_tx.h"
+#include "merkle_recurse.h"
+#include "merkle_txs.h"
+#include "protocol.h"
+#include "tx.h"
 #include <assert.h>
-#include <string.h>
 #include <ccan/tal/tal.h>
+#include <string.h>
 
 static void merkle_tx(size_t n, void *data, struct protocol_double_sha *merkle)
 {

@@ -1,14 +1,15 @@
 #ifndef PETTYCOIN_BLOCK_H
 #define PETTYCOIN_BLOCK_H
-#include <ccan/cast/cast.h>
-#include <ccan/bitmap/bitmap.h>
+#include "config.h"
+#include "block_shard.h"
 #include "protocol.h"
 #include "protocol_net.h"
 #include "state.h"
-#include "block_shard.h"
-#include <stdbool.h>
+#include <ccan/bitmap/bitmap.h>
+#include <ccan/cast/cast.h>
 #include <ccan/list/list.h>
 #include <openssl/bn.h>
+#include <stdbool.h>
 
 struct block {
 	/* In state->block_depths[le32_to_cpu(hdr->depth)]. */

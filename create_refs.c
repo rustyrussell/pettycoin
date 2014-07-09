@@ -1,10 +1,10 @@
-#include "create_refs.h"
-#include "txhash.h"
-#include "chain.h"
-#include "state.h"
 #include "block.h"
+#include "chain.h"
+#include "create_refs.h"
+#include "state.h"
 #include "timestamp.h"
 #include "tx.h"
+#include "txhash.h"
 #include <assert.h>
 
 /* We don't include transactions which are close to being timed out. */

@@ -1,12 +1,12 @@
-#include <ccan/structeq/structeq.h>
-#include "block_shard.h"
-#include "tx.h"
 #include "block.h"
-#include "shard.h"
-#include "merkle_txs.h"
+#include "block_shard.h"
 #include "check_tx.h"
+#include "merkle_txs.h"
 #include "proof.h"
+#include "shard.h"
+#include "tx.h"
 #include <assert.h>
+#include <ccan/structeq/structeq.h>
 
 /* For compactness, struct block_shard needs tx and refs adjacent. */
 struct txptr_with_ref txptr_with_ref(const tal_t *ctx,

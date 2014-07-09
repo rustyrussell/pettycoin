@@ -1,5 +1,6 @@
 #ifndef PETTYCOIN_ADDR_H
 #define PETTYCOIN_ADDR_H
+#include "config.h"
 #include "protocol.h"
 
 static inline void pubkey_to_addr(const struct protocol_pubkey *key,

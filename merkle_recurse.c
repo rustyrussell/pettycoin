@@ -1,6 +1,6 @@
 #include "merkle_recurse.h"
-#include "shadouble.h"
 #include "protocol.h"
+#include "shadouble.h"
 #include <assert.h>
 #include <string.h>
 

@@ -1,7 +1,8 @@
 #ifndef PETTYCOIN_PREV_TXHASHES_H
 #define PETTYCOIN_PREV_TXHASHES_H
-#include <ccan/tal/tal.h>
+#include "config.h"
 #include "block.h"
+#include <ccan/tal/tal.h>
 
 size_t num_prev_txhashes(const struct block *prev);
 

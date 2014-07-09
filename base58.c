@@ -3,13 +3,13 @@
 // Copyright (c) 2009-2012 The Bitcoin Developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
-#include <openssl/sha.h>
-#include <assert.h>
-#include <string.h>
-#include <ccan/build_assert/build_assert.h>
-#include <ccan/tal/str/str.h>
 #include "base58.h"
 #include "state.h"
+#include <assert.h>
+#include <ccan/build_assert/build_assert.h>
+#include <ccan/tal/str/str.h>
+#include <openssl/sha.h>
+#include <string.h>
 
 /* Encoding is version byte + ripemd160 + 4-byte checksum == 200 bits => 2^200.
  *

@@ -1,11 +1,11 @@
 #include "create_tx.h"
-#include "tx.h"
 #include "hash_tx.h"
 #include "merkle_txs.h"
 #include "signature.h"
+#include "tx.h"
 #include "version.h"
-#include <ccan/tal/tal.h>
 #include <assert.h>
+#include <ccan/tal/tal.h>
 
 static union protocol_tx *
 alloc_tx(const tal_t *ctx, enum protocol_tx_type type, u16 num)

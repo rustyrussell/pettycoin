@@ -1,9 +1,10 @@
 #ifndef PETTYCOIN_PENDING_H
 #define PETTYCOIN_PENDING_H
+#include "config.h"
+#include "block.h"
+#include "protocol.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
-#include "protocol.h"
-#include "block.h"
 
 struct pending_tx {
 	const union protocol_tx *tx;

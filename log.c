@@ -1,9 +1,9 @@
 #include "log.h"
 #include "pseudorand.h"
 #include <ccan/list/list.h>
-#include <ccan/time/time.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/str/str.h>
+#include <ccan/time/time.h>
 #include <stdio.h>
 
 struct log_entry {

@@ -1,5 +1,5 @@
-#include "protocol.h"
 #include "block.h"
+#include "protocol.h"
 #include <ccan/err/err.h>
 #include <stdio.h>
 #include <stdlib.h>

@@ -3,34 +3,34 @@
  *
  * Lyrics by The Who.
  */
-#include <ccan/asort/asort.h>
-#include <ccan/str/str.h>
-#include <ccan/err/err.h>
-#include <ccan/tal/tal.h>
-#include <ccan/read_write_all/read_write_all.h>
+#include "block.h"
+#include "difficulty.h"
+#include "features.h"
+#include "generate.h"
+#include "marshal.h"
+#include "merkle_hashes.h"
+#include "packet.h"
+#include "protocol.h"
+#include "shadouble.h"
+#include "timestamp.h"
+#include "tx_cmp.h"
+#include "version.h"
+#include "version.h"
+#include <assert.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/asort/asort.h>
 #include <ccan/cast/cast.h>
-#include <stdio.h>
-#include <unistd.h>
+#include <ccan/err/err.h>
+#include <ccan/read_write_all/read_write_all.h>
+#include <ccan/str/str.h>
+#include <ccan/tal/tal.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <stdio.h>
 #include <sys/select.h>
-#include <errno.h>
 #include <time.h>
-#include "version.h"
-#include "features.h"
-#include "protocol.h"
-#include "merkle_hashes.h"
-#include "block.h"
-#include "shadouble.h"
-#include "version.h"
-#include "tx_cmp.h"
-#include "difficulty.h"
-#include "marshal.h"
-#include "generate.h"
-#include "timestamp.h"
-#include "packet.h"
-#include <assert.h>
+#include <unistd.h>
 
 static volatile bool input = true;
 

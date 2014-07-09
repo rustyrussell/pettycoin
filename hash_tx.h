@@ -1,5 +1,6 @@
 #ifndef PETTYCOIN_HASH_TX_H
 #define PETTYCOIN_HASH_TX_H
+#include "config.h"
 #include <stddef.h>
 
 union protocol_tx;

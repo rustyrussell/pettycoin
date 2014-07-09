@@ -1,5 +1,5 @@
-#include "txhash.h"
 #include "block.h"
+#include "txhash.h"
 
 static struct txhash_elem *txhash_i(struct htable *ht,
 				    const struct protocol_double_sha *sha,

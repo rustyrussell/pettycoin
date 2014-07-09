@@ -1,5 +1,6 @@
 #ifndef PETTYCOIN_GENERATING_H
 #define PETTYCOIN_GENERATING_H
+#include "config.h"
 #include <ccan/short_types/short_types.h>
 
 struct state;

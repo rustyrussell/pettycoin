@@ -1,5 +1,6 @@
 #ifndef PETTYCOIN_SIGNATURES_H
 #define PETTYCOIN_SIGNATURES_H
+#include "config.h"
 #include "protocol.h"
 #include <openssl/ec.h>
 #include <stdbool.h>

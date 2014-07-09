@@ -1,14 +1,14 @@
-#include <ccan/endian/endian.h>
-#include <ccan/build_assert/build_assert.h>
-#include "marshal.h"
-#include "protocol_net.h"
-#include "overflows.h"
 #include "block.h"
+#include "log.h"
+#include "marshal.h"
+#include "overflows.h"
+#include "peer.h"
+#include "protocol_net.h"
 #include "tx.h"
 #include "version.h"
-#include "peer.h"
-#include "log.h"
 #include <assert.h>
+#include <ccan/build_assert/build_assert.h>
+#include <ccan/endian/endian.h>
 
 enum protocol_ecode
 unmarshal_block_into(struct log *log,

@@ -1,7 +1,8 @@
 #ifndef PETTYCOIN_CREATE_TX_H
 #define PETTYCOIN_CREATE_TX_H
-#include <ccan/tal/tal.h>
+#include "config.h"
 #include "protocol.h"
+#include <ccan/tal/tal.h>
 #include <openssl/ec.h>
 
 union protocol_tx *

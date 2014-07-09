@@ -1,20 +1,20 @@
-#include "protocol_net.h"
-#include "state.h"
-#include "marshal.h"
-#include "check_block.h"
 #include "block.h"
 #include "blockfile.h"
+#include "check_block.h"
+#include "marshal.h"
 #include "packet.h"
 #include "packet_io.h"
+#include "protocol_net.h"
 #include "shard.h"
+#include "state.h"
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
 #include <ccan/read_write_all/read_write_all.h>
-#include <stdbool.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
 #include <fcntl.h>
+#include <stdbool.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 static bool load_block(struct state *state, struct protocol_net_hdr *pkt)
 {

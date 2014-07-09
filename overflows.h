@@ -1,7 +1,8 @@
 #ifndef PETTYCOIN_OVERFLOWS_H
 #define PETTYCOIN_OVERFLOWS_H
-#include <stddef.h>
+#include "config.h"
 #include <stdbool.h>
+#include <stddef.h>
 
 static inline bool mul_overflows(size_t a, size_t b)
 {

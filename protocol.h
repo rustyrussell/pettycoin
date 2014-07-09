@@ -1,9 +1,10 @@
 #ifndef PETTYCOIN_PROTOCOL_H
 #define PETTYCOIN_PROTOCOL_H
-#include <ccan/short_types/short_types.h>
+#include "config.h"
 #include <ccan/endian/endian.h>
-#include <openssl/sha.h>
+#include <ccan/short_types/short_types.h>
 #include <openssl/ripemd.h>
+#include <openssl/sha.h>
 
 /* How many previous blocks do we record a hash for? */
 #define PROTOCOL_PREV_BLOCK_TXHASHES	10

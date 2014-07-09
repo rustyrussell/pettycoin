@@ -1,14 +1,15 @@
 #ifndef PETTYCOIN_STATE_H
 #define PETTYCOIN_STATE_H
-#include <stdbool.h>
-#include <ccan/list/list.h>
-#include <ccan/short_types/short_types.h>
-#include <ccan/endian/endian.h>
-#include <ccan/compiler/compiler.h>
-#include <ccan/bitmap/bitmap.h>
+#include "config.h"
+#include "log.h"
 #include "peer.h"
 #include "txhash.h"
-#include "log.h"
+#include <ccan/bitmap/bitmap.h>
+#include <ccan/compiler/compiler.h>
+#include <ccan/endian/endian.h>
+#include <ccan/list/list.h>
+#include <ccan/short_types/short_types.h>
+#include <stdbool.h>
 
 /* Our local state. */
 struct state {

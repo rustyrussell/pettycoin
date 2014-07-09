@@ -1,5 +1,6 @@
 #ifndef PETTYCOIN_GATEWAYS_H
 #define PETTYCOIN_GATEWAYS_H
+#include "config.h"
 #include <stdbool.h>
 
 struct state;

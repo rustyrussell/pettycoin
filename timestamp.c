@@ -1,9 +1,9 @@
-#include <ccan/asort/asort.h>
-#include <ccan/array_size/array_size.h>
-#include <time.h>
-#include "timestamp.h"
-#include "state.h"
 #include "block.h"
+#include "state.h"
+#include "timestamp.h"
+#include <ccan/array_size/array_size.h>
+#include <ccan/asort/asort.h>
+#include <time.h>
 
 /* Note: timestamps in pettycoin are *unsigned* */
 static int cmp_times(const u32 *a, const u32 *b, void *unused)

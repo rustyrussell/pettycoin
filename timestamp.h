@@ -1,7 +1,8 @@
 #ifndef PETTYCOIN_TIMESTAMP_H
 #define PETTYCOIN_TIMESTAMP_H
-#include <stdbool.h>
+#include "config.h"
 #include <ccan/short_types/short_types.h>
+#include <stdbool.h>
 
 struct state;
 struct block;

@@ -1,17 +1,17 @@
+#include "addr.h"
+#include "base58.h"
+#include "check_tx.h"
+#include "hash_tx.h"
+#include "input_refs.h"
 #include "log.h"
 #include "protocol.h"
 #include "protocol_net.h"
-#include "hash_tx.h"
 #include "tx.h"
-#include "base58.h"
-#include "addr.h"
-#include "check_tx.h"
-#include "input_refs.h"
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <errno.h>
+#include <netinet/in.h>
 #include <openssl/bn.h>
+#include <sys/socket.h>
 
 /* FIXME: Generate from headers! */
 void log_add_struct_(struct log *log, const char *structname, const void *ptr)

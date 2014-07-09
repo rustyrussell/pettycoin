@@ -1,14 +1,14 @@
-#include <ccan/tal/tal.h>
-#include <ccan/err/err.h>
-#include <openssl/bn.h>
-#include <unistd.h>
-#include "state.h"
 #include "genesis.h"
-#include "protocol_net.h"
-#include "pseudorand.h"
 #include "log.h"
 #include "peer.h"
 #include "pending.h"
+#include "protocol_net.h"
+#include "pseudorand.h"
+#include "state.h"
+#include <ccan/err/err.h>
+#include <ccan/tal/tal.h>
+#include <openssl/bn.h>
+#include <unistd.h>
 
 /* This keeps valgrind happy! */
 static void destroy_state(struct state *state)

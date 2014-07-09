@@ -1,17 +1,17 @@
-#include <ccan/structeq/structeq.h>
 #include "block.h"
 #include "chain.h"
-#include "protocol.h"
-#include "state.h"
-#include "peer.h"
+#include "features.h"
 #include "generating.h"
 #include "log.h"
-#include "pending.h"
 #include "packet.h"
+#include "peer.h"
+#include "pending.h"
 #include "proof.h"
-#include "tx.h"
-#include "features.h"
+#include "protocol.h"
 #include "shard.h"
+#include "state.h"
+#include "tx.h"
+#include <ccan/structeq/structeq.h>
 #include <string.h>
 
 struct block *block_find(struct block *start, const u8 lower_sha[4])

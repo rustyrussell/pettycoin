@@ -1,5 +1,6 @@
 #ifndef PETTYCOIN_MERKLE_HASHES_H
 #define PETTYCOIN_MERKLE_HASHES_H
+#include "config.h"
 #include <stddef.h>
 
 struct protocol_double_sha;

@@ -1,7 +1,8 @@
 #ifndef PETTYCOIN_WELCOME_H
 #define PETTYCOIN_WELCOME_H
-#include <ccan/tal/tal.h>
+#include "config.h"
 #include "protocol_net.h"
+#include <ccan/tal/tal.h>
 
 struct state;
 struct protocol_pkt_welcome *make_welcome(const tal_t *ctx,

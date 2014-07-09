@@ -1,11 +1,12 @@
 #ifndef PETTYCOIN_BASE58_H
 #define PETTYCOIN_BASE58_H
+#include "config.h"
 #include "protocol.h"
 #include <ccan/tal/tal.h>
+#include <openssl/bn.h>
+#include <openssl/ripemd.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <openssl/ripemd.h>
-#include <openssl/bn.h>
 
 /* Encoding is version byte + ripemd160 + 4-byte checksum == 200 bits => 2^200.
  *

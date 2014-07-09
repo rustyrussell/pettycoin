@@ -1,5 +1,6 @@
 #ifndef PETTYCOIN_INPUT_REFS_H
 #define PETTYCOIN_INPUT_REFS_H
+#include "config.h"
 #include "protocol_ecode.h"
 
 struct state;

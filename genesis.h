@@ -1,5 +1,6 @@
 #ifndef PETTYCOIN_GENESIS_H
 #define PETTYCOIN_GENESIS_H
+#include "config.h"
 #include "block.h"
 #include "block_shard.h"
 

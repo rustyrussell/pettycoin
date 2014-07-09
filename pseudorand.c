@@ -1,7 +1,7 @@
 #include "pseudorand.h"
 #include <ccan/err/err.h>
-#include <openssl/rand.h>
 #include <openssl/err.h>
+#include <openssl/rand.h>
 
 static struct isaac64_ctx isaac64_initted;
 struct isaac64_ctx *isaac64;

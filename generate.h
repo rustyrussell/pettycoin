@@ -1,5 +1,6 @@
 #ifndef PETTYCOIN_GENERATE_H
 #define PETTYCOIN_GENERATE_H
+#include "config.h"
 #include "protocol_net.h"
 
 /* Write this to generate's stdin to add a new transaction. */

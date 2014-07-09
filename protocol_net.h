@@ -1,5 +1,6 @@
 #ifndef PETTYCOIN_PROTOCOL_NET_H
 #define PETTYCOIN_PROTOCOL_NET_H
+#include "config.h"
 #include "protocol.h"
 #include "protocol_ecode.h"
 

@@ -1,13 +1,13 @@
 #include "dns.h"
-#include "protocol_net.h"
 #include "netaddr.h"
 #include "packet_io.h"
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
+#include "protocol_net.h"
 #include <assert.h>
-#include <ccan/tal/tal.h>
 #include <ccan/err/err.h>
+#include <ccan/tal/tal.h>
+#include <netdb.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 
 /* Async dns helper. */
 struct dns_info {

@@ -1,11 +1,11 @@
 #include "netaddr.h"
 #include "protocol_net.h"
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
 #include <errno.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 
 static bool is_ipv4(const struct protocol_net_address *addr)
 {

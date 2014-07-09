@@ -1,8 +1,8 @@
+#include "block.h"
+#include "marshal.h"
 #include "packet.h"
 #include "protocol.h"
 #include "protocol_net.h"
-#include "marshal.h"
-#include "block.h"
 #include <assert.h>
 
 void *tal_packet_(const tal_t *ctx, size_t len, int type)

@@ -1,10 +1,11 @@
 #ifndef PETTYCOIN_TXHASH_H
 #define PETTYCOIN_TXHASH_H
-#include <ccan/htable/htable_type.h>
-#include <string.h>
-#include <limits.h>
-#include "protocol.h"
+#include "config.h"
 #include "hash_tx.h"
+#include "protocol.h"
+#include <ccan/htable/htable_type.h>
+#include <limits.h>
+#include <string.h>
 
 struct txhash_elem {
 	struct protocol_double_sha sha;

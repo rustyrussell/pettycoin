@@ -1,7 +1,7 @@
-#include "tal_packet_proof.h"
 #include "block.h"
-#include "proof.h"
 #include "packet.h"
+#include "proof.h"
+#include "tal_packet_proof.h"
 
 void tal_packet_append_proof_(void *ppkt, const struct block *block,
 			      u16 shardnum, u8 txoff,

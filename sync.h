@@ -1,5 +1,7 @@
 #ifndef PETTYCOIN_SYNC_H
 #define PETTYCOIN_SYNC_H
+#include "config.h"
+
 struct peer;
 struct block;
 struct state;

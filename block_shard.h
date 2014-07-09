@@ -1,7 +1,8 @@
 #ifndef PETTYCOIN_BLOCK_SHARD_H
 #define PETTYCOIN_BLOCK_SHARD_H
-#include <ccan/bitmap/bitmap.h>
+#include "config.h"
 #include "marshal.h"
+#include <ccan/bitmap/bitmap.h>
 
 struct block;
 struct state;

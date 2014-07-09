@@ -1,5 +1,5 @@
-#include "hash_block.h"
 #include "block.h"
+#include "hash_block.h"
 #include "shadouble.h"
 #include "shard.h"
 #include <stdio.h>

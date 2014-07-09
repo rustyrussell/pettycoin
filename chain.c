@@ -1,13 +1,13 @@
-#include <ccan/structeq/structeq.h>
-#include "chain.h"
 #include "block.h"
+#include "chain.h"
+#include "generating.h"
 #include "peer.h"
 #include "pending.h"
-#include "generating.h"
-#include "todo.h"
 #include "shard.h"
-#include <time.h>
+#include "todo.h"
 #include <ccan/cast/cast.h>
+#include <ccan/structeq/structeq.h>
+#include <time.h>
 
 /* Simply block array helpers */
 static void set_single(const struct block ***arr, const struct block *b)

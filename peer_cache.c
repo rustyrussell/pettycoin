@@ -1,23 +1,23 @@
-#include <ccan/structeq/structeq.h>
-#include "peer_cache.h"
-#include "peer.h"
-#include "protocol_net.h"
-#include "state.h"
-#include "pseudorand.h"
 #include "log.h"
-#include <ccan/err/err.h>
-#include <ccan/noerr/noerr.h>
-#include <ccan/hash/hash.h>
-#include <ccan/cast/cast.h>
-#include <ccan/time/time.h>
+#include "peer.h"
+#include "peer_cache.h"
+#include "protocol_net.h"
+#include "pseudorand.h"
+#include "state.h"
 #include <ccan/array_size/array_size.h>
+#include <ccan/cast/cast.h>
+#include <ccan/err/err.h>
+#include <ccan/hash/hash.h>
+#include <ccan/noerr/noerr.h>
+#include <ccan/structeq/structeq.h>
 #include <ccan/tal/tal.h>
-#include <openssl/rand.h>
-#include <openssl/err.h>
-#include <unistd.h>
-#include <fcntl.h>
+#include <ccan/time/time.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <openssl/err.h>
+#include <openssl/rand.h>
 #include <stdbool.h>
+#include <unistd.h>
 
 /* We don't need more than 2,000 peer addresses. */
 #define PEER_HASH_BITS 12

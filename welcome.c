@@ -1,10 +1,10 @@
-#include <ccan/structeq/structeq.h>
-#include "welcome.h"
-#include "state.h"
-#include "version.h"
 #include "block.h"
 #include "packet.h"
 #include "shard.h"
+#include "state.h"
+#include "version.h"
+#include "welcome.h"
+#include <ccan/structeq/structeq.h>
 
 static void add_welcome_blocks(const struct state *state,
 			       struct protocol_pkt_welcome **w)

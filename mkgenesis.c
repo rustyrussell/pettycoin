@@ -4,22 +4,22 @@
  *
  * ./genesis 4 0x1dffffff "NYT Head"
  */
-#include <ccan/str/str.h>
-#include <ccan/err/err.h>
-#include <ccan/tal/tal.h>
-#include <ccan/read_write_all/read_write_all.h>
-#include <ccan/array_size/array_size.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/select.h>
-#include <signal.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <assert.h>
+#include "hash_block.h"
+#include "marshal.h"
 #include "protocol.h"
 #include "shadouble.h"
-#include "marshal.h"
-#include "hash_block.h"
+#include <assert.h>
+#include <ccan/array_size/array_size.h>
+#include <ccan/err/err.h>
+#include <ccan/read_write_all/read_write_all.h>
+#include <ccan/str/str.h>
+#include <ccan/tal/tal.h>
+#include <signal.h>
+#include <stdio.h>
+#include <sys/select.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 struct worker {
 	int txs_to_worker;

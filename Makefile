@@ -38,8 +38,13 @@ sizes: $(SIZES_OBJS) $(CCAN_OBJS)
 genesis.c:
 	$(MAKE) mkgenesis generate && ./mkgenesis 4 $(INITIAL_DIFFICULTY) "Some NYT Head" > $@.tmp; STATUS=$$?; if [ $$STATUS = 0 ]; then mv $@.tmp $@; else rm -f $@.tmp; exit $$STATUS; fi
 
-check:
+check: check-include-order
 	$(MAKE) -C test check
+
+check-include-order:
+	@for f in *.c; do if [ "$$(grep '^#include' < $$f)" != "$$(grep '^#include' < $$f | LANG=C sort)" ]; then echo "$$f:1: includes out of order"; exit 1; fi; done
+	@for f in $$(grep -l '^#include' *.h); do if [ "$$(grep '^#include' < $$f | head -n1)" != '#include "config.h"' ]; then echo "$$f:1: doesn't include config.h first"; exit 1; fi; done
+	@for f in $$(grep -l '^#include' *.h); do if [ "$$(grep '^#include' < $$f | tail -n +2)" != "$$(grep '^#include' < $$f | tail -n +2 | LANG=C sort)" ]; then echo "$$f:1: includes out of order"; fi; done
 
 clean:
 	$(RM) pettycoin generate mkgenesis sizes inject *.o

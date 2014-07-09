@@ -1,8 +1,8 @@
 #include "hash_tx.h"
 #include "marshal.h"
+#include "merkle_recurse.h"
 #include "protocol.h"
 #include "shadouble.h"
-#include "merkle_recurse.h"
 #include "tx.h"
 #include <assert.h>
 

@@ -1,5 +1,5 @@
-#include "tx.h"
 #include "addr.h"
+#include "tx.h"
 
 bool find_output(const union protocol_tx *tx, u16 output_num,
 		 struct protocol_address *addr, u32 *amount)

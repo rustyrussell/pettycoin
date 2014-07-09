@@ -1,7 +1,8 @@
 #ifndef PETTYCOIN_COMPLAIN_H
 #define PETTYCOIN_COMPLAIN_H
-#include <ccan/short_types/short_types.h>
+#include "config.h"
 #include "protocol_ecode.h"
+#include <ccan/short_types/short_types.h>
 #include <stdlib.h>
 
 struct state;

@@ -1,5 +1,6 @@
 #ifndef PETTYCOIN_RECV_BLOCK_H
 #define PETTYCOIN_RECV_BLOCK_H
+#include "config.h"
 #include <stdbool.h>
 
 struct protocol_pkt_block;

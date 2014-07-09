@@ -1,5 +1,6 @@
 #ifndef PETTYCOIN_SHARD_H
 #define PETTYCOIN_SHARD_H
+#include "config.h"
 #include "protocol.h"
 #include <string.h>
 

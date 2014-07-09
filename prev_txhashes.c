@@ -1,11 +1,11 @@
-#include <ccan/array_size/array_size.h>
+#include "block.h"
+#include "check_block.h"
 #include "merkle_txs.h"
 #include "prev_txhashes.h"
 #include "protocol.h"
-#include "block.h"
-#include "check_block.h"
-#include "shard.h"
 #include "shadouble.h"
+#include "shard.h"
+#include <ccan/array_size/array_size.h>
 
 size_t num_prev_txhashes(const struct block *prev)
 {

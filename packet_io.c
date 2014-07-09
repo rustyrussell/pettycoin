@@ -1,11 +1,11 @@
 #include "packet_io.h"
-#include <ccan/tal/tal.h>
-#include "protocol_net.h"
 #include "peer.h"
+#include "protocol_net.h"
 #include <assert.h>
+#include <ccan/tal/tal.h>
+#include <errno.h>
 #include <poll.h>
 #include <string.h>
-#include <errno.h>
 
 static int do_read_packet(int fd, struct io_plan *plan)
 {

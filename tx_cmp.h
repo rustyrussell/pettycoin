@@ -1,5 +1,6 @@
 #ifndef PETTYCOIN_TX_CMP_H
 #define PETTYCOIN_TX_CMP_H
+#include "config.h"
 #include <stdbool.h>
 #include <stddef.h>
 

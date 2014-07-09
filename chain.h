@@ -1,9 +1,10 @@
 /* Helpers for navigating the block chain(s) */
 #ifndef PETTYCOIN_CHAIN_H
 #define PETTYCOIN_CHAIN_H
-#include <stdbool.h>
-#include <ccan/short_types/short_types.h>
+#include "config.h"
 #include "block.h"
+#include <ccan/short_types/short_types.h>
+#include <stdbool.h>
 
 struct block;
 struct state;

@@ -1,10 +1,11 @@
 #ifndef PETTYCOIN_DIFFICULTY_H
 #define PETTYCOIN_DIFFICULTY_H
-#include <stdbool.h>
+#include "config.h"
+#include "protocol.h"
+#include <assert.h>
 #include <ccan/short_types/short_types.h>
 #include <openssl/bn.h>
-#include <assert.h>
-#include "protocol.h"
+#include <stdbool.h>
 
 struct state;
 struct block;

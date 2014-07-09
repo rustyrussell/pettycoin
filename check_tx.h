@@ -1,9 +1,10 @@
 #ifndef PETTYCOIN_CHECK_TX_H
 #define PETTYCOIN_CHECK_TX_H
+#include "config.h"
+#include "protocol_net.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdlib.h>
-#include "protocol_net.h"
 
 struct state;
 union protocol_tx;

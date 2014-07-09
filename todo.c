@@ -1,9 +1,9 @@
-#include <ccan/structeq/structeq.h>
-#include "todo.h"
-#include "state.h"
 #include "protocol_net.h"
-#include <ccan/tal/tal.h>
+#include "state.h"
+#include "todo.h"
 #include <ccan/io/io.h>
+#include <ccan/structeq/structeq.h>
+#include <ccan/tal/tal.h>
 
 /* Gets pointer to blk (and maybe batchnum) depending on todo type */
 static void get_todo_ptrs(struct state *state,

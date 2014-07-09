@@ -1,10 +1,11 @@
 #ifndef PETTYCOIN_CHECK_BLOCK_H
 #define PETTYCOIN_CHECK_BLOCK_H
+#include "config.h"
+#include "block_shard.h"
+#include "protocol_net.h"
+#include <ccan/short_types/short_types.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <ccan/short_types/short_types.h>
-#include "protocol_net.h"
-#include "block_shard.h"
 
 struct protocol_block_header;
 struct protocol_block_tailer;

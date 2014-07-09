@@ -1,11 +1,11 @@
-#include <ccan/err/err.h>
-#include <openssl/bn.h>
-#include <assert.h>
-#include "difficulty.h"
-#include "sslerrorstring.h"
 #include "block.h"
 #include "chain.h"
+#include "difficulty.h"
+#include "sslerrorstring.h"
 #include "state.h"
+#include <assert.h>
+#include <ccan/err/err.h>
+#include <openssl/bn.h>
 
 /* Based on bitcoin's difficulty calculation, with two differences:
  * 1) We don't have a sign bit in the mantissa.

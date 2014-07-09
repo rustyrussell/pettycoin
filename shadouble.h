@@ -1,5 +1,6 @@
 #ifndef PETTYCOIN_SHADOUBLE_H
 #define PETTYCOIN_SHADOUBLE_H
+#include "config.h"
 #include <openssl/sha.h>
 
 struct protocol_double_sha;

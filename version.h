@@ -1,5 +1,6 @@
 #ifndef PETTYCOIN_VERSION_H
 #define PETTYCOIN_VERSION_H
+#include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <stdbool.h>
 

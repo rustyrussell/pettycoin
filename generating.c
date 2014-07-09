@@ -1,26 +1,26 @@
-#include "generating.h"
-#include "difficulty.h"
-#include "state.h"
-#include "log.h"
-#include "pseudorand.h"
-#include "protocol_net.h"
-#include "marshal.h"
-#include "check_block.h"
 #include "block.h"
-#include "prev_txhashes.h"
+#include "blockfile.h"
+#include "chain.h"
+#include "check_block.h"
+#include "difficulty.h"
+#include "generate.h"
+#include "generating.h"
+#include "log.h"
+#include "marshal.h"
 #include "packet_io.h"
 #include "peer.h"
-#include "blockfile.h"
-#include "generate.h"
 #include "pending.h"
-#include "chain.h"
+#include "prev_txhashes.h"
+#include "protocol_net.h"
+#include "pseudorand.h"
 #include "recv_block.h"
+#include "state.h"
 #include "tx.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/io/io.h>
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <errno.h>
 
 static const struct protocol_address *generating_address(struct state *state)
 {

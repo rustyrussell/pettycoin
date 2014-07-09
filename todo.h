@@ -1,9 +1,10 @@
 #ifndef PETTYCOIN_TODO_H
 #define PETTYCOIN_TODO_H
-#include <ccan/list/list.h>
-#include <ccan/bitmap/bitmap.h>
+#include "config.h"
 #include "peer.h"
 #include "protocol_net.h"
+#include <ccan/bitmap/bitmap.h>
+#include <ccan/list/list.h>
 
 /* How many things can we ask each peer at once. */
 #define MAX_REQUESTS 4
