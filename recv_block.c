@@ -364,9 +364,6 @@ recv_shard(struct state *state, struct log *log, struct peer *peer,
 		  b->shard[shard]->hashcount,
 		  b->shard[shard]->size);
 
-	/* We might be able to resolve more pending refs now */
-	recheck_pending_txs(state);
-
 	return PROTOCOL_ECODE_NONE;
 }
 
@@ -417,5 +414,7 @@ bool recv_block_from_generator(struct state *state, struct log *log,
 		}
 	}
 
+	/* We call it manually here, since we're not in peer loop. */
+	recheck_pending_txs(state);
 	return true;
 }

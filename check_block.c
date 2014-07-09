@@ -137,8 +137,7 @@ bool check_tx_ordering(struct state *state,
 
 /* An input for this has been resolved; check it again. */
 static bool recheck_tx(struct state *state,
-		       const struct protocol_double_sha *tx,
-		       bool *pending_affected)
+		       const struct protocol_double_sha *tx)
 {
 	struct txhash_iter iter;
 	struct txhash_elem *te;
@@ -149,7 +148,7 @@ static bool recheck_tx(struct state *state,
 		struct protocol_proof proof;
 
 		if (te->status == TX_PENDING) {
-			*pending_affected = true;
+			state->pending->needs_recheck = true;
 			continue;
 		}
 		assert(!te->u.block->complaint);
@@ -179,7 +178,6 @@ static void check_resolved_txs(struct state *state,
 {
 	unsigned int i;
 	struct protocol_double_sha sha;
-	bool pending_affected = false;
 
 	hash_tx(tx, &sha);
 
@@ -192,14 +190,10 @@ static void check_resolved_txs(struct state *state,
 		for (ie = inputhash_firstval(&state->inputhash, &sha, i, &it);
 		     ie;
 		     ie = inputhash_nextval(&state->inputhash, &sha, i, &it)) {
-			if (!recheck_tx(state, &ie->used_by, &pending_affected))
+			if (!recheck_tx(state, &ie->used_by))
 				goto again;
 		}
 	}
-
-	/* Need to recheck pending: FIXME: This is overkill! */
-	if (pending_affected)
-		recheck_pending_txs(state);
 }
 
 void put_tx_in_shard(struct state *state,
@@ -249,6 +243,9 @@ void put_tx_in_shard(struct state *state,
 		update_block_ptrs_new_shard(state, block, shard->shardnum);
 	}
 
+	/* This could eliminate a pending tx. */
+	state->pending->needs_recheck = true;
+
 	/* Tell peers about the new tx in block. */
 	send_tx_in_block_to_peers(state, source, block, shard->shardnum, txoff);
 }
@@ -277,6 +274,9 @@ bool put_txhash_in_shard(struct state *state,
 
 	add_txhash_to_hashes(state, shard, block, shardnum, txoff,
 			     &txrefhash->txhash);
+
+	/* This could eliminate a pending tx. */
+	state->pending->needs_recheck = true;
 	return true;
 }
 

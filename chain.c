@@ -302,6 +302,8 @@ static bool update_known(struct state *state, struct block *block)
 	if (!update_known_recursive(state, block))
 		return false;
 
+	state->pending->needs_recheck = true;
+
 	order_block_pointers(state);
 	update_preferred_chain(state);
 	check_chains(state);
@@ -310,8 +312,6 @@ static bool update_known(struct state *state, struct block *block)
 		/* Any transactions from old branch go into pending. */
 		steal_pending_txs(state, prev_known, state->longest_knowns[0]);
 	}
-
-	recheck_pending_txs(state);
 
 	/* FIXME: If we've timed out asking about preferred_chain or
 	 * longest_knowns, refresh. */

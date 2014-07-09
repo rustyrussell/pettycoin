@@ -109,8 +109,6 @@ void complain_doublespend(struct state *state,
 void log_to_file(int fd, const struct log *log) { fprintf(stderr, "log_to_file called!\n"); abort(); }
 /* Generated stub for logv */
 void logv(struct log *log, enum log_level level, const char *fmt, va_list ap) { fprintf(stderr, "logv called!\n"); abort(); }
-/* Generated stub for recheck_pending_txs */
-void recheck_pending_txs(struct state *state) { fprintf(stderr, "recheck_pending_txs called!\n"); abort(); }
 /* Generated stub for save_shard */
 void save_shard(struct state *state, struct block *block, u16 shardnum) { fprintf(stderr, "save_shard called!\n"); abort(); }
 /* Generated stub for send_tx_in_block_to_peers */

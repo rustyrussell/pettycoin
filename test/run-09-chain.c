@@ -47,10 +47,6 @@ void block_to_pending(struct state *state, const struct block *block)
 {
 }
 
-void recheck_pending_txs(struct state *state)
-{
-}
-
 void check_block(struct state *state, const struct block *block)
 {
 }
@@ -77,7 +73,7 @@ struct log *new_log(const tal_t *ctx,
 
 struct pending_block *new_pending_block(struct state *state)
 {
-	return NULL;
+	return talz(state, struct pending_block);
 }
 
 u8 pending_features(const struct block *block)

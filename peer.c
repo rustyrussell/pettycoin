@@ -1857,6 +1857,10 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 	if (reply)
 		todo_for_peer(peer, reply);
 
+	/* FIXME: Do this in ccan/io, with a "before_sleep" callback? */
+	/* If things changed, this will make us recheck our pending txs. */
+	recheck_pending_txs(peer->state);
+
 	tal_free(ctx);
 	return io_read_packet(&peer->incoming, pkt_in, peer);
 }

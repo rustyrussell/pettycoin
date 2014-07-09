@@ -123,10 +123,6 @@ void save_shard(struct state *state, struct block *block, u16 shardnum)
 {
 }
 
-void recheck_pending_txs(struct state *state)
-{
-}
-
 void todo_add_get_shard(struct state *state,
 			const struct protocol_double_sha *block,
 			u16 shardnum)
@@ -143,7 +139,7 @@ struct log *new_log(const tal_t *ctx,
 
 struct pending_block *new_pending_block(struct state *state)
 {
-	return NULL;
+	return talz(state, struct pending_block);
 }
 
 int main(int argc, char *argv[])

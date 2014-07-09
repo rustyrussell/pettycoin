@@ -26,6 +26,7 @@ struct pending_block *new_pending_block(struct state *state)
 	/* FIXME: time out or limit unknown txs. */
 	list_head_init(&b->unknown_tx);
 	b->num_unknown = 0;
+	b->needs_recheck = false;
 	return b;
 }
 
@@ -57,8 +58,7 @@ static void add_to_unknown_pending(struct state *state,
 	state->pending->num_unknown++;
 }
 
-/* Transfer all transaction from this block into pending array.
- * You must call recheck_pending_txs() afterwards! */
+/* Transfer all transaction from this block into pending array */
 void block_to_pending(struct state *state, const struct block *block)
 {
 	unsigned int shard, i;
@@ -70,7 +70,9 @@ void block_to_pending(struct state *state, const struct block *block)
 			tx = tx_for(block->shard[shard], i);
 			if (!tx)
 				continue;
+			/* recheck_pending_txs() will sort it out */
 			add_to_unknown_pending(state, tx);
+			state->pending->needs_recheck = true;
 		}
 	}
 }
@@ -143,6 +145,11 @@ void recheck_pending_txs(struct state *state)
 	unsigned int i, shard;
 	const union protocol_tx **txs;
 	struct pending_unknown_tx *utx;
+
+	if (!state->pending->needs_recheck)
+		return;
+
+	state->pending->needs_recheck = false;
 
 	/* Size up and allocate an array. */
 	unknown = state->pending->num_unknown;

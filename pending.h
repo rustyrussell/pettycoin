@@ -23,6 +23,9 @@ struct pending_block {
 	/* Available for the next block. */
 	struct pending_tx **pend[1 << PROTOCOL_INITIAL_SHARD_ORDER];
 
+	/* Has the chain changed? */
+	bool needs_recheck;
+
 	/* List of pending_unknown_tx. */
 	struct list_head unknown_tx;
 	unsigned int num_unknown;
@@ -36,7 +39,7 @@ struct protocol_tx_gateway;
 /* Transfer any transactions we can from block. */
 void block_to_pending(struct state *state, const struct block *block);
 
-/* Make sure pending txs are OK (call after block_to_pending). */
+/* Make sure pending txs are OK. */
 void recheck_pending_txs(struct state *state);
 
 /* Add a new transaction from peer to the current block. */

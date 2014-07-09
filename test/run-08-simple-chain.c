@@ -47,8 +47,6 @@ void merkle_txs(const struct block_shard *shard,
 		struct protocol_double_sha *merkle) { fprintf(stderr, "merkle_txs called!\n"); abort(); }
 /* Generated stub for pending_features */
 u8 pending_features(const struct block *block) { fprintf(stderr, "pending_features called!\n"); abort(); }
-/* Generated stub for recheck_pending_txs */
-void recheck_pending_txs(struct state *state) { fprintf(stderr, "recheck_pending_txs called!\n"); abort(); }
 /* Generated stub for todo_forget_about_block */
 void todo_forget_about_block(struct state *state,
 			     const struct protocol_double_sha *block) { fprintf(stderr, "todo_forget_about_block called!\n"); abort(); }
@@ -65,7 +63,7 @@ struct log *new_log(const tal_t *ctx,
 
 struct pending_block *new_pending_block(struct state *state)
 {
-	return NULL;
+	return talz(state, struct pending_block);
 }
 
 struct strmap_block {
