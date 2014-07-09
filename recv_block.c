@@ -114,7 +114,8 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 	}
 
 	/* In case we were asking for this, we're not any more. */
-	todo_done_get_block(peer, &sha, true);
+	if (peer)
+		todo_done_get_block(peer, &sha, true);
 
 	/* Actually check the previous merkles are correct. */
 	if (!check_block_prev_txhashes(state->log, prev, hdr, prev_txhashes)) {
