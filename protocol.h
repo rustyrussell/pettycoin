@@ -5,8 +5,8 @@
 #include <openssl/sha.h>
 #include <openssl/ripemd.h>
 
-/* How many previous blocks do we record a merkle for? */
-#define PROTOCOL_PREV_BLOCK_MERKLES	10
+/* How many previous blocks do we record a hash for? */
+#define PROTOCOL_PREV_BLOCK_TXHASHES	10
 
 /* How many shards for initial blocks == 1 << PROTOCOL_INITIAL_SHARD_ORDER */
 #define PROTOCOL_INITIAL_SHARD_ORDER 2
@@ -65,7 +65,7 @@ struct protocol_block_header {
 	u8 shard_order;
 	u8 nonce2[13];
 	struct protocol_double_sha prev_block;
-	le32 num_prev_merkles;
+	le32 num_prev_txhashes;
 	le32 depth;
 	struct protocol_address fees_to;
 };
@@ -77,9 +77,9 @@ struct protocol_block_header {
  * each transaction + input_refs:
  *	struct protocol_double_sha merkle[1 << shard_order];
  *
- * Then the previous blocks's merkles hashed with fees_to, for each of
+ * Then the previous blocks's txs and refs hashed with fees_to, for each of
  * the PETTYCOIN_PREV_BLOCK_SIGN blocks:
- *	u8 prev_merkles[hdr->num_prev_merkles]
+ *	u8 prev_txhash[hdr->num_prev_txhashes]
  *
  * Finally, the tailer:
  */
@@ -91,7 +91,7 @@ struct protocol_block_tailer {
 
 /* This is how we hash the block:
  * Doesn't change:
- *	struct protocol_double_sha hash_of_prev_merkles;
+ *	struct protocol_double_sha hash_of_prev_txhashes;
  * Changes on transaction add:
  *	struct protocol_double_sha hash_of_merkles;
  * Changes on nonce2 increment:

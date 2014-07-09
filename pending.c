@@ -2,7 +2,6 @@
 #include <ccan/structeq/structeq.h>
 #include <ccan/array_size/array_size.h>
 #include "pending.h"
-#include "prev_merkles.h"
 #include "state.h"
 #include "generating.h"
 #include "tx_cmp.h"

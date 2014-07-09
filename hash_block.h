@@ -5,7 +5,7 @@
 void hash_block(const struct protocol_block_header *hdr,
 		const u8 *shard_nums,
 		const struct protocol_double_sha *merkles,
-		const u8 *prev_merkles,
+		const u8 *prev_txhashes,
 		const struct protocol_block_tailer *tailer,
 		struct protocol_double_sha *sha);
 

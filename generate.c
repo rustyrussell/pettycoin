@@ -60,11 +60,11 @@ struct working_block {
 	struct protocol_block_header hdr;
 	u8 *shard_nums;
 	struct protocol_double_sha *merkles;
-	u8 *prev_merkles;
+	u8 *prev_txhashes;
 	struct protocol_block_tailer tailer;
 	struct protocol_net_txrefhash ***trans_hashes;
 	struct protocol_double_sha hash_of_merkles;
-	struct protocol_double_sha hash_of_prev_merkles;
+	struct protocol_double_sha hash_of_prev_txhashes;
 
 	/* Unfinished hash without tailer. */
 	SHA256_CTX partial;
@@ -98,8 +98,8 @@ static void merkle_hash_changed(struct working_block *w)
 static void update_partial_hash(struct working_block *w)
 {
 	SHA256_Init(&w->partial);
-	SHA256_Update(&w->partial, &w->hash_of_prev_merkles,
-		      sizeof(w->hash_of_prev_merkles));
+	SHA256_Update(&w->partial, &w->hash_of_prev_txhashes,
+		      sizeof(w->hash_of_prev_txhashes));
 	SHA256_Update(&w->partial, &w->hash_of_merkles,
 		      sizeof(w->hash_of_merkles));
 	SHA256_Update(&w->partial, &w->hdr, sizeof(w->hdr));
@@ -111,8 +111,8 @@ static void update_partial_hash(struct working_block *w)
 static struct working_block *
 new_working_block(const tal_t *ctx,
 		  u32 difficulty,
-		  u8 *prev_merkles,
-		  unsigned long num_prev_merkles,
+		  u8 *prev_txhashes,
+		  unsigned long num_prev_txhashes,
 		  u32 depth,
 		  u8 shard_order,
 		  const struct protocol_double_sha *prev_block,
@@ -149,7 +149,7 @@ new_working_block(const tal_t *ctx,
 	memset(w->hdr.nonce2, 0, sizeof(w->hdr.nonce2));
 	w->hdr.prev_block = *prev_block;
 	w->hdr.shard_order = shard_order;
-	w->hdr.num_prev_merkles = cpu_to_le32(num_prev_merkles);
+	w->hdr.num_prev_txhashes = cpu_to_le32(num_prev_txhashes);
 	w->hdr.depth = cpu_to_le32(depth);
 	w->hdr.fees_to = *fees_to;
 
@@ -157,11 +157,11 @@ new_working_block(const tal_t *ctx,
 	w->tailer.nonce1 = cpu_to_le32(0);
 	w->tailer.difficulty = cpu_to_le32(difficulty);
 
-	/* Hash prev_merkles: it doesn't change */
-	w->prev_merkles = prev_merkles;
+	/* Hash prev_txhashes: it doesn't change */
+	w->prev_txhashes = prev_txhashes;
 	SHA256_Init(&shactx);
-	SHA256_Update(&shactx, w->prev_merkles, num_prev_merkles);
-	SHA256_Double_Final(&shactx, &w->hash_of_prev_merkles);
+	SHA256_Update(&shactx, w->prev_txhashes, num_prev_txhashes);
+	SHA256_Double_Final(&shactx, &w->hash_of_prev_txhashes);
 
 	for (i = 0; i < w->num_shards; i++)
 		merkle_hash_shard(w, i);
@@ -338,7 +338,7 @@ static void write_block(int fd, const struct working_block *w)
 	u32 shard, i;
 
 	b = marshal_block(w, &w->hdr, w->shard_nums, w->merkles,
-			  w->prev_merkles, &w->tailer);
+			  w->prev_txhashes, &w->tailer);
 	if (!write_all(fd, b, le32_to_cpu(b->len)))
 		err(1, "''I'm not trying to cause a b-big s-s-sensation''");
 
@@ -366,8 +366,8 @@ int main(int argc, char *argv[])
 	struct working_block *w;
 	struct protocol_address reward_address;
 	struct protocol_double_sha prev_hash;
-	u8 *prev_merkles;
-	u32 difficulty, num_prev_merkles, depth, shard_order;
+	u8 *prev_txhashes;
+	u32 difficulty, num_prev_txhashes, depth, shard_order;
 
 	err_set_progname(argv[0]);
 
@@ -388,15 +388,15 @@ int main(int argc, char *argv[])
 
 	depth = strtoul(argv[5], NULL, 0);
 	shard_order = strtoul(argv[6], NULL, 0);
-	num_prev_merkles = strtoul(argv[4], NULL, 0);
-	prev_merkles = tal_arr(ctx, u8, num_prev_merkles + 1);
+	num_prev_txhashes = strtoul(argv[4], NULL, 0);
+	prev_txhashes = tal_arr(ctx, u8, num_prev_txhashes + 1);
 
 	/* Read in prev merkles, plus "go" byte.  If we are to
 	 * terminate immediately, this might be 0 bytes. */
-	if (!read_all_or_none(STDIN_FILENO, prev_merkles, num_prev_merkles + 1))
+	if (!read_all_or_none(STDIN_FILENO, prev_txhashes, num_prev_txhashes+1))
 		exit(0);
 
-	w = new_working_block(ctx, difficulty, prev_merkles, num_prev_merkles,
+	w = new_working_block(ctx, difficulty, prev_txhashes, num_prev_txhashes,
 			      depth, shard_order, &prev_hash, &reward_address);
 
 	if (argv[7]) {

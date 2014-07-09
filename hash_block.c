@@ -7,18 +7,18 @@
 void hash_block(const struct protocol_block_header *hdr,
 		const u8 *shard_nums,
 		const struct protocol_double_sha *merkles,
-		const u8 *prev_merkles,
+		const u8 *prev_txhashes,
 		const struct protocol_block_tailer *tailer,
 		struct protocol_double_sha *sha)
 {
 	SHA256_CTX shactx;
 	struct protocol_double_sha hash_of_prev, hash_of_merkles;
 
-	/* First hash the prev_merkles. */
+	/* First hash the prev_txhashes. */
 	SHA256_Init(&shactx);
-	SHA256_Update(&shactx, prev_merkles,
-		      le32_to_cpu(hdr->num_prev_merkles)
-		      * sizeof(prev_merkles[0]));
+	SHA256_Update(&shactx, prev_txhashes,
+		      le32_to_cpu(hdr->num_prev_txhashes)
+		      * sizeof(prev_txhashes[0]));
 	SHA256_Double_Final(&shactx, &hash_of_prev);
 
 	/* Now hash the merkles of this block's transactions. */

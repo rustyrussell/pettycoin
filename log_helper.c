@@ -200,8 +200,8 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "PROTOCOL_ECODE_BLOCK_LOW_VERSION"; break;
 		case PROTOCOL_ECODE_BAD_TIMESTAMP:
 			name = "PROTOCOL_ECODE_BAD_TIMESTAMP"; break;
-		case PROTOCOL_ECODE_BAD_PREV_MERKLES:
-			name = "PROTOCOL_ECODE_BAD_PREV_MERKLES"; break;
+		case PROTOCOL_ECODE_BAD_PREV_TXHASHES:
+			name = "PROTOCOL_ECODE_BAD_PREV_TXHASHES"; break;
 		case PROTOCOL_ECODE_BAD_DIFFICULTY:
 			name = "PROTOCOL_ECODE_BAD_DIFFICULTY"; break;
 		case PROTOCOL_ECODE_INSUFFICIENT_WORK:

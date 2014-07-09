@@ -32,7 +32,7 @@ static time_t my_time(time_t *p)
 #include "../check_block.c"
 #include "../block.c"
 #include "../block_shard.c"
-#include "../prev_merkles.c"
+#include "../prev_txhashes.c"
 #include "../minimal_log.c"
 #include "../signature.c"
 #include "../txhash.c"
@@ -108,7 +108,7 @@ int main(int argc, char *argv[])
 	struct protocol_gateway_payment payment;
 	struct block *b, *b2;
 	struct block_shard *shard;
-	u8 *prev_merkles;
+	u8 *prev_txhashes;
 	enum protocol_ecode e;
 	struct gen_update update;
 	struct protocol_input_ref *refs;
@@ -121,14 +121,14 @@ int main(int argc, char *argv[])
 	fake_time = le32_to_cpu(genesis_tlr.timestamp) + 1;
 
 	/* Create a block after that, with a gateway tx in it. */
-	prev_merkles = make_prev_merkles(s, &genesis, helper_addr(1));
+	prev_txhashes = make_prev_txhashes(s, &genesis, helper_addr(1));
 
 	/* We should need 1 prev_merkle per shard per block. */
-	assert(num_prev_merkles(&genesis) == (1 << genesis.hdr->shard_order));
-	assert(tal_count(prev_merkles) == num_prev_merkles(&genesis));
+	assert(num_prev_txhashes(&genesis) == (1 << genesis.hdr->shard_order));
+	assert(tal_count(prev_txhashes) == num_prev_txhashes(&genesis));
 
 	w = new_working_block(s, 0x1ffffff0,
-			      prev_merkles, tal_count(prev_merkles),
+			      prev_txhashes, tal_count(prev_txhashes),
 			      le32_to_cpu(genesis.hdr->depth) + 1,
 			      next_shard_order(&genesis),
 			      &genesis.sha, helper_addr(1));
@@ -149,13 +149,13 @@ int main(int argc, char *argv[])
 	for (i = 0; !solve_block(w); i++);
 
 	e = check_block_header(s, &w->hdr, w->shard_nums, w->merkles,
-			       w->prev_merkles, &w->tailer, &b, NULL);
+			       w->prev_txhashes, &w->tailer, &b, NULL);
 	assert(e == PROTOCOL_ECODE_NONE);
 	assert(b);
 	block_add(s, b);
 
 	/* This is a NOOP, so should succeed. */
-	assert(check_block_prev_merkles(s, b));
+	assert(check_block_prev_txhashes(s, b));
 
 	/* Put the single tx into the shard. */
 	shard = new_block_shard(s, update.shard, 1);
@@ -167,25 +167,25 @@ int main(int argc, char *argv[])
 	b->shard[shard->shardnum] = shard;
 
 	/* Should require a prev_merkle per shard for each of 2 prev blocks. */
-	assert(num_prev_merkles(b) == (2 << genesis.hdr->shard_order));
-	prev_merkles = make_prev_merkles(s, b, helper_addr(1));
-	assert(tal_count(prev_merkles) == num_prev_merkles(b));
+	assert(num_prev_txhashes(b) == (2 << genesis.hdr->shard_order));
+	prev_txhashes = make_prev_txhashes(s, b, helper_addr(1));
+	assert(tal_count(prev_txhashes) == num_prev_txhashes(b));
 
 	/* Solve third block. */
 	fake_time++;
-	w = new_working_block(s, 0x1ffffff0, prev_merkles, num_prev_merkles(b),
+	w = new_working_block(s, 0x1ffffff0, prev_txhashes, num_prev_txhashes(b),
 			      le32_to_cpu(b->hdr->depth) + 1,
 			      next_shard_order(b),
 			      &b->sha, helper_addr(1));
 	for (i = 0; !solve_block(w); i++);
 
 	e = check_block_header(s, &w->hdr, w->shard_nums, w->merkles,
-			       w->prev_merkles, &w->tailer, &b2, NULL);
+			       w->prev_txhashes, &w->tailer, &b2, NULL);
 	assert(e == PROTOCOL_ECODE_NONE);
 	assert(b2);
 
 	/* This should be correct. */
-	assert(check_block_prev_merkles(s, b2));
+	assert(check_block_prev_txhashes(s, b2));
 
 	tal_free(s);
 	return 0;

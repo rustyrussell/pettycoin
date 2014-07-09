@@ -32,7 +32,7 @@ static time_t my_time(time_t *p)
 #include "../create_tx.c"
 #include "../check_block.c"
 #include "../block.c"
-#include "../prev_merkles.c"
+#include "../prev_txhashes.c"
 #include "../minimal_log.c"
 #include "../signature.c"
 #include "../txhash.c"
@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
 {
 	struct state *s;
 	struct working_block *w;
-	u8 *prev_merkles;
+	u8 *prev_txhashes;
 	unsigned int i, j;
 	struct block *b[5], *b_alt[3], *prev;
 	enum protocol_ecode e;
@@ -117,16 +117,16 @@ int main(int argc, char *argv[])
 		
 	/* Generate chain of three blocks. */
 	for (i = 0; i < 3; i++) {
-		prev_merkles = make_prev_merkles(s, prev, helper_addr(1));
+		prev_txhashes = make_prev_txhashes(s, prev, helper_addr(1));
 		w = new_working_block(s, 0x1ffffff0,
-				      prev_merkles, tal_count(prev_merkles),
+				      prev_txhashes, tal_count(prev_txhashes),
 				      le32_to_cpu(prev->hdr->depth) + 1,
 				      next_shard_order(prev),
 				      &prev->sha, helper_addr(1));
 		for (j = 0; !solve_block(w); j++);
 		fake_time++;
 		e = check_block_header(s, &w->hdr, w->shard_nums, w->merkles,
-				       w->prev_merkles, &w->tailer, &b[i],
+				       w->prev_txhashes, &w->tailer, &b[i],
 				       NULL);
 		assert(e == PROTOCOL_ECODE_NONE);
 		assert(b[i]);
@@ -142,16 +142,16 @@ int main(int argc, char *argv[])
 	/* Now generate an alternate chain of two blocks, from b[0]. */
 	prev = b[0];
 	for (i = 0; i < 2; i++) {
-		prev_merkles = make_prev_merkles(s, prev, helper_addr(2));
+		prev_txhashes = make_prev_txhashes(s, prev, helper_addr(2));
 		w = new_working_block(s, 0x1ffffff0,
-				      prev_merkles, tal_count(prev_merkles),
+				      prev_txhashes, tal_count(prev_txhashes),
 				      le32_to_cpu(prev->hdr->depth) + 1,
 				      next_shard_order(prev),
 				      &prev->sha, helper_addr(2));
 		for (j = 0; !solve_block(w); j++);
 		fake_time++;
 		e = check_block_header(s, &w->hdr, w->shard_nums, w->merkles,
-				       w->prev_merkles, &w->tailer, &b_alt[i],
+				       w->prev_txhashes, &w->tailer, &b_alt[i],
 				       NULL);
 		assert(e == PROTOCOL_ECODE_NONE);
 		assert(b_alt[i]);
@@ -173,16 +173,16 @@ int main(int argc, char *argv[])
 	}
 
 	/* Now make alternate chain overtake first chain. */
-	prev_merkles = make_prev_merkles(s, prev, helper_addr(2));
+	prev_txhashes = make_prev_txhashes(s, prev, helper_addr(2));
 	w = new_working_block(s, 0x1ffffff0,
-			      prev_merkles, tal_count(prev_merkles),
+			      prev_txhashes, tal_count(prev_txhashes),
 			      le32_to_cpu(prev->hdr->depth) + 1,
 			      next_shard_order(prev),
 			      &prev->sha, helper_addr(2));
 	for (j = 0; !solve_block(w); j++);
 	fake_time++;
 	e = check_block_header(s, &w->hdr, w->shard_nums, w->merkles,
-			       w->prev_merkles, &w->tailer, &b_alt[2], NULL);
+			       w->prev_txhashes, &w->tailer, &b_alt[2], NULL);
 	assert(e == PROTOCOL_ECODE_NONE);
 	assert(b_alt[2]);
 	block_add(s, b_alt[2]);
@@ -195,16 +195,16 @@ int main(int argc, char *argv[])
 
 	/* Now make first chain equal again. */
 	prev = b[2];
-	prev_merkles = make_prev_merkles(s, prev, helper_addr(1));
+	prev_txhashes = make_prev_txhashes(s, prev, helper_addr(1));
 	w = new_working_block(s, 0x1ffffff0,
-			      prev_merkles, tal_count(prev_merkles),
+			      prev_txhashes, tal_count(prev_txhashes),
 			      le32_to_cpu(prev->hdr->depth) + 1,
 			      next_shard_order(prev),
 			      &prev->sha, helper_addr(1));
 	for (j = 0; !solve_block(w); j++);
 	fake_time++;
 	e = check_block_header(s, &w->hdr, w->shard_nums, w->merkles,
-			       w->prev_merkles, &w->tailer, &b[3],
+			       w->prev_txhashes, &w->tailer, &b[3],
 			       NULL);
 	assert(e == PROTOCOL_ECODE_NONE);
 	assert(b[3]);
@@ -220,16 +220,16 @@ int main(int argc, char *argv[])
 
 	/* Now overtake. */
 	prev = b[3];
-	prev_merkles = make_prev_merkles(s, prev, helper_addr(1));
+	prev_txhashes = make_prev_txhashes(s, prev, helper_addr(1));
 	w = new_working_block(s, 0x1ffffff0,
-			      prev_merkles, tal_count(prev_merkles),
+			      prev_txhashes, tal_count(prev_txhashes),
 			      le32_to_cpu(prev->hdr->depth) + 1,
 			      next_shard_order(prev),
 			      &prev->sha, helper_addr(1));
 	for (j = 0; !solve_block(w); j++);
 	fake_time++;
 	e = check_block_header(s, &w->hdr, w->shard_nums, w->merkles,
-			       w->prev_merkles, &w->tailer, &b[4],
+			       w->prev_txhashes, &w->tailer, &b[4],
 			       NULL);
 	assert(e == PROTOCOL_ECODE_NONE);
 	assert(b[4]);

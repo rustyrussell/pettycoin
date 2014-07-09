@@ -22,17 +22,17 @@ static bool load_block(struct state *state, struct protocol_net_hdr *pkt)
 	enum protocol_ecode e;
 	const u8 *shard_nums;
 	const struct protocol_double_sha *merkles;
-	const u8 *prev_merkles;
+	const u8 *prev_txhashes;
 	const struct protocol_block_tailer *tailer;
 	const struct protocol_block_header *hdr;
 
 	e = unmarshal_block(state->log, (void *)pkt,
-			    &hdr, &shard_nums, &merkles, &prev_merkles,
+			    &hdr, &shard_nums, &merkles, &prev_txhashes,
 			    &tailer);
 	if (e != PROTOCOL_ECODE_NONE)
 		return false;
 
-	e = check_block_header(state, hdr, shard_nums, merkles, prev_merkles,
+	e = check_block_header(state, hdr, shard_nums, merkles, prev_txhashes,
 			       tailer, &new, NULL);
 	if (e != PROTOCOL_ECODE_NONE)
 		return false;
@@ -113,7 +113,7 @@ void save_block(struct state *state, struct block *new)
 
 	blk = marshal_block(state,
 			    new->hdr, new->shard_nums, new->merkles,
-			    new->prev_merkles, new->tailer);
+			    new->prev_txhashes, new->tailer);
 	len = le32_to_cpu(blk->len);
 	if (!write_all(state->blockfd, blk, len))
 		err(1, "writing block to blockfile");

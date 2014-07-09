@@ -190,7 +190,7 @@ static struct protocol_pkt_block *block_pkt(tal_t *ctx, const struct block *b)
 	struct protocol_pkt_block *blk;
  
 	blk = marshal_block(ctx,
-			    b->hdr, b->shard_nums, b->merkles, b->prev_merkles,
+			    b->hdr, b->shard_nums, b->merkles, b->prev_txhashes,
 			    b->tailer);
 
 	return blk;

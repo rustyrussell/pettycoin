@@ -1,20 +1,19 @@
-/* FIXME: name prev_merkles is obsolete! */
 #include <ccan/array_size/array_size.h>
 #include "merkle_txs.h"
-#include "prev_merkles.h"
+#include "prev_txhashes.h"
 #include "protocol.h"
 #include "block.h"
 #include "check_block.h"
 #include "shard.h"
 #include "shadouble.h"
 
-size_t num_prev_merkles(const struct block *prev)
+size_t num_prev_txhashes(const struct block *prev)
 {
 	size_t num = 0;
 	unsigned int i;
 
 	for (i = 0;
-	     i < PROTOCOL_PREV_BLOCK_MERKLES && prev;
+	     i < PROTOCOL_PREV_BLOCK_TXHASHES && prev;
 	     i++, prev = prev->prev)
 		num += num_shards(prev->hdr);
 
@@ -49,24 +48,24 @@ u8 prev_txhash(const struct protocol_address *addr,
 	return sha.sha[0];
 }
 
-u8 *make_prev_merkles(const tal_t *ctx, const struct block *prev,
+u8 *make_prev_txhashes(const tal_t *ctx, const struct block *prev,
 		      const struct protocol_address *my_addr)
 {
 	unsigned int i;
 	size_t len;
 	u8 *m, *p;
 
-	len = num_prev_merkles(prev);
+	len = num_prev_txhashes(prev);
 	p = m = tal_arr(ctx, u8, len);
 
 	for (i = 0;
-	     i < PROTOCOL_PREV_BLOCK_MERKLES && prev;
+	     i < PROTOCOL_PREV_BLOCK_TXHASHES && prev;
 	     i++, prev = prev->prev) {
 		unsigned int j;
 
 		for (j = 0; j < num_shards(prev->hdr); j++) {
 			/* We need to know everything in shard to check
-			 * previous merkle. */
+			 * previous txhash. */
 			if (!shard_all_known(prev->shard[j]))
 				return tal_free(m);
 

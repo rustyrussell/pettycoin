@@ -7,7 +7,7 @@
 #include "marshal.h"
 #include "check_block.h"
 #include "block.h"
-#include "prev_merkles.h"
+#include "prev_txhashes.h"
 #include "packet_io.h"
 #include "peer.h"
 #include "blockfile.h"
@@ -234,17 +234,17 @@ static void exec_generator(struct generator *gen)
 	int i;
 	const struct block *last;
 	char log_prefix[40];
-	const u8 *prev_merkles = gen->state->pending->prev_merkles;
+	const u8 *prev_txhashes = gen->state->pending->prev_txhashes;
 
 	/* FIXME: This is where we increment shard_order if voted! */
 	gen->shard_order = gen->state->longest_knowns[0]->hdr->shard_order;
 
-	prev_merkles = make_prev_merkles(gen,
-					 gen->state->longest_knowns[0],
-					 generating_address(gen->state));
+	prev_txhashes = make_prev_txhashes(gen,
+					   gen->state->longest_knowns[0],
+					   generating_address(gen->state));
 	last = gen->state->longest_knowns[0];
 	sprintf(difficulty, "%u", get_difficulty(gen->state, last));
-	sprintf(prev_merkle_str, "%zu", tal_count(prev_merkles));
+	sprintf(prev_merkle_str, "%zu", tal_count(prev_txhashes));
 	sprintf(depth, "%u", le32_to_cpu(last->hdr->depth) + 1);
 	sprintf(shard_order, "%u", gen->shard_order);
 	for (i = 0; i < sizeof(struct protocol_double_sha); i++)
@@ -295,8 +295,8 @@ static void exec_generator(struct generator *gen)
 
 	init_updates(gen);
 	gen->update = io_new_conn(infd[1],
-				  io_write(prev_merkles,
-					   tal_count(prev_merkles) * sizeof(u8),
+				  io_write(prev_txhashes,
+					   tal_count(prev_txhashes)*sizeof(u8),
 					   send_go_byte, gen));
 	io_set_finish(gen->update, finish_update, gen);
 	gen->answer = io_new_conn(outfd[0],

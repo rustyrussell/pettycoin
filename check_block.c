@@ -13,7 +13,7 @@
 #include "merkle_txs.h"
 #include "tx_cmp.h"
 #include "hash_block.h"
-#include "prev_merkles.h"
+#include "prev_txhashes.h"
 #include "generating.h"
 #include "check_tx.h"
 #include "tx.h"
@@ -33,13 +33,13 @@ static void destroy_block(struct block *b)
 }
 
 /* Returns error if bad.  Not sufficient by itself: see check_tx_order,
- * shard_validate_transactions and check_block_prev_merkles! */
+ * shard_validate_transactions and check_block_prev_txhashes! */
 enum protocol_ecode
 check_block_header(struct state *state,
 		   const struct protocol_block_header *hdr,
 		   const u8 *shard_nums,
 		   const struct protocol_double_sha *merkles,
-		   const u8 *prev_merkles,
+		   const u8 *prev_txhashes,
 		   const struct protocol_block_tailer *tailer,
 		   struct block **blockp,
 		   struct protocol_double_sha *sha)
@@ -60,7 +60,7 @@ check_block_header(struct state *state,
 	 * keep it around, or ask others about its predecessors, etc) */
 
 	/* Get SHA: should have enough leading zeroes to beat target. */
-	hash_block(hdr, shard_nums, merkles, prev_merkles, tailer, &block->sha);
+	hash_block(hdr, shard_nums, merkles, prev_txhashes, tailer, &block->sha);
 	if (sha)
 		*sha = block->sha;
 
@@ -113,7 +113,7 @@ check_block_header(struct state *state,
 	block->hdr = hdr;
 	block->shard_nums = shard_nums;
 	block->merkles = merkles;
-	block->prev_merkles = prev_merkles;
+	block->prev_txhashes = prev_txhashes;
 	block->tailer = tailer;
 	block->all_known = false;
 	list_head_init(&block->children);
@@ -329,20 +329,20 @@ void put_proof_in_shard(struct state *state,
 }
 
 /* Check what we can, using block->prev->...'s shards. */
-bool check_block_prev_merkles(struct state *state, const struct block *block)
+bool check_block_prev_txhashes(struct state *state, const struct block *block)
 {
 	unsigned int i;
 	size_t off = 0;
 	const struct block *prev;
 
 	for (i = 0, prev = block->prev;
-	     i < PROTOCOL_PREV_BLOCK_MERKLES && prev;
+	     i < PROTOCOL_PREV_BLOCK_TXHASHES && prev;
 	     i++, prev = prev->prev) {
 		unsigned int j;
 
 		/* It's bad if we don't have that many prev merkles. */
 		if (off + num_shards(prev->hdr)
-		    > le32_to_cpu(block->hdr->num_prev_merkles))
+		    > le32_to_cpu(block->hdr->num_prev_txhashes))
 			return false;
 
 		for (j = 0; j < num_shards(prev->hdr); j++) {
@@ -356,7 +356,7 @@ bool check_block_prev_merkles(struct state *state, const struct block *block)
 			prev_txh = prev_txhash(&block->hdr->fees_to, prev, j);
 
 			/* We only check one byte; that's enough. */
-			if (prev_txh != block->prev_merkles[off+j]) {
+			if (prev_txh != block->prev_txhashes[off+j]) {
 				log_unusual(state->log,
 					    "Incorrect merkle for block %u:"
 					    " block %u shard %u was %u not %u",
@@ -364,7 +364,7 @@ bool check_block_prev_merkles(struct state *state, const struct block *block)
 					    le32_to_cpu(block->hdr->depth) - i,
 					    j,
 					    prev_txh,
-					    block->prev_merkles[off+j]);
+					    block->prev_txhashes[off+j]);
 				return false;
 			}
 		}
@@ -372,7 +372,7 @@ bool check_block_prev_merkles(struct state *state, const struct block *block)
 	}
 
 	/* Must have exactly the right number of previous merkle hashes. */
-	return off == le32_to_cpu(block->hdr->num_prev_merkles);
+	return off == le32_to_cpu(block->hdr->num_prev_txhashes);
 }
 
 void check_block(struct state *state, const struct block *block)
@@ -386,7 +386,7 @@ void check_block(struct state *state, const struct block *block)
 		assert(tal_count(block->shard) == num_shards(block->hdr));
 	}
 	hash_block(block->hdr, block->shard_nums, block->merkles,
-		   block->prev_merkles, block->tailer, &sha);
+		   block->prev_txhashes, block->tailer, &sha);
 	assert(structeq(&sha, &block->sha));
 
 	if (block->prev) {
@@ -398,7 +398,7 @@ void check_block(struct state *state, const struct block *block)
 
 	}
 
-	/* FIXME: check block->prev_merkles! */
+	/* FIXME: check block->prev_txhashes! */
 
 	for (shard = 0; shard < num_shards(block->hdr); shard++) {
 		check_block_shard(state, block, block->shard[shard]);

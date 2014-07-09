@@ -64,7 +64,7 @@ void tal_packet_append_block_(void *ppkt, const struct block *block)
 	hdr = ppkt;
 	marshal_block_into((char *)*hdr + orig_len,
 			   block->hdr, block->shard_nums, block->merkles,
-			   block->prev_merkles, block->tailer);
+			   block->prev_txhashes, block->tailer);
 	(*hdr)->len = cpu_to_le32(orig_len + len);
 }
 

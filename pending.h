@@ -12,7 +12,7 @@ struct pending_tx {
 
 /* aka state->pending */
 struct pending_block {
-	u8 *prev_merkles;
+	u8 *prev_txhashes;
 	/* FIXME: make this [num_shards(state->preferred_chain)]! */
 	u32 pending_counts[1 << PROTOCOL_INITIAL_SHARD_ORDER];
 	/* Available for the next block. */

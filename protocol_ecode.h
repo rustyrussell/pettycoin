@@ -49,7 +49,7 @@ enum protocol_ecode {
 	PROTOCOL_ECODE_BLOCK_HIGH_VERSION, /* block version unknown. */
 	PROTOCOL_ECODE_BLOCK_LOW_VERSION, /* block version is old. */
 	PROTOCOL_ECODE_BAD_TIMESTAMP, /* Too far in future or past. */
-	PROTOCOL_ECODE_BAD_PREV_MERKLES, /* Wrong number of prev_merkles. */
+	PROTOCOL_ECODE_BAD_PREV_TXHASHES, /* Wrong number of prev_txhashes. */
 	PROTOCOL_ECODE_BAD_DIFFICULTY, /* Wrong difficulty calculation. */
 	PROTOCOL_ECODE_INSUFFICIENT_WORK, /* Didn't meet difficulty. */
 	PROTOCOL_ECODE_BAD_DEPTH, /* Wasn't prev + 1. */

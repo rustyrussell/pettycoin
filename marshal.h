@@ -14,7 +14,7 @@ unmarshal_block(struct log *log,
 		const struct protocol_block_header **hdr,
 		const u8 **shard_nums,
 		const struct protocol_double_sha **merkles,
-		const u8 **prev_merkles,
+		const u8 **prev_txhashes,
 		const struct protocol_block_tailer **tailer);
 
 /* Does version and simple sanity checks. */
@@ -23,7 +23,7 @@ unmarshal_block_into(struct log *log,
 		     size_t size, const struct protocol_block_header *hdr,
 		     const u8 **shard_nums,
 		     const struct protocol_double_sha **merkles,
-		     const u8 **prev_merkles,
+		     const u8 **prev_txhashes,
 		     const struct protocol_block_tailer **tailer);
 
 /* Marshal block for wire transfer. */
@@ -32,7 +32,7 @@ marshal_block(const tal_t *ctx,
 	      const struct protocol_block_header *hdr,
 	      const u8 *shard_nums,
 	      const struct protocol_double_sha *merkles,
-	      const u8 *prev_merkles,
+	      const u8 *prev_txhashes,
 	      const struct protocol_block_tailer *tailer);
 
 /* How long is this block when marshaled? */
@@ -43,7 +43,7 @@ void marshal_block_into(void *dst,
 			const struct protocol_block_header *hdr,
 			const u8 *shard_nums,
 			const struct protocol_double_sha *merkles,
-			const u8 *prev_merkles,
+			const u8 *prev_txhashes,
 			const struct protocol_block_tailer *tailer);
 
 /* Unmarshal transaction: does version and simple sanity checking. */

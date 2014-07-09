@@ -83,11 +83,11 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 	tal_steal(new, pkt);
 
 	/* Actually check the previous merkles are correct. */
-	if (!check_block_prev_merkles(state, new)) {
+	if (!check_block_prev_txhashes(state, new)) {
 		log_unusual(log, "new block has bad prev merkles");
 		/* FIXME: provide proof. */
 		tal_free(new);
-		return PROTOCOL_ECODE_BAD_PREV_MERKLES;
+		return PROTOCOL_ECODE_BAD_PREV_TXHASHES;
 	}
 
 	log_debug(log, "New block %u is good!",

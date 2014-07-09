@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
 	for (i = 0; !solve_block(w); i++);
 	assert(i == 87);
 
-	hash_block(&w->hdr, w->shard_nums, w->merkles, w->prev_merkles,
+	hash_block(&w->hdr, w->shard_nums, w->merkles, w->prev_txhashes,
 		   &w->tailer, &hash);
 	assert(beats_target(&hash, 0x1ffffff0));
 
@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
 		      sizeof(w->hdr.nonce2)) == 0);
 	assert(memcmp(&w->hdr.prev_block, &prev, sizeof(prev)) == 0);
 	assert(w->hdr.shard_order == PROTOCOL_INITIAL_SHARD_ORDER);
-	assert(w->hdr.num_prev_merkles == 0);
+	assert(w->hdr.num_prev_txhashes == 0);
 	assert(memcmp(&w->hdr.fees_to, helper_addr(0), sizeof(w->hdr.fees_to))
 	       == 0);
 
@@ -95,7 +95,7 @@ int main(int argc, char *argv[])
 	 * will take */
 	for (i = 0; !solve_block(w2); i++);
 
-	hash_block(&w2->hdr, w2->shard_nums, w2->merkles, w2->prev_merkles,
+	hash_block(&w2->hdr, w2->shard_nums, w2->merkles, w2->prev_txhashes,
 		   &w2->tailer, &hash2);
 	assert(beats_target(&hash2, 0x1ffffff0));
 
@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
 		      sizeof(w2->hdr.nonce2)) == 0);
 	assert(memcmp(&w2->hdr.prev_block, &hash, sizeof(hash)) == 0);
 	assert(w2->hdr.shard_order == PROTOCOL_INITIAL_SHARD_ORDER);
-	assert(le32_to_cpu(w2->hdr.num_prev_merkles) == 0);
+	assert(le32_to_cpu(w2->hdr.num_prev_txhashes) == 0);
 	assert(memcmp(&w2->hdr.fees_to, helper_addr(1), sizeof(w2->hdr.fees_to))
 	       == 0);
 

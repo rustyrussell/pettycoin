@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
 	merkles_per_block = (1 << shard_order);
 	blocksize = sizeof(struct protocol_block_header)
 		+ merkles_per_block * sizeof(struct protocol_double_sha)
-		+ merkles_per_block * PROTOCOL_PREV_BLOCK_MERKLES
+		+ merkles_per_block * PROTOCOL_PREV_BLOCK_TXHASHES
 		+ sizeof(struct protocol_block_tailer);
 	printf("Block size: %llu\n", blocksize);
 

@@ -32,7 +32,7 @@ static time_t my_time(time_t *p)
 #include "../check_block.c"
 #include "../block.c"
 #include "../block_shard.c"
-#include "../prev_merkles.c"
+#include "../prev_txhashes.c"
 #include "../minimal_log.c"
 #include "../signature.c"
 #include "../txhash.c"
@@ -110,7 +110,7 @@ int main(int argc, char *argv[])
 	struct protocol_gateway_payment payment;
 	struct block *b;
 	struct block_shard *shard;
-	u8 *prev_merkles;
+	u8 *prev_txhashes;
 	enum protocol_ecode e;
 	struct gen_update update;
 	struct protocol_input_ref *refs;
@@ -123,9 +123,9 @@ int main(int argc, char *argv[])
 	fake_time = le32_to_cpu(genesis_tlr.timestamp) + 1;
 
 	/* Create a block with a gateway tx in it. */
-	prev_merkles = make_prev_merkles(s, &genesis, helper_addr(1));
+	prev_txhashes = make_prev_txhashes(s, &genesis, helper_addr(1));
 	w = new_working_block(s, 0x1ffffff0,
-			      prev_merkles, tal_count(prev_merkles),
+			      prev_txhashes, tal_count(prev_txhashes),
 			      le32_to_cpu(genesis.hdr->depth) + 1,
 			      next_shard_order(&genesis),
 			      &genesis.sha, helper_addr(1));
@@ -146,13 +146,13 @@ int main(int argc, char *argv[])
 	for (i = 0; !solve_block(w); i++);
 
 	e = check_block_header(s, &w->hdr, w->shard_nums, w->merkles,
-			       w->prev_merkles, &w->tailer, &b, NULL);
+			       w->prev_txhashes, &w->tailer, &b, NULL);
 	assert(e == PROTOCOL_ECODE_NONE);
 	assert(b);
 	block_add(s, b);
 
 	/* This is a NOOP, so should succeed. */
-	assert(check_block_prev_merkles(s, b));
+	assert(check_block_prev_txhashes(s, b));
 
 	/* Put the single tx into a shard. */
 	shard = new_block_shard(s, update.shard, 1);
