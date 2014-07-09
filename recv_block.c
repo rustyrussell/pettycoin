@@ -370,8 +370,17 @@ recv_shard(struct state *state, struct log *log, struct peer *peer,
 enum protocol_ecode recv_block_from_peer(struct peer *peer,
 					 const struct protocol_pkt_block *pkt)
 {
+	enum protocol_ecode e;
+	struct block *b;
+
 	assert(le32_to_cpu(pkt->err) == PROTOCOL_ECODE_NONE);
-	return recv_block(peer->state, peer->log, peer, pkt, NULL);
+	e = recv_block(peer->state, peer->log, peer, pkt, &b);
+	if (e == PROTOCOL_ECODE_NONE) {
+		log_info(peer->log, "gave us block %u: ",
+			 le32_to_cpu(b->hdr->depth));
+		log_add_struct(peer->log, struct protocol_block_header, b->hdr);
+	}
+	return e;
 }
 
 enum protocol_ecode recv_shard_from_peer(struct peer *peer,
@@ -384,7 +393,7 @@ bool recv_block_from_generator(struct state *state, struct log *log,
 			       const struct protocol_pkt_block *pkt,
 			       struct protocol_pkt_shard **shards)
 {
-	unsigned int i;
+	unsigned int i, num_txs;
 	enum protocol_ecode e;
 	struct block *b;
 
@@ -403,7 +412,9 @@ bool recv_block_from_generator(struct state *state, struct log *log,
 		return false;
 	}
 
+	num_txs = 0;
 	for (i = 0; i < tal_count(shards); i++) {
+		num_txs += b->shard_nums[i];
 		if (b->shard_nums[i] == 0)
 			continue;
 		e = recv_shard(state, log, NULL, shards[i]);
@@ -413,6 +424,13 @@ bool recv_block_from_generator(struct state *state, struct log *log,
 			return false;
 		}
 	}
+
+	log_info(log, "found block %u (%zu shards, %u txs): ",
+		 le32_to_cpu(b->hdr->depth), tal_count(shards), num_txs);
+	log_add_struct(log, struct protocol_double_sha, &b->sha);
+
+	if (!block_all_known(b))
+		log_unusual(log, "created block but we don't know contents!");
 
 	/* We call it manually here, since we're not in peer loop. */
 	recheck_pending_txs(state);

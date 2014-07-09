@@ -356,7 +356,7 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 
 	/* There was an error?  Send that then close. */
 	if (peer->error_pkt) {
-		log_debug(peer->log, "Writing error packet ");
+		log_info(peer->log, "sending error packet ");
 		log_add_enum(peer->log, enum protocol_ecode,
 			     peer->error_pkt->error);
 		return io_write_packet(peer, peer->error_pkt, io_close_cb);
@@ -371,7 +371,7 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 	if (peer->we_are_syncing && peer->requests_outstanding == 0) {
 		/* We're synced (or as far as we can get).  Start
 		 * normal operation. */
-		log_debug(peer->log, "Syncing finished, setting filter");
+		log_info(peer->log, "We finished syncing with them");
 		peer->we_are_syncing = false;
 		return io_write_packet(peer, set_filter_pkt(peer), plan_output);
 	}
@@ -396,6 +396,9 @@ recv_set_filter(struct peer *peer, const struct protocol_pkt_set_filter *pkt)
 	peer->filter = le64_to_cpu(pkt->filter);
 	peer->filter_offset = le64_to_cpu(pkt->offset);
 #endif
+
+	if (peer->they_are_syncing)
+		log_info(peer->log, "finished syncing with us");
 
 	/* This is our indication to send them unsolicited txs from now on */
 	peer->they_are_syncing = false;
@@ -582,6 +585,10 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 			try_resolve_hash(peer->state, peer,
 					 te->u.block, te->shardnum, te->txoff);
 	}
+
+	/* This is OK for now, will be spammy in real network! */
+	log_info(peer->log, "gave us TX ");
+	log_add_struct(peer->log, struct protocol_double_sha, &sha);
 
 	/* Tell everyone. */
 	send_tx_to_peers(peer->state, peer, tx);
@@ -916,6 +923,11 @@ recv_tx_in_block(struct peer *peer, const struct protocol_pkt_tx_in_block *pkt)
 	put_tx_in_shard(peer->state, peer,
 			b, b->shard[shard], proof->proof.pos.txoff,
 			txptr_with_ref(b->shard[shard], tx, refs));
+
+	/* This is OK for now, will be spammy in real network! */
+	log_info(peer->log, "gave us TX in shard %u, off %u, block %u ",
+		 shard, proof->proof.pos.txoff, le32_to_cpu(b->hdr->depth));
+	log_add_struct(peer->log, struct protocol_double_sha, &sha);
 
 	return PROTOCOL_ECODE_NONE;
 }
@@ -1915,7 +1927,7 @@ static struct io_plan welcome_received(struct io_conn *conn, struct peer *peer)
 
 	/* Are we talking to ourselves? */
 	if (peer->welcome->random == state->random_welcome) {
-		log_unusual(peer->log, "The peer is ourselves: closing");
+		log_debug(peer->log, "The peer is ourselves: closing");
 		peer_cache_del(state, &peer->you, true);
 		return io_close();
 	}
@@ -1953,8 +1965,8 @@ static void destroy_peer(struct peer *peer)
 	list_del_from(&peer->state->peers, &peer->list);
 	if (peer->welcome) {
 		peer->state->num_peers_connected--;
-		log_info(peer->log, "Closing connected peer (%zu left)",
-			 peer->state->num_peers_connected);
+		log_debug(peer->log, "Closing connected peer (%zu left)",
+			  peer->state->num_peers_connected);
 
 		if (peer->we_are_syncing) {
 			log_add(peer->log, " (didn't finish syncing)");
