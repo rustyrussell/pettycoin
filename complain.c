@@ -7,6 +7,7 @@
 #include "state.h"
 #include "tal_packet.h"
 #include "tx.h"
+#include "tx_in_hashes.h"
 
 static void complaint_on_all(struct state *state,
 			     struct block *block, const void *complaint)
@@ -23,23 +24,7 @@ static void complaint_on_all(struct state *state,
 	/* Remove transactions, and maybe inputs. */
 	for (shard = 0; shard < num_shards(block->hdr); shard++) {
 		for (txoff = 0; txoff < block->shard[shard]->size; txoff++) {
-			struct protocol_txrefhash scratch;
-			const struct protocol_txrefhash *txr;
-			const union protocol_tx *tx;
-
-			txr = txrefhash_in_shard(block->shard[shard], txoff,
-						 &scratch);
-			if (!txr)
-				continue;
-
-			tx = tx_for(block->shard[shard], txoff);
-			txhash_del_tx(&state->txhash, block, shard, txoff,
-				      &txr->txhash);
-
-			/* If this tx is no longer known at *all*, we
-			 * can remove from input hash too. */
-			if (tx && !txhash_gettx(&state->txhash, &txr->txhash))
-				inputhash_del_tx(&state->inputhash, tx);
+			remove_tx_from_hashes(state, block, shard, txoff);
 		}
 	}
 

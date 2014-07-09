@@ -29,6 +29,7 @@
 #include "todo.h"
 #include "tx.h"
 #include "tx_cmp.h"
+#include "tx_in_hashes.h"
 #include "welcome.h"
 #include <arpa/inet.h>
 #include <ccan/build_assert/build_assert.h>
@@ -758,7 +759,6 @@ recv_get_tx(struct peer *peer,
 	    const struct protocol_pkt_get_tx *pkt, void **reply)
 {
 	struct txhash_elem *te;
-	struct txhash_iter ti;
 	const union protocol_tx *tx;
 	struct protocol_pkt_tx *r;
 
@@ -766,8 +766,8 @@ recv_get_tx(struct peer *peer,
 		return PROTOCOL_ECODE_INVALID_LEN;
 
 	/* First look for one in a block. */
-	/* FIXME: Prefer main chain! */
-	te = txhash_firstval(&peer->state->txhash, &pkt->tx, &ti);
+	te = txhash_gettx_ancestor(peer->state, &pkt->tx,
+				   peer->state->preferred_chain);
 	if (te && shard_is_tx(te->block->shard[te->shardnum], te->txoff)) {
 		struct protocol_pkt_tx_in_block *r;
 		struct protocol_proof proof;

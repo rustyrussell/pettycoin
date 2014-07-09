@@ -23,6 +23,7 @@
 #include "todo.h"
 #include "tx.h"
 #include "tx_cmp.h"
+#include "tx_in_hashes.h"
 #include "version.h"
 #include <assert.h>
 #include <ccan/array_size/array_size.h>
@@ -255,8 +256,7 @@ void put_tx_in_shard(struct state *state,
 		     struct block_shard *shard, u8 txoff,
 		     struct txptr_with_ref txp)
 {
-	struct protocol_txrefhash hashes;
-	
+
 	if (shard_is_tx(shard, txoff)) {
 		if (tx_for(shard, txoff)) {
 			/* It's already there?  Leave it alone. */
@@ -265,23 +265,24 @@ void put_tx_in_shard(struct state *state,
 				      + marshal_input_ref_len(txp.tx)) == 0);
 			return;
 		}
-		hash_tx(txp.tx, &hashes.txhash);
+		/* We didn't know about it before. */
+		add_tx_to_hashes(state, shard, block, shard->shardnum, txoff,
+				 txp.tx);
 	} else {
-		/* Tx must match hash. */
+		struct protocol_txrefhash hashes;
+
+		/* We knew hash: tx must match hash. */
 		hash_tx_and_refs(txp.tx, refs_for(txp), &hashes);
 		assert(structeq(shard->u[txoff].hash, &hashes));
 		shard->hashcount--;
+
+		upgrade_tx_in_hashes(state, shard, &hashes.txhash, txp.tx);
 	}
 
 	/* Now it's a transaction. */
 	bitmap_clear_bit(shard->txp_or_hash, txoff);
 	shard->u[txoff].txp = txp;
 	shard->txcount++;
-
-	/* Record it in the hashes. */
-	txhash_add_tx(&state->txhash, shard, block, shard->shardnum, txoff,
-		      &hashes.txhash);
-	inputhash_add_tx(&state->inputhash, shard, txp.tx);
 
 	/* Did we just resolve a new input for an existing tx? */
 	check_resolved_txs(state, txp.tx);
@@ -313,8 +314,8 @@ bool put_txhash_in_shard(struct state *state,
 		= tal_dup(shard, struct protocol_txrefhash, txrefhash, 1, 0);
 	shard->hashcount++;
 
-	txhash_add_tx(&state->txhash, shard, block, shardnum, txoff,
-		      &txrefhash->txhash);
+	add_txhash_to_hashes(state, shard, block, shardnum, txoff,
+			     &txrefhash->txhash);
 	return true;
 }
 

@@ -9,6 +9,7 @@
 #include "state.h"
 #include "timestamp.h"
 #include "tx_cmp.h"
+#include "tx_in_hashes.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
 #include <ccan/structeq/structeq.h>
@@ -216,17 +217,11 @@ enum input_ecode add_pending_tx(struct state *state,
 				unsigned int *bad_input_num)
 {
 	enum input_ecode ierr;
-	struct txhash_elem *te;
-	struct txhash_iter it;
 
 	/* If it's already in longest known chain, would look like
 	 * doublespend so sort that out now. */
-	for (te = txhash_firstval(&state->txhash, sha, &it);
-	     te;
-	     te = txhash_nextval(&state->txhash, sha, &it)) {
-		if (block_preceeds(te->block, state->longest_knowns[0]))
-			return ECODE_INPUT_OK;
-	}
+	if (txhash_gettx_ancestor(state, sha, state->longest_knowns[0]))
+		return ECODE_INPUT_OK;
 
 	/* We check inputs for where *we* would mine it. */
 	ierr = check_tx_inputs(state, state->longest_knowns[0],

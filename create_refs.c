@@ -4,6 +4,7 @@
 #include "state.h"
 #include "timestamp.h"
 #include "tx.h"
+#include "tx_in_hashes.h"
 #include "txhash.h"
 #include <assert.h>
 
@@ -17,7 +18,6 @@ static bool resolve_input(struct state *state,
 			  struct protocol_input_ref *ref)
 {
 	const struct protocol_double_sha *sha;
-	struct txhash_iter iter;
 	struct txhash_elem *te;
 
 	assert(tx_type(tx) == TX_NORMAL);
@@ -25,28 +25,24 @@ static bool resolve_input(struct state *state,
 
 	sha = &get_normal_inputs(&tx->normal)[num].input;
 
-	for (te = txhash_firstval(&state->txhash, sha, &iter);
-	     te;
-	     te = txhash_nextval(&state->txhash, sha, &iter)) {
-		if (!block_preceeds(te->block, prev_block))
-			continue;
+	te = txhash_gettx_ancestor(state, sha, prev_block);
+	if (!te)
+		return false;
 
-		/* Don't include any transactions within 1 hour of cutoff. */
-		if (le32_to_cpu(te->block->tailer->timestamp)
-		    + PROTOCOL_TX_HORIZON_SECS - CLOSE_TO_HORIZON
-		    < current_time())
-			return false;
+	/* Don't include any transactions within 1 hour of cutoff. */
+	if (le32_to_cpu(te->block->tailer->timestamp)
+	    + PROTOCOL_TX_HORIZON_SECS - CLOSE_TO_HORIZON
+	    < current_time())
+		return false;
 
-		/* Add 1 since this will go into *next* block */
-		ref->blocks_ago = 
-			cpu_to_le32(le32_to_cpu(prev_block->hdr->depth) -
-				    le32_to_cpu(te->block->hdr->depth) + 1);
-		ref->shard = cpu_to_le16(te->shardnum);
-		ref->txoff = te->txoff;
-		ref->unused = 0;
-		return true;
-	}
-	return false;
+	/* Add 1 since this will go into *next* block */
+	ref->blocks_ago = 
+		cpu_to_le32(le32_to_cpu(prev_block->hdr->depth) -
+			    le32_to_cpu(te->block->hdr->depth) + 1);
+	ref->shard = cpu_to_le16(te->shardnum);
+	ref->txoff = te->txoff;
+	ref->unused = 0;
+	return true;
 }
 
 /* Try to find the inputs in block and its ancestors */
