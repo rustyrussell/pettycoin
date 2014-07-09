@@ -6,6 +6,7 @@
 #include "base58.h"
 #include "addr.h"
 #include "check_tx.h"
+#include "input_refs.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -223,8 +224,12 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "PROTOCOL_ECODE_TX_BAD_SIG"; break;
 		case PROTOCOL_ECODE_TX_TOO_MANY_INPUTS:
 			name = "PROTOCOL_ECODE_TX_TOO_MANY_INPUTS"; break;
-		case PROTOCOL_ECODE_BLOCK_BAD_TX_SHARD:
-			name = "PROTOCOL_ECODE_BLOCK_BAD_TX_SHARD"; break;
+		case PROTOCOL_ECODE_REF_BAD_BLOCKS_AGO:
+			name = "PROTOCOL_ECODE_REF_BAD_BLOCKS_AGO"; break;
+		case PROTOCOL_ECODE_REF_BAD_SHARD:
+			name = "PROTOCOL_ECODE_REF_BAD_SHARD"; break;
+		case PROTOCOL_ECODE_REF_BAD_TXOFF:
+			name = "PROTOCOL_ECODE_REF_BAD_TXOFF"; break;
 		case PROTOCOL_ECODE_BAD_MERKLE:
 			name = "PROTOCOL_ECODE_BAD_MERKLE"; break;
 		case PROTOCOL_ECODE_PRIV_UNKNOWN_PREV:
@@ -242,6 +247,15 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "ECODE_INPUT_BAD"; break;
 		case ECODE_INPUT_BAD_AMOUNT:
 			name = "ECODE_INPUT_BAD_AMOUNT"; break;
+		}
+	} else if (streq(enumname, "enum ref_ecode")) {
+		switch ((enum ref_ecode)val) {
+		case ECODE_REF_OK:
+			name = "ECODE_REF_OK"; break;
+		case ECODE_REF_UNKNOWN:
+			name = "ECODE_REF_UNKNOWN"; break;
+		case ECODE_REF_BAD_HASH:
+			name = "ECODE_REF_BAD_HASH"; break;
 		}
 	}
 	if (name)

@@ -65,7 +65,9 @@ enum protocol_ecode {
 	PROTOCOL_ECODE_TX_TOO_MANY_INPUTS, /* > TX_MAX_INPUTS. */
 
 	/* protocol_pkt_tx_in_block */
-	PROTOCOL_ECODE_BLOCK_BAD_TX_SHARD, /* TX was in wrong shard in block */
+	PROTOCOL_ECODE_REF_BAD_BLOCKS_AGO, /* ref->blocks_ago too long ago */
+	PROTOCOL_ECODE_REF_BAD_SHARD, /* ref->shard too large. */
+	PROTOCOL_ECODE_REF_BAD_TXOFF, /* ref->txoff too large. */
 
 	/* protocol_pkt_shard */
 	PROTOCOL_ECODE_BAD_MERKLE,
