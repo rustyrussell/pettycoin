@@ -937,20 +937,50 @@ unmarshal_and_check_tx(struct state *state, const char **p, size_t *len,
 	return check_tx(state, *tx, NULL);
 }
 
+/* They claim that @in is @tx's input_num'th input.  It may have an
+ * input error.. */
+static enum protocol_ecode
+verify_problem_input(struct state *state,
+		     const union protocol_tx *tx, u32 input_num,
+		     const union protocol_tx *in,
+		     enum input_ecode *ierr,
+		     u32 *total)
+{
+	struct protocol_double_sha sha;
+	struct protocol_address tx_addr;
+	const struct protocol_input *input;
+	u32 amount;
+
+	/* Make sure this tx match the bad input */
+	if (input_num >= num_inputs(tx))
+		return PROTOCOL_ECODE_BAD_INPUTNUM;
+
+	assert(tx->hdr.type == TX_NORMAL);
+	input = tx_input(tx, input_num);
+	hash_tx(in, &sha);
+
+	if (!structeq(&input->input, &sha))
+		return PROTOCOL_ECODE_BAD_INPUT;
+
+	pubkey_to_addr(&tx->normal.input_key, &tx_addr);
+
+	*ierr = check_one_input(state, input, in, &tx_addr, &amount);
+	if (total)
+		*total += amount;
+	return PROTOCOL_ECODE_NONE;
+}
+
 static enum protocol_ecode
 recv_tx_bad_input(struct peer *peer,
 		  const struct protocol_pkt_tx_bad_input *pkt)
 {
 	const union protocol_tx *tx, *in;
-	const struct protocol_input *input;
 	struct protocol_double_sha sha;
-	struct protocol_address tx_addr;
 	enum protocol_ecode e;
 	enum input_ecode ierr;
 	struct txhash_elem *te;
 	struct txhash_iter ti;
 	const char *p;
-	u32 amount;
 	size_t len = le32_to_cpu(pkt->len);
 
 	if (len < sizeof(*pkt))
@@ -971,19 +1001,12 @@ recv_tx_bad_input(struct peer *peer,
 		return PROTOCOL_ECODE_INVALID_LEN;
 
 	/* Make sure this tx match the bad input */
-	if (le32_to_cpu(pkt->inputnum) >= num_inputs(tx))
-		return PROTOCOL_ECODE_BAD_INPUTNUM;
+	e = verify_problem_input(peer->state, tx, le32_to_cpu(pkt->inputnum),
+				 in, &ierr, NULL);
+	if (e)
+		return e;
 
-	assert(tx->hdr.type == TX_NORMAL);
-	input = tx_input(tx, le32_to_cpu(pkt->inputnum));
-	hash_tx(in, &sha);
-
-	if (!structeq(&input->input, &sha))
-		return PROTOCOL_ECODE_BAD_INPUT;
-
-	pubkey_to_addr(&tx->normal.input_key, &tx_addr);
-
-	ierr = check_one_input(peer->state, input, in, &tx_addr, &amount);
+	/* The input should give an error though. */
 	if (ierr == ECODE_INPUT_OK)
 		return PROTOCOL_ECODE_COMPLAINT_INVALID;
 
@@ -1013,7 +1036,6 @@ recv_tx_bad_amount(struct peer *peer,
 {
 	const union protocol_tx *tx, *in[PROTOCOL_TX_MAX_INPUTS];
 	struct protocol_double_sha sha;
-	struct protocol_address tx_addr;
 	enum protocol_ecode e;
 	struct txhash_elem *te;
 	struct txhash_iter ti;
@@ -1036,31 +1058,21 @@ recv_tx_bad_amount(struct peer *peer,
 	if (num_inputs(tx) == 0)
 		return PROTOCOL_ECODE_BAD_INPUTNUM;
 
-	pubkey_to_addr(&tx->normal.input_key, &tx_addr);
-
 	/* Unmarshall and check input transactions. */
 	for (i = 0; i < num_inputs(tx); i++) {
-		struct protocol_double_sha sha;
-		u32 amount;
 		enum input_ecode ierr;
-		const struct protocol_input *inp;
 
 		e = unmarshal_and_check_tx(peer->state, &p, &len, &in[i]);
 		if (e)
 			return e;
 
-		/* Check that it's the correct transaction */
-		inp = tx_input(tx, i);
-		hash_tx(in[i], &sha);
-		if (!structeq(&inp->input, &sha))
-			return PROTOCOL_ECODE_BAD_INPUT;
-
-		ierr = check_one_input(peer->state, inp, in[i], &tx_addr,
-				       &amount);
+		/* Make sure this tx match the bad input */
+		e = verify_problem_input(peer->state, tx, i, in[i], &ierr,
+					 &total);
+		if (e)
+			return e;
 		if (ierr != ECODE_INPUT_OK)
 			return PROTOCOL_ECODE_BAD_INPUT;
-
-		total += amount;
 	}
 
 	/* If there is any left over, that's bad. */
@@ -1266,6 +1278,61 @@ recv_complain_tx_invalid(struct peer *peer,
 				proof->pos.txoff, &txrefhash))
 		return PROTOCOL_ECODE_BAD_PROOF;
 
+	/* FIXME: We could look for the same hash in other blocks, too. */
+
+	/* Mark it invalid, and tell everyone else if it wasn't already. */
+	publish_complaint(peer->state, b, tal_packet_dup(b, pkt), peer);
+	return PROTOCOL_ECODE_NONE;
+}
+
+static enum protocol_ecode
+recv_complain_tx_bad_input(struct peer *peer,
+			   const struct protocol_pkt_complain_tx_bad_input *pkt)
+{
+	const union protocol_tx *tx, *in;
+	const struct protocol_position *pos;
+	enum protocol_ecode e;
+	enum input_ecode ierr;
+	struct block *b;
+	const char *p;
+	size_t len = le32_to_cpu(pkt->len);
+
+	if (len < sizeof(*pkt))
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	p = (const char *)(pkt + 1);
+	len -= sizeof(*pkt);
+
+	e = unmarshal_proven_tx(peer->state, &p, &len, &b, &tx, &pos);
+	if (e) {
+		if (e == PROTOCOL_ECODE_UNKNOWN_BLOCK) {
+			/* If we don't know it, that's OK.  Try to find out. */
+			todo_add_get_block(peer->state, &pos->block);
+			/* FIXME: Keep complaint in this case? */
+			return PROTOCOL_ECODE_NONE;
+		}
+		return e;
+	}
+
+	e = unmarshal_and_check_tx(peer->state, &p, &len, &in);
+	if (e)
+		return e;
+
+	if (len != 0)
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	/* Make sure this tx match the bad input */
+	e = verify_problem_input(peer->state, tx, le32_to_cpu(pkt->inputnum),
+				 in, &ierr, NULL);
+	if (e)
+		return e;
+
+	/* The input should give an error. */
+	if (ierr == ECODE_INPUT_OK)
+		return PROTOCOL_ECODE_COMPLAINT_INVALID;
+
+	/* FIXME: We could look for the same tx in other blocks, too. */
+
 	/* Mark it invalid, and tell everyone else if it wasn't already. */
 	publish_complaint(peer->state, b, tal_packet_dup(b, pkt), peer);
 	return PROTOCOL_ECODE_NONE;
@@ -1353,9 +1420,11 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 	case PROTOCOL_PKT_COMPLAIN_TX_INVALID:
 		err = recv_complain_tx_invalid(peer, peer->incoming);
 		break;
+	case PROTOCOL_PKT_COMPLAIN_TX_BAD_INPUT:
+		err = recv_complain_tx_bad_input(peer, peer->incoming);
+		break;
 
 	/* FIXME: Implement complaints. */
-	case PROTOCOL_PKT_COMPLAIN_TX_BAD_INPUT:
 	case PROTOCOL_PKT_COMPLAIN_TX_BAD_AMOUNT:
 	case PROTOCOL_PKT_COMPLAIN_BAD_INPUT_REF:
 
