@@ -118,8 +118,6 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "PROTOCOL_PKT_CHILDREN"; break;
 		case PROTOCOL_PKT_GET_BLOCK:
 			name = "PROTOCOL_PKT_GET_BLOCK"; break;
-		case PROTOCOL_PKT_UNKNOWN_BLOCK:
-			name = "PROTOCOL_PKT_UNKNOWN_BLOCK"; break;
 		case PROTOCOL_PKT_BLOCK:
 			name = "PROTOCOL_PKT_BLOCK"; break;
 		case PROTOCOL_PKT_GET_SHARD:

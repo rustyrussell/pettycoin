@@ -33,8 +33,6 @@ enum protocol_pkt_type {
 	PROTOCOL_PKT_CHILDREN,
 	/* Please tell me about this block */
 	PROTOCOL_PKT_GET_BLOCK,
-	/* Response to the above */
-	PROTOCOL_PKT_UNKNOWN_BLOCK, /* FIXME: Put err in PKT_BLOCK */
 	/* Here's a block (may be response to GET_BLOCK, or spontaneous) */
 	PROTOCOL_PKT_BLOCK,
 	/* Please tell me about this shard */
@@ -144,7 +142,7 @@ struct protocol_pkt_children {
 	le32 type; /* PROTOCOL_PKT_CHILDREN */
 
 	struct protocol_double_sha block;
-	le32 err; /* PROTOCOL_ECODE_NONE or PROTOCOL_ERROR_UNKNOWN_BLOCK */
+	le32 err; /* PROTOCOL_ECODE_NONE or PROTOCOL_ECODE_UNKNOWN_BLOCK */
 	/* struct protocol_net_syncblock [] */
 };
 
@@ -163,7 +161,10 @@ struct protocol_pkt_block {
 	le32 len; /* sizeof(struct protocol_pkt_block) + ... */
 	le32 type; /* PROTOCOL_PKT_BLOCK */
 
-	/* Marshaled block */
+	le32 err; /* PROTOCOL_ECODE_NONE or PROTOCOL_ECODE_UNKNOWN_BLOCK */
+
+	/* If PROTOCOL_ECODE_NONE: Marshaled block
+	 * If PROTOCOL_ECODE_UNKNOWN_BLOCK: SHA of block. */
 };
 
 /* This block contains an invalid transaction. */

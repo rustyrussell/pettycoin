@@ -17,7 +17,7 @@ enum protocol_ecode recv_shard_from_peer(struct peer *peer,
 
 /* From generator we get them all together, and importantly, there's
  * no point bothering peers to get information about this block. */
-void recv_block_from_generator(struct state *state, struct log *log,
+bool recv_block_from_generator(struct state *state, struct log *log,
 			       const struct protocol_pkt_block *pkt,
 			       struct protocol_pkt_shard **shards);
 

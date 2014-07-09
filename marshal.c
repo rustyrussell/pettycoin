@@ -174,6 +174,7 @@ marshal_block(const tal_t *ctx,
 
 	ret->len = cpu_to_le32(sizeof(*ret) + len);
 	ret->type = cpu_to_le32(PROTOCOL_PKT_BLOCK);
+	ret->err = cpu_to_le32(PROTOCOL_ECODE_NONE);
 
 	marshal_block_into(ret + 1,
 			    hdr, shard_nums, merkles, prev_txhashes, tailer);

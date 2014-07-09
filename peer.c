@@ -346,6 +346,30 @@ recv_set_filter(struct peer *peer, const struct protocol_pkt_set_filter *pkt)
 	return PROTOCOL_ECODE_NONE;
 }
 
+static enum protocol_ecode recv_pkt_block(struct peer *peer,
+					  const struct protocol_pkt_block *pkt)
+{
+	const struct protocol_double_sha *sha;
+	u32 len = le32_to_cpu(pkt->len) - sizeof(*pkt);
+	
+	if (le32_to_cpu(pkt->len) < sizeof(*pkt))
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	/* Normal case. */
+	if (le32_to_cpu(pkt->err) == PROTOCOL_ECODE_NONE)
+		return recv_block_from_peer(peer, pkt);
+
+	if (le32_to_cpu(pkt->err) != PROTOCOL_ECODE_UNKNOWN_BLOCK)
+		return PROTOCOL_ECODE_UNKNOWN_ERRCODE;
+
+	if (len != sizeof(*sha))
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	sha = (const struct protocol_double_sha *)(pkt + 1);
+	todo_done_get_block(peer, sha, false);
+	return PROTOCOL_ECODE_NONE;
+}
+
 static void
 tell_peer_about_bad_input(struct state *state,
 			  struct peer *peer,
@@ -457,19 +481,6 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 	/* OK, we own it now. */
 	tal_steal(peer->state, pkt);
 	add_pending_tx(peer, tx);
-
-	return PROTOCOL_ECODE_NONE;
-}
-
-static enum protocol_ecode
-recv_unknown_block(struct peer *peer,
-		   const struct protocol_pkt_unknown_block *pkt)
-{
-	if (le32_to_cpu(pkt->len) != sizeof(*pkt))
-		return PROTOCOL_ECODE_INVALID_LEN;
-
-	/* In case we were asking for this, ask someone else. */
-	todo_done_get_block(peer, &pkt->block, false);
 
 	return PROTOCOL_ECODE_NONE;
 }
@@ -796,16 +807,13 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 		err = recv_set_filter(peer, peer->incoming);
 		break;
 	case PROTOCOL_PKT_BLOCK:
-		err = recv_block_from_peer(peer, peer->incoming);
+		err = recv_pkt_block(peer, peer->incoming);
 		break;
 	case PROTOCOL_PKT_TX:
 		err = recv_tx(peer, peer->incoming);
 		break;
 	case PROTOCOL_PKT_GET_BLOCK:
 		err = recv_get_block(peer, peer->incoming, &reply);
-		break;
-	case PROTOCOL_PKT_UNKNOWN_BLOCK:
-		err = recv_unknown_block(peer, peer->incoming);
 		break;
 	case PROTOCOL_PKT_GET_SHARD:
 		err = recv_get_shard(peer, peer->incoming, &reply);

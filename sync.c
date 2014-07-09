@@ -266,29 +266,27 @@ recv_get_block(struct peer *peer,
 	       void **reply)
 {
 	struct block *b;
+	struct protocol_pkt_block *r;
 
 	if (le32_to_cpu(pkt->len) != sizeof(*pkt))
 		return PROTOCOL_ECODE_INVALID_LEN;
 
+	r = tal_packet(peer, struct protocol_pkt_block, PROTOCOL_PKT_BLOCK);
+
 	b = block_find_any(peer->state, &pkt->block);
 	if (b) {
-		struct protocol_pkt_block *r;
-		r = tal_packet(peer, struct protocol_pkt_block,
-					PROTOCOL_PKT_BLOCK);
+		r->err = le32_to_cpu(PROTOCOL_ECODE_NONE);
 		tal_packet_append_block(&r, b);
-		*reply = r;
 	} else {
 		/* If we don't know it, that's OK. */
-		struct protocol_pkt_unknown_block *r;
 		log_debug(peer->log, "unknown get_block block ");
 		log_add_struct(peer->log, struct protocol_double_sha,
 			       &pkt->block);
-		r = tal_packet(peer, struct protocol_pkt_unknown_block,
-					PROTOCOL_PKT_UNKNOWN_BLOCK);
-		r->block = pkt->block;
-		*reply = r;
+		r->err = le32_to_cpu(PROTOCOL_ECODE_UNKNOWN_BLOCK);
+		tal_packet_append_sha(&r, &pkt->block);
 	}
 
+	*reply = r;
 	return PROTOCOL_ECODE_NONE;
 }
 

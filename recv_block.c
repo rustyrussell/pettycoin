@@ -278,6 +278,7 @@ recv_shard(struct state *state, struct log *log, struct peer *peer,
 enum protocol_ecode recv_block_from_peer(struct peer *peer,
 					 const struct protocol_pkt_block *pkt)
 {
+	assert(le32_to_cpu(pkt->err) == PROTOCOL_ECODE_NONE);
 	return recv_block(peer->state, peer->log, peer, pkt);
 }
 
@@ -287,12 +288,18 @@ enum protocol_ecode recv_shard_from_peer(struct peer *peer,
 	return recv_shard(peer->state, peer->log, peer, pkt);
 }
 
-void recv_block_from_generator(struct state *state, struct log *log,
+bool recv_block_from_generator(struct state *state, struct log *log,
 			       const struct protocol_pkt_block *pkt,
 			       struct protocol_pkt_shard **shards)
 {
 	unsigned int i;
 	enum protocol_ecode e;
+
+	if (le32_to_cpu(pkt->err) != PROTOCOL_ECODE_NONE) {
+		log_unusual(log, "Generator gave block with err: ");
+		log_add_enum(log, enum protocol_ecode, le32_to_cpu(pkt->err));
+		return false;
+	}
 
 	/* This "can't happen" when we know everything.  But in future,
 	 * it's theoretically possible.  Plus, code sharing is nice. */
@@ -300,7 +307,7 @@ void recv_block_from_generator(struct state *state, struct log *log,
 	if (e != PROTOCOL_ECODE_NONE) {
 		log_unusual(log, "Generator gave broken block: ");
 		log_add_enum(log, enum protocol_ecode, e);
-		return;
+		return false;
 	}
 
 	for (i = 0; i < tal_count(shards); i++) {
@@ -308,7 +315,9 @@ void recv_block_from_generator(struct state *state, struct log *log,
 		if (e != PROTOCOL_ECODE_NONE) {
 			log_unusual(log, "Generator gave broken shard %i: ", i);
 			log_add_enum(log, enum protocol_ecode, e);
-			break;
+			return false;
 		}
 	}
+
+	return true;
 }
