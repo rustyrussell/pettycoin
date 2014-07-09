@@ -216,6 +216,7 @@ struct protocol_pkt_block_bad_input_ref {
 	/*
 	  struct protocol_tx_with_proof tx;
 	  struct protocol_tx_with_proof input;
+	  FIXME: Only need the proof of input hash, not actual tx.
 	*/
 };
 

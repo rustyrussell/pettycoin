@@ -229,15 +229,6 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "PROTOCOL_ECODE_BAD_MERKLE"; break;
 		case PROTOCOL_ECODE_PRIV_UNKNOWN_PREV:
 			name = "PROTOCOL_ECODE_PRIV_UNKNOWN_PREV"; break;
-		case PROTOCOL_ECODE_PRIV_TX_BAD_INPUT:
-			name = "PROTOCOL_ECODE_PRIV_TX_BAD_INPUT"; break;
-		case PROTOCOL_ECODE_PRIV_TX_BAD_AMOUNTS:
-			name = "PROTOCOL_ECODE_PRIV_TX_BAD_AMOUNTS"; break;
-		case PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF:
-			name = "PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF"; break;
-		case PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF_TX:
-			name = "PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF_TX";
-			break;
 		case PROTOCOL_ECODE_MAX:
 			break; /* Shouldn't happen! */
 		}

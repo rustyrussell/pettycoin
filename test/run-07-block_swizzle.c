@@ -31,7 +31,6 @@ static time_t my_time(time_t *p)
 #include "../hash_tx.c"
 #include "../create_tx.c"
 #include "../check_block.c"
-#include "../complain.c"
 #include "../block.c"
 #include "../prev_merkles.c"
 #include "../minimal_log.c"

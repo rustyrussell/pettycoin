@@ -1,23 +1,60 @@
 #ifndef PETTYCOIN_COMPLAIN_H
 #define PETTYCOIN_COMPLAIN_H
+#include <ccan/short_types/short_types.h>
 #include "protocol_ecode.h"
+#include <stdlib.h>
 
 struct state;
 struct block;
 union protocol_tx;
+struct protocol_input_ref;
+struct protocol_proof;
 
+/* This can never happen, since there's no way to send an invalid tx. */
 void complain_bad_tx(struct state *state,
 		     struct block *block,
 		     enum protocol_ecode err,
-		     unsigned int bad_shardnum,
-		     unsigned int bad_txoff,
-		     unsigned int bad_input,
-		     union protocol_tx *bad_intx);
+		     u16 shardnum, u8 txoff,
+		     const struct protocol_proof *proof,
+		     const union protocol_tx *tx,
+		     const struct protocol_input_ref *refs);
 
+/* tx/refs belongs in block at shardnum/tx, but input bad_input is bad. */
+void complain_bad_input(struct state *state,
+			struct block *block,
+			u16 shardnum, u8 txoff,
+			const struct protocol_proof *proof,
+			const union protocol_tx *tx,
+			const struct protocol_input_ref *refs,
+			unsigned int bad_input);
+
+/* tx/refs belongs in block at shardnum/tx, but inputs don't add up. */
+void complain_bad_amount(struct state *state,
+			 struct block *block,
+			 u16 shardnum, u8 txoff,
+			 const struct protocol_proof *proof,
+			 const union protocol_tx *tx,
+			 const struct protocol_input_ref *refs);
+
+/* tx/refs belongs in block at shardnum/tx, but input ref points to a
+ * different tx to the tx referred to by tx->input. */
+void complain_bad_input_ref(struct state *state,
+			    struct block *block,
+			    u16 shardnum, u8 txoff,
+			    const struct protocol_proof *proof,
+			    const union protocol_tx *tx,
+			    const struct protocol_input_ref *refs,
+			    unsigned int bad_refnum,
+			    const struct block *block_referred_to);
+
+/* tx/refs belongs in block at shardnum/tx, but it's out of order when
+ * compared with the already-known tx conflict_txoff. */
 void complain_misorder(struct state *state,
 		       struct block *block,
-		       unsigned int bad_shardnum,
-		       unsigned int bad_txoff1,
-		       unsigned int bad_txoff2);
+		       u16 shardnum, u8 txoff,
+		       const struct protocol_proof *proof,
+		       const union protocol_tx *tx,
+		       const struct protocol_input_ref *refs,
+		       unsigned int conflict_txoff);
 
 #endif /* PETTYCOIN_COMPLAIN_H */

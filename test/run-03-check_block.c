@@ -103,14 +103,6 @@ void log_to_file(int fd, const struct log *log)
 {
 }
 
-void complain_misorder(struct state *state,
-			       struct block *block,
-			       unsigned int bad_txoff1,
-			       unsigned int bad_txoff2,
-			       unsigned int bad_shardnum)
-{
-}
-
 int main(int argc, char *argv[])
 {
 	struct state *s;

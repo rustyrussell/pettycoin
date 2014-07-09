@@ -24,6 +24,7 @@
 #include "difficulty.h"
 #include "recv_block.h"
 #include "tal_packet_proof.h"
+#include "proof.h"
 #include <ccan/io/io.h>
 #include <ccan/time/time.h>
 #include <ccan/tal/tal.h>
@@ -539,6 +540,7 @@ recv_get_tx_in_block(struct peer *peer,
 {
 	struct block *b;
 	struct protocol_pkt_tx_in_block *r;
+	struct protocol_proof proof;
 	union protocol_tx *tx;
 	u16 shard;
 	u8 txoff;
@@ -581,7 +583,9 @@ recv_get_tx_in_block(struct peer *peer,
 	}
 
 	r->err = cpu_to_le32(PROTOCOL_ECODE_NONE);
-	tal_packet_append_proof(&r, b, shard, txoff);
+	create_proof(&proof, b, shard, txoff);
+	tal_packet_append_proof(&r, b, shard, txoff, &proof, tx,
+				block_get_refs(b, shard, txoff));
 
 done:
 	*reply = r;

@@ -13,7 +13,7 @@ void create_proof(struct protocol_proof *proof,
 	unsigned int i;
 
 	assert(shardnum < num_shards(block->hdr));
-	assert(shard_all_known(block, shardnum));
+	assert(shard_all_hashes(block, shardnum));
 
 	for (i = 0; i < 8; i++) {
 		if (txoff & (1 << i))

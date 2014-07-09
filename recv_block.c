@@ -10,6 +10,8 @@
 #include "pending.h"
 #include "shard.h"
 #include "chain.h"
+#include "proof.h"
+#include "complain.h"
 
 /* Don't let them flood us with cheap, random blocks. */
 static void seek_predecessor(struct state *state, 
@@ -135,6 +137,21 @@ static void try_resolve_hashes(struct state *state,
 		txp = find_pending_tx_with_ref(shard, state, block, shardnum,
 					       shard->u[i].hash);
 		if (txp.tx) {
+			u8 conflict_txoff;
+			if (!check_tx_ordering(state, block, shard, i, txp.tx,
+					       &conflict_txoff)) {
+				struct protocol_proof proof;
+
+				/* We can generate proof, since we at
+				 * least have hashes. */
+				create_proof(&proof, block, shardnum, i);
+
+				complain_misorder(state, block, shardnum, i,
+						  &proof, txp.tx, refs_for(txp),
+						  conflict_txoff);
+				/* This block is invalid, don't waste time. */
+				return;
+			}
 			put_tx_in_shard(state, block, shard, i, txp);
 		} else if (add_todos) {
 			todo_add_get_tx_in_block(state, &block->sha, shardnum,

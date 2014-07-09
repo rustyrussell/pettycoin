@@ -78,14 +78,6 @@ void todo_forget_about_block(struct state *state,
 }
 
 
-void complain_misorder(struct state *state,
-			       struct block *block,
-			       unsigned int bad_txoff1,
-			       unsigned int bad_txoff2,
-			       unsigned int bad_shardnum)
-{
-}
-
 struct log *new_log(const tal_t *ctx,
 		    const struct log *parent,
 		    const char *prefix,

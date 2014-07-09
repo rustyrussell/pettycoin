@@ -75,11 +75,6 @@ enum protocol_ecode {
 
 	/* Internal error codes. */
 	PROTOCOL_ECODE_PRIV_UNKNOWN_PREV, /* I don't know previous block. */
-	PROTOCOL_ECODE_PRIV_TX_BAD_INPUT, /* an input is bad. */
-	PROTOCOL_ECODE_PRIV_TX_BAD_AMOUNTS, /* total inputs != outputs  */
-	/* These two only occur within a block: */
-	PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF, /* input_ref is bad */
-	PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF_TX, /* input_ref points to bad transaction */
 };
 
 #endif /* PETTYCOIN_PROTOCOL_ECODE_H */

@@ -199,6 +199,9 @@ static void copy_old_txs(struct state *state,
 		if (!tx_for(old, i))
 			continue;
 
+		/* We don't need to check_tx_ordering, since they were already
+		 * checked. */
+
 		/* It's probably not a talloc pointer, so copy! */
 		put_tx_in_shard(state, block, new, i,
 				dup_txp(new, old->u[i].txp));
@@ -226,12 +229,43 @@ void put_shard_of_hashes_into_block(struct state *state,
 	block->shard[shard->shardnum] = tal_steal(block, shard);
 }
 
-static void check_tx_ordering(struct state *state,
-			      struct block *block,
-			      struct block_shard *shard, u8 a, u8 b)
+/* If we were to insert tx in block->shard[shardnum] at txoff, would it be
+ * in order? */
+bool check_tx_ordering(struct state *state,
+		       struct block *block,
+		       struct block_shard *shard, u8 txoff,
+		       const union protocol_tx *tx,
+		       u8 *bad_txoff)
 {
-	if (tx_cmp(tx_for(shard, a), tx_for(shard, b)) >= 0)
-		complain_misorder(state, block, shard->shardnum, a, b);
+	const union protocol_tx *other_tx;
+	int i;
+
+	/* Check ordering against previous. */
+	for (i = (int)txoff-1; i >= 0; i--) {
+		other_tx = tx_for(shard, i);
+		if (other_tx) {
+			if (tx_cmp(other_tx, tx) >= 0) {
+				*bad_txoff = i;
+				return false;
+			}
+			break;
+		}
+	}
+
+	/* Check ordering against next. */
+	for (i = (int)txoff+1;
+	     i < num_txs_in_shard(block, shard->shardnum);
+	     i++) {
+		other_tx = tx_for(shard, i);
+		if (other_tx) {
+			if (tx_cmp(tx, other_tx) >= 0) {
+				*bad_txoff = i;
+				return false;
+			}
+			break;
+		}
+	}
+	return true;
 }
 
 void put_tx_in_shard(struct state *state,
@@ -239,8 +273,6 @@ void put_tx_in_shard(struct state *state,
 		     struct block_shard *shard, u8 txoff,
 		     struct txptr_with_ref txp)
 {
-	int i;
-
 	/* All this work for assertion checking! */
 	if (shard_is_tx(shard, txoff)) {
 		if (tx_for(shard, txoff)) {
@@ -264,24 +296,6 @@ void put_tx_in_shard(struct state *state,
 
 	/* Record it in the hash. */
 	add_tx_to_txhash(state, block, shard, txoff);
-
-	/* Check ordering against previous. */
-	for (i = (int)txoff-1; i >= 0; i--) {
-		if (tx_for(shard, i)) {
-			check_tx_ordering(state, block, shard, i, txoff);
-			break;
-		}
-	}
-
-	/* Check ordering against next. */
-	for (i = (int)txoff+1;
-	     i < num_txs_in_shard(block, shard->shardnum);
-	     i++) {
-		if (tx_for(shard, i)) {
-			check_tx_ordering(state, block, shard, txoff, i);
-			break;
-		}
-	}
 }
 
 /* Check what we can, using block->prev->...'s shards. */

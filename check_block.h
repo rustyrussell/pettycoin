@@ -37,7 +37,15 @@ void put_shard_of_hashes_into_block(struct state *state,
 				    struct block *block,
 				    struct block_shard *shard);
 
-/* May add complaint if it's out of order. */
+/* If we put tx in shard at txoff, will it be in order?  If not, give
+ * offset of conflicting tx in bad_txoff */
+bool check_tx_ordering(struct state *state,
+		       struct block *block,
+		       struct block_shard *shard, u8 txoff,
+		       const union protocol_tx *tx,
+		       u8 *bad_txoff);
+
+/* You normally call check_tx_ordering first! */
 void put_tx_in_shard(struct state *state,
 		     struct block *block,
 		     struct block_shard *shard, u8 txoff,
