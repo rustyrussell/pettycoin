@@ -1271,6 +1271,7 @@ recv_tx_doublespend(struct peer *peer,
 	hash_tx(tx_a, &sha_a);
 	hash_tx(tx_b, &sha_b);
 
+again:
 	/* Now, for each block tx_a appears in, if tx_b appears in the same
 	 * chain, invalidate the earlier block. */
 	for (te_a = txhash_firstval(&peer->state->txhash, &sha_a, &ti_a);
@@ -1320,13 +1321,13 @@ recv_tx_doublespend(struct peer *peer,
 			refs2 = block_get_refs(te2->u.block, te2->shardnum,
 					       te2->txoff);
 
-			/* FIXME: when complain deletes from hash, this
-			 * iteration will be unreliable! */
 			complain_doublespend(peer->state,
 					     te1->u.block, input1, &proof1, 
 					     tx1, refs1,
 					     te2->u.block, input2, &proof2, 
 					     tx2, refs2);
+			/* complain_doublespend deletes from hash, so restart */
+			goto again;
 		}
 	}
 	return PROTOCOL_ECODE_BAD_INPUT;
