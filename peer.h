@@ -61,6 +61,8 @@ bool new_peer_by_addr(struct state *state, const char *node, const char *port);
 void send_tx_to_peers(struct state *state,
 		      struct peer *exclude,
 		      const union protocol_tx *tx);
+void send_tx_in_block_to_peers(struct state *state, const struct peer *exclude,
+			       struct block *block, u16 shard, u8 txoff);
 
 void wake_peers(struct state *state);
 

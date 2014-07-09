@@ -158,6 +158,8 @@ static void copy_old_txs(struct state *state,
 				dup_txp(new, old->u[i].txp));
 
 		/* We don't need to copy proofs, since we have full shard. */
+		/* We don't need to send to peers, since presumably
+		 * they know it. */
 	}
 }
 

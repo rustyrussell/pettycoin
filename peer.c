@@ -164,14 +164,17 @@ void fill_peers(struct state *state)
 	}
 }
 
-void send_tx_to_peers(struct state *state, struct peer *exclude,
-		      const union protocol_tx *tx)
+/* only_other is set if we only want to send to peers who aren't interested
+ * in this tx's home shard. */
+static void send_to_interested_peers(struct state *state,
+				     const struct peer *exclude,
+				     const union protocol_tx *tx,
+				     bool only_other,
+				     const void *pkt)
 {
 	struct peer *peer;
 
 	list_for_each(&state->peers, peer, list) {
-		struct protocol_pkt_tx *pkt;
-
 		/* Avoid sending back to peer who told us. */
 		if (peer == exclude)
 			continue;
@@ -181,12 +184,56 @@ void send_tx_to_peers(struct state *state, struct peer *exclude,
 		if (peer->they_are_syncing)
 			continue;
 
+		if (only_other) {
+			if (peer_wants_tx(peer, tx))
+				continue;
+			if (!peer_wants_tx_other(peer, tx))
+				continue;
+		} else {
+			/* Not interested in any shards affected by this tx? */
+			if (!peer_wants_tx(peer, tx)
+			    && !peer_wants_tx_other(peer, tx))
+				continue;
+		}
+
 		/* FIXME: Respect filter! */
-		pkt = tal_packet(peer, struct protocol_pkt_tx, PROTOCOL_PKT_TX);
-		pkt->err = cpu_to_le32(PROTOCOL_ECODE_NONE);
-		tal_packet_append_tx(&pkt, tx);
-		todo_for_peer(peer, pkt);
+		todo_for_peer(peer, tal_packet_dup(peer, pkt));
 	}
+}
+
+/* We sent unsolicited TXs to any peer who's interested. */
+void send_tx_to_peers(struct state *state, struct peer *exclude,
+		      const union protocol_tx *tx)
+{
+	struct protocol_pkt_tx *pkt;
+
+	pkt = tal_packet(state, struct protocol_pkt_tx, PROTOCOL_PKT_TX);
+	pkt->err = cpu_to_le32(PROTOCOL_ECODE_NONE);
+	tal_packet_append_tx(&pkt, tx);
+
+	send_to_interested_peers(state, exclude, tx, false, pkt);
+	tal_free(pkt);
+}
+
+/* We only send unsolicited TXs in blocks when the peer wouldn't get
+ * it via their normal protocol_pkt_get_shard().  ie. it's not in one
+ * of their block shards, but it affects a shard they want. */
+void send_tx_in_block_to_peers(struct state *state, const struct peer *exclude,
+			       struct block *block, u16 shard, u8 txoff)
+{
+	struct protocol_pkt_tx_in_block *pkt;
+	struct protocol_proof proof;
+	const union protocol_tx *tx = block_get_tx(block, shard, txoff);
+
+	pkt = tal_packet(state, struct protocol_pkt_tx_in_block,
+			 PROTOCOL_PKT_TX_IN_BLOCK);
+	pkt->err = cpu_to_le32(PROTOCOL_ECODE_NONE);
+	create_proof(&proof, block->shard[shard], txoff);
+	tal_packet_append_proof(&pkt, block, shard, txoff, &proof, tx,
+				block_get_refs(block, shard, txoff));
+
+	send_to_interested_peers(state, exclude, tx, true, pkt);
+	tal_free(pkt);
 }
 
 static struct protocol_pkt_block *block_pkt(tal_t *ctx, const struct block *b)
@@ -830,6 +877,9 @@ recv_tx_in_block(struct peer *peer, const struct protocol_pkt_tx_in_block *pkt)
 	/* Keep proof in case anyone asks. */
 	put_proof_in_shard(peer->state, b, b->shard[shard], proof->pos.txoff,
 			   &proof->proof);
+
+	/* Reuse packet as shortcut for send_tx_in_block_to_peers */
+	send_to_interested_peers(peer->state, peer, tx, true, pkt);
 
 	return PROTOCOL_ECODE_NONE;
 }

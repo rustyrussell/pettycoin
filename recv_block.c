@@ -121,6 +121,7 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 }
 
 static void try_resolve_hashes(struct state *state,
+			       const struct peer *source,
 			       struct block *block,
 			       u16 shardnum,
 			       bool add_todos)
@@ -156,6 +157,8 @@ static void try_resolve_hashes(struct state *state,
 			}
 			put_tx_in_shard(state, block, shard, i, txp);
 			/* We don't need proof, since we have whole shard. */
+			send_tx_in_block_to_peers(state, source, block,
+						  shardnum, i);
 		} else if (add_todos) {
 			todo_add_get_tx_in_block(state, &block->sha, shardnum,
 						 i);
@@ -258,7 +261,7 @@ recv_shard(struct state *state, struct log *log, struct peer *peer,
 		  s->txcount, s->hashcount, s->size);
 
 	/* This will try to match the rest, or trigger asking. */
-	try_resolve_hashes(state, b, shard, peer != NULL);
+	try_resolve_hashes(state, peer, b, shard, peer != NULL);
 
 	log_debug(log, "Shard now resolved. txs %u, hashes %u (of %u)",
 		  s->txcount, s->hashcount, s->size);
