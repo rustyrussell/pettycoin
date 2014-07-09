@@ -264,7 +264,7 @@ recv_shard(struct state *state, struct log *log, struct peer *peer,
 	u16 shard;
 	unsigned int i;
 	struct protocol_double_sha merkle;
-	const struct protocol_txrefhash *hash[256];
+	const struct protocol_txrefhash *hashes;
 
 	if (le32_to_cpu(pkt->len) < sizeof(*pkt))
 		return PROTOCOL_ECODE_INVALID_LEN;
@@ -316,22 +316,19 @@ recv_shard(struct state *state, struct log *log, struct peer *peer,
 		return PROTOCOL_ECODE_NONE;
 	}
 
+	/* The rest are the hash entries. */
+	hashes = (struct protocol_txrefhash *)(pkt + 1);
+
 	/* Should have appended all txrefhashes. */
 	if (le32_to_cpu(pkt->len)
-	    != sizeof(*pkt) + b->shard_nums[shard] * sizeof(*hash[0]))
+	    != sizeof(*pkt) + b->shard_nums[shard] * sizeof(hashes[0]))
 		return PROTOCOL_ECODE_INVALID_LEN;
 
 	log_debug(log, "Got shard %u of ", shard);
 	log_add_struct(log, struct protocol_double_sha, &pkt->block);
 
-	/* Set up hash pointers. */
-	hash[0] = (struct protocol_txrefhash *)(pkt + 1);
-	for (i = 1; i < b->shard_nums[shard]; i++)
-		hash[i] = hash[i-1] + 1;
-
 	/* Check it's right. */
-	/* FIXME: Make generate use a flat array, so we can. */
-	merkle_hashes(hash, 0, b->shard_nums[shard], &merkle);
+	merkle_hashes(hashes, 0, b->shard_nums[shard], &merkle);
 	if (!structeq(&b->merkles[shard], &merkle)) {
 		log_unusual(log, "Bad hash for shard %u of ", shard);
 		log_add_struct(log, struct protocol_double_sha, &pkt->block);
@@ -345,7 +342,7 @@ recv_shard(struct state *state, struct log *log, struct peer *peer,
 
 	/* This may resolve some of the txs if we know them already. */
 	for (i = 0; i < b->shard_nums[shard]; i++)
-		put_txhash_in_shard(state, b, shard, i, hash[i]);
+		put_txhash_in_shard(state, b, shard, i, &hashes[i]);
 
 	log_debug(log, "Hashes now in shar. txs %u, hashes %u (of %u)",
 		  b->shard[shard]->txcount,

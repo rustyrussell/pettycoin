@@ -6,14 +6,15 @@
 static void merkle_hash(size_t n, void *data,
 			struct protocol_double_sha *merkle)
 {
-	const struct protocol_txrefhash **hashes = data;
+	const struct protocol_txrefhash *hashes = data;
 
-	merkle_two_hashes(&hashes[n]->txhash, &hashes[n]->refhash, merkle);
+	merkle_two_hashes(&hashes[n].txhash, &hashes[n].refhash, merkle);
 }
 
-void merkle_hashes(const struct protocol_txrefhash **hashes,
+void merkle_hashes(const struct protocol_txrefhash *hashes,
 		   size_t off, size_t num_hashes,
 		   struct protocol_double_sha *merkle)
 {
-	merkle_recurse(off, num_hashes, 256, merkle_hash, hashes, merkle);
+	merkle_recurse(off, num_hashes, 256, merkle_hash, (void *)hashes,
+		       merkle);
 }
