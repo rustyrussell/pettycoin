@@ -1,3 +1,9 @@
+/* This file defines the core requirements of the pettycoin protocol.
+ * It is licensed under CC0, to allow anyone to create interoperable
+ * programs with minimal hassle.  See CC0-for-protocol-headers.
+ *
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ */
 #ifndef PETTYCOIN_PROTOCOL_H
 #define PETTYCOIN_PROTOCOL_H
 #include "config.h"

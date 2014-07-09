@@ -1,3 +1,10 @@
+/*
+ * This file defines the error code requirements of the pettycoin protocol.
+ * It is licensed under CC0, to allow anyone to create interoperable
+ * programs with minimal hassle.  See CC0-for-protocol-headers.
+ *
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ */
 #ifndef PETTYCOIN_PROTOCOL_ECODE_H
 #define PETTYCOIN_PROTOCOL_ECODE_H
 
