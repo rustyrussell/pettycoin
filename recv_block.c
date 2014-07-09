@@ -153,6 +153,7 @@ static void try_resolve_hashes(struct state *state,
 				return;
 			}
 			put_tx_in_shard(state, block, shard, i, txp);
+			/* We don't need proof, since we have whole shard. */
 		} else if (add_todos) {
 			todo_add_get_tx_in_block(state, &block->sha, shardnum,
 						 i);

@@ -7,6 +7,7 @@
 #include "../shadouble.c"
 #include "../block_shard.c"
 #include "../merkle_recurse.c"
+#include "../proof.c"
 #include "helper_key.h"
 #include "helper_gateway_key.h"
 
@@ -49,6 +50,14 @@ void merkle_txs(const struct block_shard *shard,
 {
 	abort();
 }
+
+void merkle_some_txs(const struct block_shard *shard,
+		     size_t off, size_t max,
+		     struct protocol_double_sha *merkle)
+{
+	abort();
+}
+
 
 static struct block *mock_block(const tal_t *ctx)
 {

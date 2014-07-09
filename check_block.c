@@ -208,6 +208,8 @@ static void copy_old_txs(struct state *state,
 		/* It's probably not a talloc pointer, so copy! */
 		put_tx_in_shard(state, block, new, i,
 				dup_txp(new, old->u[i].txp));
+
+		/* We don't need to copy proofs, since we have full shard. */
 	}
 }
 
@@ -300,6 +302,30 @@ void put_tx_in_shard(struct state *state,
 
 	/* Record it in the hash. */
 	add_tx_to_txhash(state, block, shard, txoff);
+
+	/* If we've just filled it, we don't need proofs any more. */
+	if (shard_all_hashes(shard))
+		shard->proof = tal_free(shard->proof);
+
+}
+
+void put_proof_in_shard(struct state *state,
+			struct block *block,
+			struct block_shard *shard, u8 txoff,
+			const struct protocol_proof *proof)
+{
+	/* If we have all hashes, we don't need to keep proof. */
+	if (shard_all_hashes(shard))
+		return;
+
+	if (!shard->proof)
+		shard->proof = tal_arrz(shard, struct protocol_proof *,
+					block->shard_nums[shard->shardnum]);
+
+	if (shard->proof[txoff])
+		return;
+
+	shard->proof[txoff] = tal_dup(shard, struct protocol_proof, proof, 1,0);
 }
 
 /* Check what we can, using block->prev->...'s shards. */

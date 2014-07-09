@@ -46,6 +46,7 @@ static time_t my_time(time_t *p)
 #include "../pseudorand.c"
 #include "../create_refs.c"
 #include "../tx.c"
+#include "../proof.c"
 #include "easy_genesis.c"
 
 void restart_generating(struct state *state)

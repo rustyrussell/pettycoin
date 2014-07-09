@@ -12,6 +12,13 @@ void create_proof(struct protocol_proof *proof,
 {
 	unsigned int i;
 
+	/* If we have a canned proof, return that. */
+	if (shard->proof && shard->proof[txoff]) {
+		*proof = *shard->proof[txoff];
+		return;
+	}
+
+	/* We only should get rid of shard->proofs once we can make our own. */
 	assert(shard_all_hashes(shard));
 
 	for (i = 0; i < 8; i++) {

@@ -749,6 +749,10 @@ recv_tx_in_block(struct peer *peer, const struct protocol_pkt_tx_in_block *pkt)
 	/* Copy in tx and refs. */
 	put_tx_in_shard(peer->state, b, b->shard[shard], proof->pos.txoff,
 			txptr_with_ref(b->shard[shard], tx, refs));
+	/* Keep proof in case anyone asks. */
+	put_proof_in_shard(peer->state, b, b->shard[shard], proof->pos.txoff,
+			   &proof->proof);
+
 	return PROTOCOL_ECODE_NONE;
 }
 

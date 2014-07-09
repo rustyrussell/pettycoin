@@ -48,6 +48,7 @@ static time_t my_time(time_t *p)
 #include "../tx.c"
 #include "../block_shard.c"
 #include "../tal_packet_proof.c"
+#include "../proof.c"
 #include "easy_genesis.c"
 
 void restart_generating(struct state *state)
@@ -76,11 +77,6 @@ void todo_add_get_shard(struct state *state,
 
 void todo_forget_about_block(struct state *state,
 			     const struct protocol_double_sha *block)
-{
-}
-
-void create_proof(struct protocol_proof *proof,
-		  const struct block_shard *shard, u8 txoff)
 {
 }
 

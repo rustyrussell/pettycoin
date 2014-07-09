@@ -32,6 +32,9 @@ struct block_shard {
 	/* What's our max (== block->shard_nums[shard->shardnum]) */
 	u8 size;
 
+	/* If we don't know all hashes, we store array of proofs here. */
+	struct protocol_proof **proof;
+
 	/* Bits to discriminate the union: 0 = txp, 1 == hash */
 	BITMAP_DECLARE(txp_or_hash, 255);
 

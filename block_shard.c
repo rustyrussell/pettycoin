@@ -5,6 +5,7 @@
 #include "shard.h"
 #include "merkle_txs.h"
 #include "check_tx.h"
+#include "proof.h"
 #include <assert.h>
 
 /* For compactness, struct block_shard needs tx and refs adjacent. */
@@ -76,6 +77,11 @@ void check_block_shard(struct state *state,
 
 	assert(shard->size == block->shard_nums[shard->shardnum]);
 
+	if (shard_all_hashes(shard))
+		assert(!shard->proof);
+	else if (shard->txcount != 0)
+		assert(shard->proof);
+
 	for (i = 0; i < shard->size; i++) {
 		if (shard_is_tx(shard, i)) {
 			if (shard->u[i].txp.tx) {
@@ -88,6 +94,13 @@ void check_block_shard(struct state *state,
 						       shard->u[i].txp.tx,
 						       &bad)
 				       == ECODE_INPUT_OK);
+				if (shard->proof)
+					assert(check_proof(shard->proof[i],
+							   block,
+							   shard->shardnum, i,
+							   shard->u[i].txp.tx,
+							   refs_for(shard->u[i]
+								    .txp)));
 				txcount++;
 			}
 		} else {
