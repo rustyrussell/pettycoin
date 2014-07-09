@@ -17,8 +17,8 @@ struct inputhash_elem {
 	struct protocol_double_sha used_by;
 };
 
-const struct inputhash_key *inputhash_keyof(const struct inputhash_elem *);
-size_t inputhash_hashfn(const struct inputhash_key *);
+const struct inputhash_key *inputhash_keyof(const struct inputhash_elem *ie);
+size_t inputhash_hashfn(const struct inputhash_key *key);
 bool inputhash_eq(const struct inputhash_elem *elem,
 		  const struct inputhash_key *output);
 
