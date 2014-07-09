@@ -1391,11 +1391,82 @@ recv_complain_tx_bad_amount(struct peer *peer,
 	return PROTOCOL_ECODE_NONE;
 }
 
+static enum protocol_ecode
+recv_complain_bad_input_ref(struct peer *peer,
+		    const struct protocol_pkt_complain_bad_input_ref *pkt)
+{
+	const union protocol_tx *tx, *intx;
+	const struct protocol_position *pos, *inpos;
+	enum protocol_ecode e;
+	struct block *b, *inb;
+	const char *p;
+	size_t len = le32_to_cpu(pkt->len);
+	const struct protocol_input_ref *ref;
+	struct protocol_double_sha sha;
+
+	if (len < sizeof(*pkt))
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	p = (const char *)(pkt + 1);
+	len -= sizeof(*pkt);
+
+	e = unmarshal_proven_tx(peer->state, &p, &len, &b, &tx, &pos);
+	if (e) {
+		if (e == PROTOCOL_ECODE_UNKNOWN_BLOCK) {
+			/* If we don't know it, that's OK.  Try to find out. */
+			todo_add_get_block(peer->state, &pos->block);
+			/* FIXME: Keep complaint in this case? */
+			return PROTOCOL_ECODE_NONE;
+		}
+		return e;
+	}
+
+	if (le32_to_cpu(pkt->inputnum) >= num_inputs(tx))
+		return PROTOCOL_ECODE_BAD_INPUTNUM;
+
+	/* Refs follow tx in packet. */
+	ref = ((const struct protocol_input_ref *)
+	       ((const char *)tx + marshal_tx_len(tx)))
+		+ le32_to_cpu(pkt->inputnum);
+
+	e = unmarshal_proven_tx(peer->state, &p, &len, &inb, &intx, &inpos);
+	if (e) {
+		if (e == PROTOCOL_ECODE_UNKNOWN_BLOCK) {
+			/* If we don't know it, that's OK.  Try to find out. */
+			todo_add_get_block(peer->state, &inpos->block);
+			/* FIXME: Keep complaint in this case? */
+			return PROTOCOL_ECODE_NONE;
+		}
+		return e;
+	}
+
+	/* Now, check that they proved the referenced position */
+	if (block_ancestor(b, le32_to_cpu(ref->blocks_ago)) != inb)
+		return PROTOCOL_ECODE_BAD_INPUT;
+	if (inpos->shard != ref->shard)
+		return PROTOCOL_ECODE_BAD_INPUT;
+	if (inpos->txoff != ref->txoff)
+		return PROTOCOL_ECODE_BAD_INPUT;
+
+	/* Must be true: otherwise, it would have 0 inputs. */
+	assert(tx->hdr.type == TX_NORMAL);
+
+	/* We expect it to be the wrong tx. */
+	hash_tx(intx, &sha);
+	if (structeq(&tx_input(tx, le32_to_cpu(pkt->inputnum))->input, &sha))
+		return PROTOCOL_ECODE_COMPLAINT_INVALID;
+
+	/* Mark it invalid, and tell everyone else if it wasn't already. */
+	publish_complaint(peer->state, b, tal_packet_dup(b, pkt), peer);
+	return PROTOCOL_ECODE_NONE;
+}
+
 static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 {
 	const struct protocol_net_hdr *hdr = peer->incoming;
 	tal_t *ctx = tal_arr(peer, char, 0);
-	u32 len, type;
+	u32 len;
+	enum protocol_pkt_type type;
 	enum protocol_ecode err;
 	void *reply = NULL;
 
@@ -1408,6 +1479,7 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 	/* Recipient function should steal this if it should outlive us. */
 	tal_steal(ctx, peer->incoming);
 
+	err = PROTOCOL_ECODE_UNKNOWN_COMMAND;
 	switch (type) {
 	case PROTOCOL_PKT_ERR:
 		if (len == sizeof(struct protocol_pkt_err)) {
@@ -1479,15 +1551,20 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 	case PROTOCOL_PKT_COMPLAIN_TX_BAD_AMOUNT:
 		err = recv_complain_tx_bad_amount(peer, peer->incoming);
 		break;
-
-	/* FIXME: Implement complaints. */
 	case PROTOCOL_PKT_COMPLAIN_BAD_INPUT_REF:
+		err = recv_complain_bad_input_ref(peer, peer->incoming);
+		break;
 
 	/* These should not be used after sync. */
 	case PROTOCOL_PKT_WELCOME:
 	case PROTOCOL_PKT_HORIZON:
 	case PROTOCOL_PKT_SYNC:
-	default:
+
+	/* These ones never valid. */
+	case PROTOCOL_PKT_NONE:
+	case PROTOCOL_PKT_PIGGYBACK:
+	case PROTOCOL_PKT_MAX:
+	case PROTOCOL_PKT_PRIV_FULLSHARD:
 		err = PROTOCOL_ECODE_UNKNOWN_COMMAND;
 	}
 
