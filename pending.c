@@ -306,3 +306,22 @@ find_pending_tx_with_ref(const tal_t *ctx,
 	r.tx = NULL;
 	return r;
 }
+
+/* FIXME: slow! */
+const union protocol_tx *
+find_pending_tx(struct state *state,
+		const struct protocol_double_sha *hash)
+{
+	unsigned int shard, i;
+
+	for (shard = 0; shard < ARRAY_SIZE(state->pending->pend); shard++) {
+		for (i = 0; i < tal_count(state->pending->pend[shard]); i++) {
+			struct protocol_double_sha sha;
+
+			hash_tx(state->pending->pend[shard][i]->tx, &sha);
+			if (structeq(&sha, hash))
+				return state->pending->pend[shard][i]->tx;
+		}
+	}
+	return NULL;
+}

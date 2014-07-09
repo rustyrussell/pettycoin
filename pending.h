@@ -42,4 +42,9 @@ find_pending_tx_with_ref(const tal_t *ctx,
 			 const struct block *block,
 			 u16 shard,
 			 const struct protocol_net_txrefhash *hash);
+
+/* Look through pending to find if we have this tx by hash */
+const union protocol_tx *
+find_pending_tx(struct state *state,
+		const struct protocol_double_sha *hash);
 #endif /* PETTYCOIN_PENDING_H */

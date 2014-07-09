@@ -611,6 +611,54 @@ unknown:
 }
 
 static enum protocol_ecode
+recv_get_tx(struct peer *peer,
+	    const struct protocol_pkt_get_tx *pkt, void **reply)
+{
+	struct txhash_elem *te;
+	struct txhash_iter ti;
+	const union protocol_tx *tx;
+	struct protocol_pkt_tx *r;
+
+	if (le32_to_cpu(pkt->len) != sizeof(*pkt))
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	/* First look for one in a block. */
+	/* FIXME: Prefer main chain! */
+	te = txhash_firstval(&peer->state->txhash, &pkt->tx, &ti);
+	if (te) {
+		struct protocol_pkt_tx_in_block *r;
+		struct protocol_proof proof;
+		struct block *b = te->block;
+
+		r = tal_packet(peer, struct protocol_pkt_tx_in_block,
+			       PROTOCOL_PKT_TX_IN_BLOCK);
+		r->err = cpu_to_le32(PROTOCOL_ECODE_NONE);
+		tx = block_get_tx(te->block, te->shardnum, te->txoff);
+		create_proof(&proof, b->shard[te->shardnum], te->txoff);
+		tal_packet_append_proof(&r, b, te->shardnum, te->txoff, &proof,
+					tx, block_get_refs(te->block,
+							   te->shardnum,
+							   te->txoff));
+		*reply = r;
+		return PROTOCOL_ECODE_NONE;
+	}
+
+	r = tal_packet(peer, struct protocol_pkt_tx, PROTOCOL_PKT_TX);
+
+	/* Does this exist in pending? */
+	tx = find_pending_tx(peer->state, &pkt->tx);
+	if (tx) {
+		r->err = cpu_to_le32(PROTOCOL_ECODE_NONE);
+		tal_packet_append_tx(&r, tx);
+	} else {
+		r->err = cpu_to_le32(PROTOCOL_ECODE_UNKNOWN_TX);
+		tal_packet_append_sha(&r, &pkt->tx);
+	}
+	*reply = r;
+	return PROTOCOL_ECODE_NONE;
+}
+
+static enum protocol_ecode
 recv_tx_in_block(struct peer *peer, const struct protocol_pkt_tx_in_block *pkt)
 {
 	enum protocol_ecode e;
@@ -827,9 +875,11 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 	case PROTOCOL_PKT_TX_IN_BLOCK:
 		err = recv_tx_in_block(peer, peer->incoming);
 		break;
+	case PROTOCOL_PKT_GET_TX:
+		err = recv_get_tx(peer, peer->incoming, &reply);
+		break;
 
 	/* FIXME: Implement! */
-	case PROTOCOL_PKT_GET_TX:
 	case PROTOCOL_PKT_GET_TXMAP:	
 	case PROTOCOL_PKT_TXMAP:
 	case PROTOCOL_PKT_TX_BAD_INPUT:
