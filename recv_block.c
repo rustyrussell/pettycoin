@@ -378,7 +378,7 @@ enum protocol_ecode recv_block_from_peer(struct peer *peer,
 	if (e == PROTOCOL_ECODE_NONE) {
 		log_info(peer->log, "gave us block %u: ",
 			 le32_to_cpu(b->hdr->depth));
-		log_add_struct(peer->log, struct protocol_block_header, b->hdr);
+		log_add_struct(peer->log, struct protocol_double_sha, &b->sha);
 	}
 	return e;
 }
