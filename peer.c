@@ -860,6 +860,46 @@ recv_get_txmap(struct peer *peer, const struct protocol_pkt_get_txmap *pkt,
 	return PROTOCOL_ECODE_NONE;
 }
 
+static enum protocol_ecode
+recv_txmap(struct peer *peer, const struct protocol_pkt_txmap *pkt)
+{
+	struct block *b;
+	struct block_shard *shard;
+	u32 i, len = le32_to_cpu(pkt->len);
+	const u8 *map;
+
+	if (le32_to_cpu(pkt->len) < sizeof(*pkt))
+		return PROTOCOL_ECODE_INVALID_LEN;
+	len -= sizeof(*pkt);
+
+	b = block_find_any(peer->state, &pkt->block);
+	if (!b) {
+		/* If we don't know it, that's OK.  Try to find out. */
+		todo_add_get_block(peer->state, &pkt->block);
+		return PROTOCOL_ECODE_NONE;
+	}
+
+	if (le16_to_cpu(pkt->shard) >= num_shards(b->hdr))
+		return PROTOCOL_ECODE_BAD_SHARDNUM;
+
+	shard = b->shard[le16_to_cpu(pkt->shard)];
+
+	map = (const u8 *)(pkt + 1);
+	if (len != (shard->size + 31) / 32 * 4)
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	for (i = 0; i < shard->size; i++) {
+		const union protocol_tx *tx = tx_for(shard, i);
+
+		/* If we don't know it and they think we should, ask. */
+		if (!tx && (map[i / 8] & (1 << (i % 8)))) {
+			todo_add_get_tx_in_block(peer->state, &b->sha,
+						 shard->shardnum, i);
+		}
+	}
+	return PROTOCOL_ECODE_NONE;
+}
+
 static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 {
 	const struct protocol_net_hdr *hdr = peer->incoming;
@@ -926,9 +966,11 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 	case PROTOCOL_PKT_GET_TXMAP:	
 		err = recv_get_txmap(peer, peer->incoming, &reply);
 		break;
+	case PROTOCOL_PKT_TXMAP:
+		err = recv_txmap(peer, peer->incoming);
+		break;
 
 	/* FIXME: Implement! */
-	case PROTOCOL_PKT_TXMAP:
 	case PROTOCOL_PKT_TX_BAD_INPUT:
 	case PROTOCOL_PKT_TX_BAD_AMOUNT:
 
