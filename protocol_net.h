@@ -278,7 +278,11 @@ struct protocol_pkt_tx {
 	le32 len; /* sizeof(struct protocol_pkt_tx) + ... */
 	le32 type; /* PROTOCOL_PKT_TX */
 
-	/* marshaled transaction */
+	le32 err; /* PROTOCOL_ECODE_NONE or PROTOCOL_ECODE_UNKNOWN_TX */
+
+	/* if PROTOCOL_ECODE_NONE: marshaled transaction
+	 * if PROTOCOL_ECODE_UNKNOWN_TX: double sha of transaction.
+	 */
 };
 
 /* When we've discovered a tx input is bad. */
@@ -325,7 +329,8 @@ struct protocol_pkt_unknown_block {
 };
 
 
-/* Ask for a specific transaction (reply will be PROTOCOL_PKT_TX). */
+/* Ask for a specific transaction (reply will be PROTOCOL_PKT_TX
+ * or PROTOCOL_PKT_TX_IN_BLOCK). */
 struct protocol_pkt_get_tx {
 	le32 len; /* sizeof(struct protocol_pkt_tx) */
 	le32 type; /* PROTOCOL_PKT_GET_TX */

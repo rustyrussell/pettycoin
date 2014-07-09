@@ -176,6 +176,7 @@ void send_tx_to_peers(struct state *state, struct peer *exclude,
 
 		/* FIXME: Respect filter! */
 		pkt = tal_packet(peer, struct protocol_pkt_tx, PROTOCOL_PKT_TX);
+		pkt->err = cpu_to_le32(PROTOCOL_ECODE_NONE);
 		tal_packet_append_tx(&pkt, tx);
 		todo_for_peer(peer, pkt);
 	}
@@ -404,6 +405,23 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 	unsigned int bad_input_num;
 
 	log_debug(peer->log, "Received PKT_TX");
+
+	if (le32_to_cpu(pkt->len) < sizeof(*pkt))
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	/* If we asked for a tx and it didn't know, this is what it says. */
+	e = le32_to_cpu(pkt->err);
+	if (e != PROTOCOL_ECODE_NONE) {
+		struct protocol_double_sha *txhash = (void *)(pkt + 1);
+
+		if (e != PROTOCOL_ECODE_UNKNOWN_TX)
+			return PROTOCOL_ECODE_UNKNOWN_ERRCODE;
+		if (txlen != sizeof(*txhash))
+			return PROTOCOL_ECODE_INVALID_LEN;
+		todo_done_get_tx(peer, txhash, false);
+		return PROTOCOL_ECODE_NONE;
+	}
+
 	tx = (void *)(pkt + 1);
 	e = unmarshal_tx(tx, txlen, NULL);
 	if (e)

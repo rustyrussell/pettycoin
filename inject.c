@@ -242,6 +242,7 @@ int main(int argc, char *argv[])
 	union protocol_tx *tx;
 	struct protocol_gateway_payment payment;
 	struct protocol_net_address netaddr;
+	le32 ecode;
 	bool test_net;
 	struct addrinfo *a;
 	int fd;
@@ -336,10 +337,13 @@ int main(int argc, char *argv[])
 
 	welcome_and_init(fd, &netaddr);
 
-	hdr.len = cpu_to_le32(len + sizeof(struct protocol_net_hdr));
+	hdr.len = cpu_to_le32(len + sizeof(ecode) + sizeof(struct protocol_net_hdr));
 	hdr.type = cpu_to_le32(PROTOCOL_PKT_TX);
+	ecode = cpu_to_le32(PROTOCOL_ECODE_NONE);
 	if (!write_all(fd, &hdr, sizeof(hdr)))
 		err(1, "Failed writing header");
+	if (!write_all(fd, &ecode, sizeof(ecode)))
+		err(1, "Failed writing PROTOCOL_ECODE_NONE");
 	if (!write_all(fd, tx, len))
 		err(1, "Failed writing transaction");
 
