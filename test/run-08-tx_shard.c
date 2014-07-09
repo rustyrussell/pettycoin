@@ -44,8 +44,7 @@ enum input_ecode check_tx_inputs(struct state *state,
 	abort();
 }
 
-void merkle_txs(const struct block *block,
-		const struct block_shard *shard,
+void merkle_txs(const struct block_shard *shard,
 		struct protocol_double_sha *merkle)
 {
 	abort();
@@ -56,13 +55,17 @@ static struct block *mock_block(const tal_t *ctx)
 	struct block *b = tal(ctx, struct block);
 	struct protocol_block_header *hdr;
 	u8 *shard_nums;
+	unsigned int i;
 
 	/* minimal requirements to work for these tests. */
 	b->hdr = hdr = tal(b, struct protocol_block_header);
 	hdr->shard_order = 2;
 	b->shard_nums = shard_nums = tal_arrz(b, u8, 1 << 2);
 	shard_nums[1] = 2;
-	b->shard = tal_arrz(b, struct block_shard *, 1 << 2);
+	b->shard = tal_arr(b, struct block_shard *, 1 << 2);
+
+	for (i = 0; i < num_shards(hdr); i++)
+		b->shard[i] = new_block_shard(b->shard, i, shard_nums[i]);
 
 	return b;
 }
@@ -84,12 +87,12 @@ int main(void)
 	/* These work with an empty block. */
 	for (i = 0; i < num_shards(b->hdr); i++) {
 		if (i == 1) {
-			assert(!shard_all_known(b, i));
-			assert(!shard_all_hashes(b, i));
+			assert(!shard_all_known(b->shard[i]));
+			assert(!shard_all_hashes(b->shard[i]));
 		} else {
 			/* Empty shards are always known. */
-			assert(shard_all_known(b, i));
-			assert(shard_all_hashes(b, i));
+			assert(shard_all_known(b->shard[i]));
+			assert(shard_all_hashes(b->shard[i]));
 		}
 	}
 
@@ -100,8 +103,8 @@ int main(void)
 
 	/* Sew it into block as shard 1. */
 	b->shard[1] = shard;
-	assert(!shard_all_known(b, 1));
-	assert(!shard_all_hashes(b, 1));
+	assert(!shard_all_known(shard));
+	assert(!shard_all_hashes(shard));
 
 	/* Single payment. */
 	payment[0].send_amount = cpu_to_le32(1000);
@@ -146,26 +149,26 @@ int main(void)
 	shard->u[0].hash = &txrhash;
 	shard->hashcount++;
 
-	assert(!shard_all_known(b, 1));
-	assert(!shard_all_hashes(b, 1));
+	assert(!shard_all_known(shard));
+	assert(!shard_all_hashes(shard));
 	assert(!shard_is_tx(shard, 0));
 	assert(tx_for(shard, 0) == NULL);
 
 	/* Now put in second one as a tx. */
 	shard->u[1].txp = txp2;
 	shard->txcount++;
-	assert(!shard_all_known(b, 1));
-	assert(shard_all_hashes(b, 1));
+	assert(!shard_all_known(shard));
+	assert(shard_all_hashes(shard));
 	assert(shard_is_tx(shard, 1));
 	assert(tx_for(shard, 1) == txp2.tx);
 	assert(refs_for(shard->u[1].txp) == refs_for(txp2));
 
 	/* Get txrefhash of hash */
-	txrhp = txrefhash_in_shard(b, shard, 0, &scratch);
+	txrhp = txrefhash_in_shard(shard, 0, &scratch);
 	assert(structeq(txrhp, &txrhash));
 
 	/* Get txrefhash of tx (it will hash for us) */
-	txrhp = txrefhash_in_shard(b, shard, 1, &scratch);
+	txrhp = txrefhash_in_shard(shard, 1, &scratch);
 	hash_tx(tx2, &txrhash.txhash);
 	hash_refs(refs, 1, &txrhash.refhash);
 	assert(structeq(txrhp, &txrhash));

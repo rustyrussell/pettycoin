@@ -29,10 +29,13 @@ struct block_shard {
 	/* How many transaction hashes do we have? */
 	u8 hashcount;
 
+	/* What's our max (== block->shard_nums[shard->shardnum]) */
+	u8 size;
+
 	/* Bits to discriminate the union: 0 = txp, 1 == hash */
 	BITMAP_DECLARE(txp_or_hash, 255);
 
-	union txp_or_hash u[ /* block->shard_nums[shard] */ ];
+	union txp_or_hash u[ /* size */ ];
 };
 
 static inline bool shard_is_tx(const struct block_shard *s, u8 txoff)
@@ -65,19 +68,15 @@ struct txptr_with_ref txptr_with_ref(const tal_t *ctx,
 
 /* Returns NULL if it we don't have this tx. */
 const struct protocol_net_txrefhash *
-txrefhash_in_shard(const struct block *b,
-		   const struct block_shard *shard,
+txrefhash_in_shard(const struct block_shard *shard,
 		   u8 txoff,
 		   struct protocol_net_txrefhash *scratch);
 
 /* Do we have every tx in this shard? */
-bool shard_all_known(const struct block *block, u16 shardnum);
+bool shard_all_known(const struct block_shard *shard);
 
 /* Do we have every tx or hash? */
-bool shard_all_hashes(const struct block *block, u16 shardnum);
-
-/* How many txs in this shard? */
-u8 num_txs_in_shard(const struct block *block, u16 shardnum);
+bool shard_all_hashes(const struct block_shard *shard);
 
 /* Allocate a new struct transaction_shard. */
 struct block_shard *new_block_shard(const tal_t *ctx, u16 shardnum, u8 num);

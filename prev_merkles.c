@@ -33,7 +33,7 @@ u8 prev_txhash(const struct protocol_address *addr,
 	SHA256_Init(&shactx);
 	SHA256_Update(&shactx, addr, sizeof(*addr));
 
-	for (i = 0; i < num_txs_in_shard(block, shard); i++) {
+	for (i = 0; i < block->shard_nums[shard]; i++) {
 		const union protocol_tx *tx;
 		const struct protocol_input_ref *refs;
 
@@ -67,7 +67,7 @@ u8 *make_prev_merkles(const tal_t *ctx, const struct block *prev,
 		for (j = 0; j < num_shards(prev->hdr); j++) {
 			/* We need to know everything in shard to check
 			 * previous merkle. */
-			if (!shard_all_known(prev, j))
+			if (!shard_all_known(prev->shard[j]))
 				return tal_free(m);
 
 			*p = prev_txhash(my_addr, prev, j);

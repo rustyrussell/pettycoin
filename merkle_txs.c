@@ -9,37 +9,25 @@
 #include <string.h>
 #include <ccan/tal/tal.h>
 
-struct merkle_txinfo {
-	const struct block *block;
-	const struct block_shard *shard;
-};
-
 static void merkle_tx(size_t n, void *data, struct protocol_double_sha *merkle)
 {
-	struct merkle_txinfo *info = data;
+	const struct block_shard *shard = data;
 	struct protocol_net_txrefhash scratch;
 	const struct protocol_net_txrefhash *h;
 
-	h = txrefhash_in_shard(info->block, info->shard, n, &scratch);
+	h = txrefhash_in_shard(shard, n, &scratch);
 	merkle_two_hashes(&h->txhash, &h->refhash, merkle);
 }
 
-void merkle_some_txs(const struct block *block,
-		     const struct block_shard *shard,
+void merkle_some_txs(const struct block_shard *shard,
 		     size_t off, size_t max,
 		     struct protocol_double_sha *merkle)
 {
-	struct merkle_txinfo txinfo;
-
-	txinfo.block = block;
-	txinfo.shard = shard;
-
-	merkle_recurse(off, num_txs_in_shard(block, shard->shardnum), max,
-		       merkle_tx, &txinfo, merkle);
+	merkle_recurse(off, shard->size, max, merkle_tx, (void *)shard, merkle);
 }
 
-void merkle_txs(const struct block *block, const struct block_shard *shard,
+void merkle_txs(const struct block_shard *shard,
 		struct protocol_double_sha *merkle)
 {
-	merkle_some_txs(block, shard, 0, 256, merkle);
+	merkle_some_txs(shard, 0, 256, merkle);
 }

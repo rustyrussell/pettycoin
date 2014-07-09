@@ -503,7 +503,7 @@ recv_get_shard(struct peer *peer,
 			       &pkt->block);
 		tal_free(r);
 		return PROTOCOL_ECODE_BAD_SHARDNUM;
-	} else if (!shard_all_hashes(b, shard)) {
+	} else if (!shard_all_hashes(b->shard[shard])) {
 		log_debug(peer->log, "Don't know all of shard %u of ",
 			    le16_to_cpu(pkt->shard));
 		log_add_struct(peer->log, struct protocol_double_sha,
@@ -518,15 +518,16 @@ recv_get_shard(struct peer *peer,
 		r = tal_free(r);
 	} else {
 		unsigned int i;
+		const struct block_shard *s = b->shard[shard];
 
 		/* Success, give them all the hashes. */
 		r->err = cpu_to_le16(PROTOCOL_ECODE_NONE);
-		for (i = 0; i < num_txs_in_shard(b, shard); i++) {
+		for (i = 0; i < s->size; i++) {
 			struct protocol_net_txrefhash hashes;
 			const struct protocol_net_txrefhash *p;
 
 			/* shard_all_hashes() means p will not be NULL! */
-			p = txrefhash_in_shard(b, b->shard[shard], i, &hashes);
+			p = txrefhash_in_shard(s, i, &hashes);
 			tal_packet_append_txrefhash(&r, p);
 		}
 	}
@@ -569,7 +570,7 @@ recv_get_tx_in_block(struct peer *peer,
 			       &pkt->pos.block);
 		tal_free(r);
 		return PROTOCOL_ECODE_BAD_SHARDNUM;
-	} else if (txoff >= num_txs_in_shard(b, shard)) {
+	} else if (txoff >= b->shard_nums[shard]) {
 		log_unusual(peer->log, "Invalid get_tx for txoff %u of shard %u of ",
 			    txoff, shard);
 		log_add_struct(peer->log, struct protocol_double_sha,
@@ -585,7 +586,7 @@ recv_get_tx_in_block(struct peer *peer,
 	}
 
 	r->err = cpu_to_le32(PROTOCOL_ECODE_NONE);
-	create_proof(&proof, b, shard, txoff);
+	create_proof(&proof, b->shard[shard], txoff);
 	tal_packet_append_proof(&r, b, shard, txoff, &proof, tx,
 				block_get_refs(b, shard, txoff));
 
@@ -611,6 +612,7 @@ recv_tx_in_block(struct peer *peer, const struct protocol_pkt_tx_in_block *pkt)
 	struct protocol_double_sha sha;
 	unsigned int bad_input_num;
 	u16 shard;
+	u8 conflict_txoff;
 	size_t len = le32_to_cpu(pkt->len), used;
 
 	if (len < sizeof(*pkt))
@@ -735,20 +737,13 @@ recv_tx_in_block(struct peer *peer, const struct protocol_pkt_tx_in_block *pkt)
 		return PROTOCOL_ECODE_NONE;
 	}
 
-	if (!b->shard[shard]) {
-		b->shard[shard] = new_block_shard(b, shard,
-						  num_txs_in_shard(b, shard));
-		/* Don't need to check order when it's empty. */
-	} else {
-		u8 conflict_txoff;
-		if (!check_tx_ordering(peer->state, b, b->shard[shard],
-				       proof->pos.txoff, tx, &conflict_txoff)) {
-			/* Tell everyone that txs are out of order in block */
-			complain_misorder(peer->state, b, shard,
-					  proof->pos.txoff, &proof->proof,
-					  tx, refs, conflict_txoff);
-			return PROTOCOL_ECODE_NONE;
-		}
+	if (!check_tx_ordering(peer->state, b, b->shard[shard],
+			       proof->pos.txoff, tx, &conflict_txoff)) {
+		/* Tell everyone that txs are out of order in block */
+		complain_misorder(peer->state, b, shard,
+				  proof->pos.txoff, &proof->proof,
+				  tx, refs, conflict_txoff);
+		return PROTOCOL_ECODE_NONE;
 	}
 
 	/* Copy in tx and refs. */

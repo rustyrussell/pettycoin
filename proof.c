@@ -8,22 +8,20 @@
 #include <assert.h>
 
 void create_proof(struct protocol_proof *proof,
-		  const struct block *block, u16 shardnum, u8 txoff)
+		  const struct block_shard *shard, u8 txoff)
 {
 	unsigned int i;
 
-	assert(shardnum < num_shards(block->hdr));
-	assert(shard_all_hashes(block, shardnum));
+	assert(shard_all_hashes(shard));
 
 	for (i = 0; i < 8; i++) {
 		if (txoff & (1 << i))
 			/* Hash the left side together. */
-			merkle_some_txs(block, block->shard[shardnum],
-					0, 1 << i, &proof->merkle[i]);
+			merkle_some_txs(shard, 0, 1 << i, &proof->merkle[i]);
 		else
 			/* Hash the right side together */
-			merkle_some_txs(block, block->shard[shardnum],
-					1 << i, 1 << i, &proof->merkle[i]);
+			merkle_some_txs(shard, 1 << i, 1 << i,
+					&proof->merkle[i]);
 	}
 }
 
@@ -67,7 +65,7 @@ bool check_proof(const struct protocol_proof *proof,
 		return false;
 
 	/* Can't be the right one if not within shard */
-	if (txoff >= num_txs_in_shard(b, shardnum))
+	if (txoff >= b->shard_nums[shardnum])
 		return false;
 
 	proof_merkles_to(tx, refs, txoff, proof, &merkle);

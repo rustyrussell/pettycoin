@@ -44,7 +44,7 @@ static void shard_to_pending(struct state *state,
 {
 	size_t curr = tal_count(state->pending->pend[shard]), num, added = 0, i;
 
-	num = num_txs_in_shard(block, shard);
+	num = block->shard_nums[shard];
 
 	/* Worst case. */
 	tal_resize(&state->pending->pend[shard], curr + num);

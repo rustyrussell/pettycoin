@@ -164,7 +164,7 @@ int main(int argc, char *argv[])
 	assert(block_all_known(b, NULL));
 
 	/* Create proof for this transaction. */
-	create_proof(&proof, b, update.shard, 0);
+	create_proof(&proof, shard, 0);
 
 	/* Check it proves correctly. */
 	assert(check_proof(&proof, b, update.shard, 0, t, refs));

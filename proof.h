@@ -7,9 +7,10 @@ struct protocol_proof;
 struct block;
 union protocol_tx;
 struct protocol_input_ref;
+struct block_shard;
 
 void create_proof(struct protocol_proof *proof,
-		  const struct block *block, u16 shardnum, u8 txoff);
+		  const struct block_shard *shard, u8 txoff);
 
 bool check_proof(const struct protocol_proof *proof,
 		 const struct block *b,

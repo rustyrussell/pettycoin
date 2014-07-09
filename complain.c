@@ -140,7 +140,7 @@ void complain_misorder(struct state *state,
 			 PROTOCOL_PKT_BLOCK_TX_MISORDER);
 	tal_packet_append_proof(&pkt, block, shardnum, txoff, proof, tx, refs);
 
-	create_proof(&conflict_proof, block, shardnum, conflict_txoff);
+	create_proof(&conflict_proof, block->shard[shardnum], conflict_txoff);
 	tal_packet_append_proof(&pkt, block, shardnum, conflict_txoff,
 				&conflict_proof, conflict_tx, conflict_refs);
 
@@ -188,8 +188,9 @@ void complain_bad_input_ref(struct state *state,
 	tal_packet_append_proof(&pkt, block, shardnum, txoff, proof, tx, refs);
 
 	/* This is where the ref points to. */
-	create_proof(&ref_proof, block_referred_to,
-		     le16_to_cpu(bad_ref->shard), bad_ref->txoff);
+	create_proof(&ref_proof,
+		     block_referred_to->shard[le16_to_cpu(bad_ref->shard)],
+		     bad_ref->txoff);
 	tal_packet_append_proof(&pkt, block,
 				le16_to_cpu(bad_ref->shard), bad_ref->txoff,
 				&ref_proof, bad_intx, bad_intx_refs);

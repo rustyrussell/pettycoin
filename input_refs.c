@@ -22,7 +22,7 @@ static enum protocol_ecode check_ref(struct state *state,
 	if (le16_to_cpu(ref->shard) >= num_shards(b->hdr))
 		return PROTOCOL_ECODE_REF_BAD_SHARD;
 
-	if (ref->txoff >= num_txs_in_shard(b, le16_to_cpu(ref->shard)))
+	if (ref->txoff >= b->shard_nums[le16_to_cpu(ref->shard)])
 		return PROTOCOL_ECODE_REF_BAD_TXOFF;
 
 	return PROTOCOL_ECODE_NONE;
@@ -61,8 +61,7 @@ enum ref_ecode check_tx_refs(struct state *state,
 		const struct protocol_net_txrefhash *txp;
 
 		b = block_ancestor(block, le32_to_cpu(refs[i].blocks_ago));
-		txp = txrefhash_in_shard(b,
-					 b->shard[le16_to_cpu(refs[i].shard)],
+		txp = txrefhash_in_shard(b->shard[le16_to_cpu(refs[i].shard)],
 					 refs[i].txoff, &scratch);
 		if (!txp) {
 			*bad_ref = i;

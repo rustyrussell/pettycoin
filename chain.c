@@ -274,7 +274,7 @@ static void ask_about_block(struct state *state, const struct block *block)
 	u16 i;
 
 	for (i = 0; i < num_shards(block->hdr); i++) {
-		if (!shard_all_known(block, i))
+		if (!shard_all_known(block->shard[i]))
 			todo_add_get_shard(state, &block->sha, i);
 	}
 }
@@ -358,7 +358,7 @@ static bool empty_block(const struct block *block)
 	u16 i;
 
 	for (i = 0; i < num_shards(block->hdr); i++)
-		if (num_txs_in_shard(block, i) != 0)
+		if (block->shard_nums[i] != 0)
 			return false;
 	return true;
 }

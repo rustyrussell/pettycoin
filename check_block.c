@@ -46,6 +46,7 @@ check_block_header(struct state *state,
 {
 	struct block *block = (*blockp) = tal(state, struct block);
 	enum protocol_ecode e;
+	unsigned int i;
 
 	/* Shouldn't happen, since we check in unmarshal. */
 	if (!version_ok(hdr->version)) {
@@ -105,7 +106,10 @@ check_block_header(struct state *state,
 			&block->prev->total_work,
 			&block->total_work);
 
-	block->shard = tal_arrz(block, struct block_shard *, num_shards(hdr));
+	block->shard = tal_arr(block, struct block_shard *, num_shards(hdr));
+	for (i = 0; i < num_shards(hdr); i++)
+		block->shard[i] = new_block_shard(block->shard, i,
+						  shard_nums[i]);
 	block->hdr = hdr;
 	block->shard_nums = shard_nums;
 	block->merkles = merkles;
@@ -130,8 +134,8 @@ bool shard_belongs_in_block(const struct block *block,
 
 	/* merkle_txs is happy with just the hashes. */
 	assert(shard->txcount + shard->hashcount
-	       == num_txs_in_shard(block, shard->shardnum));
-	merkle_txs(block, shard, &merkle);
+	       == block->shard_nums[shard->shardnum]);
+	merkle_txs(shard, &merkle);
 	return structeq(&block->merkles[shard->shardnum], &merkle);
 }
 
@@ -185,12 +189,11 @@ static struct txptr_with_ref dup_txp(const tal_t *ctx,
 
 static void copy_old_txs(struct state *state,
 			 struct block *block,
-			 struct block_shard *new, const struct block_shard *old,
-			 u8 num)
+			 struct block_shard *new, const struct block_shard *old)
 {
 	unsigned int i;
 
-	for (i = 0; i < num; i++) {
+	for (i = 0; i < new->size; i++) {
 		if (!shard_is_tx(old, i)) {
 			/* Both hashes must be identical. */
 			assert(structeq(&old->u[i].hash, &new->u[i].hash));
@@ -214,15 +217,14 @@ void put_shard_of_hashes_into_block(struct state *state,
 {
 	unsigned int num;
 
-	num = num_txs_in_shard(block, shard->shardnum);
 	assert(shard_belongs_in_block(block, shard));
 	assert(shard->txcount == 0);
 	assert(shard->hashcount == num);
 
 	/* If we know some transactions already, perform a merge. */
 	if (block->shard[shard->shardnum]) {
-		copy_old_txs(state, block, shard, block->shard[shard->shardnum],
-			     num);
+		copy_old_txs(state, block, shard,
+			     block->shard[shard->shardnum]);
 		tal_free(block->shard[shard->shardnum]);
 	}
 
@@ -240,6 +242,10 @@ bool check_tx_ordering(struct state *state,
 	const union protocol_tx *other_tx;
 	int i;
 
+	/* Don't bother on empty shard. */
+	if (shard->txcount == 0)
+		return true;
+
 	/* Check ordering against previous. */
 	for (i = (int)txoff-1; i >= 0; i--) {
 		other_tx = tx_for(shard, i);
@@ -253,9 +259,7 @@ bool check_tx_ordering(struct state *state,
 	}
 
 	/* Check ordering against next. */
-	for (i = (int)txoff+1;
-	     i < num_txs_in_shard(block, shard->shardnum);
-	     i++) {
+	for (i = (int)txoff+1; i < shard->size; i++) {
 		other_tx = tx_for(shard, i);
 		if (other_tx) {
 			if (tx_cmp(tx, other_tx) >= 0) {
@@ -320,7 +324,7 @@ bool check_block_prev_merkles(struct state *state, const struct block *block)
 
 			/* We need to know everything in shard to check
 			 * previous merkle. */
-			if (!shard_all_known(prev, j))
+			if (!shard_all_known(prev->shard[j]))
 				continue;
 
 			prev_txh = prev_txhash(&block->hdr->fees_to, prev, j);
@@ -371,7 +375,6 @@ void check_block(struct state *state, const struct block *block)
 	/* FIXME: check block->prev_merkles! */
 
 	for (shard = 0; shard < num_shards(block->hdr); shard++) {
-		if (block->shard[shard])
-			check_block_shard(state, block, block->shard[shard]);
+		check_block_shard(state, block, block->shard[shard]);
 	}
 }

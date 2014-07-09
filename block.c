@@ -85,7 +85,7 @@ bool block_all_known(const struct block *block, unsigned int *shardnum)
 	unsigned int i;
 
 	for (i = 0; i < num_shards(block->hdr); i++) {
-		if (!shard_all_known(block, i)) {
+		if (!shard_all_known(block->shard[i])) {
 			if (shardnum)
 				*shardnum = i;
 			return false;
@@ -100,9 +100,9 @@ struct protocol_input_ref *block_get_refs(const struct block *block,
 	const struct block_shard *s = block->shard[shardnum];
 
 	assert(shardnum < num_shards(block->hdr));
-	assert(txoff < num_txs_in_shard(block, shardnum));
+	assert(txoff < s->size);
 
-	if (!s || !shard_is_tx(s, txoff))
+	if (!shard_is_tx(s, txoff))
 		return NULL;
 
 	return cast_const(struct protocol_input_ref *,
@@ -115,9 +115,9 @@ union protocol_tx *block_get_tx(const struct block *block,
 	const struct block_shard *s = block->shard[shardnum];
 
 	assert(shardnum < num_shards(block->hdr));
-	assert(txoff < num_txs_in_shard(block, shardnum));
+	assert(txoff < s->size);
 
-	if (!s || !shard_is_tx(s, txoff))
+	if (!shard_is_tx(s, txoff))
 		return NULL;
 
 	return s->u[txoff].txp.tx;

@@ -80,7 +80,7 @@ void todo_forget_about_block(struct state *state,
 }
 
 void create_proof(struct protocol_proof *proof,
-		  const struct block *block, u16 shardnum, u8 txoff)
+		  const struct block_shard *shard, u8 txoff)
 {
 }
 
