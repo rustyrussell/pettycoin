@@ -1,5 +1,6 @@
 #include "block.h"
 #include "chain.h"
+#include "check_block.h"
 #include "generating.h"
 #include "peer.h"
 #include "pending.h"
@@ -159,8 +160,7 @@ static void swap_blockptr(const struct block **a, const struct block **b)
 }
 
 /* Search descendents to find if there's one with more work than bests. */
-static void find_longest_descendents(struct state *state,
-				     const struct block *block,
+static void find_longest_descendents(const struct block *block,
 				     const struct block ***bests)
 {
 	struct block *b;
@@ -177,7 +177,7 @@ static void find_longest_descendents(struct state *state,
 	}
 
 	list_for_each(&block->children, b, sibling)
-		find_longest_descendents(state, b, bests);
+		find_longest_descendents(b, bests);
 }
 
 /* Returns true if it updated state->preferred_chain. */
@@ -189,7 +189,7 @@ static bool update_preferred_chain(struct state *state)
 	arr = tal_arr(state, const struct block *, 1);
 	arr[0] = state->longest_knowns[0];
 
-	find_longest_descendents(state, arr[0], &arr);
+	find_longest_descendents(arr[0], &arr);
 	if (arr[0] == state->preferred_chain) {
 		tal_free(arr);
 		return false;
@@ -435,7 +435,7 @@ void update_block_ptrs_invalidated(struct state *state,
 	set_single(&state->longest_knowns, g);
 	state->preferred_chain = g;
 
-	find_longest_descendents(state, g, &state->longest_chains);
+	find_longest_descendents(g, &state->longest_chains);
 	update_known(state, cast_const(struct block *, g));
 
 	check_chains(state);
