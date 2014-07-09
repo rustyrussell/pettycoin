@@ -232,10 +232,9 @@ bool try_resolve_hash(struct state *state,
 		return true;
 	}
 
-	put_tx_in_shard(state, block, shard, txoff, txp);
 	/* If we need proof, we should already have it, so don't add. */
+	put_tx_in_shard(state, source, block, shard, txoff, txp);
 
-	send_tx_in_block_to_peers(state, source, block, shardnum, txoff);
 	return true;
 }
 
@@ -364,14 +363,6 @@ recv_shard(struct state *state, struct log *log, struct peer *peer,
 		  b->shard[shard]->txcount,
 		  b->shard[shard]->hashcount,
 		  b->shard[shard]->size);
-
-	/* We save once we know the entire contents. */
-	if (shard_all_known(b->shard[shard])) {
-		if (b->shard[shard]->size)
-			log_debug(log, "Shard all known!");
-		save_shard(state, b, shard);
-		update_block_ptrs_new_shard(state, b, shard);
-	}
 
 	/* We might be able to resolve more pending refs now */
 	recheck_pending_txs(state);

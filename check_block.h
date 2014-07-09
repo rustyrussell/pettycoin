@@ -42,6 +42,7 @@ bool check_tx_ordering(struct state *state,
 
 /* You normally call check_tx_ordering first! */
 void put_tx_in_shard(struct state *state,
+		     const struct peer *source,
 		     struct block *block,
 		     struct block_shard *shard, u8 txoff,
 		     const struct txptr_with_ref txp);

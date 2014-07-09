@@ -180,22 +180,22 @@ void recheck_pending_txs(struct state *state)
 	tal_free(state->pending);
 	state->pending = new_pending_block(state);
 
-	total = 0;
 	/* Now re-add them */
 	for (i = 0; i < tal_count(txs); i++) {
 		unsigned int bad_input_num;
 		struct protocol_double_sha sha;
-		enum input_ecode ierr;
 
 		hash_tx(txs[i], &sha);
-		ierr = add_pending_tx(state, txs[i], &sha, &bad_input_num);
-		if (ierr == ECODE_INPUT_OK || ierr == ECODE_INPUT_UNKNOWN)
-			total++;
+		add_pending_tx(state, txs[i], &sha, &bad_input_num);
 	}
-		
+
+	/* Just to print the debug! */		
+	known = 0;
+	for (shard = 0; shard < ARRAY_SIZE(state->pending->pend); shard++)
+		known += tal_count(state->pending->pend[shard]);
+
 	log_debug(state->log, "Now have %u known, %u unknown",
-		  total - state->pending->num_unknown,
-		  state->pending->num_unknown);
+		  known, state->pending->num_unknown);
 
 	/* Restart generator on this block. */
 	restart_generating(state);

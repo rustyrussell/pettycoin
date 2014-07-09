@@ -1,5 +1,6 @@
 #include "block.h"
 #include "block_shard.h"
+#include "blockfile.h"
 #include "chain.h"
 #include "check_block.h"
 #include "check_tx.h"
@@ -202,6 +203,7 @@ static void check_resolved_txs(struct state *state,
 }
 
 void put_tx_in_shard(struct state *state,
+		     const struct peer *source,
 		     struct block *block,
 		     struct block_shard *shard, u8 txoff,
 		     struct txptr_with_ref txp)
@@ -240,6 +242,15 @@ void put_tx_in_shard(struct state *state,
 	/* If we've just filled it, we don't need proofs any more. */
 	if (shard_all_hashes(shard))
 		shard->proof = tal_free(shard->proof);
+
+	/* We save once we know the entire contents. */
+	if (shard_all_known(shard)) {
+		save_shard(state, block, shard->shardnum);
+		update_block_ptrs_new_shard(state, block, shard->shardnum);
+	}
+
+	/* Tell peers about the new tx in block. */
+	send_tx_in_block_to_peers(state, source, block, shard->shardnum, txoff);
 }
 
 bool put_txhash_in_shard(struct state *state,

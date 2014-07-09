@@ -350,20 +350,19 @@ static void new_longest(struct state *state, const struct block *block)
 	update_preferred_chain(state);
 }
 
-static bool empty_block(const struct block *block)
+static void update_block_ptrs_new_shard_or_empty(struct state *state,
+						 struct block *block,
+						 u16 shardnum)
 {
-	u16 i;
-
-	for (i = 0; i < num_shards(block->hdr); i++)
-		if (block->shard_nums[i] != 0)
-			return false;
-	return true;
+	/* FIXME: re-check prev_merkles for any descendents. */
 }
 
 /* We've added a new block; update state->longest_chains, state->longest_knowns,
    state->longest_known_descendents as required. */
 void update_block_ptrs_new_block(struct state *state, struct block *block)
 {
+	unsigned int i;
+
 	switch (cmp_work(block, state->longest_chains[0])) {
 	case 1:
 		log_debug(state->log, "New block work ");
@@ -380,24 +379,31 @@ void update_block_ptrs_new_block(struct state *state, struct block *block)
 		break;
 	}
 
-	/* Corner case for zero transactions (will update
-	 * longest_known_descendent if necessary). */
-	if (empty_block(block))
+	/* Corner case for zero transactions: we can't call
+	 * update_block_ptrs_new_shard() directly, since that would
+	 * call update_known multiple times if block completely
+	 * known, which breaks the longest_known[] calc.  */
+	for (i = 0; i < num_shards(block->hdr); i++) {
+		if (block->shard_nums[i] == 0)
+			update_block_ptrs_new_shard_or_empty(state, block, i);
+	}
+	if (block_all_known(block, NULL)) {
 		update_known(state, block);
-	else
-		/* FIXME: Only needed if a descendent of known[0] */
-		update_preferred_chain(state);
+	}
+
+	/* FIXME: Only needed if a descendent of known[0] */
+	update_preferred_chain(state);
 
 	check_chains(state);
 }
 
-/* We've fille a new shard; update state->longest_chains, state->longest_knowns,
+/* Filled a new shard; update state->longest_chains, state->longest_knowns,
    state->longest_known_descendents as required. */
 void update_block_ptrs_new_shard(struct state *state, struct block *block,
 				 u16 shardnum)
 {
+	update_block_ptrs_new_shard_or_empty(state, block, shardnum);
 	if (block_all_known(block, NULL)) {
-		/* FIXME: re-check prev_merkles for any descendents. */
 		update_known(state, block);
 	}
 }
