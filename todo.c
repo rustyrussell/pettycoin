@@ -23,6 +23,11 @@ static void get_todo_ptrs(struct state *state,
 		*shardnum = &todo->pkt.get_shard.shard;
 		*txoff = NULL;
 		break;
+	case PROTOCOL_PKT_GET_TXMAP:
+		*sha = &todo->pkt.get_txmap.block;
+		*shardnum = &todo->pkt.get_txmap.shard;
+		*txoff = NULL;
+		break;
 	case PROTOCOL_PKT_GET_CHILDREN:
 		*sha = &todo->pkt.get_children.block;
 		*shardnum = NULL;
@@ -144,6 +149,14 @@ void todo_add_get_shard(struct state *state,
 			 block, shardnum, 0);
 }
 
+void todo_add_get_txmap(struct state *state,
+			const struct protocol_double_sha *block,
+			u16 shardnum)
+{
+	new_todo_request(state, PROTOCOL_PKT_GET_TXMAP,
+			 struct protocol_pkt_get_txmap,
+			 block, shardnum, 0);
+}
 
 void todo_add_get_tx_in_block(struct state *state,
 			      const struct protocol_double_sha *block,
@@ -280,6 +293,13 @@ void todo_done_get_shard(struct peer *peer,
 			 u16 shardnum, bool success)
 {
 	finish_todo(peer, PROTOCOL_PKT_GET_SHARD, block, shardnum, 0, success);
+}
+
+void todo_done_get_txmap(struct peer *peer,
+			 const struct protocol_double_sha *block,
+			 u16 shardnum, bool success)
+{
+	finish_todo(peer, PROTOCOL_PKT_GET_TXMAP, block, shardnum, 0, success);
 }
 
 void todo_done_get_tx_in_block(struct peer *peer,

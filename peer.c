@@ -27,6 +27,7 @@
 #include "proof.h"
 #include "complain.h"
 #include "input_refs.h"
+#include "peer_wants.h"
 #include <ccan/io/io.h>
 #include <ccan/time/time.h>
 #include <ccan/tal/tal.h>
@@ -815,6 +816,50 @@ recv_tx_in_block(struct peer *peer, const struct protocol_pkt_tx_in_block *pkt)
 	return PROTOCOL_ECODE_NONE;
 }
 
+static enum protocol_ecode
+recv_get_txmap(struct peer *peer, const struct protocol_pkt_get_txmap *pkt,
+	       void **reply)
+{
+	struct block *b;
+	struct block_shard *shard;
+	struct protocol_pkt_txmap *r;
+	unsigned int i;
+	u8 map[256 / 8] = { 0 };
+
+	if (le32_to_cpu(pkt->len) != sizeof(*pkt))
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	r = tal_packet(peer, struct protocol_pkt_txmap, PROTOCOL_PKT_TXMAP);
+	r->block = pkt->block;
+	r->shard = pkt->shard;
+
+	b = block_find_any(peer->state, &pkt->block);
+	if (!b) {
+		/* If we don't know it, that's OK.  Try to find out. */
+		todo_add_get_block(peer->state, &pkt->block);
+		r->err = cpu_to_le16(PROTOCOL_ECODE_UNKNOWN_BLOCK);
+		*reply = r;
+		return PROTOCOL_ECODE_NONE;
+	}
+
+	if (le16_to_cpu(pkt->shard) >= num_shards(b->hdr))
+		return PROTOCOL_ECODE_BAD_SHARDNUM;
+
+	shard = b->shard[le16_to_cpu(pkt->shard)];
+	for (i = 0; i < shard->size; i++) {
+		const union protocol_tx *tx = tx_for(shard, i);
+
+		/* If it's not in a shard they want, but affects one... */
+		if (tx && peer_wants_tx_other(peer, tx))
+			map[i / 8] |= (1 << (i % 8));
+	}
+
+	tal_packet_append(&r, map, (shard->size + 31) / 32 * 4);
+	*reply = r;
+
+	return PROTOCOL_ECODE_NONE;
+}
+
 static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 {
 	const struct protocol_net_hdr *hdr = peer->incoming;
@@ -878,9 +923,11 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 	case PROTOCOL_PKT_GET_TX:
 		err = recv_get_tx(peer, peer->incoming, &reply);
 		break;
+	case PROTOCOL_PKT_GET_TXMAP:	
+		err = recv_get_txmap(peer, peer->incoming, &reply);
+		break;
 
 	/* FIXME: Implement! */
-	case PROTOCOL_PKT_GET_TXMAP:	
 	case PROTOCOL_PKT_TXMAP:
 	case PROTOCOL_PKT_TX_BAD_INPUT:
 	case PROTOCOL_PKT_TX_BAD_AMOUNT:

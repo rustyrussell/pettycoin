@@ -42,7 +42,8 @@ enum protocol_ecode {
 	/* protocol_pkt_get_tx_in_block */
 	PROTOCOL_ECODE_BAD_TXOFF,
 
-	/* protocol_pkt_get_shard / protocol_pkt_shard */
+	/* protocol_pkt_get_shard / protocol_pkt_shard 
+	 * / protocol_pkt_get_txmap */
 	PROTOCOL_ECODE_BAD_SHARDNUM,
 
 	/* protocol_pkt_block */

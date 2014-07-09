@@ -363,6 +363,7 @@ struct protocol_pkt_get_txmap {
 	le32 len; /* sizeof(struct protocol_pkt_get_txmap) */
 	le32 type; /* PROTOCOL_PKT_GET_TXMAP */
 
+	struct protocol_double_sha block;
 	le16 shard;
 	le16 unused;
 };
@@ -374,9 +375,10 @@ struct protocol_pkt_txmap {
 
 	struct protocol_double_sha block;
 	le16 shard;
-	le16 unused;
 
-	/* Each set bit is a TX you want:
+	le16 err; /* PROTOCOL_ECODE_NONE, or PROTOCOL_ECODE_UNKNOWN_BLOCK */
+
+	/* If err == PROTOCOL_ECODE_NONE, each set bit is a TX you want:
 	   u8 txmap[(block->shard_nums[shard] + 31) / 32 * 4];
 	*/
 };

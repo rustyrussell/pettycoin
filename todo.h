@@ -25,6 +25,7 @@ struct todo_request {
 		struct protocol_net_hdr hdr;
 		struct protocol_pkt_get_block get_block;
 		struct protocol_pkt_get_shard get_shard;
+		struct protocol_pkt_get_txmap get_txmap;
 		struct protocol_pkt_get_children get_children;
 		struct protocol_pkt_get_tx_in_block get_tx_in_block;
 		struct protocol_pkt_get_tx get_tx;
@@ -46,6 +47,9 @@ void todo_add_get_block(struct state *state,
 void todo_add_get_shard(struct state *state,
 			const struct protocol_double_sha *block,
 			u16 shardnum);
+void todo_add_get_txmap(struct state *state,
+			const struct protocol_double_sha *block,
+			u16 shardnum);
 void todo_add_get_tx_in_block(struct state *state,
 			      const struct protocol_double_sha *block,
 			      u16 shardnum, u8 txoff);
@@ -61,6 +65,9 @@ void todo_done_get_block(struct peer *peer,
 			 const struct protocol_double_sha *block,
 			 bool success);
 void todo_done_get_shard(struct peer *peer,
+			 const struct protocol_double_sha *block,
+			 u16 shardnum, bool success);
+void todo_done_get_txmap(struct peer *peer,
 			 const struct protocol_double_sha *block,
 			 u16 shardnum, bool success);
 void todo_done_get_tx_in_block(struct peer *peer,
