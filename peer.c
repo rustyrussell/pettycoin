@@ -1003,6 +1003,89 @@ recv_tx_bad_input(struct peer *peer,
 	return PROTOCOL_ECODE_NONE;
 }
 
+static enum protocol_ecode
+recv_tx_bad_amount(struct peer *peer,
+		   const struct protocol_pkt_tx_bad_amount *pkt)
+{
+	const union protocol_tx *tx, *in[PROTOCOL_TX_MAX_INPUTS];
+	struct protocol_double_sha sha;
+	struct protocol_address tx_addr;
+	enum protocol_ecode e;
+	struct txhash_elem *te;
+	struct txhash_iter ti;
+	unsigned int i;
+	const char *p;
+	u32 total = 0;
+	size_t len = le32_to_cpu(pkt->len);
+
+	if (len < sizeof(*pkt))
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	p = (const char *)(pkt + 1);
+	len -= sizeof(*pkt);
+
+	e = unmarshal_and_check_tx(peer->state, &p, &len, &tx);
+	if (e)
+		return e;
+
+	/* It doesn't make sense to complain about inputs if there are none! */
+	if (num_inputs(tx) == 0)
+		return PROTOCOL_ECODE_BAD_INPUTNUM;
+
+	pubkey_to_addr(&tx->normal.input_key, &tx_addr);
+
+	/* Unmarshall and check input transactions. */
+	for (i = 0; i < num_inputs(tx); i++) {
+		struct protocol_double_sha sha;
+		u32 amount;
+		enum input_ecode ierr;
+		const struct protocol_input *inp;
+
+		e = unmarshal_and_check_tx(peer->state, &p, &len, &in[i]);
+		if (e)
+			return e;
+
+		/* Check that it's the correct transaction */
+		inp = tx_input(tx, i);
+		hash_tx(in[i], &sha);
+		if (!structeq(&inp->input, &sha))
+			return PROTOCOL_ECODE_BAD_INPUT;
+
+		ierr = check_one_input(peer->state, inp, in[i], &tx_addr,
+				       &amount);
+		if (ierr != ECODE_INPUT_OK)
+			return PROTOCOL_ECODE_BAD_INPUT;
+
+		total += amount;
+	}
+
+	/* If there is any left over, that's bad. */
+	if (len != 0)
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	assert(tx->hdr.type == TX_NORMAL);
+	if (total == (le32_to_cpu(tx->normal.send_amount)
+		      + le32_to_cpu(tx->normal.change_amount)))
+		return PROTOCOL_ECODE_INPUT_NOT_BAD;
+
+	hash_tx(tx, &sha);
+
+	/* OK, it's bad.  Is it in any blocks? */
+	for (te = txhash_firstval(&peer->state->txhash, &sha, &ti);
+	     te;
+	     te = txhash_nextval(&peer->state->txhash, &sha, &ti)) {
+		struct protocol_proof proof;
+		struct block_shard *shard = te->block->shard[te->shardnum];
+
+		create_proof(&proof, shard, te->txoff);
+		complain_bad_amount(peer->state, te->block, te->shardnum,
+				    te->txoff, &proof, tx,
+				    refs_for(shard->u[te->txoff].txp), in);
+	}
+
+	drop_pending_tx(peer->state, tx);
+	return PROTOCOL_ECODE_NONE;
+}
 
 static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 {
@@ -1076,9 +1159,9 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 	case PROTOCOL_PKT_TX_BAD_INPUT:
 		err = recv_tx_bad_input(peer, peer->incoming);
 		break;
-
-	/* FIXME: Implement. */
 	case PROTOCOL_PKT_TX_BAD_AMOUNT:
+		err = recv_tx_bad_amount(peer, peer->incoming);
+		break;
 
 	/* FIXME: Implement complaints. */
 	case PROTOCOL_PKT_BLOCK_TX_MISORDER:
