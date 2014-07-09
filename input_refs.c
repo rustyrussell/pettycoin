@@ -37,7 +37,7 @@ enum protocol_ecode check_refs(struct state *state,
 	enum protocol_ecode e = PROTOCOL_ECODE_NONE;
 
 	for (i = 0; i < num_refs; i++) {
-		e = check_ref(state, block, &refs[num_refs]);
+		e = check_ref(state, block, &refs[i]);
 		if (e != PROTOCOL_ECODE_NONE)
 			break;
 	}
