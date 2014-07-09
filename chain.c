@@ -165,6 +165,9 @@ static void find_longest_descendents(const struct block *block,
 {
 	struct block *b;
 
+	if (block->complaint)
+		return;
+
 	switch (cmp_work(block, (*bests)[0])) {
 	case 1:
 		/* Ignore previous bests, this is the best. */
@@ -229,7 +232,10 @@ static bool update_known_recursive(struct state *state, struct block *block)
 	struct block *b;
 	bool knowns_changed;
 
-	if (!block->prev->all_known || !block_all_known(block, NULL))
+	if (block->prev && !block->prev->all_known)
+		return false;
+
+	if (!block_all_known(block, NULL))
 		return false;
 
 	/* FIXME: Hack avoids writing to read-only genesis block. */
