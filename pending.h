@@ -33,11 +33,6 @@ struct peer;
 struct block;
 struct protocol_tx_gateway;
 
-/* This block is no longer on favoured chain.  Get transactions out. */
-void steal_pending_txs(struct state *state,
-		       const struct block *old,
-		       const struct block *new);
-
 /* Transfer any transactions we can from block. */
 void block_to_pending(struct state *state, const struct block *block);
 

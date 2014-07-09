@@ -274,6 +274,22 @@ static bool update_known_recursive(struct state *state, struct block *block)
 	return knowns_changed;
 }
 
+/* We're moving longest_known from old to new.  Dump all its transactions into
+ * pending. */
+static void steal_pending_txs(struct state *state,
+			      const struct block *old,
+			      const struct block *new)
+{
+	const struct block *end, *b;
+
+	/* Traverse old path and take transactions */
+	end = step_towards(new, old);
+	if (end) {
+		for (b = old; b != end->prev; b = b->prev)
+			block_to_pending(state, b);
+	}
+}
+
 /* We now know complete contents of block; update all_known for this
  * block (and maybe its descendents) and if necessary, update
  * longest_known and longest_known_descendent and restart generator.
@@ -294,6 +310,8 @@ static bool update_known(struct state *state, struct block *block)
 		/* Any transactions from old branch go into pending. */
 		steal_pending_txs(state, prev_known, state->longest_knowns[0]);
 	}
+
+	recheck_pending_txs(state);
 
 	/* FIXME: If we've timed out asking about preferred_chain or
 	 * longest_knowns, refresh. */

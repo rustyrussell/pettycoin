@@ -61,6 +61,8 @@ void add_tx_to_hashes(struct state *state,
 		      const tal_t *ctx,
 		      struct block *block, u16 shard, u8 txoff,
 		      const union protocol_tx *tx) { fprintf(stderr, "add_tx_to_hashes called!\n"); abort(); }
+/* Generated stub for block_to_pending */
+void block_to_pending(struct state *state, const struct block *block) { fprintf(stderr, "block_to_pending called!\n"); abort(); }
 /* Generated stub for check_tx_refs */
 enum ref_ecode check_tx_refs(struct state *state,
 			     const struct block *block,
@@ -109,10 +111,6 @@ void log_to_file(int fd, const struct log *log) { fprintf(stderr, "log_to_file c
 void logv(struct log *log, enum log_level level, const char *fmt, va_list ap) { fprintf(stderr, "logv called!\n"); abort(); }
 /* Generated stub for recheck_pending_txs */
 void recheck_pending_txs(struct state *state) { fprintf(stderr, "recheck_pending_txs called!\n"); abort(); }
-/* Generated stub for steal_pending_txs */
-void steal_pending_txs(struct state *state,
-		       const struct block *old,
-		       const struct block *new) { fprintf(stderr, "steal_pending_txs called!\n"); abort(); }
 /* Generated stub for todo_add_get_tx */
 void todo_add_get_tx(struct state *state,
 		     const struct protocol_double_sha *tx) { fprintf(stderr, "todo_add_get_tx called!\n"); abort(); }

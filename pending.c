@@ -201,24 +201,6 @@ void recheck_pending_txs(struct state *state)
 	restart_generating(state);
 }
 
-/* We're moving longest_known from old to new.  Dump all its transactions into
- * pending, then check their validity in the new chain. */
-void steal_pending_txs(struct state *state,
-		       const struct block *old,
-		       const struct block *new)
-{
-	const struct block *end, *b;
-
-	/* Traverse old path and take transactions */
-	end = step_towards(new, old);
-	if (end) {
-		for (b = old; b != end->prev; b = b->prev)
-			block_to_pending(state, b);
-	}
-
-	recheck_pending_txs(state);
-}
-
 static bool find_pending_doublespend(struct state *state,
 				     const union protocol_tx *tx)
 {
