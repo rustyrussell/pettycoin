@@ -18,7 +18,7 @@ static inline u32 num_inputs(const union protocol_tx *tx)
 }
 
 /* Find the output_num'th output in trans */
-bool find_output(union protocol_tx *trans, u16 output_num,
+bool find_output(const union protocol_tx *trans, u16 output_num,
 		 struct protocol_address *addr, u32 *amount);
 
 static inline struct protocol_input *

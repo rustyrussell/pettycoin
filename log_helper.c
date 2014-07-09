@@ -232,6 +232,12 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "PROTOCOL_ECODE_REF_BAD_TXOFF"; break;
 		case PROTOCOL_ECODE_BAD_MERKLE:
 			name = "PROTOCOL_ECODE_BAD_MERKLE"; break;
+		case PROTOCOL_ECODE_BAD_INPUTNUM:
+			name = "PROTOCOL_ECODE_BAD_INPUTNUM"; break;
+		case PROTOCOL_ECODE_BAD_INPUT:
+			name = "PROTOCOL_ECODE_BAD_INPUT"; break;
+		case PROTOCOL_ECODE_INPUT_NOT_BAD:
+			name = "PROTOCOL_ECODE_INPUT_NOT_BAD"; break;
 		case PROTOCOL_ECODE_PRIV_UNKNOWN_PREV:
 			name = "PROTOCOL_ECODE_PRIV_UNKNOWN_PREV"; break;
 		case PROTOCOL_ECODE_MAX:

@@ -47,4 +47,7 @@ find_pending_tx_with_ref(const tal_t *ctx,
 const union protocol_tx *
 find_pending_tx(struct state *state,
 		const struct protocol_double_sha *hash);
+
+void drop_pending_tx(struct state *state, const union protocol_tx *tx);
+
 #endif /* PETTYCOIN_PENDING_H */

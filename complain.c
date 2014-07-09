@@ -47,11 +47,10 @@ void complain_bad_input(struct state *state,
 			const struct protocol_proof *proof,
 			const union protocol_tx *tx,
 			const struct protocol_input_ref *refs,
-			unsigned int bad_input)
+			unsigned int bad_input,
+			const union protocol_tx *intx)
 {
 	struct protocol_pkt_block_tx_bad_input *pkt;
-	const union protocol_tx *intx
-		= txhash_gettx(&state->txhash, &tx_input(tx, bad_input)->input);
 
 	assert(le32_to_cpu(tx->hdr.type) == TX_NORMAL);
 	log_unusual(state->log, "Block %u ", le32_to_cpu(block->hdr->depth));
@@ -77,7 +76,8 @@ void complain_bad_amount(struct state *state,
 			 u16 shardnum, u8 txoff,
 			 const struct protocol_proof *proof,
 			 const union protocol_tx *tx,
-			 const struct protocol_input_ref *refs)
+			 const struct protocol_input_ref *refs,
+			 const union protocol_tx *intx[])
 {
 	struct protocol_pkt_block_tx_bad_amount *pkt;
 	unsigned int i;
@@ -97,14 +97,11 @@ void complain_bad_amount(struct state *state,
 
 	/* FIXME: What if input is pending? */
 	for (i = 0; i < num_inputs(tx); i++) {
-		const union protocol_tx *input;
-		const struct protocol_input *inp = tx_input(tx, i);
+		log_add_struct(state->log, union protocol_tx, intx[i]);
+		log_add(state->log, " (output %u)",
+			le16_to_cpu(tx_input(tx, i)->output));
 
-		input = txhash_gettx(&state->txhash, &inp->input);
-		log_add_struct(state->log, union protocol_tx, input);
-		log_add(state->log, " (output %u)", le16_to_cpu(inp->output));
-
-		tal_packet_append_tx(&pkt, input);
+		tal_packet_append_tx(&pkt, intx[i]);
 	}
 
 	invalidate_block(state, block, pkt);

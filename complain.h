@@ -26,7 +26,9 @@ void complain_bad_input(struct state *state,
 			const struct protocol_proof *proof,
 			const union protocol_tx *tx,
 			const struct protocol_input_ref *refs,
-			unsigned int bad_input);
+			unsigned int bad_input,
+			const union protocol_tx *intx);
+
 
 /* tx/refs belongs in block at shardnum/tx, but inputs don't add up. */
 void complain_bad_amount(struct state *state,
@@ -34,7 +36,8 @@ void complain_bad_amount(struct state *state,
 			 u16 shardnum, u8 txoff,
 			 const struct protocol_proof *proof,
 			 const union protocol_tx *tx,
-			 const struct protocol_input_ref *refs);
+			 const struct protocol_input_ref *refs,
+			 const union protocol_tx *intx[]);
 
 /* tx/refs belongs in block at shardnum/tx, but input ref points to a
  * different tx to the tx referred to by tx->input. */

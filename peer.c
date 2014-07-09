@@ -28,6 +28,7 @@
 #include "complain.h"
 #include "input_refs.h"
 #include "peer_wants.h"
+#include "addr.h"
 #include <ccan/io/io.h>
 #include <ccan/time/time.h>
 #include <ccan/tal/tal.h>
@@ -35,6 +36,7 @@
 #include <ccan/err/err.h>
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/cast/cast.h>
+#include <ccan/structeq/structeq.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <stdio.h>
@@ -762,18 +764,31 @@ recv_tx_in_block(struct peer *peer, const struct protocol_pkt_tx_in_block *pkt)
 				&tx_input(tx, bad_input_num)->input);
 		/* FIXME: Keep tx and proof around for later! */
 		return PROTOCOL_ECODE_NONE;
-	case ECODE_INPUT_BAD:
+	case ECODE_INPUT_BAD: {
+		union protocol_tx *input;
+
+		input = txhash_gettx(&peer->state->txhash,
+				      &tx_input(tx, bad_input_num)->input);
 		/* This whole block is invalid.  Tell everyone. */
 		complain_bad_input(peer->state, b, shard,
 				   proof->pos.txoff, &proof->proof,
-				   tx, refs, bad_input_num);
+				   tx, refs, bad_input_num, input);
 		return PROTOCOL_ECODE_NONE;
-	case ECODE_INPUT_BAD_AMOUNT:
+	}
+	case ECODE_INPUT_BAD_AMOUNT: {
+		unsigned int i;
+		const union protocol_tx *inputs[PROTOCOL_TX_MAX_INPUTS];
+
+		for (i = 0; i < num_inputs(tx); i++)
+			inputs[i] = txhash_gettx(&peer->state->txhash,
+						 &tx_input(tx, i)->input);
+
 		/* This whole block is invalid.  Tell everyone. */
 		complain_bad_amount(peer->state, b, shard,
 				    proof->pos.txoff, &proof->proof,
-				    tx, refs);
+				    tx, refs, inputs);
 		return PROTOCOL_ECODE_NONE;
+	}
 	}
 
 	rerr = check_tx_refs(peer->state, b, tx, refs,
@@ -900,6 +915,95 @@ recv_txmap(struct peer *peer, const struct protocol_pkt_txmap *pkt)
 	return PROTOCOL_ECODE_NONE;
 }
 
+static enum protocol_ecode
+unmarshal_and_check_tx(struct state *state, const char **p, size_t *len,
+		       const union protocol_tx **tx)
+{
+	enum protocol_ecode e;
+	size_t used;
+
+	e = unmarshal_tx(*p, *len, &used);
+	if (e)
+		return e;
+	*tx = (const void *)*p;
+
+	(*p) += used;
+	*len -= used;
+
+	return check_tx(state, *tx, NULL);
+}
+
+static enum protocol_ecode
+recv_tx_bad_input(struct peer *peer,
+		  const struct protocol_pkt_tx_bad_input *pkt)
+{
+	const union protocol_tx *tx, *in;
+	const struct protocol_input *input;
+	struct protocol_double_sha sha;
+	struct protocol_address tx_addr;
+	enum protocol_ecode e;
+	enum input_ecode ierr;
+	struct txhash_elem *te;
+	struct txhash_iter ti;
+	const char *p;
+	u32 amount;
+	size_t len = le32_to_cpu(pkt->len);
+
+	if (len < sizeof(*pkt))
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	p = (const char *)(pkt + 1);
+	len -= sizeof(*pkt);
+
+	e = unmarshal_and_check_tx(peer->state, &p, &len, &tx);
+	if (e)
+		return e;
+
+	e = unmarshal_and_check_tx(peer->state, &p, &len, &in);
+	if (e)
+		return e;
+
+	if (len != 0)
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	/* Make sure this tx match the bad input */
+	if (le32_to_cpu(pkt->inputnum) >= num_inputs(tx))
+		return PROTOCOL_ECODE_BAD_INPUTNUM;
+
+	assert(tx->hdr.type == TX_NORMAL);
+	input = tx_input(tx, le32_to_cpu(pkt->inputnum));
+	hash_tx(in, &sha);
+
+	if (!structeq(&input->input, &sha))
+		return PROTOCOL_ECODE_BAD_INPUT;
+
+	pubkey_to_addr(&tx->normal.input_key, &tx_addr);
+
+	ierr = check_one_input(peer->state, input, in, &tx_addr, &amount);
+	if (ierr == ECODE_INPUT_OK)
+		return PROTOCOL_ECODE_INPUT_NOT_BAD;
+
+	hash_tx(tx, &sha);
+
+	/* OK, it's bad.  Is it in any blocks? */
+	for (te = txhash_firstval(&peer->state->txhash, &sha, &ti);
+	     te;
+	     te = txhash_nextval(&peer->state->txhash, &sha, &ti)) {
+		struct protocol_proof proof;
+		struct block_shard *shard = te->block->shard[te->shardnum];
+
+		create_proof(&proof, shard, te->txoff);
+		complain_bad_input(peer->state, te->block, te->shardnum,
+				   te->txoff, &proof, tx,
+				   refs_for(shard->u[te->txoff].txp),
+				   le32_to_cpu(pkt->inputnum), in);
+	}
+
+	drop_pending_tx(peer->state, tx);
+	return PROTOCOL_ECODE_NONE;
+}
+
+
 static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 {
 	const struct protocol_net_hdr *hdr = peer->incoming;
@@ -969,9 +1073,11 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 	case PROTOCOL_PKT_TXMAP:
 		err = recv_txmap(peer, peer->incoming);
 		break;
-
-	/* FIXME: Implement! */
 	case PROTOCOL_PKT_TX_BAD_INPUT:
+		err = recv_tx_bad_input(peer, peer->incoming);
+		break;
+
+	/* FIXME: Implement. */
 	case PROTOCOL_PKT_TX_BAD_AMOUNT:
 
 	/* FIXME: Implement complaints. */

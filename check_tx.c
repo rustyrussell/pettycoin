@@ -43,6 +43,28 @@ check_tx_normal_basic(struct state *state, const struct protocol_tx_normal *ntx)
 	return PROTOCOL_ECODE_NONE;
 }
 
+enum input_ecode check_one_input(struct state *state,
+				 const struct protocol_input *inp,
+				 const union protocol_tx *intx,
+				 const struct protocol_address *my_addr,
+				 u32 *amount)
+{
+	struct protocol_address addr;
+
+	if (!find_output(intx, le16_to_cpu(inp->output), &addr, amount))
+		return ECODE_INPUT_BAD;
+
+	/* Check it was to this address. */
+	if (!structeq(my_addr, &addr)) {
+		log_debug(state->log,
+			  "Address mismatch against output %i of ",
+			  le16_to_cpu(inp->output));
+		log_add_struct(state->log, union protocol_tx, intx);
+		return ECODE_INPUT_BAD;
+	}
+	return ECODE_INPUT_OK;
+}
+
 /* FIXME: Detect double spends! */
 enum input_ecode check_tx_inputs(struct state *state,
 				 const union protocol_tx *tx,
@@ -67,7 +89,7 @@ enum input_ecode check_tx_inputs(struct state *state,
 
 	for (i = 0; i < num_inputs(tx); i++) {
 		u32 amount;
-		struct protocol_address addr;
+		enum input_ecode e;
 		const struct protocol_input *inp = tx_input(tx, i);
 		union protocol_tx *intx;
 
@@ -79,22 +101,11 @@ enum input_ecode check_tx_inputs(struct state *state,
 		}
 		known++;
 
-		if (!find_output(intx, le16_to_cpu(inp->output),
-				 &addr, &amount)) {
+		e = check_one_input(state, inp, intx, &my_addr, &amount);
+		if (e != ECODE_INPUT_OK) {
 			*bad_input_num = i;
 			return ECODE_INPUT_BAD;
 		}
-
-		/* Check it was to this address. */
-		if (!structeq(&my_addr, &addr)) {
-			*bad_input_num = i;
-			log_debug(state->log,
-				  "Address mismatch against output %i of ",
-				  le16_to_cpu(inp->output));
-			log_add_struct(state->log, union protocol_tx, intx);
-			return ECODE_INPUT_BAD;
-		}
-
 		input_total += amount;
 	}
 

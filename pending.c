@@ -325,3 +325,23 @@ find_pending_tx(struct state *state,
 	}
 	return NULL;
 }
+
+void drop_pending_tx(struct state *state, const union protocol_tx *tx)
+{
+	struct pending_tx **pend;
+	u16 shard;
+	size_t i, num;
+
+	shard = shard_of_tx(tx, next_shard_order(state->longest_knowns[0]));
+	pend = state->pending->pend[shard];
+	num = tal_count(pend);
+
+	for (i = 0; i < num; i++) {
+		if (marshal_tx_len(pend[i]->tx) != marshal_tx_len(tx))
+			continue;
+		if (memcmp(pend[i]->tx, tx, marshal_tx_len(tx)) != 0)
+			continue;
+		remove_pending_tx(state, shard, i);
+		break;
+	}
+}

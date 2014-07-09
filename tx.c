@@ -1,10 +1,10 @@
 #include "tx.h"
 #include "addr.h"
 
-bool find_output(union protocol_tx *tx, u16 output_num,
+bool find_output(const union protocol_tx *tx, u16 output_num,
 		 struct protocol_address *addr, u32 *amount)
 {
-	struct protocol_gateway_payment *out;
+	const struct protocol_gateway_payment *out;
 
 	switch (tx->hdr.type) {
 	case TX_FROM_GATEWAY:

@@ -38,4 +38,11 @@ enum input_ecode {
 enum input_ecode check_tx_inputs(struct state *state,
 				 const union protocol_tx *tx,
 				 unsigned int *bad_input_num);
+
+/* Useful for checking complaints. */
+enum input_ecode check_one_input(struct state *state,
+				 const struct protocol_input *inp,
+				 const union protocol_tx *intx,
+				 const struct protocol_address *my_addr,
+				 u32 *amount);
 #endif /* PETTYCOIN_CHECK_TX_H */

@@ -74,6 +74,11 @@ enum protocol_ecode {
 	/* protocol_pkt_shard */
 	PROTOCOL_ECODE_BAD_MERKLE,
 
+	/* protocol_pkt_tx_bad_input */
+	PROTOCOL_ECODE_BAD_INPUTNUM,
+	PROTOCOL_ECODE_BAD_INPUT,
+	PROTOCOL_ECODE_INPUT_NOT_BAD,
+
 	/* >= this is invalid. */
 	PROTOCOL_ECODE_MAX,
 
