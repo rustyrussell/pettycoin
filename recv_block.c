@@ -3,6 +3,7 @@
 #include "chain.h"
 #include "check_block.h"
 #include "complain.h"
+#include "create_refs.h"
 #include "difficulty.h"
 #include "log.h"
 #include "pending.h"
@@ -12,6 +13,8 @@
 #include "state.h"
 #include "tal_packet.h"
 #include "todo.h"
+#include "tx_in_hashes.h"
+#include <ccan/structeq/structeq.h>
 
 /* Don't let them flood us with cheap, random blocks. */
 static void seek_predecessor(struct state *state, 
@@ -152,6 +155,51 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 	return PROTOCOL_ECODE_NONE;
 }
 
+static struct txptr_with_ref
+find_tx_with_ref(const tal_t *ctx,
+		 struct state *state,
+		 const struct block *block,
+		 const struct protocol_txrefhash *hash)
+{
+	struct protocol_input_ref *refs;
+	struct txptr_with_ref r;
+	struct txhash_iter iter;
+	struct txhash_elem *te;
+
+	for (te = txhash_firstval(&state->txhash, &hash->txhash, &iter);
+	     te;
+	     te = txhash_nextval(&state->txhash, &hash->txhash, &iter)) {
+		struct protocol_double_sha sha;
+		const union protocol_tx *tx = txhash_tx(te);
+
+		/* Hash only?  Can't make references. */
+		if (!tx)
+			continue;
+
+		/* Try creating input referneces back from this block */
+		refs = create_refs(state, block, tx);
+		if (!refs)
+			continue;
+
+		/* Do they hash correctly? */
+		hash_refs(refs, tal_count(refs), &sha);
+		if (!structeq(&hash->refhash, &sha)) {
+			tal_free(refs);
+			continue;
+		}
+
+		r = txptr_with_ref(ctx, tx, refs);
+		tal_free(refs);
+
+		/* Now, we don't drop from pending yet: that will happen
+		 * when longest_knowns[0] moves. */
+		return r;
+	}
+
+	r.tx = NULL;
+	return r;
+}
+
 /* Returns true if it was resolved. */
 bool try_resolve_hash(struct state *state,
 		      const struct peer *source,
@@ -163,11 +211,7 @@ bool try_resolve_hash(struct state *state,
 
 	assert(!shard_is_tx(shard, txoff));
 
-	
-
-	/* FIXME: Search peer blocks too? */
-	txp = find_pending_tx_with_ref(shard, state, block, shardnum,
-				       shard->u[txoff].hash);
+	txp = find_tx_with_ref(shard, state, block, shard->u[txoff].hash);
 	if (!txp.tx)
 		return false;
 

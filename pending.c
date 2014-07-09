@@ -76,12 +76,35 @@ void block_to_pending(struct state *state, const struct block *block)
 	}
 }
 
+static bool find_pending_in_arr(struct pending_tx **pend,
+				const union protocol_tx *tx, size_t *pos)
+{
+	size_t num, end;
+
+	end = num = tal_count(pend);
+
+	*pos = 0;
+	while (*pos < end) {
+		size_t halfway = (*pos + end) / 2;
+		int c;
+
+		c = tx_cmp(tx, pend[halfway]->tx);
+		if (c < 0)
+			end = halfway;
+		else if (c > 0)
+			*pos = halfway + 1;
+		else
+			return true;
+	}
+	return false;
+}
+
 static bool insert_pending_tx(struct state *state, const union protocol_tx *tx)
 {
 	struct pending_block *pending = state->pending;
 	struct pending_tx *pend;
 	u16 shard;
-	size_t start, num, end;
+	size_t num, pos;
 
 	shard = shard_of_tx(tx, next_shard_order(state->longest_knowns[0]));
 	num = tal_count(pending->pend[shard]);
@@ -92,27 +115,9 @@ static bool insert_pending_tx(struct state *state, const union protocol_tx *tx)
 		return false;
 	}
 
-	start = 0;
-	end = num;
-	while (start < end) {
-		size_t halfway = (start + end) / 2;
-		int c;
-
-		c = tx_cmp(tx, pending->pend[shard][halfway]->tx);
-		if (c < 0)
-			end = halfway;
-		else if (c > 0)
-			start = halfway + 1;
-		else {
-			/* Duplicate!  Ignore it. */
-			/* FIXME: if pending were in hash,
-			   this couldn't happen */
-			log_debug(state->log,
-				  "Ignoring duplicate transaction ");
-			log_add_struct(state->log, union protocol_tx, tx);
-			return true;
-		}
-	}
+	/* Caller checks it isn't a dup! */
+	if (find_pending_in_arr(pending->pend[shard], tx, &pos))
+		abort();
 
 	pend = new_pending_tx(state->pending, tx);
 	pend->refs = create_refs(state, state->longest_knowns[0], tx);
@@ -121,14 +126,14 @@ static bool insert_pending_tx(struct state *state, const union protocol_tx *tx)
 
 	/* Move down to make room, and insert */
 	tal_resize(&pending->pend[shard], num + 1);
-	memmove(pending->pend[shard] + start + 1,
-		pending->pend[shard] + start,
-		(num - start) * sizeof(*pending->pend[shard]));
-	pending->pend[shard][start] = pend;
+	memmove(pending->pend[shard] + pos + 1,
+		pending->pend[shard] + pos,
+		(num - pos) * sizeof(*pending->pend[shard]));
+	pending->pend[shard][pos] = pend;
 
 	log_debug(state->log, "Added tx to shard %u position %zu",
-		  shard, start);
-	tell_generator_new_pending(state, shard, start);
+		  shard, pos);
+	tell_generator_new_pending(state, shard, pos);
 	return true;
 }
 
@@ -298,91 +303,40 @@ static void remove_pending_tx(struct state *state,
 	tal_resize(&pending->pend[shard], num - 1);
 }
 
-/* FIXME: SLOW! Put pending into txhash? */
-struct txptr_with_ref
-find_pending_tx_with_ref(const tal_t *ctx,
-			 struct state *state,
-			 const struct block *block,
-			 u16 shard,
-			 const struct protocol_txrefhash *hash)
-{
-	struct protocol_input_ref *refs;
-	struct txptr_with_ref r;
-	struct pending_tx **pend = state->pending->pend[shard];
-	size_t i, num = tal_count(pend);
-
-	/* If this block preceeds where we're mining, we would have to change.
-	 * But we always know everything about longest_knowns[0], so that
-	 * can't happen. */
-	assert(!block_preceeds(block, state->longest_knowns[0]));
-
-	for (i = 0; i < num; i++) {
-		struct protocol_double_sha sha;
-
-		/* FIXME: Cache sha of tx in pending? */
-		hash_tx(pend[i]->tx, &sha);
-		if (!structeq(&hash->txhash, &sha))
-			continue;
-
-		/* FIXME: If peer->state->longest_knowns[0]->prev ==
-		   block->prev, then pending refs will be the same... */
-
-		/* This can fail if refs don't work for that block. */
-		refs = create_refs(state, block->prev, pend[i]->tx);
-		if (!refs)
-			continue;
-
-		hash_refs(refs, tal_count(refs), &sha);
-		if (!structeq(&hash->refhash, &sha)) {
-			tal_free(refs);
-			continue;
-		}
-
-		r = txptr_with_ref(ctx, pend[i]->tx, refs);
-		tal_free(refs);
-		remove_pending_tx(state, shard, i);
-		return r;
-	}
-
-	r.tx = NULL;
-	return r;
-}
-
-/* FIXME: slow! */
-const union protocol_tx *
-find_pending_tx(struct state *state,
-		const struct protocol_double_sha *hash)
-{
-	unsigned int shard, i;
-
-	for (shard = 0; shard < ARRAY_SIZE(state->pending->pend); shard++) {
-		for (i = 0; i < tal_count(state->pending->pend[shard]); i++) {
-			struct protocol_double_sha sha;
-
-			hash_tx(state->pending->pend[shard][i]->tx, &sha);
-			if (structeq(&sha, hash))
-				return state->pending->pend[shard][i]->tx;
-		}
-	}
-	return NULL;
-}
-
 void drop_pending_tx(struct state *state, const union protocol_tx *tx)
 {
 	struct pending_tx **pend;
 	u16 shard;
-	size_t i, num;
+	size_t pos;
+	struct protocol_double_sha sha;
+
+	hash_tx(tx, &sha);
+	if (!txhash_get_pending_tx(state, &sha))
+		return;
 
 	shard = shard_of_tx(tx, next_shard_order(state->longest_knowns[0]));
 	pend = state->pending->pend[shard];
-	num = tal_count(pend);
 
-	for (i = 0; i < num; i++) {
-		if (marshal_tx_len(pend[i]->tx) != marshal_tx_len(tx))
-			continue;
-		if (memcmp(pend[i]->tx, tx, marshal_tx_len(tx)) != 0)
-			continue;
-		remove_pending_tx(state, shard, i);
-		break;
+	if (find_pending_in_arr(pend, tx, &pos))
+		remove_pending_tx(state, shard, pos);
+	else {
+		/* Must be in unknowns. */
+		struct pending_unknown_tx *utx;
+
+		/* FIXME: SLOW! */
+		list_for_each(&state->pending->unknown_tx, utx, list) {
+			if (marshal_tx_len(utx->tx) != marshal_tx_len(tx))
+				continue;
+			if (memcmp(utx->tx, tx, marshal_tx_len(tx)) != 0)
+				continue;
+			list_del_from(&state->pending->unknown_tx, &utx->list);
+			state->pending->num_unknown--;
+			tal_free(utx);
+			return;
+		}
+
+		/* Hash said it was here somewhere! */
+		abort();
+		
 	}
 }

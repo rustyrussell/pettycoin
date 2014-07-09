@@ -54,19 +54,6 @@ enum input_ecode add_pending_tx(struct state *state,
 /* Get a new working block. */
 struct pending_block *new_pending_block(struct state *state);
 
-/* Look through pending to find if we have this tx & ref hash */
-struct txptr_with_ref
-find_pending_tx_with_ref(const tal_t *ctx,
-			 struct state *state,
-			 const struct block *block,
-			 u16 shard,
-			 const struct protocol_txrefhash *hash);
-
-/* Look through pending to find if we have this tx by hash */
-const union protocol_tx *
-find_pending_tx(struct state *state,
-		const struct protocol_double_sha *hash);
-
 void drop_pending_tx(struct state *state, const union protocol_tx *tx);
 
 #endif /* PETTYCOIN_PENDING_H */

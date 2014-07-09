@@ -770,7 +770,7 @@ recv_get_tx(struct peer *peer,
 	if (le32_to_cpu(pkt->len) != sizeof(*pkt))
 		return PROTOCOL_ECODE_INVALID_LEN;
 
-	/* First look for one in a block. */
+	/* First look for one in a block: kill two birds with one stone. */
 	te = txhash_gettx_ancestor(peer->state, &pkt->tx,
 				   peer->state->preferred_chain);
 	if (te && shard_is_tx(te->u.block->shard[te->shardnum], te->txoff)) {
@@ -791,10 +791,11 @@ recv_get_tx(struct peer *peer,
 		return PROTOCOL_ECODE_NONE;
 	}
 
+	/* Fallback is to reply with protocol_pkt_tx. */
 	r = tal_packet(peer, struct protocol_pkt_tx, PROTOCOL_PKT_TX);
 
-	/* Does this exist in pending? */
-	tx = find_pending_tx(peer->state, &pkt->tx);
+	/* Does this exist at all (maybe in pending)? */
+	tx = txhash_gettx(&peer->state->txhash, &pkt->tx, TX_PENDING);
 	if (tx) {
 		r->err = cpu_to_le32(PROTOCOL_ECODE_NONE);
 		tal_packet_append_tx(&r, tx);
