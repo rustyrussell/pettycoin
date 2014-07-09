@@ -202,8 +202,8 @@ static void send_to_interested_peers(struct state *state,
 }
 
 /* We sent unsolicited TXs to any peer who's interested. */
-void send_tx_to_peers(struct state *state, struct peer *exclude,
-		      const union protocol_tx *tx)
+static void send_tx_to_peers(struct state *state, struct peer *exclude,
+			     const union protocol_tx *tx)
 {
 	struct protocol_pkt_tx *pkt;
 
@@ -506,14 +506,12 @@ static enum protocol_ecode
 recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 {
 	enum protocol_ecode e;
-	enum input_ecode ierr;
 	union protocol_tx *tx;
 	struct protocol_double_sha sha;
 	u32 txlen = le32_to_cpu(pkt->len) - sizeof(*pkt);
 	unsigned int bad_input_num;
 	struct txhash_iter it;
 	struct txhash_elem *te;
-	bool pending_ok;
 
 	log_debug(peer->log, "Received PKT_TX");
 
@@ -545,57 +543,29 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 	hash_tx(tx, &sha);
 	todo_done_get_tx(peer, &sha, true);
 
-	/* If it's already in longest known chain, can't add to pending. */
-	pending_ok = true;
-	for (te = txhash_firstval(&peer->state->txhash, &sha, &it);
-	     te;
-	     te = txhash_nextval(&peer->state->txhash, &sha, &it)) {
-		if (block_preceeds(te->block, peer->state->longest_knowns[0])) {
-			pending_ok = false;
-			break;
-		}
-	}
+	/* If inputs are malformed, it might not have known so don't hang up. */
+	switch (add_pending_tx(peer->state, tx, &sha, &bad_input_num)) {
+	case ECODE_INPUT_OK:
+		break;
+	case ECODE_INPUT_UNKNOWN:
+		/* Ask about this input. */
+		todo_add_get_tx(peer->state,
+				&tx_input(tx, bad_input_num)->input);
+		/* We can still use it to resolve hashes. */
+		break;
 
-	if (pending_ok) {
-		/* We check inputs for where *we* would mine it. */
-		ierr = check_tx_inputs(peer->state,
-				       peer->state->longest_knowns[0],
-				       NULL, tx, &bad_input_num);
-
-		/* If inputs are malformed, it might not have known so
-		 * don't hang up. */
-		switch (ierr) {
-		case ECODE_INPUT_OK:
-			break;
-		case ECODE_INPUT_UNKNOWN:
-			/* Ask about this input. */
-			todo_add_get_tx(peer->state,
-					&tx_input(tx, bad_input_num)->input);
-			/* FIXME: Keep unresolved pending transaction. */
-			pending_ok = false;
-			break;
-		case ECODE_INPUT_BAD:
-			tell_peer_about_bad_input(peer->state, peer, tx,
-						  bad_input_num);
-			pending_ok = false;
-			break;
-		case ECODE_INPUT_BAD_AMOUNT:
-			tell_peer_about_bad_amount(peer->state, peer, tx);
-			pending_ok = false;
-			break;
-		case ECODE_INPUT_DOUBLESPEND:
-			tell_peer_about_doublespend(peer->state,
+	/* FIXME: Search blocks for this tx, make complaints! */
+	case ECODE_INPUT_BAD:
+		tell_peer_about_bad_input(peer->state, peer, tx, bad_input_num);
+		return PROTOCOL_ECODE_NONE;
+	case ECODE_INPUT_BAD_AMOUNT:
+		tell_peer_about_bad_amount(peer->state, peer, tx);
+		return PROTOCOL_ECODE_NONE;
+	case ECODE_INPUT_DOUBLESPEND:
+		tell_peer_about_doublespend(peer->state,
 					    peer->state->longest_knowns[0],
 					    peer, tx, bad_input_num);
-			pending_ok = false;
-			break;
-		}
-
-		if (pending_ok) {
-			/* OK, we own it now. */
-			tal_steal(peer->state, pkt);
-			add_pending_tx(peer, tx);
-		}
+		return PROTOCOL_ECODE_NONE;
 	}
 
 	/* See if we can use it to resolve any hashes. */
@@ -606,6 +576,9 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 			try_resolve_hash(peer->state, peer,
 					 te->block, te->shardnum, te->txoff);
 	}
+
+	/* Tell everyone. */
+	send_tx_to_peers(peer->state, peer, tx);
 
 	return PROTOCOL_ECODE_NONE;
 }

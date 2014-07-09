@@ -22,9 +22,16 @@ struct pending_block *new_pending_block(struct state *state)
 		b->pending_counts[i] = 0;
 		b->pend[i] = tal_arr(b, struct pending_tx *, 0);
 	}
+	/* FIXME: time out or limit unknown txs. */
+	list_head_init(&b->unknown_tx);
+	b->num_unknown = 0;
 	return b;
 }
 
+static union protocol_tx *tx_dup(const tal_t *ctx, const union protocol_tx *tx)
+{
+	return (void *)tal_dup(ctx, char, (char *)tx, marshal_tx_len(tx), 0);
+}
 
 static struct pending_tx *new_pending_tx(const tal_t *ctx,
 					 const union protocol_tx *tx)
@@ -32,138 +39,157 @@ static struct pending_tx *new_pending_tx(const tal_t *ctx,
 	struct pending_tx *pend;
 
 	pend = tal(ctx, struct pending_tx);
-	pend->tx = tx;
+	pend->tx = tx_dup(pend, tx);
 
 	return pend;
 }
 
-/* Transfer all transaction from this shard into pending array. */
-static void shard_to_pending(struct state *state,
-			     const struct block *block, u16 shard)
+static void add_to_unknown_pending(struct state *state,
+				   const union protocol_tx *tx)
 {
-	size_t curr = tal_count(state->pending->pend[shard]), num, added = 0, i;
+	struct pending_unknown_tx *unk;
 
-	num = block->shard_nums[shard];
+	unk = tal(state->pending, struct pending_unknown_tx);
+	unk->tx = tx_dup(unk, tx);
 
-	/* Worst case. */
-	tal_resize(&state->pending->pend[shard], curr + num);
-
-	for (i = 0; i < num; i++) {
-		struct pending_tx *pend;
-		union protocol_tx *tx;
-
-		tx = block_get_tx(block, shard, i);
-		if (!tx)
-			continue;
-
-		/* FIXME: Transfer block->refs directly! */
-		pend = new_pending_tx(state->pending, tx);
-		state->pending->pend[shard][curr + added++] = pend;
-	}
-
-	log_debug(state->log, "Added %zu transactions from old shard %u",
-		  added, shard);
-	tal_resize(&state->pending->pend[shard], curr + added);
+	list_add_tail(&state->pending->unknown_tx, &unk->list);
+	state->pending->num_unknown++;
 }
 
 /* Transfer all transaction from this block into pending array.
  * You must call recheck_pending_txs() afterwards! */
 void block_to_pending(struct state *state, const struct block *block)
 {
+	unsigned int shard, i;
+
+	for (shard = 0; shard < num_shards(block->hdr); shard++) {
+		for (i = 0; i < block->shard_nums[shard]; i++) {
+			const union protocol_tx *tx;
+
+			tx = tx_for(block->shard[shard], i);
+			if (!tx)
+				continue;
+			add_to_unknown_pending(state, tx);
+		}
+	}
+}
+
+static bool insert_pending_tx(struct state *state, const union protocol_tx *tx)
+{
+	struct pending_block *pending = state->pending;
+	struct pending_tx *pend;
 	u16 shard;
+	size_t start, num, end;
 
-	for (shard = 0; shard < num_shards(block->hdr); shard++)
-		shard_to_pending(state, block, shard);
-}
+	shard = shard_of_tx(tx, next_shard_order(state->longest_knowns[0]));
+	num = tal_count(pending->pend[shard]);
 
-static int pending_tx_cmp(struct pending_tx *const *a,
-			  struct pending_tx *const *b,
-			  void *unused)
-{
-	return tx_cmp((*a)->tx, (*b)->tx);
-}
-
-/* Returns num removed. */
-static size_t recheck_one_shard(struct state *state, u16 shard)
-{
-	struct pending_tx **pend = state->pending->pend[shard];
-	size_t i, num, start_num = tal_count(pend);
-
-	num = start_num;
-	for (i = 0; i < num; i++) {
-		struct txhash_elem *te;
-		struct protocol_double_sha sha;
-		unsigned int bad_input_num;
-		enum input_ecode e;
-		struct txhash_iter iter;
-		bool in_known_chain = false;
-
-		hash_tx(pend[i]->tx, &sha);
-
-		for (te = txhash_firstval(&state->txhash, &sha, &iter);
-		     te;
-		     te = txhash_nextval(&state->txhash, &sha, &iter)) {
-			if (block_preceeds(te->block, state->longest_knowns[0]))
-				in_known_chain = true;
-		}
-
-		/* Already in known chain?  Discard. */
-		if (in_known_chain) {
-			log_debug(state->log, "  %zu is FOUND", i);
-			goto discard;
-		}
-		log_debug(state->log, "  %zu is NOT FOUND", i);
-
-		/* Discard if no longer valid (inputs already spent) */
-		e = check_tx_inputs(state, state->longest_knowns[0], NULL,
-				    pend[i]->tx, &bad_input_num);
-		if (e) {
-			log_debug(state->log, "  %zu is now ", i);
-			log_add_enum(state->log, enum input_ecode, e);
-			log_add(state->log, ": input %u ", bad_input_num);
-			goto discard;
-		}
-
-		/* FIXME: Usually this is a simple increment to
-		 * ->refs[].blocks_ago. */
-		tal_free(pend[i]->refs);
-		pend[i]->refs = create_refs(state, state->longest_knowns[0],
-				            pend[i]->tx);
-		if (!pend[i]->refs) {
-			/* FIXME: put this into pending-awaiting list! */
-			log_debug(state->log, "  inputs no longer known");
-			goto discard;
-		}
-		continue;
-
-	discard:
-		/* FIXME:
-		 * remove_trans_from_peers(state, pend[i]->t);
-		 */
-		memmove(pend + i, pend + i + 1, (num - i - 1) * sizeof(*pend));
-		num--;
-		i--;
+	if (num == 255) {
+		log_unusual(state->log,
+			    "Too many pending txs in shard %u", shard);
+		return false;
 	}
 
-	tal_resize(&state->pending->pend[shard], num);
+	start = 0;
+	end = num;
+	while (start < end) {
+		size_t halfway = (start + end) / 2;
+		int c;
 
-	/* Make sure they're sorted into correct order (since
-	 * block_to_pending doesn't) */
-	asort(state->pending->pend[shard], num, pending_tx_cmp, NULL);
+		c = tx_cmp(tx, pending->pend[shard][halfway]->tx);
+		if (c < 0)
+			end = halfway;
+		else if (c > 0)
+			start = halfway + 1;
+		else {
+			/* Duplicate!  Ignore it. */
+			/* FIXME: if pending were in hash,
+			   this couldn't happen */
+			log_debug(state->log,
+				  "Ignoring duplicate transaction ");
+			log_add_struct(state->log, union protocol_tx, tx);
+			return true;
+		}
+	}
 
-	return start_num - num;
+	pend = new_pending_tx(state->pending, tx);
+	pend->refs = create_refs(state, state->longest_knowns[0], tx);
+	/* If check_tx_inputs() passed, this can't fail. */
+	assert(pend->refs);
+
+	/* Move down to make room, and insert */
+	tal_resize(&pending->pend[shard], num + 1);
+	memmove(pending->pend[shard] + start + 1,
+		pending->pend[shard] + start,
+		(num - start) * sizeof(*pending->pend[shard]));
+	pending->pend[shard][start] = pend;
+
+	log_debug(state->log, "Added tx to shard %u position %zu",
+		  shard, start);
+	tell_generator_new_pending(state, shard, start);
+	return true;
 }
 
 /* We've added a whole heap of transactions, recheck them and set input refs. */
 void recheck_pending_txs(struct state *state)
 {
-	size_t shard, removed = 0;
+	unsigned int unknown, known, total;
+	unsigned int i, shard;
+	const union protocol_tx **txs;
+	struct pending_unknown_tx *utx;
 
-	log_debug(state->log, "Searching pending transactions");
+	/* Size up and allocate an array. */
+	unknown = state->pending->num_unknown;
+	known = 0;
 	for (shard = 0; shard < ARRAY_SIZE(state->pending->pend); shard++)
-		removed += recheck_one_shard(state, shard);
+		known += tal_count(state->pending->pend[shard]);
 
-	log_debug(state->log, "Cleaned up %zu pending transactions", removed);
+	txs = tal_arr(state, const union protocol_tx *, unknown + known);
+
+	log_debug(state->log, "Rechecking pending (%u known, %u unknown)",
+		  known, unknown);
+
+	/* Now move pending from shards. */
+	total = 0;
+	for (shard = 0; shard < ARRAY_SIZE(state->pending->pend); shard++) {
+		struct pending_tx **pend = state->pending->pend[shard];
+		unsigned int i;
+
+		for (i = 0; i < tal_count(pend); i++) {
+			txs[total++] = tal_steal(txs, pend[i]->tx);
+		}
+	}
+
+	/* And last we move the unknown ones. */
+	while ((utx = list_pop(&state->pending->unknown_tx,
+			       struct pending_unknown_tx, list)) != NULL)
+		txs[total++] = tal_steal(txs, utx->tx);
+
+	assert(total == unknown + known);
+
+	/* Clean up pending (frees everything above as a side effect). */
+	tal_free(state->pending);
+	state->pending = new_pending_block(state);
+
+	total = 0;
+	/* Now re-add them */
+	for (i = 0; i < tal_count(txs); i++) {
+		unsigned int bad_input_num;
+		struct protocol_double_sha sha;
+		enum input_ecode ierr;
+
+		hash_tx(txs[i], &sha);
+		ierr = add_pending_tx(state, txs[i], &sha, &bad_input_num);
+		if (ierr == ECODE_INPUT_OK || ierr == ECODE_INPUT_UNKNOWN)
+			total++;
+	}
+		
+	log_debug(state->log, "Now have %u known, %u unknown",
+		  total - state->pending->num_unknown,
+		  state->pending->num_unknown);
+
+	/* Restart generator on this block. */
+	restart_generating(state);
 }
 
 /* We're moving longest_known from old to new.  Dump all its transactions into
@@ -181,69 +207,47 @@ void steal_pending_txs(struct state *state,
 			block_to_pending(state, b);
 	}
 
-	/* FIXME: Transfer any awaiting which are now known. */
 	recheck_pending_txs(state);
 }
 
-/* FIXME: Don't leak transactions on failure! */
-void add_pending_tx(struct peer *peer, const union protocol_tx *tx)
+enum input_ecode add_pending_tx(struct state *state,
+				const union protocol_tx *tx,
+				const struct protocol_double_sha *sha,
+				unsigned int *bad_input_num)
 {
-	struct pending_block *pending = peer->state->pending;
-	struct pending_tx *pend;
-	u16 shard;
-	size_t start, num, end;
+	enum input_ecode ierr;
+	struct txhash_elem *te;
+	struct txhash_iter it;
 
-	shard = shard_of_tx(tx,
-			    next_shard_order(peer->state->longest_knowns[0]));
-	num = tal_count(pending->pend[shard]);
-
-	/* FIXME: put this into pending-awaiting list (and xmit) */
-	if (num == 255) {
-		log_unusual(peer->state->log,
-			    "Too many pending txs in shard %u: dropping",
-			    shard);
-		return;
+	/* If it's already in longest known chain, would look like
+	 * doublespend so sort that out now. */
+	for (te = txhash_firstval(&state->txhash, sha, &it);
+	     te;
+	     te = txhash_nextval(&state->txhash, sha, &it)) {
+		if (block_preceeds(te->block, state->longest_knowns[0]))
+			return ECODE_INPUT_OK;
 	}
 
-	start = 0;
-	end = num;
-	while (start < end) {
-		size_t halfway = (start + end) / 2;
-		int c;
+	/* We check inputs for where *we* would mine it. */
+	ierr = check_tx_inputs(state, state->longest_knowns[0],
+			       NULL, tx, bad_input_num);
 
-		c = tx_cmp(tx, pending->pend[shard][halfway]->tx);
-		if (c < 0)
-			end = halfway;
-		else if (c > 0)
-			start = halfway + 1;
-		else {
-			/* Duplicate!  Ignore it. */
-			log_debug(peer->log, "Ignoring duplicate transaction ");
-			log_add_struct(peer->log, union protocol_tx, tx);
-			return;
-		}
+	switch (ierr) {
+	case ECODE_INPUT_OK:
+		/* If it overflows, pretend it's unknown. */
+		if (!insert_pending_tx(state, tx))
+			add_to_unknown_pending(state, tx);
+		break;
+	case ECODE_INPUT_UNKNOWN:
+		add_to_unknown_pending(state, tx);
+		break;
+	case ECODE_INPUT_BAD:
+	case ECODE_INPUT_BAD_AMOUNT:
+	case ECODE_INPUT_DOUBLESPEND:
+		break;
 	}
 
-	pend = new_pending_tx(peer->state, tx);
-	pend->refs = create_refs(peer->state, peer->state->longest_knowns[0],
-				 tx);
-	if (!pend->refs) {
-		log_debug(peer->log, "Could not create refs for tx");
-		/* FIXME: put this into pending-awaiting list! */
-		tal_free(pend);
-		return;
-	}
-
-	/* Move down to make room, and insert */
-	tal_resize(&pending->pend[shard], num + 1);
-	memmove(pending->pend[shard] + start + 1,
-		pending->pend[shard] + start,
-		(num - start) * sizeof(*pending->pend[shard]));
-	pending->pend[shard][start] = pend;
-
-	log_debug(peer->log, "Added tx to shard %u position %zu", shard, start);
-	tell_generator_new_pending(peer->state, shard, start);
-	send_tx_to_peers(peer->state, peer, tx);
+	return ierr;
 }
 
 static void remove_pending_tx(struct state *state,

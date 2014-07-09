@@ -45,20 +45,10 @@ void merkle_txs(const struct block_shard *shard,
 		struct protocol_double_sha *merkle) { fprintf(stderr, "merkle_txs called!\n"); abort(); }
 /* Generated stub for pending_features */
 u8 pending_features(const struct block *block) { fprintf(stderr, "pending_features called!\n"); abort(); }
-/* Generated stub for restart_generating */
-void restart_generating(struct state *state) { fprintf(stderr, "restart_generating called!\n"); abort(); }
 /* Generated stub for steal_pending_txs */
 void steal_pending_txs(struct state *state,
 		       const struct block *old,
 		       const struct block *new) { fprintf(stderr, "steal_pending_txs called!\n"); abort(); }
-/* Generated stub for todo_add_get_shard */
-void todo_add_get_shard(struct state *state,
-			const struct protocol_double_sha *block,
-			u16 shardnum) { fprintf(stderr, "todo_add_get_shard called!\n"); abort(); }
-/* Generated stub for todo_add_get_txmap */
-void todo_add_get_txmap(struct state *state,
-			const struct protocol_double_sha *block,
-			u16 shardnum) { fprintf(stderr, "todo_add_get_txmap called!\n"); abort(); }
 /* Generated stub for todo_forget_about_block */
 void todo_forget_about_block(struct state *state,
 			     const struct protocol_double_sha *block) { fprintf(stderr, "todo_forget_about_block called!\n"); abort(); }

@@ -293,9 +293,6 @@ static bool update_known(struct state *state, struct block *block)
 	if (state->longest_knowns[0] != prev_known) {
 		/* Any transactions from old branch go into pending. */
 		steal_pending_txs(state, prev_known, state->longest_knowns[0]);
-
-		/* Restart generator on this block. */
-		restart_generating(state);
 	}
 
 	/* FIXME: If we've timed out asking about preferred_chain or

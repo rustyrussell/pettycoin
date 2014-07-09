@@ -97,8 +97,6 @@ void complain_doublespend(struct state *state,
 void log_to_file(int fd, const struct log *log) { fprintf(stderr, "log_to_file called!\n"); abort(); }
 /* Generated stub for logv */
 void logv(struct log *log, enum log_level level, const char *fmt, va_list ap) { fprintf(stderr, "logv called!\n"); abort(); }
-/* Generated stub for restart_generating */
-void restart_generating(struct state *state) { fprintf(stderr, "restart_generating called!\n"); abort(); }
 /* Generated stub for steal_pending_txs */
 void steal_pending_txs(struct state *state,
 		       const struct block *old,
@@ -110,10 +108,6 @@ void todo_add_get_tx(struct state *state,
 void todo_add_get_tx_in_block(struct state *state,
 			      const struct protocol_double_sha *block,
 			      u16 shardnum, u8 txoff) { fprintf(stderr, "todo_add_get_tx_in_block called!\n"); abort(); }
-/* Generated stub for todo_add_get_txmap */
-void todo_add_get_txmap(struct state *state,
-			const struct protocol_double_sha *block,
-			u16 shardnum) { fprintf(stderr, "todo_add_get_txmap called!\n"); abort(); }
 /* Generated stub for todo_forget_about_block */
 void todo_forget_about_block(struct state *state,
 			     const struct protocol_double_sha *block) { fprintf(stderr, "todo_forget_about_block called!\n"); abort(); }

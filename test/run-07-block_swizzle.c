@@ -101,10 +101,6 @@ void todo_add_get_tx(struct state *state,
 void todo_add_get_tx_in_block(struct state *state,
 			      const struct protocol_double_sha *block,
 			      u16 shardnum, u8 txoff) { fprintf(stderr, "todo_add_get_tx_in_block called!\n"); abort(); }
-/* Generated stub for todo_add_get_txmap */
-void todo_add_get_txmap(struct state *state,
-			const struct protocol_double_sha *block,
-			u16 shardnum) { fprintf(stderr, "todo_add_get_txmap called!\n"); abort(); }
 /* Generated stub for todo_forget_about_block */
 void todo_forget_about_block(struct state *state,
 			     const struct protocol_double_sha *block) { fprintf(stderr, "todo_forget_about_block called!\n"); abort(); }
