@@ -193,7 +193,7 @@ enum protocol_ecode unmarshal_tx(const void *buffer, size_t size, size_t *used)
 	if (!version_ok(tx->hdr.version))
 		return PROTOCOL_ECODE_TX_HIGH_VERSION;
 
-	switch (tx->hdr.type) {
+	switch (tx_type(tx)) {
 	case TX_NORMAL:
 		if (size < sizeof(tx->normal))
 			return PROTOCOL_ECODE_INVALID_LEN;
@@ -206,7 +206,7 @@ enum protocol_ecode unmarshal_tx(const void *buffer, size_t size, size_t *used)
 		if (add_overflows(sizeof(tx->normal), i))
 			return PROTOCOL_ECODE_INVALID_LEN;
 		len = sizeof(tx->normal) + i;
-		break;
+		goto known;
 	case TX_FROM_GATEWAY:
 		if (size < sizeof(tx->gateway))
 			return PROTOCOL_ECODE_INVALID_LEN;
@@ -221,11 +221,13 @@ enum protocol_ecode unmarshal_tx(const void *buffer, size_t size, size_t *used)
 			return PROTOCOL_ECODE_INVALID_LEN;
 
 		len = sizeof(tx->gateway) + i;
-		break;
-	default:
-		/* Unknown type. */
-		return PROTOCOL_ECODE_TX_TYPE_UNKNOWN;
+		goto known;
 	}
+
+	/* Unknown type. */
+	return PROTOCOL_ECODE_TX_TYPE_UNKNOWN;
+
+known:
 
 	if (size < len)
 		return PROTOCOL_ECODE_INVALID_LEN;
@@ -258,7 +260,7 @@ static size_t varsize_(size_t base, size_t num, size_t fieldsize)
 /* Returns 0 on length overflow! */
 size_t marshal_tx_len(const union protocol_tx *tx)
 {
-	switch (tx->hdr.type) {
+	switch (tx_type(tx)) {
 	case TX_NORMAL:
 		return varsize(tx->normal, struct protocol_input,
 			       le32_to_cpu(tx->normal.num_inputs));

@@ -74,16 +74,15 @@ enum input_ecode check_tx_inputs(struct state *state,
 	u64 input_total = 0;
 	struct protocol_address my_addr;
 
-	/* FIXME: Use cast here so gcc warns if we add new tx type. */
-	switch (tx->hdr.type) {
+	switch (tx_type(tx)) {
 	case TX_FROM_GATEWAY:
 		return ECODE_INPUT_OK;
 	case TX_NORMAL:
-		break;
-	default:
-		abort();
+		goto normal;
 	}
+	abort();
 
+normal:
 	/* Get the input address used by this transaction. */
 	pubkey_to_addr(&tx->normal.input_key, &my_addr);
 
@@ -169,15 +168,13 @@ enum protocol_ecode check_tx(struct state *state,
 	log_debug(state->log, "Checking tx ");
 	log_add_struct(state->log, union protocol_tx, tx);
 
-	switch (tx->hdr.type) {
+	e = PROTOCOL_ECODE_TX_TYPE_UNKNOWN;
+	switch (tx_type(tx)) {
 	case TX_FROM_GATEWAY:
 		e = check_tx_from_gateway(state, inside_block, &tx->gateway);
 		break;
 	case TX_NORMAL:
 		e = check_tx_normal_basic(state, &tx->normal);
-		break;
-	default:
-		e = PROTOCOL_ECODE_TX_TYPE_UNKNOWN;
 		break;
 	}
 

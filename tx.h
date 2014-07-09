@@ -6,10 +6,15 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+static inline enum protocol_tx_type tx_type(const union protocol_tx *tx)
+{
+	return (enum protocol_tx_type)tx->hdr.type;
+}
+
 /* Only normal transactions have inputs; 0 for others. */
 static inline u32 num_inputs(const union protocol_tx *tx)
 {
-	switch (tx->hdr.type) {
+	switch (tx_type(tx)) {
 	case TX_NORMAL:
 		return le32_to_cpu(tx->normal.num_inputs);
 	case TX_FROM_GATEWAY:
@@ -39,7 +44,7 @@ get_gateway_outputs(const struct protocol_tx_gateway *tx)
 static inline const struct protocol_input *
 tx_input(const union protocol_tx *tx, unsigned int num)
 {
-	assert(tx->hdr.type == TX_NORMAL);
+	assert(tx_type(tx) == TX_NORMAL);
 	assert(num < num_inputs(tx));
 	return &get_normal_inputs(&tx->normal)[num];
 }

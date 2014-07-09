@@ -17,30 +17,30 @@ int tx_cmp(const union protocol_tx *a,
 	size_t lena, lenb;
 
 	/* We order by upper bits of output. */
-	switch (a->hdr.type) {
+	switch (tx_type(a)) {
 	case TX_NORMAL:
 		pubkey_to_addr(&a->normal.input_key, &tmpa);
 		addra = &tmpa;
-		break;
+		goto known1;
 	case TX_FROM_GATEWAY:
 		addra = &get_gateway_outputs(&a->gateway)[0].output_addr;
-		break;
-	default:
-		abort();
+		goto known1;
 	}
+	abort();
 
-	switch (b->hdr.type) {
+known1:
+	switch (tx_type(b)) {
 	case TX_NORMAL:
 		pubkey_to_addr(&b->normal.input_key, &tmpb);
 		addrb = &tmpb;
-		break;
+		goto known2;
 	case TX_FROM_GATEWAY:
 		addrb = &get_gateway_outputs(&b->gateway)[0].output_addr;
-		break;
-	default:
-		abort();
+		goto known2;
 	}
+	abort();
 
+known2:
 	ret = memcmp(addra, addrb, sizeof(*addra));
 	if (ret)
 		return ret;

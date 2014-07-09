@@ -23,7 +23,7 @@ bool peer_wants_tx_other(const struct peer *peer, const union protocol_tx *tx)
 {
 	u16 shard;
 
-	switch (tx->hdr.type) {
+	switch (tx_type(tx)) {
 	case TX_FROM_GATEWAY:
 		/* These only affect one shard. */
 		return false;

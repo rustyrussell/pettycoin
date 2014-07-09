@@ -56,7 +56,7 @@ void log_add_struct_(struct log *log, const char *structname, const void *ptr)
 		u32 i;
 
 		hash_tx(tx, &sha);
-		switch (tx->hdr.type) {
+		switch (tx_type(tx)) {
 		case TX_NORMAL:
 			log_add(log, "NORMAL %u inputs => %u (%u change) ",
 				le32_to_cpu(tx->normal.num_inputs),
@@ -68,7 +68,7 @@ void log_add_struct_(struct log *log, const char *structname, const void *ptr)
 			log_add(log, " to ");
 			log_add_struct(log, struct protocol_address,
 				       &tx->normal.output_addr);
-			break;
+			goto known;
 		case TX_FROM_GATEWAY:
 			log_add(log, "GATEWAY %u outputs",
 				le32_to_cpu(tx->gateway.num_outputs));
@@ -80,11 +80,11 @@ void log_add_struct_(struct log *log, const char *structname, const void *ptr)
 					struct protocol_gateway_payment,
 					&get_gateway_outputs(&tx->gateway)[i]);
 			}
-			break;
-		default:
-			log_add(log, "UNKNOWN(%u) ", tx->hdr.type);
-			break;
+			goto known;
 		}
+		log_add(log, "UNKNOWN(%u) ", tx_type(tx));
+
+	known:
 		log_add_struct(log, struct protocol_double_sha, &sha);
 	} else if (streq(structname, "BIGNUM")) {
 		char *str = BN_bn2hex(ptr);

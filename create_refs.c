@@ -20,7 +20,7 @@ static bool resolve_input(struct state *state,
 	struct txhash_iter iter;
 	struct txhash_elem *te;
 
-	assert(tx->hdr.type == TX_NORMAL);
+	assert(tx_type(tx) == TX_NORMAL);
 	assert(num < le32_to_cpu(tx->normal.num_inputs));
 
 	sha = &get_normal_inputs(&tx->normal)[num].input;

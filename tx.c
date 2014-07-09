@@ -6,7 +6,7 @@ bool find_output(const union protocol_tx *tx, u16 output_num,
 {
 	const struct protocol_gateway_payment *out;
 
-	switch (tx->hdr.type) {
+	switch (tx_type(tx)) {
 	case TX_FROM_GATEWAY:
 		if (output_num > le16_to_cpu(tx->gateway.num_outputs))
 			return false;

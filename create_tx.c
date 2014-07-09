@@ -12,22 +12,23 @@ alloc_tx(const tal_t *ctx, enum protocol_tx_type type, u16 num)
 {
 	union protocol_tx *tx;
 	size_t len = 0;
-	const char *label = NULL;
+	const char *label;
 
 	switch (type) {
 	case TX_NORMAL:
 		label = "struct protocol_tx_normal";
 		len = sizeof(struct protocol_tx_normal)
 			+ num * sizeof(struct protocol_input);
-		break;
+		goto known;
 	case TX_FROM_GATEWAY:
 		label = "struct protocol_tx_gateway";
 		len = sizeof(struct protocol_tx_gateway)
 			+ num * sizeof(struct protocol_gateway_payment);
-		break;
+		goto known;
 	}
-	assert(label);
+	abort();
 
+known:
 	tx = tal_alloc_(ctx, len, false, label);
 	tx->hdr.version = current_version();
 	tx->hdr.type = type;

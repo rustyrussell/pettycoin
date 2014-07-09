@@ -408,7 +408,7 @@ tell_peer_about_bad_amount(struct state *state,
 	struct protocol_input *inp;
 	unsigned int i;
 
-	assert(le32_to_cpu(tx->hdr.type) == TX_NORMAL);
+	assert(tx_type(tx) == TX_NORMAL);
 	inp = get_normal_inputs(&tx->normal);
 
 	pkt = tal_packet(peer, struct protocol_pkt_tx_bad_amount,
@@ -955,7 +955,7 @@ verify_problem_input(struct state *state,
 	if (input_num >= num_inputs(tx))
 		return PROTOCOL_ECODE_BAD_INPUTNUM;
 
-	assert(tx->hdr.type == TX_NORMAL);
+	assert(tx_type(tx) == TX_NORMAL);
 	input = tx_input(tx, input_num);
 	hash_tx(in, &sha);
 
@@ -1065,7 +1065,7 @@ unmarshal_and_check_bad_amount(struct state *state, const union protocol_tx *tx,
 	if (len != 0)
 		return PROTOCOL_ECODE_INVALID_LEN;
 
-	assert(tx->hdr.type == TX_NORMAL);
+	assert(tx_type(tx) == TX_NORMAL);
 	if (total == (le32_to_cpu(tx->normal.send_amount)
 		      + le32_to_cpu(tx->normal.change_amount)))
 		return PROTOCOL_ECODE_COMPLAINT_INVALID;
@@ -1449,7 +1449,7 @@ recv_complain_bad_input_ref(struct peer *peer,
 		return PROTOCOL_ECODE_BAD_INPUT;
 
 	/* Must be true: otherwise, it would have 0 inputs. */
-	assert(tx->hdr.type == TX_NORMAL);
+	assert(tx_type(tx) == TX_NORMAL);
 
 	/* We expect it to be the wrong tx. */
 	hash_tx(intx, &sha);

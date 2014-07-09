@@ -1,6 +1,7 @@
 #include "marshal.h"
 #include "shadouble.h"
 #include "signature.h"
+#include "tx.h"
 #include <assert.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
@@ -11,16 +12,15 @@
 
 static struct protocol_signature *get_signature(const union protocol_tx *tx)
 {
-	switch (tx->hdr.type) {
+	switch (tx_type(tx)) {
 	case TX_NORMAL:
 		return cast_const(struct protocol_signature *,
 				  &tx->normal.signature);
 	case TX_FROM_GATEWAY:
 		return cast_const(struct protocol_signature *,
 				  &tx->gateway.signature);
-	default:
-		abort();
 	}
+	abort();
 }	
 
 /* Hash without the signature part (since that's TBA) */

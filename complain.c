@@ -53,7 +53,7 @@ void complain_bad_input(struct state *state,
 {
 	struct protocol_pkt_complain_tx_bad_input *pkt;
 
-	assert(le32_to_cpu(tx->hdr.type) == TX_NORMAL);
+	assert(tx_type(tx) == TX_NORMAL);
 	log_unusual(state->log, "Block %u ", le32_to_cpu(block->hdr->depth));
 	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
 	log_add(state->log, " invalid due to tx %u in shard %u ",
@@ -83,7 +83,7 @@ void complain_bad_amount(struct state *state,
 	struct protocol_pkt_complain_tx_bad_amount *pkt;
 	unsigned int i;
 
-	assert(le32_to_cpu(tx->hdr.type) == TX_NORMAL);
+	assert(tx_type(tx) == TX_NORMAL);
 	log_unusual(state->log, "Block %u ", le32_to_cpu(block->hdr->depth));
 	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
 	log_add(state->log, " invalid amounts in tx %u of shard %u ",
@@ -217,11 +217,11 @@ void complain_bad_tx(struct state *state,
 
 	case PROTOCOL_ECODE_TX_BAD_GATEWAY:
 	case PROTOCOL_ECODE_TX_CROSS_SHARDS:
-		assert(tx->hdr.type == TX_FROM_GATEWAY);
+		assert(tx_type(tx) == TX_FROM_GATEWAY);
 		break;
 
 	case PROTOCOL_ECODE_TX_TOO_MANY_INPUTS:
-		assert(tx->hdr.type == TX_NORMAL);
+		assert(tx_type(tx) == TX_NORMAL);
 		break;
 
 	default:
