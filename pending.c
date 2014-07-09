@@ -40,7 +40,7 @@ static struct pending_tx *new_pending_tx(const tal_t *ctx,
 	struct pending_tx *pend;
 
 	pend = tal(ctx, struct pending_tx);
-	pend->tx = tx_dup(pend, tx);
+	pend->tx = tal_steal(pend, tx);
 
 	return pend;
 }
@@ -51,7 +51,7 @@ static void add_to_unknown_pending(struct state *state,
 	struct pending_unknown_tx *unk;
 
 	unk = tal(state->pending, struct pending_unknown_tx);
-	unk->tx = tx_dup(unk, tx);
+	unk->tx = tal_steal(unk, tx);
 
 	list_add_tail(&state->pending->unknown_tx, &unk->list);
 	state->pending->num_unknown++;
@@ -270,23 +270,25 @@ enum input_ecode add_pending_tx(struct state *state,
 			ierr = ECODE_INPUT_DOUBLESPEND;
 	}
 
+	/* On success, we make copy of tx (which is inside a packet) */
 	switch (ierr) {
 	case ECODE_INPUT_OK:
 		/* If it overflows, pretend it's unknown. */
+		tx = tx_dup(state->pending, tx);
 		if (!insert_pending_tx(state, tx))
 			add_to_unknown_pending(state, tx);
-		add_pending_tx_to_hashes(state, state->pending, tx);
 		break;
 	case ECODE_INPUT_UNKNOWN:
+		tx = tx_dup(state->pending, tx);
 		add_to_unknown_pending(state, tx);
-		add_pending_tx_to_hashes(state, state->pending, tx);
 		break;
 	case ECODE_INPUT_BAD:
 	case ECODE_INPUT_BAD_AMOUNT:
 	case ECODE_INPUT_DOUBLESPEND:
-		break;
+		return ierr;
 	}
 
+	add_pending_tx_to_hashes(state, state->pending, tx);
 	return ierr;
 }
 
