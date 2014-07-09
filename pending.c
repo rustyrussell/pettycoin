@@ -66,9 +66,9 @@ static void shard_to_pending(struct state *state,
 	tal_resize(&state->pending->pend[shard], curr + added);
 }
 
-/* Transfer all transaction from this block into pending array. */
-static void block_to_pending(struct state *state,
-			     const struct block *block)
+/* Transfer all transaction from this block into pending array.
+ * You must call recheck_pending_txs() afterwards! */
+void block_to_pending(struct state *state, const struct block *block)
 {
 	u16 shard;
 
@@ -155,7 +155,7 @@ static size_t recheck_one_shard(struct state *state, u16 shard)
 }
 
 /* We've added a whole heap of transactions, recheck them and set input refs. */
-static void recheck_pending_txs(struct state *state)
+void recheck_pending_txs(struct state *state)
 {
 	size_t shard, removed = 0;
 

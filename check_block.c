@@ -91,48 +91,6 @@ bool shard_belongs_in_block(const struct block *block,
 	return structeq(&block->merkles[shard->shardnum], &merkle);
 }
 
-static void add_sha_to_txhash(struct state *state,
-			      struct block *block,
-			      struct block_shard *shard,
-			      u8 txoff,
-			      const struct protocol_double_sha *sha)
-{
-	struct txhash_elem *te;
-
-	/* Add a new one for this block. */
-	te = tal(shard, struct txhash_elem);
-	te->block = block;
-	te->shardnum = shard->shardnum;
-	te->txoff = txoff;
-	te->sha = *sha;
-	txhash_add(&state->txhash, te);
-	/* FIXME:
-	   tal_add_destructor(te, delete_from_txhash);
-	*/
-}
-
-static void add_tx_to_inputhash(struct state *state,
-				const tal_t *ctx,
-				const union protocol_tx *tx)
-{
-	unsigned int i;
-
-	for (i = 0; i < num_inputs(tx); i++) {
-		struct inputhash_elem *ie;
-		const struct protocol_input *inp = tx_input(tx, i);
-
-		ie = tal(ctx, struct inputhash_elem);
-		ie->output.tx = inp->input;
-		ie->output.output_num = le16_to_cpu(inp->output);
-		hash_tx(tx, &ie->used_by);
-
-		inputhash_add(&state->inputhash, ie);
-		/* FIXME:
-		   tal_add_destructor(ie, delete_from_iehash);
-		*/
-	}
-}
-
 static struct txptr_with_ref dup_txp(const tal_t *ctx,
 				     const struct txptr_with_ref txp)
 {
@@ -247,9 +205,7 @@ static bool recheck_tx(struct state *state,
 	     te = txhash_nextval(&state->txhash, tx, &iter)) {
 		struct protocol_proof proof;
 
-		/* FIXME: Remove complained blocks from hashes! */
-		if (te->block->complaint)
-			continue;
+		assert(!te->block->complaint);
 
 		if (!shard_is_tx(te->block->shard[te->shardnum], te->txoff))
 			continue;
@@ -309,7 +265,7 @@ void put_tx_in_shard(struct state *state,
 				      + marshal_input_ref_len(txp.tx)) == 0);
 			return;
 		}
-		hash_tx(tx_for(shard, txoff), &hashes.txhash);
+		hash_tx(txp.tx, &hashes.txhash);
 	} else {
 		/* Tx must match hash. */
 		hash_tx_and_refs(txp.tx, refs_for(txp), &hashes);
@@ -323,8 +279,9 @@ void put_tx_in_shard(struct state *state,
 	shard->txcount++;
 
 	/* Record it in the hashes. */
-	add_sha_to_txhash(state, block, shard, txoff, &hashes.txhash);
-	add_tx_to_inputhash(state, shard, txp.tx);
+	txhash_add_tx(&state->txhash, shard, block, shard->shardnum, txoff,
+		      &hashes.txhash);
+	inputhash_add_tx(&state->inputhash, shard, txp.tx);
 
 	/* Did we just resolve a new input for an existing tx? */
 	check_resolved_txs(state, txp.tx);
@@ -356,7 +313,8 @@ bool put_txhash_in_shard(struct state *state,
 		= tal_dup(shard, struct protocol_txrefhash, txrefhash, 1, 0);
 	shard->hashcount++;
 
-	add_sha_to_txhash(state, block, shard, txoff, &txrefhash->txhash);
+	txhash_add_tx(&state->txhash, shard, block, shardnum, txoff,
+		      &txrefhash->txhash);
 	return true;
 }
 

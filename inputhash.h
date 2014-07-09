@@ -3,6 +3,7 @@
 #include "config.h"
 #include "protocol.h"
 #include <ccan/htable/htable_type.h>
+#include <ccan/tal/tal.h>
 
 struct inputhash_key {
 	struct protocol_double_sha tx;
@@ -34,4 +35,10 @@ struct inputhash_elem *inputhash_nextval(struct inputhash *inputhash,
 					 const struct protocol_double_sha *tx,
 					 u16 output_num,
 					 struct inputhash_iter *i);
+
+void inputhash_add_tx(struct inputhash *inputhash,
+		      const tal_t *ctx,
+		      const union protocol_tx *tx);
+
+void inputhash_del_tx(struct inputhash *inputhash, const union protocol_tx *tx);
 #endif /* PETTYCOIN_INPUTHASH_H */

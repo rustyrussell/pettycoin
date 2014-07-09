@@ -62,3 +62,43 @@ union protocol_tx *txhash_gettx(struct txhash *txhash,
 
 	return NULL;
 }
+
+void txhash_del_tx(struct txhash *txhash,
+		   struct block *block,
+		   u16 shard,
+		   u8 txoff,
+		   const struct protocol_double_sha *sha)
+{
+	struct txhash_iter i;
+	struct txhash_elem *te;
+
+	for (te = txhash_firstval(txhash, sha, &i);
+	     te;
+	     te = txhash_nextval(txhash, sha, &i)) {
+		if (te->block == block
+		    && te->shardnum == shard
+		    && te->txoff == txoff) {
+			htable_delval(&txhash->raw, &i.i);
+			tal_free(te);
+			break;
+		}
+	}
+}
+
+void txhash_add_tx(struct txhash *txhash,
+		   const tal_t *ctx,
+		   struct block *block,
+		   u16 shard,
+		   u8 txoff,
+		   const struct protocol_double_sha *sha)
+{
+	struct txhash_elem *te;
+
+	/* Add a new one for this block. */
+	te = tal(ctx, struct txhash_elem);
+	te->block = block;
+	te->shardnum = shard;
+	te->txoff = txoff;
+	te->sha = *sha;
+	txhash_add(txhash, te);
+}

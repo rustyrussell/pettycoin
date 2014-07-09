@@ -1,4 +1,6 @@
+#include "hash_tx.h"
 #include "inputhash.h"
+#include "tx.h"
 #include <ccan/hash/hash.h>
 #include <ccan/structeq/structeq.h>
 
@@ -65,4 +67,49 @@ struct inputhash_elem *inputhash_nextval(struct inputhash *inputhash,
 	return inputhash_i(&inputhash->raw, &key,
 			   htable_nextval(&inputhash->raw, &i->i, h),
 			   i, h);
+}
+
+void inputhash_add_tx(struct inputhash *inputhash,
+		      const tal_t *ctx,
+		      const union protocol_tx *tx)
+{
+	unsigned int i;
+
+	for (i = 0; i < num_inputs(tx); i++) {
+		struct inputhash_elem *ie;
+		const struct protocol_input *inp = tx_input(tx, i);
+
+		ie = tal(ctx, struct inputhash_elem);
+		ie->output.tx = inp->input;
+		ie->output.output_num = le16_to_cpu(inp->output);
+		hash_tx(tx, &ie->used_by);
+
+		inputhash_add(inputhash, ie);
+	}
+}
+
+void inputhash_del_tx(struct inputhash *inputhash, const union protocol_tx *tx)
+{
+	unsigned int i;
+	struct inputhash_elem *ie;
+	struct inputhash_iter it;
+	struct protocol_double_sha sha;
+
+	hash_tx(tx, &sha);
+
+	for (i = 0; i < num_inputs(tx); i++) {
+		const struct protocol_input *inp = tx_input(tx, i);
+
+		for (ie = inputhash_firstval(inputhash, &inp->input,
+					     le16_to_cpu(inp->output), &it);
+		     ie;
+		     ie = inputhash_nextval(inputhash, &inp->input,
+					    le16_to_cpu(inp->output), &it)) {
+			if (structeq(&ie->used_by, &sha)) {
+				htable_delval(&inputhash->raw, &it.i);
+				tal_free(ie);
+				break;
+			}
+		}
+	}
 }

@@ -1,23 +1,53 @@
 #include "block.h"
 #include "chain.h"
 #include "complain.h"
+#include "pending.h"
 #include "proof.h"
+#include "shard.h"
 #include "state.h"
 #include "tal_packet.h"
 #include "tx.h"
 
-static void complaint_on_all(struct block *block, const void *complaint)
+static void complaint_on_all(struct state *state,
+			     struct block *block, const void *complaint)
 {
 	struct block *b;
+	unsigned int shard, txoff;
 
 	/* Mark block. */
 	block->complaint = complaint;
 
+	/* Can we salvage any txs? */
+	block_to_pending(state, block);
+
+	/* Remove transactions, and maybe inputs. */
+	for (shard = 0; shard < num_shards(block->hdr); shard++) {
+		for (txoff = 0; txoff < block->shard[shard]->size; txoff++) {
+			struct protocol_txrefhash scratch;
+			const struct protocol_txrefhash *txr;
+			const union protocol_tx *tx;
+
+			txr = txrefhash_in_shard(block->shard[shard], txoff,
+						 &scratch);
+			if (!txr)
+				continue;
+
+			tx = tx_for(block->shard[shard], txoff);
+			txhash_del_tx(&state->txhash, block, shard, txoff,
+				      &txr->txhash);
+
+			/* If this tx is no longer known at *all*, we
+			 * can remove from input hash too. */
+			if (tx && !txhash_gettx(&state->txhash, &txr->txhash))
+				inputhash_del_tx(&state->inputhash, tx);
+		}
+	}
+
 	/* Mark descendents. */
 	list_for_each(&block->children, b, sibling)
-		complaint_on_all(b, complaint);
+		complaint_on_all(state, b, complaint);
 }
-	
+
 void publish_complaint(struct state *state,
 		       struct block *block,
 		       const void *complaint,
@@ -32,15 +62,16 @@ void publish_complaint(struct state *state,
 	/* FIXME: Save complaint to blockfile! */
 
 	/* If it's invalid, so are any descendents. */
-	complaint_on_all(block, complaint);
+	complaint_on_all(state, block, complaint);
+
+	/* We have dumped all the txs from those blocks into pending. */
+	recheck_pending_txs(state);
 
 	/* Recalc everything.  Slow, but should be rare. */
 	update_block_ptrs_invalidated(state, block);
 
 	/* Tell everyone (except origin!) */
 	broadcast_to_peers(state, complaint, origin);
-
-	/* FIXME: Remove transactions and inputs from hashes. */
 }
 
 void complain_bad_input(struct state *state,

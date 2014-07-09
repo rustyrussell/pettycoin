@@ -30,6 +30,12 @@ void steal_pending_txs(struct state *state,
 		       const struct block *old,
 		       const struct block *new);
 
+/* Transfer any transactions we can from block. */
+void block_to_pending(struct state *state, const struct block *block);
+
+/* Make sure pending txs are OK (call after block_to_pending). */
+void recheck_pending_txs(struct state *state);
+
 /* Add a new transaction from peer to the current block. */
 void add_pending_tx(struct peer *peer, const union protocol_tx *tx);
 

@@ -4,6 +4,7 @@
 #include "hash_tx.h"
 #include "protocol.h"
 #include <ccan/htable/htable_type.h>
+#include <ccan/tal/tal.h>
 #include <limits.h>
 #include <string.h>
 
@@ -53,4 +54,18 @@ struct txhash_elem *txhash_nextval(struct txhash *txhash,
 /* Get the actual transaction, we don't care about which block it's in */
 union protocol_tx *txhash_gettx(struct txhash *txhash,
 				const struct protocol_double_sha *);
+
+void txhash_add_tx(struct txhash *txhash,
+		   const tal_t *ctx,
+		   struct block *block,
+		   u16 shard,
+		   u8 txoff,
+		   const struct protocol_double_sha *sha);
+
+void txhash_del_tx(struct txhash *txhash,
+		   struct block *block,
+		   u16 shard,
+		   u8 txoff,
+		   const struct protocol_double_sha *sha);
+
 #endif /* PETTYCOIN_TXHASH_H */
