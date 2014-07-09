@@ -34,6 +34,34 @@ static void seek_predecessor(struct state *state,
 	todo_add_get_block(state, prev);
 }
 
+/* When syncing, we ask for txmaps. */
+static void sync_block_contents(struct state *state, const struct block *b)
+{
+	unsigned int shard;
+
+	for (shard = 0; shard < num_shards(b->hdr); shard++) {
+		if (shard_all_known(b->shard[shard]))
+			continue;
+
+		if (interested_in_shard(state, b->hdr->shard_order, shard))
+			todo_add_get_shard(state, &b->sha, shard);
+		else
+			todo_add_get_txmap(state, &b->sha, shard);
+	}
+}
+
+static void ask_block_contents(struct state *state, const struct block *b)
+{
+	unsigned int shard;
+
+	for (shard = 0; shard < num_shards(b->hdr); shard++) {
+		if (!interested_in_shard(state, b->hdr->shard_order, shard))
+			continue;
+		if (!shard_all_hashes(b->shard[shard]))
+			todo_add_get_shard(state, &b->sha, shard);
+	}
+}
+
 /* peer is NULL if from generator. */
 static enum protocol_ecode
 recv_block(struct state *state, struct log *log, struct peer *peer,
@@ -104,12 +132,16 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 		tal_steal(b, pkt);
 
 		save_block(state, b);
-		/* If we're syncing, ask about children */
-		if (peer && peer->we_are_syncing)
+		/* If we're syncing, ask about children, contents */
+		if (peer && peer->we_are_syncing) {
 			todo_add_get_children(state, &b->sha);
-		else
+			sync_block_contents(state, b);
+		} else {
 			/* Otherwise, tell peers about new block. */
 			send_block_to_peers(state, peer, b);
+			/* Start asking about stuff we need. */
+			ask_block_contents(state, b);
+		}
 	}
 
 	/* If the block is known bad, tell them! */

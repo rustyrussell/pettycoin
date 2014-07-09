@@ -274,31 +274,6 @@ static bool update_known_recursive(struct state *state, struct block *block)
 	return knowns_changed;
 }
 
-static void ask_about_block(struct state *state, const struct block *block)
-{
-	u16 i;
-
-	for (i = 0; i < num_shards(block->hdr); i++) {
-		if (shard_all_known(block->shard[i]))
-			continue;
-		if (interested_in_shard(state, block->hdr->shard_order, i))
-			todo_add_get_shard(state, &block->sha, i);
-		else
-			todo_add_get_txmap(state, &block->sha, i);
-	}
-}
-
-static void ask_about_children(struct state *state, const struct block *block)
-{
-	const struct block *b;
-
-	list_for_each(&block->children, b, sibling) {
-		ask_about_block(state, b);
-		ask_about_children(state, b);
-	}
-}
-
-
 /* We now know complete contents of block; update all_known for this
  * block (and maybe its descendents) and if necessary, update
  * longest_known and longest_known_descendent and restart generator.
@@ -307,7 +282,6 @@ static void ask_about_children(struct state *state, const struct block *block)
 static bool update_known(struct state *state, struct block *block)
 {
 	const struct block *prev_known = state->longest_knowns[0];
-	size_t i;
 
 	if (!update_known_recursive(state, block))
 		return false;
@@ -316,10 +290,6 @@ static bool update_known(struct state *state, struct block *block)
 	update_preferred_chain(state);
 	check_chains(state);
 
-	/* Ask about any children who aren't completely known. */ 
-	for (i = 0; i < tal_count(state->longest_knowns); i++)
-		ask_about_children(state, state->longest_knowns[i]);
-
 	if (state->longest_knowns[0] != prev_known) {
 		/* Any transactions from old branch go into pending. */
 		steal_pending_txs(state, prev_known, state->longest_knowns[0]);
@@ -327,6 +297,9 @@ static bool update_known(struct state *state, struct block *block)
 		/* Restart generator on this block. */
 		restart_generating(state);
 	}
+
+	/* FIXME: If we've timed out asking about preferred_chain or
+	 * longest_knowns, refresh. */
 
 	return true;
 }
@@ -401,14 +374,6 @@ void update_block_ptrs_new_block(struct state *state, struct block *block)
 		update_preferred_chain(state);
 
 	check_chains(state);
-
-	/* Now, if it's as long as the best we know about, want to know more */
-	if (cmp_work(block, state->longest_knowns[0]) >= 0) {
-		const struct block *b;
-
-		for (b = block; !b->all_known; b = b->prev)
-			ask_about_block(state, b);
-	}
 }
 
 /* We've fille a new shard; update state->longest_chains, state->longest_knowns,
