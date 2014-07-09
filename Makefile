@@ -1,6 +1,6 @@
 PETTYCOIN_OBJS := block.o check_block.o check_tx.o difficulty.o shadouble.o timestamp.o gateways.o hash_tx.o pettycoin.o merkle_txs.o merkle_recurse.o tx_cmp.o genesis.o marshal.o hash_block.o prev_txhashes.o state.o tal_packet.o dns.o netaddr.o peer.o peer_cache.o pseudorand.o welcome.o log.o generating.o blockfile.o pending.o log_helper.o txhash.o signature.o proof.o chain.o features.o todo.o base58.o sync.o create_refs.o shard.o packet_io.o tx.o complain.o block_shard.o recv_block.o input_refs.o peer_wants.o inputhash.o tx_in_hashes.o merkle_hashes.o
 GENERATE_OBJS := generate.o merkle_hashes.o merkle_recurse.o hash_tx.o tx_cmp.o shadouble.o marshal.o minimal_log.o timestamp.o tal_packet.o
-MKGENESIS_OBJS := mkgenesis.o shadouble.o marshal.o hash_block.o minimal_log.o
+MKGENESIS_OBJS := mkgenesis.o shadouble.o hash_block.o merkle_hashes.o merkle_recurse.o minimal_log.o
 SIZES_OBJS := sizes.o
 MKPRIV_OBJS := mkpriv.o
 INJECT_OBJS := inject.o base58.o create_tx.o marshal.o netaddr.o hash_tx.o minimal_log.o shadouble.o signature.o hash_block.o merkle_recurse.o
@@ -13,7 +13,9 @@ LDFLAGS = -O3 -flto
 LDLIBS := -lcrypto -lrt
 
 # We set this low for convenient testing.
-INITIAL_DIFFICULTY=0x1effffff
+TEST_GENESIS_DIFFICULTY=0x1effffff
+TEST_GENESIS_TIMESTAMP=1404886369
+TEST_GENESIS_NONCE=MarcusArabellAlex
 
 all: generate mkgenesis pettycoin sizes mkpriv inject
 
@@ -35,8 +37,8 @@ pettycoin: $(PETTYCOIN_OBJS) $(CCAN_OBJS)
 sizes: $(SIZES_OBJS) $(CCAN_OBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(SIZES_OBJS) $(CCAN_OBJS) $(LDLIBS)
 
-genesis.c:
-	$(MAKE) mkgenesis generate && ./mkgenesis 4 $(INITIAL_DIFFICULTY) "Some NYT Head" > $@.tmp; STATUS=$$?; if [ $$STATUS = 0 ]; then mv $@.tmp $@; else rm -f $@.tmp; exit $$STATUS; fi
+genesis.c: mkgenesis
+	./mkgenesis $(TEST_GENESIS_DIFFICULTY) $(TEST_GENESIS_TIMESTAMP) $(TEST_GENESIS_NONCE) > $@.tmp; STATUS=$$?; if [ $$STATUS = 0 ]; then mv $@.tmp $@; else rm -f $@.tmp; exit $$STATUS; fi
 
 check: check-include-order
 	$(MAKE) -C test check
