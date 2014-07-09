@@ -300,6 +300,9 @@ static void remove_pending_tx(struct state *state,
 		pending->pend[shard] + i + 1,
 		(num - i - 1) * sizeof(*pending->pend[shard]));
 	tal_resize(&pending->pend[shard], num - 1);
+
+	/* Very rare, so don't optimize the remove case.  */
+	restart_generating(state);
 }
 
 void drop_pending_tx(struct state *state, const union protocol_tx *tx)
