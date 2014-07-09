@@ -69,7 +69,7 @@ static void ask_block_contents(struct state *state, const struct block *b)
 /* peer is NULL if from generator. */
 static enum protocol_ecode
 recv_block(struct state *state, struct log *log, struct peer *peer,
-	   const struct protocol_pkt_block *pkt)
+	   const struct protocol_pkt_block *pkt, struct block **block)
 {
 	struct block *b, *prev;
 	enum protocol_ecode e;
@@ -152,6 +152,9 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 	/* If the block is known bad, tell them! */
 	if (peer && b->complaint)
 		todo_for_peer(peer, tal_packet_dup(peer, b->complaint));
+
+	if (block)
+		*block = b;
 
 	/* FIXME: Try to guess the shards */
 	return PROTOCOL_ECODE_NONE;
@@ -325,6 +328,10 @@ recv_shard(struct state *state, struct log *log, struct peer *peer,
 	    != sizeof(*pkt) + b->shard_nums[shard] * sizeof(hashes[0]))
 		return PROTOCOL_ECODE_INVALID_LEN;
 
+	/* Don't send us empty packets! */
+	if (b->shard_nums[shard] == 0)
+		return PROTOCOL_ECODE_INVALID_LEN;
+
 	log_debug(log, "Got shard %u of ", shard);
 	log_add_struct(log, struct protocol_double_sha, &pkt->block);
 
@@ -376,7 +383,7 @@ enum protocol_ecode recv_block_from_peer(struct peer *peer,
 					 const struct protocol_pkt_block *pkt)
 {
 	assert(le32_to_cpu(pkt->err) == PROTOCOL_ECODE_NONE);
-	return recv_block(peer->state, peer->log, peer, pkt);
+	return recv_block(peer->state, peer->log, peer, pkt, NULL);
 }
 
 enum protocol_ecode recv_shard_from_peer(struct peer *peer,
@@ -391,6 +398,7 @@ bool recv_block_from_generator(struct state *state, struct log *log,
 {
 	unsigned int i;
 	enum protocol_ecode e;
+	struct block *b;
 
 	if (le32_to_cpu(pkt->err) != PROTOCOL_ECODE_NONE) {
 		log_unusual(log, "Generator gave block with err: ");
@@ -400,7 +408,7 @@ bool recv_block_from_generator(struct state *state, struct log *log,
 
 	/* This "can't happen" when we know everything.  But in future,
 	 * it's theoretically possible.  Plus, code sharing is nice. */
-	e = recv_block(state, log, NULL, pkt);
+	e = recv_block(state, log, NULL, pkt, &b);
 	if (e != PROTOCOL_ECODE_NONE) {
 		log_unusual(log, "Generator gave broken block: ");
 		log_add_enum(log, enum protocol_ecode, e);
@@ -408,6 +416,8 @@ bool recv_block_from_generator(struct state *state, struct log *log,
 	}
 
 	for (i = 0; i < tal_count(shards); i++) {
+		if (b->shard_nums[i] == 0)
+			continue;
 		e = recv_shard(state, log, NULL, shards[i]);
 		if (e != PROTOCOL_ECODE_NONE) {
 			log_unusual(log, "Generator gave broken shard %i: ", i);
