@@ -28,7 +28,7 @@ static inline struct block *block_ancestor(const struct block *a,
 	struct block *b;
 
 	/* FIXME: Slow!  Optimize if both on main chain! */
-	for (b = cast_const(struct block *, a); count; count--)
+	for (b = cast_const(struct block *, a); count && b; count--)
 		b = b->prev;
 
 	return b;
