@@ -84,9 +84,6 @@ enum protocol_pkt_type {
 
 	/* >= this is invalid. */
 	PROTOCOL_PKT_MAX,
-
-	/* Used for saving to disk. */
-	PROTOCOL_PKT_PRIV_FULLSHARD,
 };
 
 struct protocol_pkt_welcome {
@@ -273,14 +270,6 @@ struct protocol_pkt_get_block {
 
 	struct protocol_double_sha block;
 };
-
-struct protocol_pkt_unknown_block {
-	le32 len; /* sizeof(struct protocol_pkt_unknown_block) */
-	le32 type; /* PROTOCOL_PKT_UNKNOWN_BLOCK */
-
-	struct protocol_double_sha block;
-};
-
 
 /* Ask for a specific transaction (reply will be PROTOCOL_PKT_TX
  * or PROTOCOL_PKT_TX_IN_BLOCK). */

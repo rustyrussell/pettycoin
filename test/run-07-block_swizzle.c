@@ -106,8 +106,8 @@ void complain_doublespend(struct state *state,
 			  const struct protocol_proof *proof2,
 			  const union protocol_tx *tx2,
 			  const struct protocol_input_ref *refs2) { fprintf(stderr, "complain_doublespend called!\n"); abort(); }
-/* Generated stub for save_shard */
-void save_shard(struct state *state, struct block *block, u16 shardnum) { fprintf(stderr, "save_shard called!\n"); abort(); }
+/* Generated stub for save_tx */
+void save_tx(struct state *state, struct block *block, u16 shard, u8 txoff) { fprintf(stderr, "save_tx called!\n"); abort(); }
 /* Generated stub for send_tx_in_block_to_peers */
 void send_tx_in_block_to_peers(struct state *state, const struct peer *exclude,
 			       struct block *block, u16 shard, u8 txoff) { fprintf(stderr, "send_tx_in_block_to_peers called!\n"); abort(); }
@@ -141,6 +141,10 @@ void restart_generating(struct state *state)
 void todo_add_get_shard(struct state *state,
 			const struct protocol_double_sha *block,
 			u16 shardnum)
+{
+}
+
+void save_block(struct state *state, struct block *new)
 {
 }
 

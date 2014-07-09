@@ -238,13 +238,14 @@ void put_tx_in_shard(struct state *state,
 		shard->proof = tal_free(shard->proof);
 
 	/* We save once we know the entire contents. */
-	if (shard_all_known(shard)) {
-		save_shard(state, block, shard->shardnum);
+	if (shard_all_known(shard))
 		update_block_ptrs_new_shard(state, block, shard->shardnum);
-	}
 
 	/* This could eliminate a pending tx. */
 	state->pending->needs_recheck = true;
+
+	/* Save tx to disk. */
+	save_tx(state, block, shard->shardnum, txoff);
 
 	/* Tell peers about the new tx in block. */
 	send_tx_in_block_to_peers(state, source, block, shard->shardnum, txoff);

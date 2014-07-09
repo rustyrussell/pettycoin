@@ -47,6 +47,8 @@ void merkle_txs(const struct block_shard *shard,
 		struct protocol_double_sha *merkle) { fprintf(stderr, "merkle_txs called!\n"); abort(); }
 /* Generated stub for pending_features */
 u8 pending_features(const struct block *block) { fprintf(stderr, "pending_features called!\n"); abort(); }
+/* Generated stub for save_block */
+void save_block(struct state *state, struct block *new) { fprintf(stderr, "save_block called!\n"); abort(); }
 /* Generated stub for todo_forget_about_block */
 void todo_forget_about_block(struct state *state,
 			     const struct protocol_double_sha *block) { fprintf(stderr, "todo_forget_about_block called!\n"); abort(); }

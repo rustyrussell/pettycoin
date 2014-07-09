@@ -1851,7 +1851,6 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 	case PROTOCOL_PKT_NONE:
 	case PROTOCOL_PKT_PIGGYBACK:
 	case PROTOCOL_PKT_MAX:
-	case PROTOCOL_PKT_PRIV_FULLSHARD:
 		err = PROTOCOL_ECODE_UNKNOWN_COMMAND;
 	}
 

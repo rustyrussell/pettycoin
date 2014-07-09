@@ -119,7 +119,11 @@ void send_tx_in_block_to_peers(struct state *state, const struct peer *exclude,
 {
 }
 
-void save_shard(struct state *state, struct block *block, u16 shardnum)
+void save_block(struct state *state, struct block *new)
+{
+}
+
+void save_tx(struct state *state, struct block *block, u16 shard, u8 txoff)
 {
 }
 

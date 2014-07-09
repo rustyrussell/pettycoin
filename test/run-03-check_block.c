@@ -109,8 +109,8 @@ void complain_doublespend(struct state *state,
 void log_to_file(int fd, const struct log *log) { fprintf(stderr, "log_to_file called!\n"); abort(); }
 /* Generated stub for logv */
 void logv(struct log *log, enum log_level level, const char *fmt, va_list ap) { fprintf(stderr, "logv called!\n"); abort(); }
-/* Generated stub for save_shard */
-void save_shard(struct state *state, struct block *block, u16 shardnum) { fprintf(stderr, "save_shard called!\n"); abort(); }
+/* Generated stub for save_tx */
+void save_tx(struct state *state, struct block *block, u16 shard, u8 txoff) { fprintf(stderr, "save_tx called!\n"); abort(); }
 /* Generated stub for send_tx_in_block_to_peers */
 void send_tx_in_block_to_peers(struct state *state, const struct peer *exclude,
 			       struct block *block, u16 shard, u8 txoff) { fprintf(stderr, "send_tx_in_block_to_peers called!\n"); abort(); }
@@ -153,6 +153,10 @@ struct pending_block *new_pending_block(struct state *state)
 void todo_add_get_shard(struct state *state,
 			const struct protocol_double_sha *block,
 			u16 shardnum)
+{
+}
+
+void save_block(struct state *state, struct block *new)
 {
 }
 

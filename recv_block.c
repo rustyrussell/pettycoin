@@ -136,7 +136,6 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 		/* Now new block owns the packet. */
 		tal_steal(b, pkt);
 
-		save_block(state, b);
 		/* If we're syncing, ask about children, contents */
 		if (peer && peer->we_are_syncing) {
 			todo_add_get_children(state, &b->sha);

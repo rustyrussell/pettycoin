@@ -101,7 +101,6 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 		switch ((enum protocol_pkt_type)val) {
 		case PROTOCOL_PKT_NONE:
 		case PROTOCOL_PKT_MAX:
-		case PROTOCOL_PKT_PRIV_FULLSHARD:
 			break; /* Shouldn't happen! */ 
 
 		case PROTOCOL_PKT_ERR:

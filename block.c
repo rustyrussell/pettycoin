@@ -1,4 +1,5 @@
 #include "block.h"
+#include "blockfile.h"
 #include "chain.h"
 #include "difficulty.h"
 #include "features.h"
@@ -109,6 +110,9 @@ struct block *block_add(struct state *state,
 
 	/* Link us into parent's children list. */
 	list_add_tail(&block->prev->children, &block->sibling);
+
+	/* Save it to disk for future use. */ 
+	save_block(state, block);
 
 	block->complaint = prev->complaint;
 	if (block->complaint) {
