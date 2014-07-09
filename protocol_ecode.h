@@ -74,14 +74,16 @@ enum protocol_ecode {
 	/* protocol_pkt_shard */
 	PROTOCOL_ECODE_BAD_MERKLE,
 
+	/* protocol_pkt_tx_bad_input / protocol_pkt_tx_bad_amount 
+	 * or any protocol_pkt_complaint */
+	PROTOCOL_ECODE_COMPLAINT_INVALID,
+
 	/* protocol_pkt_tx_bad_input / protocol_pkt_tx_bad_amount */
 	PROTOCOL_ECODE_BAD_INPUTNUM,
 	PROTOCOL_ECODE_BAD_INPUT,
-	PROTOCOL_ECODE_INPUT_NOT_BAD,
 
 	/* protocol_pkt_complain_tx_misorder */
 	PROTOCOL_ECODE_BAD_MISORDER_POS,
-	PROTOCOL_ECODE_MISORDER_IS_ORDERED,
 
 	/* >= this is invalid. */
 	PROTOCOL_ECODE_MAX,

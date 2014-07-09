@@ -984,7 +984,7 @@ recv_tx_bad_input(struct peer *peer,
 
 	ierr = check_one_input(peer->state, input, in, &tx_addr, &amount);
 	if (ierr == ECODE_INPUT_OK)
-		return PROTOCOL_ECODE_INPUT_NOT_BAD;
+		return PROTOCOL_ECODE_COMPLAINT_INVALID;
 
 	hash_tx(tx, &sha);
 
@@ -1069,7 +1069,7 @@ recv_tx_bad_amount(struct peer *peer,
 	assert(tx->hdr.type == TX_NORMAL);
 	if (total == (le32_to_cpu(tx->normal.send_amount)
 		      + le32_to_cpu(tx->normal.change_amount)))
-		return PROTOCOL_ECODE_INPUT_NOT_BAD;
+		return PROTOCOL_ECODE_COMPLAINT_INVALID;
 
 	hash_tx(tx, &sha);
 
@@ -1180,10 +1180,10 @@ recv_complain_tx_misorder(struct peer *peer,
 
 	if (pos1->txoff < pos2->txoff) {
 		if (tx_cmp(tx1, tx2) < 0)
-			return PROTOCOL_ECODE_MISORDER_IS_ORDERED;
+			return PROTOCOL_ECODE_COMPLAINT_INVALID;
 	} else if (pos1->txoff > pos2->txoff) {
 		if (tx_cmp(tx1, tx2) > 0)
-			return PROTOCOL_ECODE_MISORDER_IS_ORDERED;
+			return PROTOCOL_ECODE_COMPLAINT_INVALID;
 	} else
 		/* Same position?  Weird. */
 		return PROTOCOL_ECODE_BAD_MISORDER_POS;
