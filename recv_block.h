@@ -22,4 +22,9 @@ bool recv_block_from_generator(struct state *state, struct log *log,
 			       const struct protocol_pkt_block *pkt,
 			       struct protocol_pkt_shard **shards);
 
+/* We have a txhash, can we figure out the tx? */
+bool try_resolve_hash(struct state *state,
+		      const struct peer *source,
+		      struct block *block, u16 shardnum, u8 txoff);
+
 #endif /* PETTYCOIN_RECV_BLOCK_H */

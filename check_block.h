@@ -50,6 +50,10 @@ void put_tx_in_shard(struct state *state,
 		     struct block_shard *shard, u8 txoff,
 		     const struct txptr_with_ref txp);
 
+bool put_txhash_in_shard(struct state *state,
+			 struct block *block, u16 shardnum, u8 txoff,
+			 const struct protocol_txrefhash *txrefhash);
+
 /* After you've put in tx, you put in proof. */
 void put_proof_in_shard(struct state *state,
 			struct block *block,

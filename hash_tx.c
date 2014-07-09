@@ -20,7 +20,7 @@ void hash_refs(const struct protocol_input_ref *refs,
 
 void hash_tx_and_refs(const union protocol_tx *tx,
 		      const struct protocol_input_ref *refs,
-		      struct protocol_net_txrefhash *txrefhash)
+		      struct protocol_txrefhash *txrefhash)
 {
 	hash_tx(tx, &txrefhash->txhash);
 	hash_refs(refs, num_inputs(tx), &txrefhash->refhash);

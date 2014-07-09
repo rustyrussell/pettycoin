@@ -239,7 +239,7 @@ void put_tx_in_shard(struct state *state,
 		}
 	} else {
 		/* Tx must match hash. */
-		struct protocol_net_txrefhash hashes;
+		struct protocol_txrefhash hashes;
 		hash_tx_and_refs(txp.tx, refs_for(txp), &hashes);
 		assert(structeq(shard->u[txoff].hash, &hashes));
 		shard->hashcount--;
@@ -256,7 +256,30 @@ void put_tx_in_shard(struct state *state,
 	/* If we've just filled it, we don't need proofs any more. */
 	if (shard_all_hashes(shard))
 		shard->proof = tal_free(shard->proof);
+}
 
+bool put_txhash_in_shard(struct state *state,
+			 struct block *block, u16 shardnum, u8 txoff,
+			 const struct protocol_txrefhash *txrefhash)
+{
+	struct block_shard *shard = block->shard[shardnum];
+	struct protocol_txrefhash scratch;
+	const struct protocol_txrefhash *p;
+
+	/* If we already have it, it must be the same. */
+	p = txrefhash_in_shard(shard, txoff, &scratch);
+	if (p) {
+		assert(structeq(p, txrefhash));
+		return false;
+	}
+
+	/* Now it's a hash. */
+	bitmap_set_bit(shard->txp_or_hash, txoff);
+	/* FIXME: Free this if we resolve it! */
+	shard->u[txoff].hash
+		= tal_dup(shard, struct protocol_txrefhash, txrefhash, 1, 0);
+	shard->hashcount++;
+	return true;
 }
 
 void put_proof_in_shard(struct state *state,

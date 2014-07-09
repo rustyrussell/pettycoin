@@ -41,7 +41,7 @@ u8 pending_features(const struct block *block) { abort(); }
 /* Generated stub for hash_tx_and_refs */
 void hash_tx_and_refs(const union protocol_tx *tx,
 		      const struct protocol_input_ref *refs,
-		      struct protocol_net_txrefhash *txrefhash) { abort(); }
+		      struct protocol_txrefhash *txrefhash) { abort(); }
 /* Generated stub for check_tx */
 enum protocol_ecode check_tx(struct state *state, const union protocol_tx *tx,
 			     const struct block *inside_block) { abort(); }

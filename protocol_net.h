@@ -52,6 +52,8 @@ enum protocol_pkt_type {
 	PROTOCOL_PKT_GET_TX,
 	/* Here's a transaction. */
 	PROTOCOL_PKT_TX,
+	/* Here's a pair of hashes in a block (with proof). */
+	PROTOCOL_PKT_HASHES_IN_BLOCK,
 	/* Please give me the TX (w/refs) in this block. */
 	PROTOCOL_PKT_GET_TX_IN_BLOCK,
 	/* Here's a transaction (w/refs) in a block. */
@@ -176,11 +178,6 @@ struct protocol_pkt_block {
 	 * If PROTOCOL_ECODE_UNKNOWN_BLOCK: SHA of block. */
 };
 
-struct protocol_net_txrefhash {
-	struct protocol_double_sha txhash;
-	struct protocol_double_sha refhash;
-};
-
 struct protocol_pkt_shard {
 	le32 len; /* sizeof(struct protocol_pkt_shard) */
 	le32 type; /* PROTOCOL_PKT_SHARD */
@@ -191,7 +188,7 @@ struct protocol_pkt_shard {
 		     PROTOCOL_ECODE_UNKNOWN_SHARD */
 
 	/* Only if !err:
-	   struct protocol_net_txrefhash hash[block->shard_nums[shard]];
+	   struct protocol_txrefhash hash[block->shard_nums[shard]];
 	*/
 };
 
@@ -244,6 +241,13 @@ struct protocol_pkt_tx_bad_amount {
 	  The inputs:
 	     union protocol_tx input[t->normal.num_inputs];
 	*/
+};
+
+struct protocol_pkt_hashes_in_block {
+	le32 len; /* sizeof(struct protocol_pkt_hashes_in_block) */
+	le32 type; /* PROTOCOL_PKT_HASHES_IN_BLOCK */
+
+	struct protocol_hashes_with_proof hproof;
 };
 
 /* Ask for a specific block (reply will be PROTOCOL_PKT_BLOCK). */

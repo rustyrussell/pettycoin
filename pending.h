@@ -42,7 +42,7 @@ find_pending_tx_with_ref(const tal_t *ctx,
 			 struct state *state,
 			 const struct block *block,
 			 u16 shard,
-			 const struct protocol_net_txrefhash *hash);
+			 const struct protocol_txrefhash *hash);
 
 /* Look through pending to find if we have this tx by hash */
 const union protocol_tx *

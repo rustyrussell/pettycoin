@@ -90,8 +90,8 @@ int main(void)
 	const union protocol_tx *tx1, *tx2;
 	struct txptr_with_ref txp1, txp2;
 	struct protocol_input input[1];
-	struct protocol_net_txrefhash txrhash, scratch;
-	const struct protocol_net_txrefhash *txrhp;
+	struct protocol_txrefhash txrhash, scratch;
+	const struct protocol_txrefhash *txrhp;
 	struct block *b = mock_block(ctx);
 	unsigned int i;
 

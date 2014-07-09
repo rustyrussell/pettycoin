@@ -62,7 +62,7 @@ struct working_block {
 	struct protocol_double_sha *merkles;
 	u8 *prev_txhashes;
 	struct protocol_block_tailer tailer;
-	struct protocol_net_txrefhash ***trans_hashes;
+	struct protocol_txrefhash ***trans_hashes;
 	struct protocol_double_sha hash_of_merkles;
 	struct protocol_double_sha hash_of_prev_txhashes;
 
@@ -76,10 +76,10 @@ struct working_block {
 /* Update w->merkles[shard], and w->hash_of_merkles */
 static void merkle_hash_shard(struct working_block *w, u32 shard)
 {
-	const struct protocol_net_txrefhash **hashes;
+	const struct protocol_txrefhash **hashes;
 
 	/* Introducing const here requires cast. */
-	hashes = (const struct protocol_net_txrefhash **)w->trans_hashes[shard];
+	hashes = (const struct protocol_txrefhash **)w->trans_hashes[shard];
 	merkle_hashes(hashes, 0, w->shard_nums[shard], &w->merkles[shard]);
 }
 
@@ -130,7 +130,7 @@ new_working_block(const tal_t *ctx,
 
 	w->num_shards = 1 << shard_order;
 	w->num_trans = 0;
-	w->trans_hashes = tal_arr(w, struct protocol_net_txrefhash **,
+	w->trans_hashes = tal_arr(w, struct protocol_txrefhash **,
 				  w->num_shards);
 	w->shard_nums = tal_arrz(w, u8, w->num_shards);
 	w->merkles = tal_arrz(w, struct protocol_double_sha, w->num_shards);
@@ -138,7 +138,7 @@ new_working_block(const tal_t *ctx,
 		return tal_free(w);
 	for (i = 0; i < w->num_shards; i++) {
 		w->trans_hashes[i] = tal_arr(w->trans_hashes,
-					     struct protocol_net_txrefhash *,
+					     struct protocol_txrefhash *,
 					     0);
 		if (!w->trans_hashes[i])
 			return tal_free(w);

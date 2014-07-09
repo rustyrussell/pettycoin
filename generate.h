@@ -9,7 +9,7 @@ struct gen_update {
 	u8 txoff;
 	u8 unused;
 	u32 features;
-	struct protocol_net_txrefhash hashes;
+	struct protocol_txrefhash hashes;
 };
 
 #endif /* PETTYCOIN_GENERATE_H */

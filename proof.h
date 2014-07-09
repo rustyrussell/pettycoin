@@ -9,7 +9,7 @@ struct block;
 union protocol_tx;
 struct protocol_input_ref;
 struct block_shard;
-struct protocol_net_txrefhash;
+struct protocol_txrefhash;
 
 void create_proof(struct protocol_proof *proof,
 		  const struct block *block, u16 shard, u8 txoff);
@@ -21,6 +21,6 @@ bool check_proof(const struct protocol_proof *proof,
 
 bool check_proof_byhash(const struct protocol_proof *proof,
 			const struct block *b,
-			const struct protocol_net_txrefhash *txrefhash);
+			const struct protocol_txrefhash *txrefhash);
 
 #endif /* PETTYCOIN_PROOF_H */

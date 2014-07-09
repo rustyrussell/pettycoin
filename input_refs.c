@@ -57,8 +57,8 @@ enum ref_ecode check_tx_refs(struct state *state,
 	assert(check_refs(state, block, refs, num) == PROTOCOL_ECODE_NONE);
 	for (i = 0; i < num; i++) {
 		struct block *b;
-		struct protocol_net_txrefhash scratch;
-		const struct protocol_net_txrefhash *txp;
+		struct protocol_txrefhash scratch;
+		const struct protocol_txrefhash *txp;
 
 		b = block_ancestor(block, le32_to_cpu(refs[i].blocks_ago));
 		txp = txrefhash_in_shard(b->shard[le16_to_cpu(refs[i].shard)],

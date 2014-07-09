@@ -74,7 +74,7 @@ void tal_packet_append_sha_(void *ppkt, const struct protocol_double_sha *sha)
 }
 
 void tal_packet_append_txrefhash_(void *ppkt,
-				  const struct protocol_net_txrefhash *hashes)
+				  const struct protocol_txrefhash *hashes)
 {
 	tal_packet_append_(ppkt, hashes, sizeof(*hashes));
 }

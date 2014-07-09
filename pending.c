@@ -263,7 +263,7 @@ find_pending_tx_with_ref(const tal_t *ctx,
 			 struct state *state,
 			 const struct block *block,
 			 u16 shard,
-			 const struct protocol_net_txrefhash *hash)
+			 const struct protocol_txrefhash *hash)
 {
 	struct protocol_input_ref *refs;
 	struct txptr_with_ref r;

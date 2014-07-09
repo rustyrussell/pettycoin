@@ -18,7 +18,7 @@ union txp_or_hash {
 	/* Pointers to the actual transactions followed by refs */
 	struct txptr_with_ref txp;
 	/* hash_tx() of tx and hash_ref() of refs (we don't know them). */
-	const struct protocol_net_txrefhash *hash;
+	const struct protocol_txrefhash *hash;
 };
 
 /* Only transactions we've proven are in block go in here! */
@@ -72,10 +72,10 @@ struct txptr_with_ref txptr_with_ref(const tal_t *ctx,
 
 
 /* Returns NULL if it we don't have this tx. */
-const struct protocol_net_txrefhash *
+const struct protocol_txrefhash *
 txrefhash_in_shard(const struct block_shard *shard,
 		   u8 txoff,
-		   struct protocol_net_txrefhash *scratch);
+		   struct protocol_txrefhash *scratch);
 
 /* Do we have every tx in this shard? */
 bool shard_all_known(const struct block_shard *shard);

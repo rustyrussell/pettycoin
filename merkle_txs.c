@@ -12,8 +12,8 @@
 static void merkle_tx(size_t n, void *data, struct protocol_double_sha *merkle)
 {
 	const struct block_shard *shard = data;
-	struct protocol_net_txrefhash scratch;
-	const struct protocol_net_txrefhash *h;
+	struct protocol_txrefhash scratch;
+	const struct protocol_txrefhash *h;
 
 	h = txrefhash_in_shard(shard, n, &scratch);
 	merkle_two_hashes(&h->txhash, &h->refhash, merkle);

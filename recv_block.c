@@ -120,49 +120,60 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 	return PROTOCOL_ECODE_NONE;
 }
 
+/* Returns true if it was resolved. */
+bool try_resolve_hash(struct state *state,
+		      const struct peer *source,
+		      struct block *block, u16 shardnum, u8 txoff)
+{
+	struct txptr_with_ref txp;
+	u8 conflict_txoff;
+	struct block_shard *shard = block->shard[shardnum];
+
+	assert(!shard_is_tx(shard, txoff));
+
+	/* FIXME: Search peer blocks too? */
+	txp = find_pending_tx_with_ref(shard, state, block, shardnum,
+				       shard->u[txoff].hash);
+	if (!txp.tx)
+		return false;
+
+	if (!check_tx_ordering(state, block, shard, txoff, txp.tx,
+			       &conflict_txoff)) {
+		struct protocol_proof proof;
+
+		/* We can generate proof, since we at least have hashes. */
+		create_proof(&proof, block, shardnum, txoff);
+
+		complain_misorder(state, block, &proof, txp.tx, refs_for(txp),
+				  conflict_txoff);
+		return true;
+	}
+
+	put_tx_in_shard(state, block, shard, txoff, txp);
+	/* If we need proof, we should already have it, so don't add. */
+
+	send_tx_in_block_to_peers(state, source, block, shardnum, txoff);
+	return true;
+}
+
 static void try_resolve_hashes(struct state *state,
 			       const struct peer *source,
 			       struct block *block,
-			       u16 shardnum,
+			       u16 shard,
 			       bool add_todos)
 {
 	unsigned int i;
-	struct block_shard *shard = block->shard[shardnum];
 
 	/* If we know any of these transactions, resolve them now! */
-	for (i = 0; i < shard->size; i++) {
-		struct txptr_with_ref txp;
-
-		if (shard_is_tx(shard, i))
+	for (i = 0; i < block->shard_nums[shard] && !block->complaint; i++) {
+		if (shard_is_tx(block->shard[shard], i))
 			continue;
 
-		/* FIXME: Search peer blocks too? */
-		txp = find_pending_tx_with_ref(shard, state, block, shardnum,
-					       shard->u[i].hash);
-		if (txp.tx) {
-			u8 conflict_txoff;
-			if (!check_tx_ordering(state, block, shard, i, txp.tx,
-					       &conflict_txoff)) {
-				struct protocol_proof proof;
+		if (try_resolve_hash(state, source, block, shard, i))
+			continue;
 
-				/* We can generate proof, since we at
-				 * least have hashes. */
-				create_proof(&proof, block, shardnum, i);
-
-				complain_misorder(state, block,
-						  &proof, txp.tx, refs_for(txp),
-						  conflict_txoff);
-				/* This block is invalid, don't waste time. */
-				return;
-			}
-			put_tx_in_shard(state, block, shard, i, txp);
-			/* We don't need proof, since we have whole shard. */
-			send_tx_in_block_to_peers(state, source, block,
-						  shardnum, i);
-		} else if (add_todos) {
-			todo_add_get_tx_in_block(state, &block->sha, shardnum,
-						 i);
-		}
+		if (add_todos)
+			todo_add_get_tx_in_block(state, &block->sha, shard, i);
 	}
 }
 
@@ -173,7 +184,7 @@ recv_shard(struct state *state, struct log *log, struct peer *peer,
 	struct block *b;
 	u16 shard;
 	unsigned int i;
-	const struct protocol_net_txrefhash *hash;
+	const struct protocol_txrefhash *hash;
 	struct block_shard *s;
 
 	if (le32_to_cpu(pkt->len) < sizeof(*pkt))
@@ -234,7 +245,7 @@ recv_shard(struct state *state, struct log *log, struct peer *peer,
 	log_debug(log, "Got shard %u of ", shard);
 	log_add_struct(log, struct protocol_double_sha, &pkt->block);
 			
-	hash = (struct protocol_net_txrefhash *)(pkt + 1);
+	hash = (struct protocol_txrefhash *)(pkt + 1);
 	s = b->shard[shard];
 
 	/* Make shard own this packet. */

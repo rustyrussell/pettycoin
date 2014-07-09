@@ -40,7 +40,7 @@ void create_proof(struct protocol_proof *proof,
 }
 
 /* What does proof say the merkle should be? */
-static void proof_merkles_to(const struct protocol_net_txrefhash *txrefhash,
+static void proof_merkles_to(const struct protocol_txrefhash *txrefhash,
 			     const struct protocol_proof *proof,
 			     struct protocol_double_sha *sha)
 {
@@ -62,7 +62,7 @@ static void proof_merkles_to(const struct protocol_net_txrefhash *txrefhash,
 
 bool check_proof_byhash(const struct protocol_proof *proof,
 			const struct block *b,
-			const struct protocol_net_txrefhash *txrefhash)
+			const struct protocol_txrefhash *txrefhash)
 {
 	struct protocol_double_sha merkle;
 	u16 shardnum = le16_to_cpu(proof->pos.shard);
@@ -87,7 +87,7 @@ bool check_proof(const struct protocol_proof *proof,
 		 const union protocol_tx *tx,
 		 const struct protocol_input_ref *refs)
 {
-	struct protocol_net_txrefhash txrefhash;
+	struct protocol_txrefhash txrefhash;
 
 	/* Start with hash of transaction. */
 	hash_tx_and_refs(tx, refs, &txrefhash);

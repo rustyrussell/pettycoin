@@ -221,19 +221,20 @@ void send_tx_to_peers(struct state *state, struct peer *exclude,
 void send_tx_in_block_to_peers(struct state *state, const struct peer *exclude,
 			       struct block *block, u16 shard, u8 txoff)
 {
-	struct protocol_pkt_tx_in_block *pkt;
+	struct protocol_pkt_hashes_in_block *pkt;
 	struct protocol_proof proof;
-	const union protocol_tx *tx = block_get_tx(block, shard, txoff);
+	struct protocol_txrefhash scratch;
 
-	pkt = tal_packet(state, struct protocol_pkt_tx_in_block,
-			 PROTOCOL_PKT_TX_IN_BLOCK);
-	pkt->err = cpu_to_le32(PROTOCOL_ECODE_NONE);
+	pkt = tal_packet(state, struct protocol_pkt_hashes_in_block,
+			 PROTOCOL_PKT_HASHES_IN_BLOCK);
 	create_proof(&proof, block, shard, txoff);
 	tal_packet_append_proof(&pkt, &proof);
-	tal_packet_append_tx_with_refs(&pkt, tx,
-				       block_get_refs(block, shard, txoff));
+	tal_packet_append_txrefhash(&pkt,
+				    txrefhash_in_shard(block->shard[shard],
+						       txoff, &scratch));
 
-	send_to_interested_peers(state, exclude, tx, true, pkt);
+	send_to_interested_peers(state, exclude,
+				 block_get_tx(block, shard, txoff), true, pkt);
 	tal_free(pkt);
 }
 
@@ -540,6 +541,51 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 }
 
 static enum protocol_ecode
+recv_hashes_in_block(struct peer *peer,
+		     const struct protocol_pkt_hashes_in_block *pkt)
+{
+	struct block *b;
+	u16 shard;
+	u8 txoff;
+
+	if (le32_to_cpu(pkt->len) != sizeof(*pkt))
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	shard = le16_to_cpu(pkt->hproof.proof.pos.shard);
+
+	b = block_find_any(peer->state, &pkt->hproof.proof.pos.block);
+	if (!b) {
+		todo_add_get_block(peer->state,
+				   &pkt->hproof.proof.pos.block);
+		/* FIXME: should we extract hashes? */
+		return PROTOCOL_ECODE_NONE;
+	}
+
+	if (!check_proof_byhash(&pkt->hproof.proof, b, &pkt->hproof.txrefhash))
+		return PROTOCOL_ECODE_BAD_PROOF;
+
+	shard = le16_to_cpu(pkt->hproof.proof.pos.shard);
+	txoff = pkt->hproof.proof.pos.txoff;
+
+	/* If we know this transaction, it gets returned. */
+	if (put_txhash_in_shard(peer->state, b, shard, txoff,
+				&pkt->hproof.txrefhash)) {
+		/* Keep proof in case anyone asks. */
+		put_proof_in_shard(peer->state, b, &pkt->hproof.proof);
+
+		/* We might already know it. */
+		if (!try_resolve_hash(peer->state, peer, b, shard, txoff)) {
+			/* FIXME: If we put unresolved hashes in txhash,
+			 * we could just ask for tx. */
+			todo_add_get_tx_in_block(peer->state,
+						 &b->sha, shard, txoff);
+		}
+	}
+
+	return PROTOCOL_ECODE_NONE;
+}
+
+static enum protocol_ecode
 recv_get_shard(struct peer *peer,
 	       const struct protocol_pkt_get_shard *pkt,
 	       void **reply)
@@ -588,8 +634,8 @@ recv_get_shard(struct peer *peer,
 		/* Success, give them all the hashes. */
 		r->err = cpu_to_le16(PROTOCOL_ECODE_NONE);
 		for (i = 0; i < s->size; i++) {
-			struct protocol_net_txrefhash hashes;
-			const struct protocol_net_txrefhash *p;
+			struct protocol_txrefhash hashes;
+			const struct protocol_txrefhash *p;
 
 			/* shard_all_hashes() means p will not be NULL! */
 			p = txrefhash_in_shard(s, i, &hashes);
@@ -1274,7 +1320,7 @@ recv_complain_tx_invalid(struct peer *peer,
 	struct block *b;
 	const char *p;
 	size_t len = le32_to_cpu(pkt->len), txlen, reflen;
-	struct protocol_net_txrefhash txrefhash;
+	struct protocol_txrefhash txrefhash;
 	SHA256_CTX shactx;
 
 	if (len < sizeof(*pkt))
@@ -1550,6 +1596,9 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 		break;
 	case PROTOCOL_PKT_TX:
 		err = recv_tx(peer, peer->incoming);
+		break;
+	case PROTOCOL_PKT_HASHES_IN_BLOCK:
+		err = recv_hashes_in_block(peer, peer->incoming);
 		break;
 	case PROTOCOL_PKT_GET_BLOCK:
 		err = recv_get_block(peer, peer->incoming, &reply);

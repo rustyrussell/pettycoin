@@ -226,6 +226,19 @@ struct protocol_tx_with_proof {
 	*/
 };
 
+struct protocol_txrefhash {
+	struct protocol_double_sha txhash;
+	struct protocol_double_sha refhash;
+};
+
+/* Proof that a transaction (with inputs refs) was in a block. */
+struct protocol_hashes_with_proof {
+	/* This is the tree of double shas which proves it. */
+	struct protocol_proof proof;
+
+	struct protocol_txrefhash txrefhash;
+};
+
 /* An amount, not a psuedonym! */
 #define MAX_SATOSHI 0x7FFFFFFF
 #endif /* PETTYCOIN_PROTOCOL_H */
