@@ -39,17 +39,17 @@ static enum protocol_ecode
 recv_block(struct state *state, struct log *log, struct peer *peer,
 	   const struct protocol_pkt_block *pkt)
 {
-	struct block *new, *b;
+	struct block *b, *prev;
 	enum protocol_ecode e;
 	const struct protocol_double_sha *merkles;
 	const u8 *shard_nums;
-	const u8 *prev_merkles;
+	const u8 *prev_txhashes;
 	const struct protocol_block_tailer *tailer;
 	const struct protocol_block_header *hdr;
 	struct protocol_double_sha sha;
 
 	e = unmarshal_block(log, pkt,
-			    &hdr, &shard_nums, &merkles, &prev_merkles,
+			    &hdr, &shard_nums, &merkles, &prev_txhashes,
 			    &tailer);
 	if (e != PROTOCOL_ECODE_NONE) {
 		log_unusual(log, "unmarshaling new block gave %u", e);
@@ -60,54 +60,56 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 		  hdr->version, hdr->features_vote, hdr->shard_order);
 
 	e = check_block_header(state, hdr, shard_nums, merkles,
-			       prev_merkles, tailer, &new, &sha);
-
-	if (peer)
-		/* In case we were asking for this, we're not any more. */
-		todo_done_get_block(peer, &sha, true);
+			       prev_txhashes, tailer, &prev, &sha);
 
 	if (e != PROTOCOL_ECODE_NONE) {
 		log_unusual(log, "checking new block gave ");
 		log_add_enum(log, enum protocol_ecode, e);
 
 		/* If it was due to unknown prev, ask about that. */
-		if (peer && e == PROTOCOL_ECODE_PRIV_UNKNOWN_PREV) {
-			/* FIXME: Keep it around! */
-			seek_predecessor(state, &sha, &hdr->prev_block);
+		if (peer) {
+			if (e == PROTOCOL_ECODE_PRIV_UNKNOWN_PREV) {
+				/* FIXME: Keep it around! */
+				seek_predecessor(state, &sha, &hdr->prev_block);
+				/* In case we were asking for this,
+				 * we're not any more. */
+				todo_done_get_block(peer, &sha, true);
+			} else
+				todo_done_get_block(peer, &sha, false);
 			return PROTOCOL_ECODE_NONE;
 		}
 		return e;
 	}
 
-	/* Now new block owns the packet. */
-	tal_steal(new, pkt);
+	/* In case we were asking for this, we're not any more. */
+	todo_done_get_block(peer, &sha, true);
 
 	/* Actually check the previous merkles are correct. */
-	if (!check_block_prev_txhashes(state, new)) {
+	if (!check_block_prev_txhashes(state->log, prev, hdr, prev_txhashes)) {
 		log_unusual(log, "new block has bad prev merkles");
 		/* FIXME: provide proof. */
-		tal_free(new);
 		return PROTOCOL_ECODE_BAD_PREV_TXHASHES;
 	}
 
-	log_debug(log, "New block %u is good!",
-		  le32_to_cpu(new->hdr->depth));
+	log_debug(log, "New block %u is good!", le32_to_cpu(hdr->depth));
 
-	if ((b = block_find_any(state, &new->sha)) != NULL) {
+	if ((b = block_find_any(state, &sha)) != NULL) {
 		log_debug(log, "already knew about block %u",
-			  le32_to_cpu(new->hdr->depth));
-		tal_free(new);
+			  le32_to_cpu(hdr->depth));
 	} else {
-		block_add(state, new);
-		save_block(state, new);
+		b = block_add(state, prev, &sha, hdr, shard_nums, merkles,
+			      prev_txhashes, tailer);
+
+		/* Now new block owns the packet. */
+		tal_steal(b, pkt);
+
+		save_block(state, b);
 		/* If we're syncing, ask about children */
 		if (peer && peer->we_are_syncing)
-			todo_add_get_children(state, &new->sha);
+			todo_add_get_children(state, &b->sha);
 		else
 			/* Otherwise, tell peers about new block. */
-			send_block_to_peers(state, peer, new);
-
-		b = new;
+			send_block_to_peers(state, peer, b);
 	}
 
 	/* If the block is known bad, tell them! */

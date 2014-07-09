@@ -67,8 +67,15 @@ static inline const struct block *genesis_block(const struct state *state)
 	return list_top(state->block_depth[0], struct block, list);
 }
 
-/* Add this new block into the state structure. */
-void block_add(struct state *state, struct block *b);
+/* Create a new block and add into the state structure. */
+struct block *block_add(struct state *state,
+			struct block *prev,
+			const struct protocol_double_sha *sha,
+			const struct protocol_block_header *hdr,
+			const u8 *shard_nums,
+			const struct protocol_double_sha *merkles,
+			const u8 *prev_txhashes,
+			const struct protocol_block_tailer *tailer);
 
 /* Get tx_idx'th tx inside shard shardnum inside block. */
 union protocol_tx *block_get_tx(const struct block *block, u16 shardnum,

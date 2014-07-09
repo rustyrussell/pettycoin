@@ -17,10 +17,7 @@ struct log;
 
 struct protocol_block_header *unmarshal_block_header(void *buffer, size_t size);
 
-/* Returns error if bad, otherwise *blockp is placed in chain.
-   Not sufficient by itself: see check_block_prev_txhashes! 
-   sha is set if not NULL (even if error occurs).
-*/
+/* Returns error if bad.  You should also call check_block_prev_txhashes! */
 enum protocol_ecode
 check_block_header(struct state *state,
 		   const struct protocol_block_header *hdr,
@@ -60,8 +57,9 @@ void put_proof_in_shard(struct state *state,
 			const struct protocol_proof *proof);
 
 /* Check what we can, using block->prev->...'s shards. */
-bool check_block_prev_txhashes(struct state *state,
-			       const struct block *block);
+bool check_block_prev_txhashes(struct log *log, const struct block *prev,
+			       const struct protocol_block_header *hdr,
+			       const u8 *prev_txhashes);
 
 /* Various assertions about a block */
 void check_block(struct state *state, const struct block *block);

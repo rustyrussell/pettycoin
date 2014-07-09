@@ -8,6 +8,7 @@
 #include "../block_shard.c"
 #include "../merkle_recurse.c"
 #include "../proof.c"
+#include "../difficulty.c"
 #include "helper_key.h"
 #include "helper_gateway_key.h"
 

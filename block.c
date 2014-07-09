@@ -1,5 +1,6 @@
 #include "block.h"
 #include "chain.h"
+#include "difficulty.h"
 #include "features.h"
 #include "generating.h"
 #include "log.h"
@@ -14,6 +15,51 @@
 #include <ccan/structeq/structeq.h>
 #include <string.h>
 
+static void destroy_block(struct block *b)
+{
+	BN_free(&b->total_work);
+	if (b->prev) {
+		list_del_from(&b->prev->children, &b->sibling);
+		list_del(&b->list);
+	}
+}
+
+/* This allocates the block but doesn't sew it into data structures. */
+static struct block *new_block(const tal_t *ctx,
+			       BIGNUM *prev_work,
+			       const struct protocol_double_sha *sha,
+			       const struct protocol_block_header *hdr,
+			       const u8 *shard_nums,
+			       const struct protocol_double_sha *merkles,
+			       const u8 *prev_txhashes,
+			       const struct protocol_block_tailer *tailer)
+{
+	struct block *block = tal(ctx, struct block);
+	unsigned int i;
+
+	total_work_done(le32_to_cpu(tailer->difficulty),
+			prev_work, &block->total_work);
+
+	block->hdr = hdr;
+	block->shard_nums = shard_nums;
+	block->merkles = merkles;
+	block->prev_txhashes = prev_txhashes;
+	block->tailer = tailer;
+	block->all_known = false;
+	list_head_init(&block->children);
+	block->sha = *sha;
+	block->shard = tal_arr(block, struct block_shard *, num_shards(hdr));
+	for (i = 0; i < num_shards(hdr); i++)
+		block->shard[i] = new_block_shard(block->shard, i,
+						  shard_nums[i]);
+
+	/* In case we destroy before block_add(), eg. testing. */
+	block->prev = NULL;
+
+	tal_add_destructor(block, destroy_block);
+	return block;
+}
+
 struct block *block_find(struct block *start, const u8 lower_sha[4])
 {
 	struct block *b = start;
@@ -27,12 +73,24 @@ struct block *block_find(struct block *start, const u8 lower_sha[4])
 	return b;
 }
 
-void block_add(struct state *state, struct block *block)
+struct block *block_add(struct state *state,
+			struct block *prev,
+			const struct protocol_double_sha *sha,
+			const struct protocol_block_header *hdr,
+			const u8 *shard_nums,
+			const struct protocol_double_sha *merkles,
+			const u8 *prev_txhashes,
+			const struct protocol_block_tailer *tailer)
 {
-	u32 depth = le32_to_cpu(block->hdr->depth);
+	u32 depth = le32_to_cpu(hdr->depth);
+	struct block *block;
 
 	log_debug(state->log, "Adding block %u ", depth);
-	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
+	log_add_struct(state->log, struct protocol_double_sha, sha);
+
+	block = new_block(state, &prev->total_work, sha, hdr, shard_nums,
+			  merkles, prev_txhashes, tailer);
+	block->prev = prev;
 
 	/* Add to list for that generation. */
 	if (depth >= tal_count(state->block_depth)) {
@@ -43,24 +101,25 @@ void block_add(struct state *state, struct block *block)
 			= tal(state->block_depth, struct list_head);
 		list_head_init(state->block_depth[depth]);
 	}
+
 	/* We give some priority to blocks hear about first. */
 	list_add_tail(state->block_depth[depth], &block->list);
 
 	block->pending_features = pending_features(block);
 
 	/* Link us into parent's children list. */
-	list_head_init(&block->children);
 	list_add_tail(&block->prev->children, &block->sibling);
 
-	/* This can happen if precedessor has complaint. */
+	block->complaint = prev->complaint;
 	if (block->complaint) {
 		check_chains(state);
 		/* It's not a candidate for real use. */
-		return;
+		return block;
 	}
 
 	update_block_ptrs_new_block(state, block);
 	check_chains(state);
+	return block;
 }
 
 /* FIXME: use hash table. */

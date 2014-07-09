@@ -113,12 +113,13 @@ int main(int argc, char *argv[])
 	unsigned int i;
 	union protocol_tx *t;
 	struct protocol_gateway_payment payment;
-	struct block *b, *b2;
+	struct block *prev, *b;
 	struct block_shard *shard;
 	u8 *prev_txhashes;
 	enum protocol_ecode e;
 	struct gen_update update;
 	struct protocol_input_ref *refs;
+	struct protocol_double_sha sha;
 
 	/* We need enough of state to use the real init function here. */
 	pseudorand_init();
@@ -156,13 +157,17 @@ int main(int argc, char *argv[])
 	for (i = 0; !solve_block(w); i++);
 
 	e = check_block_header(s, &w->hdr, w->shard_nums, w->merkles,
-			       w->prev_txhashes, &w->tailer, &b, NULL);
+			       w->prev_txhashes, &w->tailer, &prev, &sha);
 	assert(e == PROTOCOL_ECODE_NONE);
-	assert(b);
-	block_add(s, b);
+	assert(prev == &genesis);
 
 	/* This is a NOOP, so should succeed. */
-	assert(check_block_prev_txhashes(s, b));
+	assert(check_block_prev_txhashes(s->log, prev,
+					 &w->hdr, w->prev_txhashes));
+
+	b = block_add(s, prev, &sha,
+		      &w->hdr, w->shard_nums, w->merkles,
+		      w->prev_txhashes, &w->tailer);
 
 	/* Put the single tx into the shard. */
 	shard = new_block_shard(s, update.shard, 1);
@@ -187,12 +192,12 @@ int main(int argc, char *argv[])
 	for (i = 0; !solve_block(w); i++);
 
 	e = check_block_header(s, &w->hdr, w->shard_nums, w->merkles,
-			       w->prev_txhashes, &w->tailer, &b2, NULL);
+			       w->prev_txhashes, &w->tailer, &prev, &sha);
 	assert(e == PROTOCOL_ECODE_NONE);
-	assert(b2);
+	assert(prev == b);
 
 	/* This should be correct. */
-	assert(check_block_prev_txhashes(s, b2));
+	assert(check_block_prev_txhashes(s->log, b, &w->hdr, w->prev_txhashes));
 
 	tal_free(s);
 	return 0;

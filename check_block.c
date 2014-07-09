@@ -27,11 +27,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-static void destroy_block(struct block *b)
-{
-	BN_free(&b->total_work);
-}
-
 /* Returns error if bad.  Not sufficient by itself: see check_tx_order,
  * shard_validate_transactions and check_block_prev_txhashes! */
 enum protocol_ecode
@@ -41,90 +36,43 @@ check_block_header(struct state *state,
 		   const struct protocol_double_sha *merkles,
 		   const u8 *prev_txhashes,
 		   const struct protocol_block_tailer *tailer,
-		   struct block **blockp,
+		   struct block **prev,
 		   struct protocol_double_sha *sha)
 {
-	struct block *block = (*blockp) = tal(state, struct block);
-	enum protocol_ecode e;
-	unsigned int i;
-
 	/* Shouldn't happen, since we check in unmarshal. */
-	if (!version_ok(hdr->version)) {
-		e = PROTOCOL_ECODE_BLOCK_HIGH_VERSION;
-		memset(sha, 0, sizeof(*sha));
-		goto fail;
-	}
+	if (!version_ok(hdr->version))
+		return PROTOCOL_ECODE_BLOCK_HIGH_VERSION;
 
 	/* We check work *first*: if it meets its target we can spend
 	 * resources on it, since it's not cheap to produce (eg. we could
 	 * keep it around, or ask others about its predecessors, etc) */
 
 	/* Get SHA: should have enough leading zeroes to beat target. */
-	hash_block(hdr, shard_nums, merkles, prev_txhashes, tailer, &block->sha);
-	if (sha)
-		*sha = block->sha;
+	hash_block(hdr, shard_nums, merkles, prev_txhashes, tailer, sha);
 
-	if (!beats_target(&block->sha, le32_to_cpu(tailer->difficulty))) {
-		e = PROTOCOL_ECODE_INSUFFICIENT_WORK;
-		goto fail;
-	}
+	if (!beats_target(sha, le32_to_cpu(tailer->difficulty)))
+		return PROTOCOL_ECODE_INSUFFICIENT_WORK;
 
 	/* Don't just search on main chain! */
-	block->prev = block_find_any(state, &hdr->prev_block);
-	if (!block->prev) {
-		e = PROTOCOL_ECODE_PRIV_UNKNOWN_PREV;
-		goto fail;
-	}
+	*prev = block_find_any(state, &hdr->prev_block);
+	if (!*prev)
+		return PROTOCOL_ECODE_PRIV_UNKNOWN_PREV;
 
-	if (hdr->shard_order != next_shard_order(block->prev)) {
-		e = PROTOCOL_ECODE_BAD_SHARD_ORDER;
-		goto fail;
-	}
+	if (hdr->shard_order != next_shard_order(*prev))
+		return PROTOCOL_ECODE_BAD_SHARD_ORDER;
 
-	if (le32_to_cpu(hdr->depth) != le32_to_cpu(block->prev->hdr->depth)+1) {
-		e = PROTOCOL_ECODE_BAD_DEPTH;
-		goto fail;
-	}
-
-	/* If there's something wrong with the previous block, us too. */
-	block->complaint = block->prev->complaint;
+	if (le32_to_cpu(hdr->depth) != le32_to_cpu((*prev)->hdr->depth)+1)
+		return PROTOCOL_ECODE_BAD_DEPTH;
 
 	/* Can't go backwards, can't be more than 2 hours in future. */
-	if (!check_timestamp(state, le32_to_cpu(tailer->timestamp),block->prev)){
-		e = PROTOCOL_ECODE_BAD_TIMESTAMP;
-		goto fail;
-	}
+	if (!check_timestamp(state, le32_to_cpu(tailer->timestamp), *prev))
+		return PROTOCOL_ECODE_BAD_TIMESTAMP;
 
 	/* Based on previous blocks, how difficult should this be? */
-	if (le32_to_cpu(tailer->difficulty)
-	    != get_difficulty(state, block->prev)) {
-		e = PROTOCOL_ECODE_BAD_DIFFICULTY;
-		goto fail;
-	}
-
-	total_work_done(le32_to_cpu(tailer->difficulty),
-			&block->prev->total_work,
-			&block->total_work);
-
-	block->shard = tal_arr(block, struct block_shard *, num_shards(hdr));
-	for (i = 0; i < num_shards(hdr); i++)
-		block->shard[i] = new_block_shard(block->shard, i,
-						  shard_nums[i]);
-	block->hdr = hdr;
-	block->shard_nums = shard_nums;
-	block->merkles = merkles;
-	block->prev_txhashes = prev_txhashes;
-	block->tailer = tailer;
-	block->all_known = false;
-	list_head_init(&block->children);
-
-	tal_add_destructor(block, destroy_block);
+	if (le32_to_cpu(tailer->difficulty) != get_difficulty(state, *prev))
+		return PROTOCOL_ECODE_BAD_DIFFICULTY;
 
 	return PROTOCOL_ECODE_NONE;
-
-fail:
-	*blockp = tal_free(block);
-	return e;
 }
 
 bool shard_belongs_in_block(const struct block *block,
@@ -328,43 +276,44 @@ void put_proof_in_shard(struct state *state,
 	shard->proof[txoff] = tal_dup(shard, struct protocol_proof, proof, 1,0);
 }
 
-/* Check what we can, using block->prev->...'s shards. */
-bool check_block_prev_txhashes(struct state *state, const struct block *block)
+/* Check what we can, using prev->...'s shards. */
+bool check_block_prev_txhashes(struct log *log, const struct block *prev,
+			       const struct protocol_block_header *hdr,
+			       const u8 *prev_txhashes)
 {
 	unsigned int i;
 	size_t off = 0;
-	const struct block *prev;
 
-	for (i = 0, prev = block->prev;
+	for (i = 0;
 	     i < PROTOCOL_PREV_BLOCK_TXHASHES && prev;
 	     i++, prev = prev->prev) {
 		unsigned int j;
 
-		/* It's bad if we don't have that many prev merkles. */
+		/* It's bad if we don't have that many prev hashes. */
 		if (off + num_shards(prev->hdr)
-		    > le32_to_cpu(block->hdr->num_prev_txhashes))
+		    > le32_to_cpu(hdr->num_prev_txhashes))
 			return false;
 
 		for (j = 0; j < num_shards(prev->hdr); j++) {
 			u8 prev_txh;
 
 			/* We need to know everything in shard to check
-			 * previous merkle. */
+			 * previous hash. */
 			if (!shard_all_known(prev->shard[j]))
 				continue;
 
-			prev_txh = prev_txhash(&block->hdr->fees_to, prev, j);
+			prev_txh = prev_txhash(&hdr->fees_to, prev, j);
 
 			/* We only check one byte; that's enough. */
-			if (prev_txh != block->prev_txhashes[off+j]) {
-				log_unusual(state->log,
-					    "Incorrect merkle for block %u:"
+			if (prev_txh != prev_txhashes[off+j]) {
+				log_unusual(log,
+					    "Incorrect prev_txhash block %u:"
 					    " block %u shard %u was %u not %u",
-					    le32_to_cpu(block->hdr->depth),
-					    le32_to_cpu(block->hdr->depth) - i,
+					    le32_to_cpu(hdr->depth),
+					    le32_to_cpu(hdr->depth) - i,
 					    j,
 					    prev_txh,
-					    block->prev_txhashes[off+j]);
+					    prev_txhashes[off+j]);
 				return false;
 			}
 		}
@@ -372,7 +321,7 @@ bool check_block_prev_txhashes(struct state *state, const struct block *block)
 	}
 
 	/* Must have exactly the right number of previous merkle hashes. */
-	return off == le32_to_cpu(block->hdr->num_prev_txhashes);
+	return off == le32_to_cpu(hdr->num_prev_txhashes);
 }
 
 void check_block(struct state *state, const struct block *block)
