@@ -79,6 +79,8 @@ struct state {
 	/* blocks.list */
 	int blockfd;
 
+	/* Which shards are we interested in. */
+	BITMAP_DECLARE(interests, 1 << PROTOCOL_INITIAL_SHARD_ORDER);
 };
 
 struct state *new_state(bool test_net);

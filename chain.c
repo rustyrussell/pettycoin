@@ -268,14 +268,17 @@ static bool update_known_recursive(struct state *state, struct block *block)
 	return knowns_changed;
 }
 
-/* FIXME: Ask only the shards we care about. */
 static void ask_about_block(struct state *state, const struct block *block)
 {
 	u16 i;
 
 	for (i = 0; i < num_shards(block->hdr); i++) {
-		if (!shard_all_known(block->shard[i]))
+		if (shard_all_known(block->shard[i]))
+			continue;
+		if (interested_in_shard(state, block->hdr->shard_order, i))
 			todo_add_get_shard(state, &block->sha, i);
+		else
+			todo_add_get_txmap(state, &block->sha, i);
 	}
 }
 

@@ -52,11 +52,13 @@ static void add_interests(const struct state *state,
 			  struct protocol_pkt_welcome **w,
 			  u8 shard_order)
 {
-	size_t maplen = ((1 << shard_order) + 31) / 32 * 4;
-	u8 *map = tal_arr(*w, u8, maplen);
+	size_t i, maplen = ((1 << shard_order) + 31) / 32 * 4;
+	u8 *map = tal_arrz(*w, u8, maplen);
 
-	/* FIXME: We tell them we want everything. */
-	memset(map, 0xff, maplen);
+	for (i = 0; i < (1 << shard_order); i++)
+		if (interested_in_shard(state, i, shard_order))
+			map[i / 8] |= (1 << (i % 8));
+
 	(*w)->shard_order = shard_order;
 	tal_packet_append(w, map, maplen);
 	tal_free(map);

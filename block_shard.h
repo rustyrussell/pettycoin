@@ -84,6 +84,10 @@ bool shard_all_hashes(const struct block_shard *shard);
 /* Allocate a new struct transaction_shard. */
 struct block_shard *new_block_shard(const tal_t *ctx, u16 shardnum, u8 num);
 
+/* Are we interested in this shard? */
+bool interested_in_shard(const struct state *state,
+			 unsigned int shard_order, u16 shard);
+
 /* Various assertions about a shard */
 void check_block_shard(struct state *state,
 		       const struct block *block,

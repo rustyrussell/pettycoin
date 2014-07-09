@@ -118,4 +118,14 @@ void check_block_shard(struct state *state,
 		assert(structeq(&sha, &block->merkles[shard->shardnum]));
 	}
 }
-	
+
+bool interested_in_shard(const struct state *state,
+			 unsigned int shard_order, u16 shard)
+{
+	unsigned int ord_diff;
+
+	/* Convert block's shard number to our interest number. */
+	ord_diff = shard_order - PROTOCOL_INITIAL_SHARD_ORDER;
+
+	return bitmap_test_bit(state->interests, shard >> ord_diff);
+}
