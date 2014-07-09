@@ -121,7 +121,7 @@ static void try_resolve_hashes(struct state *state,
 			       u16 shardnum,
 			       bool add_todos)
 {
-	unsigned int i, num = block->shard_nums[shardnum];
+	unsigned int i, num = num_txs_in_shard(block, shardnum);
 	struct block_shard *shard = block->shard[shardnum];
 
 	/* If we know any of these transactions, resolve them now! */
@@ -205,20 +205,20 @@ recv_shard(struct state *state, struct log *log, struct peer *peer,
 
 	/* Should have appended all txrefhashes. */
 	if (le32_to_cpu(pkt->len)
-	    != sizeof(*pkt) + b->shard_nums[shard] * sizeof(*hash))
+	    != sizeof(*pkt) + num_txs_in_shard(b, shard) * sizeof(*hash))
 		return PROTOCOL_ECODE_INVALID_LEN;
 
 	log_debug(log, "Got shard %u of ", shard);
 	log_add_struct(log, struct protocol_double_sha, &pkt->block);
 			
 	hash = (struct protocol_net_txrefhash *)(pkt + 1);
-	s = new_block_shard(state, shard, b->shard_nums[shard]);
+	s = new_block_shard(state, shard, num_txs_in_shard(b, shard));
 
 	/* Make shard own this packet. */
 	tal_steal(s, pkt);
 
 	/* Add hash pointers. */
-	for (i = 0; i < b->shard_nums[shard]; i++) {
+	for (i = 0; i < num_txs_in_shard(b, shard); i++) {
 		s->hashcount++;
 		bitmap_set_bit(s->txp_or_hash, i);
 		s->u[i].hash = hash + i;
@@ -235,17 +235,17 @@ recv_shard(struct state *state, struct log *log, struct peer *peer,
 	put_shard_of_hashes_into_block(state, b, s);
 
 	log_debug(log, "Shard now in block. txs %u, hashes %u (of %u)",
-		  s->txcount, s->hashcount, b->shard_nums[s->shardnum]);
+		  s->txcount, s->hashcount, num_txs_in_shard(b, s->shardnum));
 
 	/* This will try to match the rest, or trigger asking. */
 	try_resolve_hashes(state, b, shard, peer != NULL);
 
 	log_debug(log, "Shard now resolved. txs %u, hashes %u (of %u)",
-		  s->txcount, s->hashcount, b->shard_nums[s->shardnum]);
+		  s->txcount, s->hashcount, num_txs_in_shard(b, s->shardnum));
 
 	/* We save once we know the entire contents. */
 	if (shard_all_known(b, shard)) {
-		if (b->shard_nums[s->shardnum])
+		if (num_txs_in_shard(b, s->shardnum))
 			log_debug(log, "Shard all known!");
 		save_shard(state, b, shard);
 		update_block_ptrs_new_shard(state, b, shard);

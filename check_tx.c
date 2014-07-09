@@ -64,7 +64,7 @@ find_tx_for_ref(struct state *state,
 	if (le16_to_cpu(ref->shard) >= num_shards(b->hdr))
 		return PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF;
 
-	if (ref->txoff >= b->shard_nums[ref->shard])
+	if (ref->txoff >= num_txs_in_shard(b, ref->shard))
 		return PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF;
 
 	if (le32_to_cpu(b->tailer->timestamp) + PROTOCOL_TX_HORIZON_SECS
@@ -139,7 +139,7 @@ check_tx_normal_inputs(struct state *state,
 				continue;
 
 			if (le32_to_cpu(refs[i].txoff)
-			    >= te->block->shard_nums[shardnum])
+			    >= num_txs_in_shard(te->block, shardnum))
 				continue;
 
 			/* Must be predecessor */

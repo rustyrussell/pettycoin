@@ -100,7 +100,7 @@ struct protocol_input_ref *block_get_refs(const struct block *block,
 	const struct block_shard *s = block->shard[shardnum];
 
 	assert(shardnum < num_shards(block->hdr));
-	assert(txoff < block->shard_nums[shardnum]);
+	assert(txoff < num_txs_in_shard(block, shardnum));
 
 	if (!s || !shard_is_tx(s, txoff))
 		return NULL;
@@ -115,7 +115,7 @@ union protocol_tx *block_get_tx(const struct block *block,
 	const struct block_shard *s = block->shard[shardnum];
 
 	assert(shardnum < num_shards(block->hdr));
-	assert(txoff < block->shard_nums[shardnum]);
+	assert(txoff < num_txs_in_shard(block, shardnum));
 
 	if (!s || !shard_is_tx(s, txoff))
 		return NULL;

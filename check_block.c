@@ -130,7 +130,7 @@ bool shard_belongs_in_block(const struct block *block,
 
 	/* merkle_txs is happy with just the hashes. */
 	assert(shard->txcount + shard->hashcount
-	       == block->shard_nums[shard->shardnum]);
+	       == num_txs_in_shard(block, shard->shardnum));
 	merkle_txs(block, shard, &merkle);
 	return structeq(&block->merkles[shard->shardnum], &merkle);
 }
@@ -211,7 +211,7 @@ void put_shard_of_hashes_into_block(struct state *state,
 {
 	unsigned int num;
 
-	num = block->shard_nums[shard->shardnum];
+	num = num_txs_in_shard(block, shard->shardnum);
 	assert(shard_belongs_in_block(block, shard));
 	assert(shard->txcount == 0);
 	assert(shard->hashcount == num);
@@ -274,7 +274,9 @@ void put_tx_in_block(struct state *state,
 	}
 
 	/* Check ordering against next. */
-	for (i = (int)txoff+1; i < block->shard_nums[shard->shardnum]; i++) {
+	for (i = (int)txoff+1;
+	     i < num_txs_in_shard(block, shard->shardnum);
+	     i++) {
 		if (tx_for(shard, i)) {
 			check_tx_ordering(state, block, shard, txoff, i);
 			break;

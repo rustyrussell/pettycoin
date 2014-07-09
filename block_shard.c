@@ -46,7 +46,7 @@ txrefhash_in_shard(const struct block *b,
 		   struct protocol_net_txrefhash *scratch)
 {
 	assert(s->shardnum < num_shards(b->hdr));
-	assert(txoff < b->shard_nums[s->shardnum]);
+	assert(txoff < num_txs_in_shard(b, s->shardnum));
 
 	if (!s)
 		return NULL;
@@ -66,7 +66,7 @@ bool shard_all_known(const struct block *block, u16 shardnum)
 	u8 count;
 
 	count = block->shard[shardnum] ? block->shard[shardnum]->txcount : 0;
-	return count == block->shard_nums[shardnum];
+	return count == num_txs_in_shard(block, shardnum);
 }
 
 /* Do we have every tx or hash? */
@@ -79,7 +79,13 @@ bool shard_all_hashes(const struct block *block, u16 shardnum)
 			+ block->shard[shardnum]->hashcount;
 	} else
 		count = 0;
-	return count == block->shard_nums[shardnum];
+	return count == num_txs_in_shard(block, shardnum);
+}
+
+u8 num_txs_in_shard(const struct block *block, u16 shardnum)
+{
+	assert(shardnum < num_shards(block->hdr));
+	return block->shard_nums[shardnum];
 }
 
 void check_block_shard(struct state *state,
@@ -88,7 +94,7 @@ void check_block_shard(struct state *state,
 {
 	unsigned int i, txcount = 0, hashcount = 0, num;
 
-	num = block->shard_nums[shard->shardnum];
+	num = num_txs_in_shard(block, shard->shardnum);
 	for (i = 0; i < num; i++) {
 		if (shard_is_tx(shard, i)) {
 			if (shard->u[i].txp.tx) {

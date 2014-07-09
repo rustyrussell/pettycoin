@@ -67,7 +67,7 @@ bool check_proof(const struct protocol_proof *proof,
 		return false;
 
 	/* Can't be the right one if not within shard */
-	if (txoff >= b->shard_nums[shardnum])
+	if (txoff >= num_txs_in_shard(b, shardnum))
 		return false;
 
 	proof_merkles_to(tx, refs, txoff, proof, &merkle);

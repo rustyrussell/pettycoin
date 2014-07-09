@@ -358,7 +358,7 @@ static bool empty_block(const struct block *block)
 	u16 i;
 
 	for (i = 0; i < num_shards(block->hdr); i++)
-		if (block->shard_nums[i] != 0)
+		if (num_txs_in_shard(block, i) != 0)
 			return false;
 	return true;
 }

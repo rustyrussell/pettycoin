@@ -76,6 +76,9 @@ bool shard_all_known(const struct block *block, u16 shardnum);
 /* Do we have every tx or hash? */
 bool shard_all_hashes(const struct block *block, u16 shardnum);
 
+/* How many txs in this shard? */
+u8 num_txs_in_shard(const struct block *block, u16 shardnum);
+
 /* Allocate a new struct transaction_shard. */
 struct block_shard *new_block_shard(const tal_t *ctx, u16 shardnum, u8 num);
 

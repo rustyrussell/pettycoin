@@ -34,7 +34,7 @@ void merkle_some_txs(const struct block *block,
 	txinfo.block = block;
 	txinfo.shard = shard;
 
-	merkle_recurse(off, block->shard_nums[shard->shardnum], max,
+	merkle_recurse(off, num_txs_in_shard(block, shard->shardnum), max,
 		       merkle_tx, &txinfo, merkle);
 }
 

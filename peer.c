@@ -510,7 +510,7 @@ recv_get_shard(struct peer *peer,
 
 		/* Success, give them all the hashes. */
 		r->err = cpu_to_le16(PROTOCOL_ECODE_NONE);
-		for (i = 0; i < b->shard_nums[shard]; i++) {
+		for (i = 0; i < num_txs_in_shard(b, shard); i++) {
 			struct protocol_net_txrefhash hashes;
 			const struct protocol_net_txrefhash *p;
 
@@ -557,7 +557,7 @@ recv_get_tx_in_block(struct peer *peer,
 			       &pkt->pos.block);
 		tal_free(r);
 		return PROTOCOL_ECODE_BAD_SHARDNUM;
-	} else if (txoff >= b->shard_nums[shard]) {
+	} else if (txoff >= num_txs_in_shard(b, shard)) {
 		log_unusual(peer->log, "Invalid get_tx for txoff %u of shard %u of ",
 			    txoff, shard);
 		log_add_struct(peer->log, struct protocol_double_sha,

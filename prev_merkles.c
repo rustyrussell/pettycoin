@@ -28,12 +28,12 @@ u8 prev_txhash(const struct protocol_address *addr,
 {
 	SHA256_CTX shactx;
 	struct protocol_double_sha sha;
-	unsigned int i, num_txs = block->shard_nums[shard];
+	unsigned int i; 
 
 	SHA256_Init(&shactx);
 	SHA256_Update(&shactx, addr, sizeof(*addr));
 
-	for (i = 0; i < num_txs; i++) {
+	for (i = 0; i < num_txs_in_shard(block, shard); i++) {
 		const union protocol_tx *tx;
 		const struct protocol_input_ref *refs;
 
