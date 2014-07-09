@@ -57,7 +57,8 @@ void wake_peers(struct state *state)
 {
 }
 
-void broadcast_to_peers(struct state *state, const struct protocol_net_hdr *pkt)
+void broadcast_to_peers(struct state *state, const struct protocol_net_hdr *pkt,
+			const struct peer *exclude)
 {
 }
 

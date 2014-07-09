@@ -26,7 +26,8 @@ void update_block_ptrs_new_block(struct state *state, struct block *block)
 	abort();
 }
 
-void broadcast_to_peers(struct state *state, const struct protocol_net_hdr *pkt)
+void broadcast_to_peers(struct state *state, const struct protocol_net_hdr *pkt,
+			const struct peer *exclude)
 {
 	abort();
 }

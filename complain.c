@@ -19,9 +19,10 @@ static void complaint_on_all(struct block *block, const void *complaint)
 		complaint_on_all(b, complaint);
 }
 	
-static void invalidate_block(struct state *state,
-			     struct block *block,
-			     const void *complaint)
+void publish_complaint(struct state *state,
+		       struct block *block,
+		       const void *complaint,
+		       struct peer *origin)
 {
 	/* Don't complaint storm. */
 	if (block->complaint) {
@@ -37,8 +38,8 @@ static void invalidate_block(struct state *state,
 	/* Recalc everything.  Slow, but should be rare. */
 	update_block_ptrs_invalidated(state, block);
 
-	/* Tell everyone... */
-	broadcast_to_peers(state, complaint);
+	/* Tell everyone (except origin!) */
+	broadcast_to_peers(state, complaint, origin);
 }
 
 void complain_bad_input(struct state *state,
@@ -68,7 +69,7 @@ void complain_bad_input(struct state *state,
 	tal_packet_append_proof(&pkt, block, shardnum, txoff, proof, tx, refs);
 	tal_packet_append_tx(&pkt, intx);
 
-	invalidate_block(state, block, pkt);
+	publish_complaint(state, block, pkt, NULL);
 }
 
 void complain_bad_amount(struct state *state,
@@ -104,7 +105,7 @@ void complain_bad_amount(struct state *state,
 		tal_packet_append_tx(&pkt, intx[i]);
 	}
 
-	invalidate_block(state, block, pkt);
+	publish_complaint(state, block, pkt, NULL);
 }
 
 /* We know conflict_txoff (ie. it's already in the block), and proof
@@ -141,7 +142,7 @@ void complain_misorder(struct state *state,
 	tal_packet_append_proof(&pkt, block, shardnum, conflict_txoff,
 				&conflict_proof, conflict_tx, conflict_refs);
 
-	invalidate_block(state, block, pkt);
+	publish_complaint(state, block, pkt, NULL);
 }
 
 /* refs[bad_refnum] points to the wrong tx! */
@@ -192,7 +193,7 @@ void complain_bad_input_ref(struct state *state,
 				le16_to_cpu(bad_ref->shard), bad_ref->txoff,
 				&ref_proof, bad_intx, bad_intx_refs);
 
-	invalidate_block(state, block, pkt);
+	publish_complaint(state, block, pkt, NULL);
 }
 
 /* Simple single-transacion error. */
@@ -244,5 +245,5 @@ void complain_bad_tx(struct state *state,
 
 	tal_packet_append_proof(&pkt, block, shardnum, txoff, proof, tx, refs);
 
-	invalidate_block(state, block, pkt);
+	publish_complaint(state, block, pkt, NULL);
 }

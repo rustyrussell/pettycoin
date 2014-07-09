@@ -9,6 +9,7 @@ struct block;
 union protocol_tx;
 struct protocol_input_ref;
 struct protocol_proof;
+struct peer;
 
 /* This can never happen, since there's no way to send an invalid tx. */
 void complain_bad_tx(struct state *state,
@@ -60,4 +61,8 @@ void complain_misorder(struct state *state,
 		       const struct protocol_input_ref *refs,
 		       unsigned int conflict_txoff);
 
+void publish_complaint(struct state *state,
+		       struct block *block,
+		       const void *complaint,
+		       struct peer *origin);
 #endif /* PETTYCOIN_COMPLAIN_H */

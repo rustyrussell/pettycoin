@@ -67,6 +67,6 @@ void send_block_to_peers(struct state *state,
 			 struct peer *exclude,
 			 const struct block *block);
 
-void broadcast_to_peers(struct state *state,
-			const struct protocol_net_hdr *pkt);
+void broadcast_to_peers(struct state *state, const struct protocol_net_hdr *pkt,
+			const struct peer *exclude);
 #endif /* PETTYCOIN_PEER_H */

@@ -220,12 +220,14 @@ void send_block_to_peers(struct state *state,
 	}
 }
 
-void broadcast_to_peers(struct state *state, const struct protocol_net_hdr *pkt)
+void broadcast_to_peers(struct state *state, const struct protocol_net_hdr *pkt,
+			const struct peer *exclude)
 {
 	struct peer *peer;
 
 	list_for_each(&state->peers, peer, list)
-		todo_for_peer(peer, tal_packet_dup(peer, pkt));
+		if (peer != exclude)
+			todo_for_peer(peer, tal_packet_dup(peer, pkt));
 }
 
 static struct protocol_pkt_err *err_pkt(struct peer *peer,
