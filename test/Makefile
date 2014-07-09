@@ -4,7 +4,7 @@ BINS := $(SOURCES:.c=)
 CCANDIR := ../../ccan/
 CFLAGS := -MMD -ggdb -I $(CCANDIR) -Wall -DFASTCHECK
 LDLIBS := -lcrypto -lrt
-CCAN_OBJS := ccan-noerr.o ccan-tal.o ccan-take.o ccan-list.o ccan-read_write_all.o ccan-htable.o ccan-isaac64.o ccan-tal-str.o ccan-str.o ccan-time.o ccan-strmap.o
+CCAN_OBJS := ccan-noerr.o ccan-tal.o ccan-take.o ccan-list.o ccan-read_write_all.o ccan-htable.o ccan-isaac64.o ccan-tal-str.o ccan-str.o ccan-time.o ccan-strmap.o ccan-hash.o
 HELPER_OBJS := $(HELPERS:.c=.o)
 
 # Can't use --leack-check, as openssl leaks?
@@ -29,6 +29,8 @@ ccan-take.o: $(CCANDIR)/ccan/take/take.c
 ccan-list.o: $(CCANDIR)/ccan/list/list.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-read_write_all.o: $(CCANDIR)/ccan/read_write_all/read_write_all.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-hash.o: $(CCANDIR)/ccan/hash/hash.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-htable.o: $(CCANDIR)/ccan/htable/htable.c
 	$(CC) $(CFLAGS) -c -o $@ $<

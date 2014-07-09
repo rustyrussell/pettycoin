@@ -8,6 +8,7 @@
 #include "generating.h"
 #include "hash_block.h"
 #include "hash_tx.h"
+#include "inputhash.h"
 #include "merkle_txs.h"
 #include "overflows.h"
 #include "prev_txhashes.h"
@@ -94,21 +95,8 @@ static void add_tx_to_txhash(struct state *state,
 {
 	struct txhash_elem *te;
 	struct protocol_double_sha sha;
-	struct txhash_iter iter;
 
 	hash_tx(tx_for(shard, txoff), &sha);
-
-	/* It could already be there (alternate chain, or previous
-	 * partial shard which we just overwrote). */
-	for (te = txhash_firstval(&state->txhash, &sha, &iter);
-	     te;
-	     te = txhash_nextval(&state->txhash, &sha, &iter)) {
-		/* Previous partial shard which we just overwrote? */
-		if (te->block == block
-		    && te->shardnum == shard->shardnum
-		    && te->txoff == txoff)
-			return;
-	}
 
 	/* Add a new one for this block. */
 	te = tal(shard, struct txhash_elem);
@@ -120,6 +108,28 @@ static void add_tx_to_txhash(struct state *state,
 	/* FIXME:
 	   tal_add_destructor(te, delete_from_txhash);
 	*/
+}
+
+static void add_tx_to_inputhash(struct state *state,
+				const tal_t *ctx,
+				const union protocol_tx *tx)
+{
+	unsigned int i;
+
+	for (i = 0; i < num_inputs(tx); i++) {
+		struct inputhash_elem *ie;
+		const struct protocol_input *inp = tx_input(tx, i);
+
+		ie = tal(ctx, struct inputhash_elem);
+		ie->output.tx = inp->input;
+		ie->output.output_num = le16_to_cpu(inp->output);
+		hash_tx(tx, &ie->used_by);
+
+		inputhash_add(&state->inputhash, ie);
+		/* FIXME:
+		   tal_add_destructor(ie, delete_from_iehash);
+		*/
+	}
 }
 
 static struct txptr_with_ref dup_txp(const tal_t *ctx,
@@ -232,10 +242,11 @@ void put_tx_in_shard(struct state *state,
 	/* All this work for assertion checking! */
 	if (shard_is_tx(shard, txoff)) {
 		if (tx_for(shard, txoff)) {
+			/* It's already there?  Leave it alone. */
 			assert(memcmp(txp.tx, tx_for(shard, txoff),
 				      marshal_tx_len(txp.tx)
 				      + marshal_input_ref_len(txp.tx)) == 0);
-			shard->txcount--;
+			return;
 		}
 	} else {
 		/* Tx must match hash. */
@@ -250,8 +261,9 @@ void put_tx_in_shard(struct state *state,
 	shard->u[txoff].txp = txp;
 	shard->txcount++;
 
-	/* Record it in the hash. */
+	/* Record it in the hashes. */
 	add_tx_to_txhash(state, block, shard, txoff);
+	add_tx_to_inputhash(state, shard, txp.tx);
 
 	/* If we've just filled it, we don't need proofs any more. */
 	if (shard_all_hashes(shard))

@@ -39,6 +39,10 @@ bool check_proof(const struct protocol_proof *proof,
 /* Generated stub for merkle_txs */
 void merkle_txs(const struct block_shard *shard,
 		struct protocol_double_sha *merkle) { abort(); }
+/* Generated stub for inputhash_hashfn */
+size_t inputhash_hashfn(const struct inputhash_key *key) { abort(); }
+/* Generated stub for inputhash_keyof */
+const struct inputhash_key *inputhash_keyof(const struct inputhash_elem *elem) { abort(); }
 
 struct log *new_log(const tal_t *ctx,
 		    const struct log *parent, const char *prefix,

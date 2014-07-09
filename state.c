@@ -14,6 +14,7 @@
 static void destroy_state(struct state *state)
 {
 	txhash_clear(&state->txhash);
+	inputhash_clear(&state->inputhash);
 	BN_free(&genesis.total_work);
 }
 
@@ -33,6 +34,7 @@ struct state *new_state(bool test_net)
 	s->preferred_chain = &genesis;
 	list_head_init(&s->todo);
 	txhash_init(&s->txhash);
+	inputhash_init(&s->inputhash);
 	s->num_peers = 0;
 	s->num_peers_connected = 0;
 	list_head_init(&s->peers);

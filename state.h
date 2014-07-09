@@ -1,6 +1,7 @@
 #ifndef PETTYCOIN_STATE_H
 #define PETTYCOIN_STATE_H
 #include "config.h"
+#include "inputhash.h"
 #include "log.h"
 #include "peer.h"
 #include "txhash.h"
@@ -47,6 +48,9 @@ struct state {
 
 	/* All transactions. */
 	struct txhash txhash;
+
+	/* All inputs to transactions. */
+	struct inputhash inputhash;
 
 	/* Number of current peers (some may be connecting) */
 	size_t num_peers;
