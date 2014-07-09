@@ -27,6 +27,7 @@ struct todo_request {
 		struct protocol_pkt_get_shard get_shard;
 		struct protocol_pkt_get_children get_children;
 		struct protocol_pkt_get_tx_in_block get_tx_in_block;
+		struct protocol_pkt_get_tx get_tx;
 	} pkt;
 };
 
@@ -48,6 +49,8 @@ void todo_add_get_shard(struct state *state,
 void todo_add_get_tx_in_block(struct state *state,
 			      const struct protocol_double_sha *block,
 			      u16 shardnum, u8 txoff);
+void todo_add_get_tx(struct state *state,
+		     const struct protocol_double_sha *tx);
 void todo_for_peer(struct peer *peer, void *pkt);
 
 /* These decrement peer->requests_outstanding if it was outstanding. */
@@ -63,6 +66,8 @@ void todo_done_get_shard(struct peer *peer,
 void todo_done_get_tx_in_block(struct peer *peer,
 			       const struct protocol_double_sha *block,
 			       u16 shardnum, u8 txoff, bool success);
+void todo_done_get_tx(struct peer *peer,
+		      const struct protocol_double_sha *tx, bool success);
 
 /* Completely forget about related requests (ie. block is invalid) */
 void todo_forget_about_block(struct state *state,
