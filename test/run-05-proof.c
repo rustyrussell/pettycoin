@@ -207,7 +207,7 @@ int main(int argc, char *argv[])
 
 	/* This should all be correct. */
 	check_block_shard(s, b, shard);
-	assert(block_all_known(b, NULL));
+	assert(block_all_known(b));
 
 	/* Create proof for this transaction. */
 	create_proof(&proof, b, shard->shardnum, 0);

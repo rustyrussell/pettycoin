@@ -207,7 +207,7 @@ int main(int argc, char *argv[])
 
 	/* This should all be correct. */
 	check_block_shard(s, b, shard);
-	assert(block_all_known(b, NULL));
+	assert(block_all_known(b));
 
 	prev_txhashes = make_prev_txhashes(s, b, helper_addr(1));
 
@@ -268,7 +268,7 @@ int main(int argc, char *argv[])
 	check_block_shard(s, b2, shard);
 
 	b2->shard[shard->shardnum] = shard;
-	assert(block_all_known(b2, NULL));
+	assert(block_all_known(b2));
 
 	tal_free(s);
 	return 0;

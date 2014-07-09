@@ -57,10 +57,8 @@ struct block *block_find(struct block *start, const u8 lower_sha[4]);
 struct block *block_find_any(struct state *state,
 			     const struct protocol_double_sha *sha);
 
-/* Do we have every tx in this block?
- * If not, tell us about one in shardnum (if non-NULL).
- */
-bool block_all_known(const struct block *block, unsigned int *shardnum);
+/* Do we have every tx in this block? */
+bool block_all_known(const struct block *block);
 
 static inline const struct block *genesis_block(const struct state *state)
 {
