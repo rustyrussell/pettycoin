@@ -51,10 +51,10 @@ union protocol_tx *txhash_gettx(struct txhash *txhash,
 	for (te = txhash_firstval(txhash, sha, &i);
 	     te;
 	     te = txhash_nextval(txhash, sha, &i)) {
-		if (!shard_is_tx(te->block->shard[te->shardnum], te->txoff))
+		if (!shard_is_tx(te->u.block->shard[te->shardnum], te->txoff))
 			continue;
 
-		tx = block_get_tx(te->block, te->shardnum, te->txoff);
+		tx = block_get_tx(te->u.block, te->shardnum, te->txoff);
 		/* Can't be in hash if it doesn't exist. */
 		assert(tx);
 		return tx;
@@ -75,7 +75,7 @@ void txhash_del_tx(struct txhash *txhash,
 	for (te = txhash_firstval(txhash, sha, &i);
 	     te;
 	     te = txhash_nextval(txhash, sha, &i)) {
-		if (te->block == block
+		if (te->u.block == block
 		    && te->shardnum == shard
 		    && te->txoff == txoff) {
 			htable_delval(&txhash->raw, &i.i);
@@ -96,7 +96,7 @@ void txhash_add_tx(struct txhash *txhash,
 
 	/* Add a new one for this block. */
 	te = tal(ctx, struct txhash_elem);
-	te->block = block;
+	te->u.block = block;
 	te->shardnum = shard;
 	te->txoff = txoff;
 	te->sha = *sha;

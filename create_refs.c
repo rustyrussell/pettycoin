@@ -30,7 +30,7 @@ static bool resolve_input(struct state *state,
 		return false;
 
 	/* Don't include any transactions within 1 hour of cutoff. */
-	if (le32_to_cpu(te->block->tailer->timestamp)
+	if (le32_to_cpu(te->u.block->tailer->timestamp)
 	    + PROTOCOL_TX_HORIZON_SECS - CLOSE_TO_HORIZON
 	    < current_time())
 		return false;
@@ -38,7 +38,7 @@ static bool resolve_input(struct state *state,
 	/* Add 1 since this will go into *next* block */
 	ref->blocks_ago = 
 		cpu_to_le32(le32_to_cpu(prev_block->hdr->depth) -
-			    le32_to_cpu(te->block->hdr->depth) + 1);
+			    le32_to_cpu(te->u.block->hdr->depth) + 1);
 	ref->shard = cpu_to_le16(te->shardnum);
 	ref->txoff = te->txoff;
 	ref->unused = 0;

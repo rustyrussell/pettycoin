@@ -94,7 +94,7 @@ void check_block_shard(struct state *state,
 				       == PROTOCOL_ECODE_NONE);
 				/* We are already in hash, so make sure it
 				 * doesn't think we're a double-spend! */
-				me.block = cast_const(struct block *, block);
+				me.u.block = cast_const(struct block *, block);
 				me.shardnum = shard->shardnum;
 				me.txoff = i;
 

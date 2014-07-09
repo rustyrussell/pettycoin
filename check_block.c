@@ -206,18 +206,18 @@ static bool recheck_tx(struct state *state,
 	     te = txhash_nextval(&state->txhash, tx, &iter)) {
 		struct protocol_proof proof;
 
-		assert(!te->block->complaint);
+		assert(!te->u.block->complaint);
 
-		if (!shard_is_tx(te->block->shard[te->shardnum], te->txoff))
+		if (!shard_is_tx(te->u.block->shard[te->shardnum], te->txoff))
 			continue;
 
-		create_proof(&proof, te->block, te->shardnum, te->txoff);
+		create_proof(&proof, te->u.block, te->shardnum, te->txoff);
 		if (!check_tx_inputs_and_refs(state,
-					      te->block, &proof,
-					      block_get_tx(te->block,
+					      te->u.block, &proof,
+					      block_get_tx(te->u.block,
 							   te->shardnum,
 							   te->txoff),
-					      block_get_refs(te->block,
+					      block_get_refs(te->u.block,
 							     te->shardnum,
 							     te->txoff))) {
 			/* Caller will retry... */
@@ -476,17 +476,17 @@ bool check_tx_inputs_and_refs(struct state *state,
 		struct protocol_proof other_proof;
 
 		other = tx_find_doublespend(state, b, NULL, inp);
-		create_proof(&other_proof, other->block, other->shardnum,
+		create_proof(&other_proof, other->u.block, other->shardnum,
 			     other->txoff);
-		other_tx = block_get_tx(other->block, other->shardnum,
+		other_tx = block_get_tx(other->u.block, other->shardnum,
 					other->txoff);
-		other_refs = block_get_refs(other->block, other->shardnum,
+		other_refs = block_get_refs(other->u.block, other->shardnum,
 					    other->txoff);
 
-		if (block_preceeds(other->block, b)) {
+		if (block_preceeds(other->u.block, b)) {
 			/* b is invalid. Tell everyone. */
 			complain_doublespend(state,
-					     other->block,
+					     other->u.block,
 					     find_matching_input(other_tx, inp),
 					     &other_proof, other_tx, other_refs,
 					     b, bad_input_num,
@@ -495,10 +495,10 @@ bool check_tx_inputs_and_refs(struct state *state,
 			return false;
 		}
 
-		/* other->block is invalid.  Tell everyone. */
+		/* other->u.block is invalid.  Tell everyone. */
 		complain_doublespend(state, b,
 				     bad_input_num, proof, tx, refs,
-				     other->block,
+				     other->u.block,
 				     find_matching_input(other_tx, inp),
 				     &other_proof, other_tx, other_refs);
 

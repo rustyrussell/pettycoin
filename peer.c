@@ -464,7 +464,7 @@ static void tell_peer_about_doublespend(struct state *state,
 
 	other = tx_find_doublespend(state, block, NULL,
 				    tx_input(tx, ds_input_num));
-	other_tx = block_get_tx(other->block, other->shardnum, other->txoff);
+	other_tx = block_get_tx(other->u.block, other->shardnum, other->txoff);
 
 	pkt->input2 = cpu_to_le32(find_matching_input(other_tx,
 						tx_input(tx, ds_input_num)));
@@ -573,9 +573,9 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 	for (te = txhash_firstval(&peer->state->txhash, &sha, &it);
 	     te;
 	     te = txhash_nextval(&peer->state->txhash, &sha, &it)) {
-		if (!shard_is_tx(te->block->shard[te->shardnum], te->txoff))
+		if (!shard_is_tx(te->u.block->shard[te->shardnum], te->txoff))
 			try_resolve_hash(peer->state, peer,
-					 te->block, te->shardnum, te->txoff);
+					 te->u.block, te->shardnum, te->txoff);
 	}
 
 	/* Tell everyone. */
@@ -768,19 +768,18 @@ recv_get_tx(struct peer *peer,
 	/* First look for one in a block. */
 	te = txhash_gettx_ancestor(peer->state, &pkt->tx,
 				   peer->state->preferred_chain);
-	if (te && shard_is_tx(te->block->shard[te->shardnum], te->txoff)) {
+	if (te && shard_is_tx(te->u.block->shard[te->shardnum], te->txoff)) {
 		struct protocol_pkt_tx_in_block *r;
 		struct protocol_proof proof;
-		struct block *b = te->block;
 
 		r = tal_packet(peer, struct protocol_pkt_tx_in_block,
 			       PROTOCOL_PKT_TX_IN_BLOCK);
 		r->err = cpu_to_le32(PROTOCOL_ECODE_NONE);
-		tx = block_get_tx(te->block, te->shardnum, te->txoff);
-		create_proof(&proof, b, te->shardnum, te->txoff);
+		tx = block_get_tx(te->u.block, te->shardnum, te->txoff);
+		create_proof(&proof, te->u.block, te->shardnum, te->txoff);
 		tal_packet_append_proof(&r, &proof);
 		tal_packet_append_tx_with_refs(&r, 
-					       tx, block_get_refs(te->block,
+					       tx, block_get_refs(te->u.block,
 								  te->shardnum,
 								  te->txoff));
 		*reply = r;
@@ -1102,9 +1101,9 @@ recv_tx_bad_input(struct peer *peer,
 	     te = txhash_nextval(&peer->state->txhash, &sha, &ti)) {
 		struct protocol_proof proof;
 
-		create_proof(&proof, te->block, te->shardnum, te->txoff);
-		complain_bad_input(peer->state, te->block, &proof, tx,
-				   block_get_refs(te->block, te->shardnum,
+		create_proof(&proof, te->u.block, te->shardnum, te->txoff);
+		complain_bad_input(peer->state, te->u.block, &proof, tx,
+				   block_get_refs(te->u.block, te->shardnum,
 						  te->txoff),
 				   le32_to_cpu(pkt->inputnum), in);
 	}
@@ -1189,9 +1188,9 @@ recv_tx_bad_amount(struct peer *peer,
 	     te = txhash_nextval(&peer->state->txhash, &sha, &ti)) {
 		struct protocol_proof proof;
 
-		create_proof(&proof, te->block, te->shardnum, te->txoff);
-		complain_bad_amount(peer->state, te->block, &proof, tx,
-				    block_get_refs(te->block,
+		create_proof(&proof, te->u.block, te->shardnum, te->txoff);
+		complain_bad_amount(peer->state, te->u.block, &proof, tx,
+				    block_get_refs(te->u.block,
 						   te->shardnum, te->txoff),
 				    in);
 	}
@@ -1263,14 +1262,15 @@ recv_tx_doublespend(struct peer *peer,
 			const union protocol_tx *tx1, *tx2;
 			const struct protocol_input_ref *refs1, *refs2;
 
-			if (block_preceeds(te_a->block, te_b->block)) {
+			if (block_preceeds(te_a->u.block, te_b->u.block)) {
 				te1 = te_a;
 				te2 = te_b;
 				tx1 = tx_a;
 				tx2 = tx_b;
 				input1 = le32_to_cpu(pkt->input1);
 				input2 = le32_to_cpu(pkt->input2);
-			} else if (block_preceeds(te_b->block, te_a->block)) {
+			} else if (block_preceeds(te_b->u.block,
+						  te_a->u.block)) {
 				te1 = te_b;
 				te2 = te_a;
 				tx1 = tx_b;
@@ -1280,22 +1280,22 @@ recv_tx_doublespend(struct peer *peer,
 			} else
 				continue;
 
-			create_proof(&proof1, te1->block, te1->shardnum,
+			create_proof(&proof1, te1->u.block, te1->shardnum,
 				     te1->txoff);
-			create_proof(&proof2, te2->block, te2->shardnum,
+			create_proof(&proof2, te2->u.block, te2->shardnum,
 				     te2->txoff);
 
-			refs1 = block_get_refs(te1->block, te1->shardnum,
+			refs1 = block_get_refs(te1->u.block, te1->shardnum,
 					       te1->txoff);
-			refs2 = block_get_refs(te2->block, te2->shardnum,
+			refs2 = block_get_refs(te2->u.block, te2->shardnum,
 					       te2->txoff);
 
 			/* FIXME: when complain deletes from hash, this
 			 * iteration will be unreliable! */
 			complain_doublespend(peer->state,
-					     te1->block, input1, &proof1, 
+					     te1->u.block, input1, &proof1, 
 					     tx1, refs1,
-					     te2->block, input2, &proof2, 
+					     te2->u.block, input2, &proof2, 
 					     tx2, refs2);
 		}
 	}

@@ -10,7 +10,9 @@
 
 struct txhash_elem {
 	struct protocol_double_sha sha;
-	struct block *block;
+	union {
+		struct block *block;
+	} u;
 	u16 shardnum;
 	u8 txoff; /* Within shard. */
 };

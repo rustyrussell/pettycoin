@@ -64,18 +64,18 @@ struct txhash_elem *tx_find_doublespend(struct state *state,
 		     te;
 		     te = txhash_nextval(&state->txhash, &ie->used_by, &iter)) {
 			/* Are we supposed to ignore this? */
-			if (me && me->block == te->block
+			if (me && me->u.block == te->u.block
 			    && me->shardnum == te->shardnum
 			    && me->txoff == te->txoff)
 				continue;
 
 			/* This could happen if we can't get refs for block. */
-			if (!shard_is_tx(te->block->shard[te->shardnum],
+			if (!shard_is_tx(te->u.block->shard[te->shardnum],
 					 te->txoff))
 				continue;
 
-			if (block_preceeds(te->block, block)
-			    || block_preceeds(block, te->block))
+			if (block_preceeds(te->u.block, block)
+			    || block_preceeds(block, te->u.block))
 				return te;
 		}
 	}

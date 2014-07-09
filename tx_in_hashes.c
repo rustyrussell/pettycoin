@@ -74,7 +74,7 @@ struct txhash_elem *txhash_gettx_ancestor(struct state *state,
 	for (te = txhash_firstval(&state->txhash, sha, &iter);
 	     te;
 	     te = txhash_nextval(&state->txhash, sha, &iter)) {
-		if (block_preceeds(te->block, block))
+		if (block_preceeds(te->u.block, block))
 			break;
 	}
 	return te;
