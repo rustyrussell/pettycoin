@@ -135,7 +135,7 @@ static void try_resolve_hashes(struct state *state,
 		txp = find_pending_tx_with_ref(shard, state, block, shardnum,
 					       shard->u[i].hash);
 		if (txp.tx) {
-			put_tx_in_block(state, block, shard, i, txp);
+			put_tx_in_shard(state, block, shard, i, txp);
 		} else if (add_todos) {
 			todo_add_get_tx_in_block(state, &block->sha, shardnum,
 						 i);

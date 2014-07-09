@@ -200,7 +200,7 @@ static void copy_old_txs(struct state *state,
 			continue;
 
 		/* It's probably not a talloc pointer, so copy! */
-		put_tx_in_block(state, block, new, i,
+		put_tx_in_shard(state, block, new, i,
 				dup_txp(new, old->u[i].txp));
 	}
 }
@@ -234,7 +234,7 @@ static void check_tx_ordering(struct state *state,
 		complain_misorder(state, block, shard->shardnum, a, b);
 }
 
-void put_tx_in_block(struct state *state,
+void put_tx_in_shard(struct state *state,
 		     struct block *block,
 		     struct block_shard *shard, u8 txoff,
 		     struct txptr_with_ref txp)

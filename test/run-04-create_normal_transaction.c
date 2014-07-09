@@ -164,7 +164,7 @@ int main(int argc, char *argv[])
 	/* Put the single tx into a shard. */
 	shard = new_block_shard(s, update.shard, 1);
 	b->shard[shard->shardnum] = shard;
-	put_tx_in_block(s, b, shard, 0, txptr_with_ref(shard, t, refs));
+	put_tx_in_shard(s, b, shard, 0, txptr_with_ref(shard, t, refs));
 
 	/* This should all be correct. */
 	check_block_shard(s, b, shard);
@@ -219,7 +219,7 @@ int main(int argc, char *argv[])
 	/* Put the single tx into a shard. */
 	shard = new_block_shard(s, update.shard, 1);
 	b2->shard[shard->shardnum] = shard;
-	put_tx_in_block(s, b2, shard, 0, txptr_with_ref(shard, t, refs));
+	put_tx_in_shard(s, b2, shard, 0, txptr_with_ref(shard, t, refs));
 
 	/* Should work */
 	check_block_shard(s, b2, shard);

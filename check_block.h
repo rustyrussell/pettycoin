@@ -38,7 +38,7 @@ void put_shard_of_hashes_into_block(struct state *state,
 				    struct block_shard *shard);
 
 /* May add complaint if it's out of order. */
-void put_tx_in_block(struct state *state,
+void put_tx_in_shard(struct state *state,
 		     struct block *block,
 		     struct block_shard *shard, u8 txoff,
 		     const struct txptr_with_ref txp);
