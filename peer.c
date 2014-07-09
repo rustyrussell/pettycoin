@@ -439,8 +439,9 @@ tell_peer_about_bad_input(struct state *state,
 			 PROTOCOL_PKT_TX_BAD_INPUT);
 	pkt->inputnum = cpu_to_le32(bad_input_num);
 
+	/* Doesn't matter if input is pending or in block. */
 	bad_tx = txhash_gettx(&state->txhash,
-			      &tx_input(tx, bad_input_num)->input);
+			      &tx_input(tx, bad_input_num)->input, TX_PENDING);
 
 	tal_packet_append_tx(&pkt, tx);
 	tal_packet_append_tx(&pkt, bad_tx);
@@ -464,7 +465,8 @@ static void tell_peer_about_doublespend(struct state *state,
 
 	other = tx_find_doublespend(state, block, NULL,
 				    tx_input(tx, ds_input_num));
-	other_tx = block_get_tx(other->u.block, other->shardnum, other->txoff);
+	/* Can't be NULL, since tx_find_doublespend cant't match hash-only */
+	other_tx = txhash_tx(other);
 
 	pkt->input2 = cpu_to_le32(find_matching_input(other_tx,
 						tx_input(tx, ds_input_num)));
@@ -493,10 +495,9 @@ tell_peer_about_bad_amount(struct state *state,
 
 	tal_packet_append_tx(&pkt, tx);
 
-	/* FIXME: What if input still pending, not in txhash? */
 	for (i = 0; i < le32_to_cpu(tx->normal.num_inputs); i++) {
-		union protocol_tx *input;
-		input = txhash_gettx(&state->txhash, &inp[i].input);
+		const union protocol_tx *input;
+		input = txhash_gettx(&state->txhash, &inp[i].input, TX_PENDING);
 		tal_packet_append_tx(&pkt, input);
 	}
 
@@ -573,6 +574,10 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 	for (te = txhash_firstval(&peer->state->txhash, &sha, &it);
 	     te;
 	     te = txhash_nextval(&peer->state->txhash, &sha, &it)) {
+		/* We expect to find outselves in pending. */
+		if (te->status != TX_IN_BLOCK)
+			continue;
+
 		if (!shard_is_tx(te->u.block->shard[te->shardnum], te->txoff))
 			try_resolve_hash(peer->state, peer,
 					 te->u.block, te->shardnum, te->txoff);
@@ -1045,8 +1050,9 @@ verify_problem_input(struct state *state,
 
 	pubkey_to_addr(&tx->normal.input_key, &tx_addr);
 
-	*ierr = check_one_input(state, NULL, NULL,
-				input, in, &tx_addr, &amount);
+	/* We don't check for doublespends here. */
+	*ierr = check_one_input(state, NULL, NULL, input, in, &tx_addr,
+				&amount);
 	if (total)
 		*total += amount;
 	return PROTOCOL_ECODE_NONE;
@@ -1100,6 +1106,9 @@ recv_tx_bad_input(struct peer *peer,
 	     te;
 	     te = txhash_nextval(&peer->state->txhash, &sha, &ti)) {
 		struct protocol_proof proof;
+
+		if (te->status != TX_IN_BLOCK)
+			continue;
 
 		create_proof(&proof, te->u.block, te->shardnum, te->txoff);
 		complain_bad_input(peer->state, te->u.block, &proof, tx,
@@ -1188,6 +1197,9 @@ recv_tx_bad_amount(struct peer *peer,
 	     te = txhash_nextval(&peer->state->txhash, &sha, &ti)) {
 		struct protocol_proof proof;
 
+		if (te->status != TX_IN_BLOCK)
+			continue;
+
 		create_proof(&proof, te->u.block, te->shardnum, te->txoff);
 		complain_bad_amount(peer->state, te->u.block, &proof, tx,
 				    block_get_refs(te->u.block,
@@ -1253,6 +1265,10 @@ recv_tx_doublespend(struct peer *peer,
 	for (te_a = txhash_firstval(&peer->state->txhash, &sha_a, &ti_a);
 	     te_a;
 	     te_a = txhash_nextval(&peer->state->txhash, &sha_a, &ti_a)) {
+
+		if (te_a->status != TX_IN_BLOCK)
+			continue;
+
 		for (te_b = txhash_firstval(&peer->state->txhash, &sha_b,&ti_b);
 		     te_b;
 		     te_b = txhash_nextval(&peer->state->txhash,&sha_b,&ti_b)) {
@@ -1261,6 +1277,9 @@ recv_tx_doublespend(struct peer *peer,
 			unsigned int input1, input2;
 			const union protocol_tx *tx1, *tx2;
 			const struct protocol_input_ref *refs1, *refs2;
+
+			if (te_b->status != TX_IN_BLOCK)
+				continue;
 
 			if (block_preceeds(te_a->u.block, te_b->u.block)) {
 				te1 = te_a;

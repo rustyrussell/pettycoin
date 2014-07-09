@@ -38,8 +38,9 @@ struct txhash_elem *txhash_nextval(struct txhash *txhash,
 }
 
 /* Get the actual transaction, we don't care about which block it's in */
-union protocol_tx *txhash_gettx(struct txhash *txhash,
-				const struct protocol_double_sha *sha)
+const union protocol_tx *txhash_gettx(struct txhash *txhash,
+				      const struct protocol_double_sha *sha,
+				      enum tx_status in_block)
 {
 	struct txhash_iter i;
 	struct txhash_elem *te;
@@ -51,6 +52,13 @@ union protocol_tx *txhash_gettx(struct txhash *txhash,
 	for (te = txhash_firstval(txhash, sha, &i);
 	     te;
 	     te = txhash_nextval(txhash, sha, &i)) {
+		/* If it's pending, are we supposed to ignore it? */
+		if (te->status == TX_PENDING) {
+			if (in_block == TX_IN_BLOCK)
+				continue;
+			return te->u.tx;
+		}
+
 		if (!shard_is_tx(te->u.block->shard[te->shardnum], te->txoff))
 			continue;
 
@@ -64,9 +72,10 @@ union protocol_tx *txhash_gettx(struct txhash *txhash,
 }
 
 void txhash_del_tx(struct txhash *txhash,
-		   struct block *block,
+		   union txhash_block_or_tx block_or_tx,
 		   u16 shard,
 		   u8 txoff,
+		   enum tx_status status,
 		   const struct protocol_double_sha *sha)
 {
 	struct txhash_iter i;
@@ -75,30 +84,48 @@ void txhash_del_tx(struct txhash *txhash,
 	for (te = txhash_firstval(txhash, sha, &i);
 	     te;
 	     te = txhash_nextval(txhash, sha, &i)) {
-		if (te->u.block == block
-		    && te->shardnum == shard
-		    && te->txoff == txoff) {
-			htable_delval(&txhash->raw, &i.i);
-			tal_free(te);
+		if (te->shardnum != shard
+		    || te->txoff != txoff
+		    || te->status != status)
+			continue;
+
+		/* Comparison of union depends on type. */
+		switch (status) {
+		case TX_IN_BLOCK:
+			if (te->u.block != block_or_tx.block)
+				continue;
+			break;
+		case TX_PENDING:
+			if (marshal_tx_len(te->u.tx)
+			    != marshal_tx_len(block_or_tx.tx))
+				continue;
+			if (memcmp(te->u.tx, block_or_tx.tx,
+				   marshal_tx_len(te->u.tx)) != 0)
+				continue;
 			break;
 		}
+		htable_delval(&txhash->raw, &i.i);
+		tal_free(te);
+		break;
 	}
 }
 
 void txhash_add_tx(struct txhash *txhash,
 		   const tal_t *ctx,
-		   struct block *block,
+		   union txhash_block_or_tx block_or_tx,
 		   u16 shard,
 		   u8 txoff,
+		   enum tx_status status,
 		   const struct protocol_double_sha *sha)
 {
 	struct txhash_elem *te;
 
 	/* Add a new one for this block. */
 	te = tal(ctx, struct txhash_elem);
-	te->u.block = block;
 	te->shardnum = shard;
 	te->txoff = txoff;
+	te->status = status;
+	te->u = block_or_tx;
 	te->sha = *sha;
 	txhash_add(txhash, te);
 }

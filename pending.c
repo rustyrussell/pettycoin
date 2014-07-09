@@ -8,6 +8,7 @@
 #include "shard.h"
 #include "state.h"
 #include "timestamp.h"
+#include "tx.h"
 #include "tx_cmp.h"
 #include "tx_in_hashes.h"
 #include <ccan/array_size/array_size.h>
@@ -157,14 +158,17 @@ void recheck_pending_txs(struct state *state)
 		unsigned int i;
 
 		for (i = 0; i < tal_count(pend); i++) {
+			remove_pending_tx_from_hashes(state, pend[i]->tx);
 			txs[total++] = tal_steal(txs, pend[i]->tx);
 		}
 	}
 
 	/* And last we move the unknown ones. */
 	while ((utx = list_pop(&state->pending->unknown_tx,
-			       struct pending_unknown_tx, list)) != NULL)
+			       struct pending_unknown_tx, list)) != NULL) {
+		remove_pending_tx_from_hashes(state, utx->tx);
 		txs[total++] = tal_steal(txs, utx->tx);
+	}
 
 	assert(total == unknown + known);
 
@@ -211,6 +215,29 @@ void steal_pending_txs(struct state *state,
 	recheck_pending_txs(state);
 }
 
+static bool find_pending_doublespend(struct state *state,
+				     const union protocol_tx *tx)
+{
+	unsigned int i;
+
+	for (i = 0; i < num_inputs(tx); i++) {
+		struct inputhash_elem *ie;
+		struct inputhash_iter iter;
+		const struct protocol_input *inp = tx_input(tx, i);
+
+		for (ie = inputhash_firstval(&state->inputhash, &inp->input,
+				     le16_to_cpu(inp->output), &iter);
+		     ie;
+		     ie = inputhash_nextval(&state->inputhash, &inp->input,
+					    le16_to_cpu(inp->output), &iter)) {
+			/* OK, is the tx which spend it pending? */
+			if (txhash_get_pending_tx(state, &ie->used_by))
+				return true;
+		}
+	}
+	return false;
+}
+
 enum input_ecode add_pending_tx(struct state *state,
 				const union protocol_tx *tx,
 				const struct protocol_double_sha *sha,
@@ -223,18 +250,32 @@ enum input_ecode add_pending_tx(struct state *state,
 	if (txhash_gettx_ancestor(state, sha, state->longest_knowns[0]))
 		return ECODE_INPUT_OK;
 
-	/* We check inputs for where *we* would mine it. */
+	/* If we already have it in pending, don't re-add. */
+	if (txhash_get_pending_tx(state, sha))
+		return ECODE_INPUT_OK;
+
+	/* We check inputs for where *we* would mine it.
+	 * We currently don't allow two dependent txs in the same block,
+	 * so only resolve inputs in the chain. */
 	ierr = check_tx_inputs(state, state->longest_knowns[0],
 			       NULL, tx, bad_input_num);
+
+	if (ierr == ECODE_INPUT_OK) {
+		/* But that doesn't find doublespends in *pending*. */
+		if (find_pending_doublespend(state, tx))
+			ierr = ECODE_INPUT_DOUBLESPEND;
+	}
 
 	switch (ierr) {
 	case ECODE_INPUT_OK:
 		/* If it overflows, pretend it's unknown. */
 		if (!insert_pending_tx(state, tx))
 			add_to_unknown_pending(state, tx);
+		add_pending_tx_to_hashes(state, state->pending, tx);
 		break;
 	case ECODE_INPUT_UNKNOWN:
 		add_to_unknown_pending(state, tx);
+		add_pending_tx_to_hashes(state, state->pending, tx);
 		break;
 	case ECODE_INPUT_BAD:
 	case ECODE_INPUT_BAD_AMOUNT:

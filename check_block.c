@@ -12,6 +12,7 @@
 #include "inputhash.h"
 #include "merkle_txs.h"
 #include "overflows.h"
+#include "pending.h"
 #include "prev_txhashes.h"
 #include "proof.h"
 #include "protocol.h"
@@ -196,7 +197,8 @@ bool check_tx_ordering(struct state *state,
 
 /* An input for this has been resolved; check it again. */
 static bool recheck_tx(struct state *state,
-		       const struct protocol_double_sha *tx)
+		       const struct protocol_double_sha *tx,
+		       bool *pending_affected)
 {
 	struct txhash_iter iter;
 	struct txhash_elem *te;
@@ -206,6 +208,10 @@ static bool recheck_tx(struct state *state,
 	     te = txhash_nextval(&state->txhash, tx, &iter)) {
 		struct protocol_proof proof;
 
+		if (te->status == TX_PENDING) {
+			*pending_affected = true;
+			continue;
+		}
 		assert(!te->u.block->complaint);
 
 		if (!shard_is_tx(te->u.block->shard[te->shardnum], te->txoff))
@@ -233,6 +239,7 @@ static void check_resolved_txs(struct state *state,
 {
 	unsigned int i;
 	struct protocol_double_sha sha;
+	bool pending_affected = false;
 
 	hash_tx(tx, &sha);
 
@@ -245,10 +252,14 @@ static void check_resolved_txs(struct state *state,
 		for (ie = inputhash_firstval(&state->inputhash, &sha, i, &it);
 		     ie;
 		     ie = inputhash_nextval(&state->inputhash, &sha, i, &it)) {
-			if (!recheck_tx(state, &ie->used_by))
+			if (!recheck_tx(state, &ie->used_by, &pending_affected))
 				goto again;
 		}
 	}
+
+	/* Need to recheck pending: FIXME: This is overkill! */
+	if (pending_affected)
+		recheck_pending_txs(state);
 }
 
 void put_tx_in_shard(struct state *state,
@@ -447,10 +458,11 @@ bool check_tx_inputs_and_refs(struct state *state,
 		/* We accept TXs with unknown inputs. */
 		break;
 	case ECODE_INPUT_BAD: {
-		union protocol_tx *input;
+		const union protocol_tx *input;
 
 		input = txhash_gettx(&state->txhash,
-				     &tx_input(tx, bad_input_num)->input);
+				     &tx_input(tx, bad_input_num)->input,
+				     TX_IN_BLOCK);
 		/* This whole block is invalid.  Tell everyone. */
 		complain_bad_input(state, b, proof, tx, refs,
 				   bad_input_num, input);
@@ -462,7 +474,8 @@ bool check_tx_inputs_and_refs(struct state *state,
 
 		for (i = 0; i < num_inputs(tx); i++)
 			inputs[i] = txhash_gettx(&state->txhash,
-						 &tx_input(tx, i)->input);
+						 &tx_input(tx, i)->input,
+						 TX_IN_BLOCK);
 
 		/* This whole block is invalid.  Tell everyone. */
 		complain_bad_amount(state, b, proof, tx, refs, inputs);
@@ -476,6 +489,7 @@ bool check_tx_inputs_and_refs(struct state *state,
 		struct protocol_proof other_proof;
 
 		other = tx_find_doublespend(state, b, NULL, inp);
+		assert(other->status == TX_IN_BLOCK);
 		create_proof(&other_proof, other->u.block, other->shardnum,
 			     other->txoff);
 		other_tx = block_get_tx(other->u.block, other->shardnum,

@@ -43,6 +43,7 @@ check_tx_normal_basic(struct state *state, const struct protocol_tx_normal *ntx)
 	return PROTOCOL_ECODE_NONE;
 }
 
+/* Searches for a spend of this input <= block */
 struct txhash_elem *tx_find_doublespend(struct state *state,
 					const struct block *block,
 					const struct txhash_elem *me,
@@ -63,6 +64,9 @@ struct txhash_elem *tx_find_doublespend(struct state *state,
 		for (te = txhash_firstval(&state->txhash, &ie->used_by, &iter);
 		     te;
 		     te = txhash_nextval(&state->txhash, &ie->used_by, &iter)) {
+			if (te->status == TX_PENDING)
+				continue;
+
 			/* Are we supposed to ignore this? */
 			if (me && me->u.block == te->u.block
 			    && me->shardnum == te->shardnum
@@ -138,9 +142,9 @@ normal:
 		u32 amount;
 		enum input_ecode e;
 		const struct protocol_input *inp = tx_input(tx, i);
-		union protocol_tx *intx;
+		const union protocol_tx *intx;
 
-		intx = txhash_gettx(&state->txhash, &inp->input);
+		intx = txhash_gettx(&state->txhash, &inp->input, TX_IN_BLOCK);
 		if (!intx) {
 			/* We keep searching for worse errors. */
 			*bad_input_num = i;

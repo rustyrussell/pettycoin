@@ -104,6 +104,8 @@ void complain_doublespend(struct state *state,
 			  const struct protocol_proof *proof2,
 			  const union protocol_tx *tx2,
 			  const struct protocol_input_ref *refs2) { fprintf(stderr, "complain_doublespend called!\n"); abort(); }
+/* Generated stub for recheck_pending_txs */
+void recheck_pending_txs(struct state *state) { fprintf(stderr, "recheck_pending_txs called!\n"); abort(); }
 /* Generated stub for todo_add_get_tx */
 void todo_add_get_tx(struct state *state,
 		     const struct protocol_double_sha *tx) { fprintf(stderr, "todo_add_get_tx called!\n"); abort(); }

@@ -8,13 +8,20 @@
 #include <limits.h>
 #include <string.h>
 
+enum tx_status {
+	TX_IN_BLOCK,
+	TX_PENDING
+};
+
 struct txhash_elem {
 	struct protocol_double_sha sha;
-	union {
-		struct block *block;
+	union txhash_block_or_tx {
+		struct block *block;		/* if status == TX_IN_BLOCK */
+		const union protocol_tx *tx;	/* if status == TX_PENDING */
 	} u;
 	u16 shardnum;
 	u8 txoff; /* Within shard. */
+	u8 status;
 };
 
 static inline const struct protocol_double_sha *
@@ -54,20 +61,23 @@ struct txhash_elem *txhash_nextval(struct txhash *txhash,
 				   struct txhash_iter *i);
 
 /* Get the actual transaction, we don't care about which block it's in */
-union protocol_tx *txhash_gettx(struct txhash *txhash,
-				const struct protocol_double_sha *);
+const union protocol_tx *txhash_gettx(struct txhash *txhash,
+				      const struct protocol_double_sha *sha,
+				      enum tx_status in_block);
 
 void txhash_add_tx(struct txhash *txhash,
 		   const tal_t *ctx,
-		   struct block *block,
+		   union txhash_block_or_tx block_or_tx,
 		   u16 shard,
 		   u8 txoff,
+		   enum tx_status status,
 		   const struct protocol_double_sha *sha);
 
 void txhash_del_tx(struct txhash *txhash,
-		   struct block *block,
+		   union txhash_block_or_tx block_or_tx,
 		   u16 shard,
 		   u8 txoff,
+		   enum tx_status status,
 		   const struct protocol_double_sha *sha);
 
 #endif /* PETTYCOIN_TXHASH_H */

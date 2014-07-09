@@ -163,6 +163,8 @@ bool try_resolve_hash(struct state *state,
 
 	assert(!shard_is_tx(shard, txoff));
 
+	
+
 	/* FIXME: Search peer blocks too? */
 	txp = find_pending_tx_with_ref(shard, state, block, shardnum,
 				       shard->u[txoff].hash);

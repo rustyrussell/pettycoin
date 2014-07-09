@@ -2,6 +2,7 @@
 #define PETTYCOIN_CHECK_TX_H
 #include "config.h"
 #include "protocol_net.h"
+#include "txhash.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -38,6 +39,8 @@ enum input_ecode {
 	ECODE_INPUT_DOUBLESPEND
 };
 
+/* Note that this won't resolve inputs which are pending: you'll get
+ * ECODE_INPUT_UNKNOWN and must resolve yourself. */
 enum input_ecode check_tx_inputs(struct state *state,
 				 const struct block *block,
 				 const struct txhash_elem *me,
@@ -53,9 +56,9 @@ enum input_ecode check_one_input(struct state *state,
 				 const struct protocol_address *my_addr,
 				 u32 *amount);
 
-/* Gets result if above return ECODE_INPUT_DOUBLESPEND */
+/* Gets result if above return ECODE_INPUT_DOUBLESPEND. */
 struct txhash_elem *tx_find_doublespend(struct state *state,
 					const struct block *block,
-					const struct txhash_elem *ignore,
+					const struct txhash_elem *me,
 					const struct protocol_input *inp);
 #endif /* PETTYCOIN_CHECK_TX_H */
