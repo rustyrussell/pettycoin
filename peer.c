@@ -1166,11 +1166,11 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 		break;
 
 	/* FIXME: Implement complaints. */
-	case PROTOCOL_PKT_BLOCK_TX_MISORDER:
-	case PROTOCOL_PKT_BLOCK_TX_INVALID:
-	case PROTOCOL_PKT_BLOCK_TX_BAD_INPUT:
-	case PROTOCOL_PKT_BLOCK_BAD_INPUT_REF:
-	case PROTOCOL_PKT_BLOCK_TX_BAD_AMOUNT:
+	case PROTOCOL_PKT_COMPLAIN_TX_MISORDER:
+	case PROTOCOL_PKT_COMPLAIN_TX_INVALID:
+	case PROTOCOL_PKT_COMPLAIN_TX_BAD_INPUT:
+	case PROTOCOL_PKT_COMPLAIN_TX_BAD_AMOUNT:
+	case PROTOCOL_PKT_COMPLAIN_BAD_INPUT_REF:
 
 	/* These should not be used after sync. */
 	case PROTOCOL_PKT_WELCOME:

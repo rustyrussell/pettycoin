@@ -51,7 +51,7 @@ void complain_bad_input(struct state *state,
 			unsigned int bad_input,
 			const union protocol_tx *intx)
 {
-	struct protocol_pkt_block_tx_bad_input *pkt;
+	struct protocol_pkt_complain_tx_bad_input *pkt;
 
 	assert(le32_to_cpu(tx->hdr.type) == TX_NORMAL);
 	log_unusual(state->log, "Block %u ", le32_to_cpu(block->hdr->depth));
@@ -62,8 +62,8 @@ void complain_bad_input(struct state *state,
 	log_add(state->log, " with bad input %u ", bad_input);
 	log_add_struct(state->log, union protocol_tx, intx);
 
-	pkt = tal_packet(block, struct protocol_pkt_block_tx_bad_input,
-			 PROTOCOL_PKT_BLOCK_TX_BAD_INPUT);
+	pkt = tal_packet(block, struct protocol_pkt_complain_tx_bad_input,
+			 PROTOCOL_PKT_COMPLAIN_TX_BAD_INPUT);
 	pkt->inputnum = cpu_to_le32(bad_input);
 
 	tal_packet_append_proof(&pkt, block, shardnum, txoff, proof, tx, refs);
@@ -80,7 +80,7 @@ void complain_bad_amount(struct state *state,
 			 const struct protocol_input_ref *refs,
 			 const union protocol_tx *intx[])
 {
-	struct protocol_pkt_block_tx_bad_amount *pkt;
+	struct protocol_pkt_complain_tx_bad_amount *pkt;
 	unsigned int i;
 
 	assert(le32_to_cpu(tx->hdr.type) == TX_NORMAL);
@@ -91,8 +91,8 @@ void complain_bad_amount(struct state *state,
 	log_add_struct(state->log, union protocol_tx, tx);
 	log_add(state->log, " with inputs: ");
 
-	pkt = tal_packet(block, struct protocol_pkt_block_tx_bad_amount,
-			 PROTOCOL_PKT_BLOCK_TX_BAD_AMOUNT);
+	pkt = tal_packet(block, struct protocol_pkt_complain_tx_bad_amount,
+			 PROTOCOL_PKT_COMPLAIN_TX_BAD_AMOUNT);
 	tal_packet_append_proof(&pkt, block, shardnum, txoff, proof,
 				tx, refs);
 
@@ -118,7 +118,7 @@ void complain_misorder(struct state *state,
 		       const struct protocol_input_ref *refs,
 		       unsigned int conflict_txoff)
 {
-	struct protocol_pkt_block_tx_misorder *pkt;
+	struct protocol_pkt_complain_tx_misorder *pkt;
 	const union protocol_tx *conflict_tx;
 	const struct protocol_input_ref *conflict_refs;
 	struct protocol_proof conflict_proof;
@@ -134,8 +134,8 @@ void complain_misorder(struct state *state,
 	log_add(state->log, " vs ");
 	log_add_struct(state->log, union protocol_tx, tx);
 
-	pkt = tal_packet(block, struct protocol_pkt_block_tx_misorder,
-			 PROTOCOL_PKT_BLOCK_TX_MISORDER);
+	pkt = tal_packet(block, struct protocol_pkt_complain_tx_misorder,
+			 PROTOCOL_PKT_COMPLAIN_TX_MISORDER);
 	tal_packet_append_proof(&pkt, block, shardnum, txoff, proof, tx, refs);
 
 	create_proof(&conflict_proof, block->shard[shardnum], conflict_txoff);
@@ -155,7 +155,7 @@ void complain_bad_input_ref(struct state *state,
 			    unsigned int bad_refnum,
 			    const struct block *block_referred_to)
 {
-	struct protocol_pkt_block_bad_input_ref *pkt;	
+	struct protocol_pkt_complain_bad_input_ref *pkt;	
 	const struct protocol_input_ref *bad_ref;
 	struct protocol_proof ref_proof;
 	const union protocol_tx *bad_intx;
@@ -178,8 +178,8 @@ void complain_bad_input_ref(struct state *state,
 		le16_to_cpu(bad_ref->shard), bad_ref->txoff);
 	log_add_struct(state->log, union protocol_tx, bad_intx);
 
-	pkt = tal_packet(block, struct protocol_pkt_block_bad_input_ref,
-			 PROTOCOL_PKT_BLOCK_BAD_INPUT_REF);
+	pkt = tal_packet(block, struct protocol_pkt_complain_bad_input_ref,
+			 PROTOCOL_PKT_COMPLAIN_BAD_INPUT_REF);
 	pkt->inputnum = cpu_to_le32(bad_refnum);
 
 	/* This is the tx which has the bad reference. */
@@ -205,7 +205,7 @@ void complain_bad_tx(struct state *state,
 		     const union protocol_tx *tx,
 		     const struct protocol_input_ref *refs)
 {
-	struct protocol_pkt_block_tx_invalid *pkt;
+	struct protocol_pkt_complain_tx_invalid *pkt;
 
 	switch (err) {
 	case PROTOCOL_ECODE_TX_HIGH_VERSION:
@@ -239,8 +239,8 @@ void complain_bad_tx(struct state *state,
 	log_add_enum(state->log, enum protocol_ecode, err);
 	/* FIXME: Would be nice to log something about invalid tx! */
 
-	pkt = tal_packet(block, struct protocol_pkt_block_tx_invalid,
-			 PROTOCOL_PKT_BLOCK_TX_INVALID);
+	pkt = tal_packet(block, struct protocol_pkt_complain_tx_invalid,
+			 PROTOCOL_PKT_COMPLAIN_TX_INVALID);
 	pkt->error = cpu_to_le32(err);
 
 	tal_packet_append_proof(&pkt, block, shardnum, txoff, proof, tx, refs);

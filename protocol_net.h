@@ -60,11 +60,11 @@ enum protocol_pkt_type {
 	PROTOCOL_PKT_TX_BAD_AMOUNT,
 
 	/* Various complaints about a block. */
-	PROTOCOL_PKT_BLOCK_TX_MISORDER,
-	PROTOCOL_PKT_BLOCK_TX_INVALID,
-	PROTOCOL_PKT_BLOCK_TX_BAD_INPUT,
-	PROTOCOL_PKT_BLOCK_BAD_INPUT_REF,
-	PROTOCOL_PKT_BLOCK_TX_BAD_AMOUNT,
+	PROTOCOL_PKT_COMPLAIN_TX_MISORDER,
+	PROTOCOL_PKT_COMPLAIN_TX_INVALID,
+	PROTOCOL_PKT_COMPLAIN_TX_BAD_INPUT,
+	PROTOCOL_PKT_COMPLAIN_BAD_INPUT_REF,
+	PROTOCOL_PKT_COMPLAIN_TX_BAD_AMOUNT,
 
 	/* This is used to pad a packet. */
 	PROTOCOL_PKT_PIGGYBACK,
@@ -167,73 +167,6 @@ struct protocol_pkt_block {
 	 * If PROTOCOL_ECODE_UNKNOWN_BLOCK: SHA of block. */
 };
 
-/* This block contains an invalid transaction. */
-struct protocol_pkt_block_tx_invalid {
-	le32 len; /* sizeof(struct protocol_req_block_tx_invalid) */
-	le32 type; /* PROTOCOL_REQ_BLOCK_TX_INVALID */
-
-	/* What is wrong with it, one of:
-	 *  PROTOCOL_ECODE_TX_HIGH_VERSION
-	 *  PROTOCOL_ECODE_TX_LOW_VERSION
-	 *  PROTOCOL_ECODE_TX_TYPE_UNKNOWN
-	 *  PROTOCOL_ECODE_TX_BAD_GATEWAY
-	 *  PROTOCOL_ECODE_TX_CROSS_SHARDS
-	 *  PROTOCOL_ECODE_TX_TOO_LARGE
-	 *  PROTOCOL_ECODE_TX_BAD_SIG
-	 *  PROTOCOL_ECODE_TX_TOO_MANY_INPUTS
-	 *  PROTOCOL_ECODE_SHARD_BAD_INPUT_REF
-	 */
-	le32 error;
-
-	/*
-	  struct protocol_trans_with_proof proof;
-	*/
-};
-
-/* This block contains an transaction with an invalid input,
- * ie PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF. */
-struct protocol_pkt_block_tx_bad_input {
-	le32 len; /* sizeof(struct protocol_req_block_tx_bad_input) */
-	le32 type; /* PROTOCOL_REQ_BLOCK_TX_BAD_INPUT */
-
-	/* Input I am referring to. */
-	le32 inputnum;
-
-	/*
-	  struct protocol_tx_with_proof proof;
-	  union protocol_tx input;
-	*/
-};
-
-/* This block contains an input ref with an invalid input (wrong trans!)
- * ie PROTOCOL_ECODE_PRIV_BLOCK_BAD_INPUT_REF_TX. */
-struct protocol_pkt_block_bad_input_ref {
-	le32 len; /* sizeof(struct protocol_pkt_block_bad_input_ref) */
-	le32 type; /* PROTOCOL_PKT_BLOCK_BAD_INPUT_REF */
-
-	/* Input of transaction I am referring to. */
-	le32 inputnum;
-
-	/*
-	  struct protocol_tx_with_proof tx;
-	  struct protocol_tx_with_proof input;
-	  FIXME: Only need the proof of input hash, not actual tx.
-	*/
-};
-
-/* This block contains an transaction with an invalid total,
- * ie PROTOCOL_ECODE_TRANS_BAD_AMOUNTS. */
-struct protocol_pkt_block_tx_bad_amount {
-	le32 len; /* sizeof(struct protocol_req_block_tx_bad_amount) */
-	le32 type; /* PROTOCOL_REQ_BLOCK_TX_BAD_AMOUNT */
-
-	/*
-	  struct protocol_trans_with_proof proof;
-	  The inputs:
-	     union protocol_tx input[t->normal.num_inputs];
-	*/
-};
-
 struct protocol_net_txrefhash {
 	struct protocol_double_sha txhash;
 	struct protocol_double_sha refhash;
@@ -263,17 +196,6 @@ struct protocol_pkt_tx_in_block {
 
 	/* struct protocol_tx_with_proof, or if ecode, just
 	 * struct protocol_position. */
-};
-
-/* This block contains out-of-order transaction. */
-struct protocol_pkt_block_tx_misorder {
-	le32 len; /* sizeof(struct protocol_pkt_block_tx_misorder) */
-	le32 type; /* PROTOCOL_PKT_BLOCK_TX_MISORDER */
-
-	/* These must refer to the same block!
-	  struct protocol_trans_with_proof proof1;
-	  struct protocol_trans_with_proof proof2;
-	*/
 };
 
 struct protocol_pkt_tx {
@@ -358,7 +280,7 @@ struct protocol_pkt_get_shard {
 	le16 unused;
 };
 
-/* For syncing: what transactions should we know about? */
+/* What transactions should we know about outside our normal shards? */
 struct protocol_pkt_get_txmap {
 	le32 len; /* sizeof(struct protocol_pkt_get_txmap) */
 	le32 type; /* PROTOCOL_PKT_GET_TXMAP */
@@ -368,7 +290,7 @@ struct protocol_pkt_get_txmap {
 	le16 unused;
 };
 
-/* For syncing: what transactions should we know about. */
+/* What transactions should we know about outside normal shards. */
 struct protocol_pkt_txmap {
 	le32 len; /* sizeof(struct protocol_pkt_get_txmap) */
 	le32 type; /* PROTOCOL_PKT_GET_TXMAP */
@@ -401,7 +323,82 @@ struct protocol_pkt_piggyback {
 	/* Followed by a series of PROTOCOL_PKT_PIGGYBACK*... */
 };
 
-/* Can be a response to any protocol_req_* */
+/* This block contains an invalid transaction. */
+struct protocol_pkt_complain_tx_invalid {
+	le32 len; /* sizeof(struct protocol_pkt_complain_tx_invalid) + ... */
+	le32 type; /* PROTOCOL_PKT_COMPLAIN_TX_INVALID */
+
+	/* What is wrong with it, one of:
+	 *  PROTOCOL_ECODE_TX_HIGH_VERSION
+	 *  PROTOCOL_ECODE_TX_LOW_VERSION
+	 *  PROTOCOL_ECODE_TX_TYPE_UNKNOWN
+	 *  PROTOCOL_ECODE_TX_BAD_GATEWAY
+	 *  PROTOCOL_ECODE_TX_CROSS_SHARDS
+	 *  PROTOCOL_ECODE_TX_TOO_LARGE
+	 *  PROTOCOL_ECODE_TX_BAD_SIG
+	 *  PROTOCOL_ECODE_TX_TOO_MANY_INPUTS
+	 *  PROTOCOL_ECODE_SHARD_BAD_INPUT_REF
+	 */
+	le32 error;
+
+	/*
+	  struct protocol_trans_with_proof proof;
+	*/
+};
+
+/* This block contains an transaction with an invalid input. */
+struct protocol_pkt_complain_tx_bad_input {
+	le32 len; /* sizeof(struct protocol_pkt_complain_tx_bad_input) + ...*/
+	le32 type; /* PROTOCOL_PKT_COMPLAIN_TX_BAD_INPUT */
+
+	/* Input I am referring to. */
+	le32 inputnum;
+
+	/*
+	  struct protocol_tx_with_proof proof;
+	  union protocol_tx input;
+	*/
+};
+
+/* This block contains an input ref with an invalid input (wrong trans!) */
+struct protocol_pkt_complain_bad_input_ref {
+	le32 len; /* sizeof(struct protocol_pkt_complain_bad_input_ref) + ... */
+	le32 type; /* PROTOCOL_PKT_COMPLAIN_BAD_INPUT_REF */
+
+	/* Input of transaction I am referring to. */
+	le32 inputnum;
+
+	/*
+	  struct protocol_tx_with_proof tx;
+	  struct protocol_tx_with_proof input;
+	  FIXME: Only need the proof of input hash, not actual tx.
+	*/
+};
+
+/* This block contains an transaction with an invalid total. */
+struct protocol_pkt_complain_tx_bad_amount {
+	le32 len; /* sizeof(struct protocol_pkt_complain_tx_bad_amount) + ... */
+	le32 type; /* PROTOCOL_PKT_COMPLAIN_TX_BAD_AMOUNT */
+
+	/*
+	  struct protocol_trans_with_proof proof;
+	  The inputs:
+	     union protocol_tx input[t->normal.num_inputs];
+	*/
+};
+
+/* This block contains out-of-order transaction. */
+struct protocol_pkt_complain_tx_misorder {
+	le32 len; /* sizeof(struct protocol_pkt_complain_tx_misorder) */
+	le32 type; /* PROTOCOL_PKT_COMPLAIN_TX_MISORDER */
+
+	/* These must refer to the same block!
+	  struct protocol_trans_with_proof proof1;
+	  struct protocol_trans_with_proof proof2;
+	*/
+};
+
+/* Can be a response to any protocol_pkt_* */
 struct protocol_pkt_err {
 	le32 len; /* sizeof(struct protocol_pkt_err) */
 	le32 type; /* PROTOCOL_PKT_ERR */
