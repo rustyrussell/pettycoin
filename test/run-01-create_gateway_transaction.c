@@ -97,7 +97,7 @@ int main(int argc, char *argv[])
 	t->gateway.features--;
 
 	t->gateway.type++;
-	assert(check_tx(s, t, NULL) == PROTOCOL_ECODE_TX_UNKNOWN);
+	assert(check_tx(s, t, NULL) == PROTOCOL_ECODE_TX_TYPE_UNKNOWN);
 	t->gateway.type--;
 
 	t->gateway.num_outputs = cpu_to_le16(le16_to_cpu(t->gateway.num_outputs)

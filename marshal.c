@@ -224,7 +224,7 @@ enum protocol_ecode unmarshal_tx(const void *buffer, size_t size, size_t *used)
 		break;
 	default:
 		/* Unknown type. */
-		return PROTOCOL_ECODE_TX_UNKNOWN;
+		return PROTOCOL_ECODE_TX_TYPE_UNKNOWN;
 	}
 
 	if (size < len)

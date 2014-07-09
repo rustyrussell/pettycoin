@@ -58,7 +58,7 @@ enum protocol_ecode {
 	/* protocol_pkt_tx / protocol_pkt_tx_in_block */
 	PROTOCOL_ECODE_TX_HIGH_VERSION, /* transaction version unknown */
 	PROTOCOL_ECODE_TX_LOW_VERSION, /* transaction version old */
-	PROTOCOL_ECODE_TX_UNKNOWN, /* unknown transaction type */
+	PROTOCOL_ECODE_TX_TYPE_UNKNOWN, /* unknown transaction type */
 	PROTOCOL_ECODE_TX_BAD_GATEWAY, /* unknown gateway */
 	PROTOCOL_ECODE_TX_CROSS_SHARDS, /* to different shards. */
 	PROTOCOL_ECODE_TX_TOO_LARGE, /* too many satoshi in one transaction. */

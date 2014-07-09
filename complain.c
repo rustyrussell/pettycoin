@@ -212,7 +212,7 @@ void complain_bad_tx(struct state *state,
 	switch (err) {
 	case PROTOCOL_ECODE_TX_HIGH_VERSION:
 	case PROTOCOL_ECODE_TX_LOW_VERSION:
-	case PROTOCOL_ECODE_TX_UNKNOWN:
+	case PROTOCOL_ECODE_TX_TYPE_UNKNOWN:
 	case PROTOCOL_ECODE_TX_TOO_LARGE:
 	case PROTOCOL_ECODE_TX_BAD_SIG:
 		break;

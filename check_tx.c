@@ -166,7 +166,7 @@ enum protocol_ecode check_tx(struct state *state,
 		e = check_tx_normal_basic(state, &tx->normal);
 		break;
 	default:
-		e = PROTOCOL_ECODE_TX_UNKNOWN;
+		e = PROTOCOL_ECODE_TX_TYPE_UNKNOWN;
 		break;
 	}
 
