@@ -511,6 +511,9 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 	struct protocol_double_sha sha;
 	u32 txlen = le32_to_cpu(pkt->len) - sizeof(*pkt);
 	unsigned int bad_input_num;
+	struct txhash_iter it;
+	struct txhash_elem *te;
+	bool pending_ok;
 
 	log_debug(peer->log, "Received PKT_TX");
 
@@ -540,43 +543,69 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 		return e;
 
 	hash_tx(tx, &sha);
+	todo_done_get_tx(peer, &sha, true);
 
-	/* Stop now if we already have it in block (otherwise we'd
-	 * report a doublespend). */
-	if (txhash_gettx(&peer->state->txhash, &sha))
-		return PROTOCOL_ECODE_NONE;
-
-	/* We check inputs for where *we* would mine it. */
-	ierr = check_tx_inputs(peer->state, peer->state->longest_knowns[0],
-			       NULL, tx, &bad_input_num);
-	todo_done_get_tx(peer, &sha, ierr == ECODE_INPUT_OK);
-
-	/* If inputs are malformed, it might not have known so don't hang up. */
-	switch (ierr) {
-	case ECODE_INPUT_OK:
-		break;
-	case ECODE_INPUT_UNKNOWN:
-		/* Ask about this input. */
-		todo_add_get_tx(peer->state,
-				&tx_input(tx, bad_input_num)->input);
-		/* FIXME: Keep unresolved pending transaction. */
-		return PROTOCOL_ECODE_NONE;
-	case ECODE_INPUT_BAD:
-		tell_peer_about_bad_input(peer->state, peer, tx, bad_input_num);
-		return PROTOCOL_ECODE_NONE;
-	case ECODE_INPUT_BAD_AMOUNT:
-		tell_peer_about_bad_amount(peer->state, peer, tx);
-		return PROTOCOL_ECODE_NONE;
-	case ECODE_INPUT_DOUBLESPEND:
-		tell_peer_about_doublespend(peer->state,
-					    peer->state->longest_knowns[0],
-					    peer, tx, bad_input_num);
-		return PROTOCOL_ECODE_NONE;
+	/* If it's already in longest known chain, can't add to pending. */
+	pending_ok = true;
+	for (te = txhash_firstval(&peer->state->txhash, &sha, &it);
+	     te;
+	     te = txhash_nextval(&peer->state->txhash, &sha, &it)) {
+		if (block_preceeds(te->block, peer->state->longest_knowns[0])) {
+			pending_ok = false;
+			break;
+		}
 	}
 
-	/* OK, we own it now. */
-	tal_steal(peer->state, pkt);
-	add_pending_tx(peer, tx);
+	if (pending_ok) {
+		/* We check inputs for where *we* would mine it. */
+		ierr = check_tx_inputs(peer->state,
+				       peer->state->longest_knowns[0],
+				       NULL, tx, &bad_input_num);
+
+		/* If inputs are malformed, it might not have known so
+		 * don't hang up. */
+		switch (ierr) {
+		case ECODE_INPUT_OK:
+			break;
+		case ECODE_INPUT_UNKNOWN:
+			/* Ask about this input. */
+			todo_add_get_tx(peer->state,
+					&tx_input(tx, bad_input_num)->input);
+			/* FIXME: Keep unresolved pending transaction. */
+			pending_ok = false;
+			break;
+		case ECODE_INPUT_BAD:
+			tell_peer_about_bad_input(peer->state, peer, tx,
+						  bad_input_num);
+			pending_ok = false;
+			break;
+		case ECODE_INPUT_BAD_AMOUNT:
+			tell_peer_about_bad_amount(peer->state, peer, tx);
+			pending_ok = false;
+			break;
+		case ECODE_INPUT_DOUBLESPEND:
+			tell_peer_about_doublespend(peer->state,
+					    peer->state->longest_knowns[0],
+					    peer, tx, bad_input_num);
+			pending_ok = false;
+			break;
+		}
+
+		if (pending_ok) {
+			/* OK, we own it now. */
+			tal_steal(peer->state, pkt);
+			add_pending_tx(peer, tx);
+		}
+	}
+
+	/* See if we can use it to resolve any hashes. */
+	for (te = txhash_firstval(&peer->state->txhash, &sha, &it);
+	     te;
+	     te = txhash_nextval(&peer->state->txhash, &sha, &it)) {
+		if (!shard_is_tx(te->block->shard[te->shardnum], te->txoff))
+			try_resolve_hash(peer->state, peer,
+					 te->block, te->shardnum, te->txoff);
+	}
 
 	return PROTOCOL_ECODE_NONE;
 }
@@ -766,7 +795,7 @@ recv_get_tx(struct peer *peer,
 	/* First look for one in a block. */
 	/* FIXME: Prefer main chain! */
 	te = txhash_firstval(&peer->state->txhash, &pkt->tx, &ti);
-	if (te) {
+	if (te && shard_is_tx(te->block->shard[te->shardnum], te->txoff)) {
 		struct protocol_pkt_tx_in_block *r;
 		struct protocol_proof proof;
 		struct block *b = te->block;

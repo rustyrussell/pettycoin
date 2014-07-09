@@ -91,22 +91,20 @@ bool shard_belongs_in_block(const struct block *block,
 	return structeq(&block->merkles[shard->shardnum], &merkle);
 }
 
-static void add_tx_to_txhash(struct state *state,
-			     struct block *block,
-			     struct block_shard *shard,
-			     u8 txoff)
+static void add_sha_to_txhash(struct state *state,
+			      struct block *block,
+			      struct block_shard *shard,
+			      u8 txoff,
+			      const struct protocol_double_sha *sha)
 {
 	struct txhash_elem *te;
-	struct protocol_double_sha sha;
-
-	hash_tx(tx_for(shard, txoff), &sha);
 
 	/* Add a new one for this block. */
 	te = tal(shard, struct txhash_elem);
 	te->block = block;
 	te->shardnum = shard->shardnum;
 	te->txoff = txoff;
-	te->sha = sha;
+	te->sha = *sha;
 	txhash_add(&state->txhash, te);
 	/* FIXME:
 	   tal_add_destructor(te, delete_from_txhash);
@@ -253,6 +251,9 @@ static bool recheck_tx(struct state *state,
 		if (te->block->complaint)
 			continue;
 
+		if (!shard_is_tx(te->block->shard[te->shardnum], te->txoff))
+			continue;
+
 		create_proof(&proof, te->block, te->shardnum, te->txoff);
 		if (!check_tx_inputs_and_refs(state,
 					      te->block, &proof,
@@ -298,7 +299,8 @@ void put_tx_in_shard(struct state *state,
 		     struct block_shard *shard, u8 txoff,
 		     struct txptr_with_ref txp)
 {
-	/* All this work for assertion checking! */
+	struct protocol_txrefhash hashes;
+	
 	if (shard_is_tx(shard, txoff)) {
 		if (tx_for(shard, txoff)) {
 			/* It's already there?  Leave it alone. */
@@ -307,9 +309,9 @@ void put_tx_in_shard(struct state *state,
 				      + marshal_input_ref_len(txp.tx)) == 0);
 			return;
 		}
+		hash_tx(tx_for(shard, txoff), &hashes.txhash);
 	} else {
 		/* Tx must match hash. */
-		struct protocol_txrefhash hashes;
 		hash_tx_and_refs(txp.tx, refs_for(txp), &hashes);
 		assert(structeq(shard->u[txoff].hash, &hashes));
 		shard->hashcount--;
@@ -321,7 +323,7 @@ void put_tx_in_shard(struct state *state,
 	shard->txcount++;
 
 	/* Record it in the hashes. */
-	add_tx_to_txhash(state, block, shard, txoff);
+	add_sha_to_txhash(state, block, shard, txoff, &hashes.txhash);
 	add_tx_to_inputhash(state, shard, txp.tx);
 
 	/* Did we just resolve a new input for an existing tx? */
@@ -353,6 +355,8 @@ bool put_txhash_in_shard(struct state *state,
 	shard->u[txoff].hash
 		= tal_dup(shard, struct protocol_txrefhash, txrefhash, 1, 0);
 	shard->hashcount++;
+
+	add_sha_to_txhash(state, block, shard, txoff, &txrefhash->txhash);
 	return true;
 }
 

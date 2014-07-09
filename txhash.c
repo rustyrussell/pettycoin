@@ -42,14 +42,23 @@ union protocol_tx *txhash_gettx(struct txhash *txhash,
 				const struct protocol_double_sha *sha)
 {
 	struct txhash_iter i;
-	struct txhash_elem *te = txhash_firstval(txhash, sha, &i);
+	struct txhash_elem *te;
 	union protocol_tx *tx;
 
-	if (!te)
-		return NULL;
+	/* It's possible that it be known in one, but not the others.
+	 * This is due to the refs: if we don't know them, we don't
+	 * mark tx as known. */
+	for (te = txhash_firstval(txhash, sha, &i);
+	     te;
+	     te = txhash_nextval(txhash, sha, &i)) {
+		if (!shard_is_tx(te->block->shard[te->shardnum], te->txoff))
+			continue;
 
-	/* Can't be in hash if it doesn't exist. */
-	tx = block_get_tx(te->block, te->shardnum, te->txoff);
-	assert(tx);
-	return tx;
+		tx = block_get_tx(te->block, te->shardnum, te->txoff);
+		/* Can't be in hash if it doesn't exist. */
+		assert(tx);
+		return tx;
+	}
+
+	return NULL;
 }
