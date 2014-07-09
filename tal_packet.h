@@ -1,6 +1,5 @@
-/* FIXME: rename to tal_packet */
-#ifndef PETTYCOIN_PACKET_H
-#define PETTYCOIN_PACKET_H
+#ifndef PETTYCOIN_TAL_PACKET_H
+#define PETTYCOIN_TAL_PACKET_H
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
@@ -28,6 +27,9 @@ void *tal_packet_dup(const tal_t *ctx, const void *pkt);
 	tal_packet_append_txrefhash_(ptr_to_ptr(ppkt), (hashes))
 #define tal_packet_append_pos(ppkt, block, shard, txoff)		\
 	tal_packet_append_pos_(ptr_to_ptr(ppkt), (block), (shard), (txoff))
+#define tal_packet_append_proof(ppkt, block, shardnum, txidx, proof, tx, refs) \
+	tal_packet_append_proof_(ptr_to_ptr(ppkt), (block), (shardnum), \
+				 (txidx), (proof), (tx), (refs))
 
 union protocol_tx;
 void tal_packet_append_tx_(void *ppkt, const union protocol_tx *tx);
@@ -50,4 +52,10 @@ void tal_packet_append_txrefhash_(void *ppkt,
 
 void tal_packet_append_pos_(void *ppkt, const struct block *block,
 			    u16 shardnum, u8 txoff);
-#endif
+
+void tal_packet_append_proof_(void *ppkt, const struct block *block,
+			      u16 shardnum, u8 txoff,
+			      const struct protocol_proof *proof,
+			      const union protocol_tx *tx,
+			      const struct protocol_input_ref *refs);
+#endif /* PETTYCOIN_TAL_PACKET_H */

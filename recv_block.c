@@ -5,12 +5,12 @@
 #include "complain.h"
 #include "difficulty.h"
 #include "log.h"
-#include "packet.h"
 #include "pending.h"
 #include "proof.h"
 #include "recv_block.h"
 #include "shard.h"
 #include "state.h"
+#include "tal_packet.h"
 #include "todo.h"
 
 /* Don't let them flood us with cheap, random blocks. */

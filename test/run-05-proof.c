@@ -40,7 +40,7 @@ static time_t my_time(time_t *p)
 #include "../chain.c"
 #include "../check_tx.c"
 #include "../features.c"
-#include "../packet.c"
+#include "../tal_packet.c"
 #include "../gateways.c"
 #include "../state.c"
 #include "../pseudorand.c"

@@ -1,10 +1,10 @@
 #include "block.h"
 #include "chain.h"
 #include "difficulty.h"
-#include "packet.h"
 #include "shadouble.h"
 #include "state.h"
 #include "sync.h"
+#include "tal_packet.h"
 #include "timestamp.h"
 #include "todo.h"
 #include <openssl/bn.h>

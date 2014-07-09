@@ -1,7 +1,7 @@
 #include "block.h"
-#include "packet.h"
 #include "shard.h"
 #include "state.h"
+#include "tal_packet.h"
 #include "version.h"
 #include "welcome.h"
 #include <ccan/structeq/structeq.h>

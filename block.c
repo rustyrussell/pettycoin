@@ -4,13 +4,13 @@
 #include "features.h"
 #include "generating.h"
 #include "log.h"
-#include "packet.h"
 #include "peer.h"
 #include "pending.h"
 #include "proof.h"
 #include "protocol.h"
 #include "shard.h"
 #include "state.h"
+#include "tal_packet.h"
 #include "tx.h"
 #include <ccan/structeq/structeq.h>
 #include <string.h>

@@ -2,11 +2,11 @@
 #include "blockfile.h"
 #include "check_block.h"
 #include "marshal.h"
-#include "packet.h"
 #include "packet_io.h"
 #include "protocol_net.h"
 #include "shard.h"
 #include "state.h"
+#include "tal_packet.h"
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
 #include <ccan/read_write_all/read_write_all.h>

@@ -32,7 +32,7 @@ static time_t my_time(time_t *p)
 #include "../create_tx.c"
 #include "../signature.c"
 #include "../shard.c"
-#include "../packet.c"
+#include "../tal_packet.c"
 #include "../minimal_log.c"
 
 int main(int argc, char *argv[])
