@@ -6,6 +6,7 @@
 #include "create_refs.h"
 #include "difficulty.h"
 #include "log.h"
+#include "merkle_hashes.h"
 #include "pending.h"
 #include "proof.h"
 #include "recv_block.h"
@@ -262,8 +263,8 @@ recv_shard(struct state *state, struct log *log, struct peer *peer,
 	struct block *b;
 	u16 shard;
 	unsigned int i;
-	const struct protocol_txrefhash *hash;
-	struct block_shard *s;
+	struct protocol_double_sha merkle;
+	const struct protocol_txrefhash *hash[256];
 
 	if (le32_to_cpu(pkt->len) < sizeof(*pkt))
 		return PROTOCOL_ECODE_INVALID_LEN;
@@ -317,54 +318,58 @@ recv_shard(struct state *state, struct log *log, struct peer *peer,
 
 	/* Should have appended all txrefhashes. */
 	if (le32_to_cpu(pkt->len)
-	    != sizeof(*pkt) + b->shard_nums[shard] * sizeof(*hash))
+	    != sizeof(*pkt) + b->shard_nums[shard] * sizeof(*hash[0]))
 		return PROTOCOL_ECODE_INVALID_LEN;
 
 	log_debug(log, "Got shard %u of ", shard);
 	log_add_struct(log, struct protocol_double_sha, &pkt->block);
-			
-	hash = (struct protocol_txrefhash *)(pkt + 1);
-	s = b->shard[shard];
 
-	/* Make shard own this packet. */
-	tal_steal(s, pkt);
+	/* Set up hash pointers. */
+	hash[0] = (struct protocol_txrefhash *)(pkt + 1);
+	for (i = 1; i < b->shard_nums[shard]; i++)
+		hash[i] = hash[i-1] + 1;
 
-	/* Add hash pointers. */
-	for (i = 0; i < b->shard_nums[shard]; i++) {
-		s->hashcount++;
-		bitmap_set_bit(s->txp_or_hash, i);
-		s->u[i].hash = hash + i;
-	}
-
-	if (!shard_belongs_in_block(b, s)) {
+	/* Check it's right. */
+	/* FIXME: Make generate use a flat array, so we can. */
+	merkle_hashes(hash, 0, b->shard_nums[shard], &merkle);
+	if (!structeq(&b->merkles[shard], &merkle)) {
 		log_unusual(log, "Bad hash for shard %u of ", shard);
 		log_add_struct(log, struct protocol_double_sha, &pkt->block);
-		tal_free(s);
 		return PROTOCOL_ECODE_BAD_MERKLE;
 	}
 
-	/* This may resolve some of the txs if we know them already. */
-	put_shard_of_hashes_into_block(state, b, s);
+	log_debug(log, "Before adding hashes: txs %u, hashes %u (of %u)",
+		  b->shard[shard]->txcount,
+		  b->shard[shard]->hashcount,
+		  b->shard[shard]->size);
 
-	log_debug(log, "Shard now in block. txs %u, hashes %u (of %u)",
-		  s->txcount, s->hashcount, s->size);
+	/* This may resolve some of the txs if we know them already. */
+	for (i = 0; i < b->shard_nums[shard]; i++)
+		put_txhash_in_shard(state, b, shard, i, hash[i]);
+
+	log_debug(log, "Hashes now in shar. txs %u, hashes %u (of %u)",
+		  b->shard[shard]->txcount,
+		  b->shard[shard]->hashcount,
+		  b->shard[shard]->size);
 
 	/* This will try to match the rest, or trigger asking. */
 	try_resolve_hashes(state, peer, b, shard, peer != NULL);
 
 	log_debug(log, "Shard now resolved. txs %u, hashes %u (of %u)",
-		  s->txcount, s->hashcount, s->size);
+		  b->shard[shard]->txcount,
+		  b->shard[shard]->hashcount,
+		  b->shard[shard]->size);
 
 	/* We save once we know the entire contents. */
-	if (shard_all_known(s)) {
-		if (s->size)
+	if (shard_all_known(b->shard[shard])) {
+		if (b->shard[shard]->size)
 			log_debug(log, "Shard all known!");
 		save_shard(state, b, shard);
 		update_block_ptrs_new_shard(state, b, shard);
 	}
 
-	/* FIXME: re-check pending transactions with unknown inputs
-	 * now we know more, or pendings which might be invalidated. */
+	/* We might be able to resolve more pending refs now */
+	recheck_pending_txs(state);
 
 	return PROTOCOL_ECODE_NONE;
 }

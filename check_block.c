@@ -93,67 +93,6 @@ bool shard_belongs_in_block(const struct block *block,
 	return structeq(&block->merkles[shard->shardnum], &merkle);
 }
 
-static struct txptr_with_ref dup_txp(const tal_t *ctx,
-				     const struct txptr_with_ref txp)
-{
-	struct txptr_with_ref ret;
-	size_t len;
-
-	len = marshal_tx_len(txp.tx)
-		+ num_inputs(txp.tx) * sizeof(struct protocol_input_ref);
-
-	ret.tx = (void *)tal_dup(ctx, char, (char *)txp.tx, len, 0);
-	return ret;
-}
-
-static void copy_old_txs(struct state *state,
-			 struct block *block,
-			 struct block_shard *new, const struct block_shard *old)
-{
-	unsigned int i;
-
-	for (i = 0; i < new->size; i++) {
-		if (!shard_is_tx(old, i)) {
-			/* Both hashes must be identical. */
-			assert(structeq(&old->u[i].hash, &new->u[i].hash));
-			continue;
-		}
-		if (!tx_for(old, i))
-			continue;
-
-		/* We don't need to check_tx_ordering, since they were already
-		 * checked. */
-
-		/* It's probably not a talloc pointer, so copy! */
-		put_tx_in_shard(state, block, new, i,
-				dup_txp(new, old->u[i].txp));
-
-		/* We don't need to copy proofs, since we have full shard. */
-		/* We don't need to send to peers, since presumably
-		 * they know it. */
-	}
-}
-
-void put_shard_of_hashes_into_block(struct state *state,
-				    struct block *block,
-				    struct block_shard *shard)
-{
-	unsigned int num;
-
-	assert(shard_belongs_in_block(block, shard));
-	assert(shard->txcount == 0);
-	assert(shard->hashcount == num);
-
-	/* If we know some transactions already, perform a merge. */
-	if (block->shard[shard->shardnum]) {
-		copy_old_txs(state, block, shard,
-			     block->shard[shard->shardnum]);
-		tal_free(block->shard[shard->shardnum]);
-	}
-
-	block->shard[shard->shardnum] = tal_steal(block, shard);
-}
-
 /* If we were to insert tx in block->shard[shardnum] at txoff, would it be
  * in order? */
 bool check_tx_ordering(struct state *state,

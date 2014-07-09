@@ -32,10 +32,6 @@ check_block_header(struct state *state,
 bool shard_belongs_in_block(const struct block *block,
 			    const struct block_shard *shard);
 
-void put_shard_of_hashes_into_block(struct state *state,
-				    struct block *block,
-				    struct block_shard *shard);
-
 /* If we put tx in shard at txoff, will it be in order?  If not, give
  * offset of conflicting tx in bad_txoff */
 bool check_tx_ordering(struct state *state,
