@@ -47,7 +47,7 @@ struct state *new_state(bool test_net)
 	s->peer_seed_count = 0;
 	s->log_level = LOG_BROKEN;
 	s->log = new_log(s, NULL, "", s->log_level, STATE_LOG_MAX);
-	s->generate = "pettycoin-generate";
+	s->generator = "pettycoin-generate";
 	memset(s->interests, 0xff, sizeof(s->interests)); /* Everything */
 
 	tal_add_destructor(s, destroy_state);

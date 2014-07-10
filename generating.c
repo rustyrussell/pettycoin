@@ -77,21 +77,21 @@ static void reap_generator(struct io_conn *conn, struct generator *gen)
 		ok = false;
 		log_unusual(gen->log,
 			    "Waiting for generator %s %u returned %i %s",
-			    gen->state->generate, gen->pid, ret, strerror(errno));
+			    gen->state->generator, gen->pid, ret, strerror(errno));
 	} else if (WIFSIGNALED(status) && WTERMSIG(status) != SIGUSR1) {
 		log_unusual(gen->log,
 			    "generator %s %u exited with signal %u",
-			    gen->state->generate, gen->pid, WTERMSIG(status));
+			    gen->state->generator, gen->pid, WTERMSIG(status));
 		ok = false;
 	} else if (WEXITSTATUS(status) != 0) {
 		ok = false;
 		log_unusual(gen->log,
 			    "generator %s %u exited with status %u",
-			    gen->state->generate, gen->pid, WEXITSTATUS(status));
+			    gen->state->generator, gen->pid, WEXITSTATUS(status));
 	} else {
 		ok = true;
 		log_debug(gen->log, "generator %s %u exited normally",
-			  gen->state->generate, gen->pid);
+			  gen->state->generator, gen->pid);
 	}
 
 	assert(!state->gen || state->gen == gen);
@@ -271,7 +271,7 @@ static void exec_generator(struct generator *gen)
 		if (gen->state->developer_test)
 			sleep(5 + isaac64_next_uint(isaac64, 10));
 
-		execlp(gen->state->generate,
+		execlp(gen->state->generator,
 		       "pettycoin-generate",
 		       /* FIXME: Invalid reward address. */
 		       "0000000000000000000000000000000000000000",
@@ -284,7 +284,7 @@ static void exec_generator(struct generator *gen)
 	gen->log = new_log(gen, gen->state->log,
 			   log_prefix, gen->state->log_level, GEN_LOG_MAX);
 	log_debug(gen->log, "Running '%s' '%s' '%s' '%s' %s' '%s' '%s' '%s'",
-		  gen->state->generate,
+		  gen->state->generator,
 		  /* FIXME: Invalid reward address. */
 		  "0000000000000000000000000000000000000000",
 		  difficulty, prevblock, prev_merkle_str, depth, shard_order,

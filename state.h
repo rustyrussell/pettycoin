@@ -73,7 +73,7 @@ struct state {
 	struct peer_cache *peer_cache;
 
 	/* Generation of new blocks. */
-	char *generate;
+	char *generator;
 	struct generator *gen;
 
 	/* log */

@@ -11,10 +11,10 @@
 #include "welcome.h"
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
-#include <ccan/io/io.h>
 #include <ccan/net/net.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/opt/opt.h>
+#include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
@@ -132,9 +132,9 @@ static void make_listeners(struct state *state)
 
 		a.port = state->listen_port;
 
-		fd = open("../../addresses", O_WRONLY|O_APPEND, 0600);
+		fd = open("addresses", O_WRONLY|O_APPEND, 0600);
 		if (fd < 0)
-			err(1, "Opening ../../addresses");
+			err(1, "Opening addresses");
 		write(fd, &a, sizeof(a));
 		close(fd);
 	}
@@ -178,16 +178,50 @@ static char *arg_log_level(const char *arg, enum log_level *log_level)
 	return NULL;
 }
 
-static char *make_pettycoin_dir(struct state *state)
+static char *make_pettycoin_dir(const tal_t *ctx)
 {
 	char *path;
 	const char *env = getenv("HOME");
 	if (!env)
-		errx(1, "$HOME is not set");
+		return ".";
 
-	path = path_join(state, env, ".pettycoin");
-	log_debug(state->log, "Pettycoin home dir is '%s'", path);
+	path = path_join(ctx, env, ".pettycoin");
 	return path;
+}
+
+/* We turn the config file into cmdline arguments. */
+static void parse_from_config(const tal_t *ctx)
+{
+	char *contents, **lines;
+	char **argv;
+	int i, argc;
+
+	contents = grab_file(ctx, "config");
+	/* Doesn't have to exist. */
+	if (!contents) {
+		if (errno != ENOENT)
+			err(1, "Opening and reading config");
+		return;
+	}
+
+	lines = tal_strsplit(contents, contents, "\r\n", STR_NO_EMPTY);
+
+	/* We have to keep argv around, since opt will point into it */
+	argv = tal_arr(ctx, char *, argc = 1);
+	argv[0] = "pettycoin config";
+
+	for (i = 0; i < tal_count(lines) - 1; i++) {
+		if (strstarts(lines[i], "#"))
+			continue;
+		/* Only valid forms are "foo" and "foo=bar" */
+		tal_resize(&argv, argc+1);
+		argv[argc++] = tal_fmt(argv, "--%s", lines[i]);
+	}
+	tal_resize(&argv, argc+1);
+	argv[argc] = NULL;
+
+	opt_parse(&argc, argv, opt_log_stderr_exit);
+	tal_free(contents);
 }
 
 int main(int argc, char *argv[])
@@ -198,37 +232,30 @@ int main(int argc, char *argv[])
 
 	pseudorand_init();
 	state = new_state(true);
+	pettycoin_dir = make_pettycoin_dir(state);
 
 	err_set_progname(argv[0]);
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
 	io_set_alloc(io_allocfn, tal_reallocfn, tal_freefn);
 
-	opt_register_early_arg("--log-level", arg_log_level, NULL,
-			       &state->log_level,
-			       "log level (debug, info, unusual, broken)");
-	opt_register_early_arg("--log-prefix", opt_set_charp, opt_show_charp,
-			       &log_prefix, "log prefix");
+	opt_register_early_arg("--pettycoin-dir", opt_set_charp, opt_show_charp,
+			       &pettycoin_dir, "pettycoin_dif");
+
+	opt_register_arg("--log-level", arg_log_level, NULL,
+			 &state->log_level,
+			 "log level (debug, info, unusual, broken)");
+	opt_register_arg("--log-prefix", opt_set_charp, opt_show_charp,
+			 &log_prefix, "log prefix");
 	opt_register_arg("--connect", add_connect, NULL, state,
 			 "Node to connect to (can be specified multiple times)");
-	opt_register_arg("--generate", opt_set_charp, opt_show_charp,
-			 &state->generate, "Binary to try to generate a block");
+	opt_register_arg("--generator", opt_set_charp, opt_show_charp,
+			 &state->generator, "Binary to try to generate a block");
 	opt_register_noarg("--developer-test",
 			   opt_set_bool, &state->developer_test,
 			   "Developer test mode: connects to localhost");
-	opt_register_noarg("-h|--help", opt_usage_and_exit,
-			   "\nPettycoin client program.", "Show this usage");
-	opt_register_noarg("-V|--version", opt_version_and_exit,
-			   VERSION, "Show version and exit");
 
-	/* Parse --log-level & --log-prefix first. */
+	/* Parse --pettycoin-dir first. */
 	opt_early_parse(argc, argv, opt_log_stderr_exit);
-	set_log_level(state->log, state->log_level);
-	set_log_prefix(state->log, log_prefix);
-
-	pettycoin_dir = make_pettycoin_dir(state);
-	opt_parse(&argc, argv, opt_log_stderr_exit);
-	if (argc != 1)
-		errx(1, "no arguments accepted");
 
 	/* Move to pettycoin dir, to save ourselves the hassle of path manip. */
 	if (chdir(pettycoin_dir) != 0) {
@@ -242,7 +269,24 @@ int main(int argc, char *argv[])
 			fatal(state, "Could not change directory %s: %s",
 			      pettycoin_dir, strerror(errno));
 	}
+	/* Now look for config file */
+	parse_from_config(state);
 
+	/* These arguments don't make any sense in config file. */
+	opt_register_noarg("-h|--help", opt_usage_and_exit,
+			   "\nPettycoin client program.", "Show this usage");
+	opt_register_noarg("-V|--version", opt_version_and_exit,
+			   VERSION, "Show version and exit");
+
+	/* Finally parse cmdline (they override config) */
+	opt_parse(&argc, argv, opt_log_stderr_exit);
+	if (argc != 1)
+		errx(1, "no arguments accepted");
+
+	set_log_level(state->log, state->log_level);
+	set_log_prefix(state->log, log_prefix);
+
+	/* Start up. */
 	load_blocks(state);
 	init_peer_cache(state);
 	make_listeners(state);
