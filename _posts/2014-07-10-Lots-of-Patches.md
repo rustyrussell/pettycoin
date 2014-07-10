@@ -20,8 +20,9 @@ These I think I need to do before a release:
 * [<del>Have static genesis</del>](https://github.com/rustyrussell/pettycoin/commit/a170f12c00a3d53efd6fe9b0fae75f40f2cd71aa)
 * [<del>Save to disk / restore from disk</del>](https://github.com/rustyrussell/pettycoin/commit/0f7fbd7a011b1afbbf45237f65d5ecc1ef8ed116)
 * [<del>Re-check prev_txhashes when we complete a shard.</del>](https://github.com/rustyrussell/pettycoin/commit/0ec909cc65c11be52dd9e4ce3903619cca37c669)
-* Real reward address in generating.c
+* [<del>Real reward address in generating.c</del>](https://github.com/rustyrussell/pettycoin/commit/1fb70d009dd2aea29d46733feff88b3655bccfae)
 * JSON RPC API
+* [<del>configuration file</del>](https://github.com/rustyrussell/pettycoin/commit/9aa521aaa5206fc160ed8065394e0d89705e94f9)
 
 These can wait:
 
