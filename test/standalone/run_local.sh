@@ -16,6 +16,8 @@ setup_dir()
 developer-test
 generator=../../../generate
 log-prefix=$i:
+# This is test/helper_addr(0).
+reward-address=P-mhA9ozMTVWrSnUX2kB8QjEq9FBen8k3euW
 EOF
 }
 

@@ -22,14 +22,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-static const struct protocol_address *generating_address(struct state *state)
-{
-	/* FIXME: Invalid reward address. */
-	static struct protocol_address my_addr = { { 0 } };
-
-	return &my_addr;
-}
-
 struct pending_update {
 	struct list_node list;
 	struct gen_update update;
@@ -230,6 +222,7 @@ static void exec_generator(struct generator *gen)
 		depth[STR_MAX_CHARS(u32)],
 		shard_order[STR_MAX_CHARS(u8)];
 	char prevblock[sizeof(struct protocol_double_sha) * 2 + 1];
+	char fees_to[sizeof(struct protocol_address) * 2 + 1];
 	char nonce[14 + 1];
 	int i;
 	const struct block *last;
@@ -241,7 +234,7 @@ static void exec_generator(struct generator *gen)
 
 	prev_txhashes = make_prev_txhashes(gen,
 					   gen->state->longest_knowns[0],
-					   generating_address(gen->state));
+					   gen->state->reward_addr);
 	last = gen->state->longest_knowns[0];
 	sprintf(difficulty, "%u", get_difficulty(gen->state, last));
 	sprintf(prev_merkle_str, "%zu", tal_count(prev_txhashes));
@@ -249,7 +242,10 @@ static void exec_generator(struct generator *gen)
 	sprintf(shard_order, "%u", gen->shard_order);
 	for (i = 0; i < sizeof(struct protocol_double_sha); i++)
 		sprintf(prevblock + i*2, "%02X", last->sha.sha[i]);
-	
+	for (i = 0; i < sizeof(struct protocol_address); i++)
+		sprintf(fees_to + i*2, "%02X",
+			gen->state->reward_addr->addr[i]);
+
 	for (i = 0; i < sizeof(nonce)-1; i++)
 		nonce[i] = 32 + isaac64_next_uint(isaac64, 224);
 	nonce[i] = '\0';
@@ -273,9 +269,7 @@ static void exec_generator(struct generator *gen)
 
 		execlp(gen->state->generator,
 		       "pettycoin-generate",
-		       /* FIXME: Invalid reward address. */
-		       "0000000000000000000000000000000000000000",
-		       difficulty, prevblock, prev_merkle_str,
+		       fees_to, difficulty, prevblock, prev_merkle_str,
 		       depth, shard_order, nonce, NULL);
 		exit(127);
 	}
@@ -285,8 +279,7 @@ static void exec_generator(struct generator *gen)
 			   log_prefix, gen->state->log_level, GEN_LOG_MAX);
 	log_debug(gen->log, "Running '%s' '%s' '%s' '%s' %s' '%s' '%s' '%s'",
 		  gen->state->generator,
-		  /* FIXME: Invalid reward address. */
-		  "0000000000000000000000000000000000000000",
+		  fees_to,
 		  difficulty, prevblock, prev_merkle_str, depth, shard_order,
 		  nonce);
 
@@ -319,10 +312,15 @@ void tell_generator_new_pending(struct state *state, u32 shard, u32 txoff)
 /* FIXME: multiple generators. */
 void start_generating(struct state *state)
 {
-	state->gen = tal(state, struct generator);
-	state->gen->state = state;
+	if (!state->reward_addr) {
+		log_info(state->log, "No reward-address set, not mining");
+		state->gen = NULL;
+	} else {
+		state->gen = tal(state, struct generator);
+		state->gen->state = state;
 
-	exec_generator(state->gen);
+		exec_generator(state->gen);
+	}
 }
 
 void restart_generating(struct state *state)

@@ -75,6 +75,7 @@ struct state {
 	/* Generation of new blocks. */
 	char *generator;
 	struct generator *gen;
+	struct protocol_address *reward_addr;
 
 	/* log */
 	struct log *log;

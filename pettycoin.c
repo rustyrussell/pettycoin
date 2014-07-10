@@ -1,3 +1,4 @@
+#include "base58.h"
 #include "blockfile.h"
 #include "generating.h"
 #include "log.h"
@@ -249,6 +250,29 @@ static void parse_from_config(const tal_t *ctx)
 	tal_free(contents);
 }
 
+static char *set_reward_address(const char *arg, struct state *state)
+{
+	bool test_net;
+
+	/* In case they set multiple times. */
+	state->reward_addr = tal_free(state->reward_addr);
+
+	/* Unset. */
+	if (streq(arg, "")) {
+		return NULL;
+	}
+	state->reward_addr = tal(state, struct protocol_address);
+
+	if (!pettycoin_from_base58(&test_net, state->reward_addr, arg))
+		return strdup("Could not parse address");
+	if (test_net && !state->test_net)
+		return strdup("Reward address is on testnet");
+	if (!test_net && state->test_net)
+		return strdup("Reward address is on not testnet");
+
+	return NULL;
+}
+
 int main(int argc, char *argv[])
 {
 	char *pettycoin_dir;
@@ -275,6 +299,8 @@ int main(int argc, char *argv[])
 			 "Node to connect to (can be specified multiple times)");
 	opt_register_arg("--generator", opt_set_charp, opt_show_charp,
 			 &state->generator, "Binary to try to generate a block");
+	opt_register_arg("--reward-address", set_reward_address, NULL,
+			 state, "Address to send block fee rewards");
 	opt_register_noarg("--developer-test",
 			   opt_set_bool, &state->developer_test,
 			   "Developer test mode: connects to localhost");
