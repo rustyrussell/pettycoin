@@ -14,6 +14,10 @@
 void block_to_pending(struct state *state, const struct block *block) { fprintf(stderr, "block_to_pending called!\n"); abort(); }
 /* Generated stub for check_block */
 void check_block(struct state *state, const struct block *block) { fprintf(stderr, "check_block called!\n"); abort(); }
+/* Generated stub for check_prev_txhashes */
+bool check_prev_txhashes(struct state *state, const struct block *block,
+			 const struct block **bad_prev,
+			 u16 *bad_shard) { fprintf(stderr, "check_prev_txhashes called!\n"); abort(); }
 /* Generated stub for check_proof */
 bool check_proof(const struct protocol_proof *proof,
 		 const struct block *b,
@@ -28,6 +32,11 @@ enum input_ecode check_tx_inputs(struct state *state,
 				 const struct txhash_elem *me,
 				 const union protocol_tx *tx,
 				 unsigned int *bad_input_num) { fprintf(stderr, "check_tx_inputs called!\n"); abort(); }
+/* Generated stub for complain_bad_prev_txhashes */
+void complain_bad_prev_txhashes(struct state *state,
+				struct block *block,
+				const struct block *bad_prev,
+				u16 bad_prev_shard) { fprintf(stderr, "complain_bad_prev_txhashes called!\n"); abort(); }
 /* Generated stub for hash_tx_and_refs */
 void hash_tx_and_refs(const union protocol_tx *tx,
 		      const struct protocol_input_ref *refs,

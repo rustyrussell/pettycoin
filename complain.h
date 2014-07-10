@@ -71,6 +71,12 @@ void complain_misorder(struct state *state,
 		       const struct protocol_input_ref *refs,
 		       unsigned int conflict_txoff);
 
+/* prev_txhashes for this block are wrong for bad_prev/bad_prev_shard */
+void complain_bad_prev_txhashes(struct state *state,
+				struct block *block,
+				const struct block *bad_prev,
+				u16 bad_prev_shard);
+
 void publish_complaint(struct state *state,
 		       struct block *block,
 		       const void *complaint,

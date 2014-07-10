@@ -1,6 +1,7 @@
 #include "block.h"
 #include "chain.h"
 #include "check_block.h"
+#include "complain.h"
 #include "generating.h"
 #include "peer.h"
 #include "pending.h"
@@ -350,11 +351,32 @@ static void new_longest(struct state *state, const struct block *block)
 	update_preferred_chain(state);
 }
 
+static void recheck_merkles(struct state *state, struct block *block)
+{
+	const struct block *bad_prev;
+	u16 bad_prev_shard;
+
+	if (!check_prev_txhashes(state, block, &bad_prev, &bad_prev_shard))
+		complain_bad_prev_txhashes(state, block,
+					   bad_prev, bad_prev_shard);
+	else {
+		struct block *b;
+
+		/* FIXME: SLOW: We actually only need to check one byte of
+		 * every 2^N-distance block */
+		list_for_each(&block->children, b, sibling)
+			recheck_merkles(state, b);
+	}
+}
+
 static void update_block_ptrs_new_shard_or_empty(struct state *state,
 						 struct block *block,
 						 u16 shardnum)
 {
-	/* FIXME: re-check prev_txhashes for any descendents. */
+	struct block *b;
+
+	list_for_each(&block->children, b, sibling)
+		recheck_merkles(state, block);
 }
 
 /* We've added a new block; update state->longest_chains, state->longest_knowns,

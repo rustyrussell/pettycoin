@@ -35,7 +35,7 @@
 #include <string.h>
 
 /* Returns error if bad.  Not sufficient by itself: see check_tx_order,
- * shard_validate_transactions and check_block_prev_txhashes! */
+ * shard_validate_transactions and check_prev_txhashes! */
 enum protocol_ecode
 check_block_header(struct state *state,
 		   const struct protocol_block_header *hdr,
@@ -302,22 +302,26 @@ void put_proof_in_shard(struct state *state,
 		= tal_dup(shard, struct protocol_proof, proof, 1, 0);
 }
 
-/* Check what we can, using prev_block->...'s shards. */
-bool check_block_prev_txhashes(struct log *log, const struct block *prev_block,
-			       const struct protocol_block_header *hdr,
-			       const u8 *prev_txhashes)
+bool check_num_prev_txhashes(struct state *state,
+			     const struct block *prev_block,
+			     const struct protocol_block_header *hdr,
+			     const u8 *prev_txhashes)
+{
+	return le32_to_cpu(hdr->num_prev_txhashes)
+		== num_prev_txhashes(prev_block);
+}
+
+/* Check what we can, using block->prev etc's shards. */
+bool check_prev_txhashes(struct state *state, const struct block *block,
+			 const struct block **bad_prev,
+			 u16 *bad_shard)
 {
 	unsigned int i;
 	const struct block *b;
 	size_t off = 0;
 
-	for_each_prev_txhash(i, b, prev_block) {
+	for_each_prev_txhash(i, b, block->prev) {
 		unsigned int j;
-
-		/* It's bad if we don't have that many prev hashes. */
-		if (off + num_shards(b->hdr)
-		    > le32_to_cpu(hdr->num_prev_txhashes))
-			return false;
 
 		for (j = 0; j < num_shards(b->hdr); j++) {
 			u8 prev_txh;
@@ -327,26 +331,29 @@ bool check_block_prev_txhashes(struct log *log, const struct block *prev_block,
 			if (!shard_all_known(b->shard[j]))
 				continue;
 
-			prev_txh = prev_txhash(&hdr->fees_to, b, j);
+			prev_txh = prev_txhash(&block->hdr->fees_to, b, j);
 
 			/* We only check one byte; that's enough. */
-			if (prev_txh != prev_txhashes[off+j]) {
-				log_unusual(log,
+			if (prev_txh != block->prev_txhashes[off+j]) {
+				log_unusual(state->log,
 					    "Incorrect prev_txhash block %u:"
 					    " block %u shard %u was %u not %u",
-					    le32_to_cpu(hdr->depth),
-					    le32_to_cpu(hdr->depth) - i,
+					    le32_to_cpu(block->hdr->depth),
+					    le32_to_cpu(block->hdr->depth) - i,
 					    j,
 					    prev_txh,
-					    prev_txhashes[off+j]);
+					    block->prev_txhashes[off+j]);
+				*bad_prev = b;
+				*bad_shard = j;
 				return false;
 			}
 		}
 		off += j;
 	}
 
-	/* Must have exactly the right number of previous merkle hashes. */
-	return off == le32_to_cpu(hdr->num_prev_txhashes);
+	/* Must have exactly the right number of previous txhashes hashes. */
+	assert(off == le32_to_cpu(block->hdr->num_prev_txhashes));
+	return true;
 }
 
 void check_block(struct state *state, const struct block *block)

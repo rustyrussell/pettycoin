@@ -24,6 +24,11 @@ enum input_ecode check_tx_inputs(struct state *state,
 				 const struct txhash_elem *me,
 				 const union protocol_tx *tx,
 				 unsigned int *bad_input_num) { fprintf(stderr, "check_tx_inputs called!\n"); abort(); }
+/* Generated stub for complain_bad_prev_txhashes */
+void complain_bad_prev_txhashes(struct state *state,
+				struct block *block,
+				const struct block *bad_prev,
+				u16 bad_prev_shard) { fprintf(stderr, "complain_bad_prev_txhashes called!\n"); abort(); }
 /* Generated stub for hash_tx_and_refs */
 void hash_tx_and_refs(const union protocol_tx *tx,
 		      const struct protocol_input_ref *refs,
@@ -49,6 +54,13 @@ void block_to_pending(struct state *state, const struct block *block)
 
 void check_block(struct state *state, const struct block *block)
 {
+}
+
+bool check_prev_txhashes(struct state *state, const struct block *block,
+			 const struct block **bad_prev,
+			 u16 *bad_shard)
+{
+	return true;
 }
 
 void restart_generating(struct state *state)

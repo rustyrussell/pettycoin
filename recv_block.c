@@ -118,9 +118,8 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 		todo_done_get_block(peer, &sha, true);
 
 	/* Actually check the previous txhashes are correct. */
-	if (!check_block_prev_txhashes(state->log, prev, hdr, prev_txhashes)) {
-		log_unusual(log, "new block has bad prev txhashes");
-		/* FIXME: provide proof. */
+	if (!check_num_prev_txhashes(state, prev, hdr, prev_txhashes)) {
+		log_unusual(log, "new block has wrong number of prev txhashes");
 		return PROTOCOL_ECODE_BAD_PREV_TXHASHES;
 	}
 
@@ -130,21 +129,30 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 		log_debug(log, "already knew about block %u",
 			  le32_to_cpu(hdr->depth));
 	} else {
+		const struct block *bad_prev;
+		u16 bad_shard;
+
 		b = block_add(state, prev, &sha, hdr, shard_nums, merkles,
 			      prev_txhashes, tailer);
 
 		/* Now new block owns the packet. */
 		tal_steal(b, pkt);
 
-		/* If we're syncing, ask about children, contents */
-		if (peer && peer->we_are_syncing) {
-			todo_add_get_children(state, &b->sha);
-			sync_block_contents(state, b);
+		/* Now check it matches known previous transactions. */
+		if (!check_prev_txhashes(state, b, &bad_prev, &bad_shard)) {
+			complain_bad_prev_txhashes(state, b, bad_prev,
+						   bad_shard);
 		} else {
-			/* Otherwise, tell peers about new block. */
-			send_block_to_peers(state, peer, b);
-			/* Start asking about stuff we need. */
-			ask_block_contents(state, b);
+			/* If we're syncing, ask about children, contents */
+			if (peer && peer->we_are_syncing) {
+				todo_add_get_children(state, &b->sha);
+				sync_block_contents(state, b);
+			} else {
+				/* Otherwise, tell peers about new block. */
+				send_block_to_peers(state, peer, b);
+				/* Start asking about stuff we need. */
+				ask_block_contents(state, b);
+			}
 		}
 	}
 

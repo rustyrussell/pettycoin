@@ -294,3 +294,12 @@ void complain_bad_tx(struct state *state,
 
 	publish_complaint(state, block, pkt, NULL);
 }
+
+/* prev_txhashes for this block are wrong for bad_prev/bad_prev_shard */
+void complain_bad_prev_txhashes(struct state *state,
+				struct block *block,
+				const struct block *bad_prev,
+				u16 bad_prev_shard)
+{
+	/* FIXME: Implement! */
+}

@@ -56,10 +56,15 @@ void put_proof_in_shard(struct state *state,
 			struct block *block,
 			const struct protocol_proof *proof);
 
-/* Check what we can, using block->prev->...'s shards. */
-bool check_block_prev_txhashes(struct log *log, const struct block *prev,
-			       const struct protocol_block_header *hdr,
-			       const u8 *prev_txhashes);
+bool check_num_prev_txhashes(struct state *state,
+			     const struct block *prev_block,
+			     const struct protocol_block_header *hdr,
+			     const u8 *prev_txhashes);
+
+/* Check what we can, using block->prev etc's shards. */
+bool check_prev_txhashes(struct state *state, const struct block *block,
+			 const struct block **bad_prev,
+			 u16 *bad_shard);
 
 /* Check both inputs and references for this transaction. */
 bool check_tx_inputs_and_refs(struct state *state,

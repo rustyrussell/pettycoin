@@ -84,6 +84,11 @@ void complain_bad_input_ref(struct state *state,
 			    const struct protocol_input_ref *refs,
 			    unsigned int bad_refnum,
 			    const struct block *block_referred_to) { fprintf(stderr, "complain_bad_input_ref called!\n"); abort(); }
+/* Generated stub for complain_bad_prev_txhashes */
+void complain_bad_prev_txhashes(struct state *state,
+				struct block *block,
+				const struct block *bad_prev,
+				u16 bad_prev_shard) { fprintf(stderr, "complain_bad_prev_txhashes called!\n"); abort(); }
 /* Generated stub for complain_doublespend */
 void complain_doublespend(struct state *state,
 			  struct block *block1,
@@ -196,13 +201,12 @@ int main(int argc, char *argv[])
 	assert(e == PROTOCOL_ECODE_NONE);
 	assert(prev == &genesis);
 
-	/* This is a NOOP, so should succeed. */
-	assert(check_block_prev_txhashes(s->log, prev,
-					 &w->hdr, w->prev_txhashes));
-
 	b = block_add(s, prev, &sha,
 		      &w->hdr, w->shard_nums, w->merkles,
 		      w->prev_txhashes, &w->tailer);
+
+	/* This is a NOOP, so should succeed. */
+	assert(check_prev_txhashes(s, b, NULL, NULL));
 
 	/* Put the single tx into a shard. */
 	shard = new_block_shard(s, update.shard, 1);
@@ -255,13 +259,12 @@ int main(int argc, char *argv[])
 	assert(e == PROTOCOL_ECODE_NONE);
 	assert(prev == b);
 
-	/* This should be correct. */
-	assert(check_block_prev_txhashes(s->log, b,
-					 &w2->hdr, w2->prev_txhashes));
-
 	b2 = block_add(s, prev, &sha,
 		       &w2->hdr, w2->shard_nums, w2->merkles,
 		       w2->prev_txhashes, &w2->tailer);
+
+	/* This should be correct. */
+	assert(check_prev_txhashes(s, b, NULL, NULL));
 
 	/* Put the single tx into a shard. */
 	shard = new_block_shard(s, update.shard, 1);
