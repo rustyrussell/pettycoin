@@ -189,6 +189,30 @@ static char *make_pettycoin_dir(const tal_t *ctx)
 	return path;
 }
 
+/* FIXME: make this nicer! */
+static void config_log_stderr_exit(const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+
+	/* This is the format we expect: mangle it to remove '--'. */
+	if (streq(fmt, "%s: %.*s: %s")) {
+		const char *argv0 = va_arg(ap, const char *);
+		unsigned int len = va_arg(ap, unsigned int);
+		const char *arg = va_arg(ap, const char *);
+		const char *problem = va_arg(ap, const char *);
+
+		fprintf(stderr, "%s line %s: %.*s: %s",
+			argv0, arg+strlen(arg)+1, len-2, arg+2, problem);
+	} else {
+		vfprintf(stderr, fmt, ap);
+	}
+	fprintf(stderr, "\n");
+	va_end(ap);
+	exit(1);
+}
+
 /* We turn the config file into cmdline arguments. */
 static void parse_from_config(const tal_t *ctx)
 {
@@ -208,19 +232,20 @@ static void parse_from_config(const tal_t *ctx)
 
 	/* We have to keep argv around, since opt will point into it */
 	argv = tal_arr(ctx, char *, argc = 1);
-	argv[0] = "pettycoin config";
+	argv[0] = "pettycoin config file";
 
 	for (i = 0; i < tal_count(lines) - 1; i++) {
 		if (strstarts(lines[i], "#"))
 			continue;
 		/* Only valid forms are "foo" and "foo=bar" */
 		tal_resize(&argv, argc+1);
-		argv[argc++] = tal_fmt(argv, "--%s", lines[i]);
+		/* Stash line number after nul. */
+		argv[argc++] = tal_fmt(argv, "--%s%c%u", lines[i], 0, i+1);
 	}
 	tal_resize(&argv, argc+1);
 	argv[argc] = NULL;
 
-	opt_parse(&argc, argv, opt_log_stderr_exit);
+	opt_parse(&argc, argv, config_log_stderr_exit);
 	tal_free(contents);
 }
 
