@@ -84,8 +84,10 @@ struct protocol_block_header {
  * each transaction + input_refs:
  *	struct protocol_double_sha merkle[1 << shard_order];
  *
- * Then the previous blocks's txs and refs hashed with fees_to, for each of
- * the PETTYCOIN_PREV_BLOCK_SIGN blocks:
+ * Then some previous blocks's txs and refs hashed with fees_to, for each
+ * shards.  We go back by power of
+ * 2, so the N-1 blocks' shards, then N-2, then N-4, then N-8
+ * ... N-2^PETTYCOIN_PREV_BLOCK_SIGN.
  *	u8 prev_txhash[hdr->num_prev_txhashes]
  *
  * Finally, the tailer:

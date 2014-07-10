@@ -1,4 +1,5 @@
 #include "block.h"
+#include "chain.h"
 #include "check_block.h"
 #include "merkle_txs.h"
 #include "prev_txhashes.h"
@@ -7,15 +8,14 @@
 #include "shard.h"
 #include <ccan/array_size/array_size.h>
 
-size_t num_prev_txhashes(const struct block *prev)
+size_t num_prev_txhashes(const struct block *prev_block)
 {
 	size_t num = 0;
 	unsigned int i;
+	const struct block *b;
 
-	for (i = 0;
-	     i < PROTOCOL_PREV_BLOCK_TXHASHES && prev;
-	     i++, prev = prev->prev)
-		num += num_shards(prev->hdr);
+	for_each_prev_txhash(i, b, prev_block)
+		num += num_shards(b->hdr);
 
 	return num;
 }
@@ -48,28 +48,27 @@ u8 prev_txhash(const struct protocol_address *addr,
 	return sha.sha[0];
 }
 
-u8 *make_prev_txhashes(const tal_t *ctx, const struct block *prev,
+u8 *make_prev_txhashes(const tal_t *ctx, const struct block *prev_block,
 		      const struct protocol_address *my_addr)
 {
+	const struct block *b;
 	unsigned int i;
 	size_t len;
 	u8 *m, *p;
 
-	len = num_prev_txhashes(prev);
+	len = num_prev_txhashes(prev_block);
 	p = m = tal_arr(ctx, u8, len);
 
-	for (i = 0;
-	     i < PROTOCOL_PREV_BLOCK_TXHASHES && prev;
-	     i++, prev = prev->prev) {
+	for_each_prev_txhash(i, b, prev_block) {
 		unsigned int j;
 
-		for (j = 0; j < num_shards(prev->hdr); j++) {
+		for (j = 0; j < num_shards(b->hdr); j++) {
 			/* We need to know everything in shard to check
 			 * previous txhash. */
-			if (!shard_all_known(prev->shard[j]))
+			if (!shard_all_known(b->shard[j]))
 				return tal_free(m);
 
-			*p = prev_txhash(my_addr, prev, j);
+			*p = prev_txhash(my_addr, b, j);
 			p++;
 		}
 	}

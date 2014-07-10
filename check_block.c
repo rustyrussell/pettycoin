@@ -302,33 +302,32 @@ void put_proof_in_shard(struct state *state,
 		= tal_dup(shard, struct protocol_proof, proof, 1, 0);
 }
 
-/* Check what we can, using prev->...'s shards. */
-bool check_block_prev_txhashes(struct log *log, const struct block *prev,
+/* Check what we can, using prev_block->...'s shards. */
+bool check_block_prev_txhashes(struct log *log, const struct block *prev_block,
 			       const struct protocol_block_header *hdr,
 			       const u8 *prev_txhashes)
 {
 	unsigned int i;
+	const struct block *b;
 	size_t off = 0;
 
-	for (i = 0;
-	     i < PROTOCOL_PREV_BLOCK_TXHASHES && prev;
-	     i++, prev = prev->prev) {
+	for_each_prev_txhash(i, b, prev_block) {
 		unsigned int j;
 
 		/* It's bad if we don't have that many prev hashes. */
-		if (off + num_shards(prev->hdr)
+		if (off + num_shards(b->hdr)
 		    > le32_to_cpu(hdr->num_prev_txhashes))
 			return false;
 
-		for (j = 0; j < num_shards(prev->hdr); j++) {
+		for (j = 0; j < num_shards(b->hdr); j++) {
 			u8 prev_txh;
 
 			/* We need to know everything in shard to check
 			 * previous hash. */
-			if (!shard_all_known(prev->shard[j]))
+			if (!shard_all_known(b->shard[j]))
 				continue;
 
-			prev_txh = prev_txhash(&hdr->fees_to, prev, j);
+			prev_txh = prev_txhash(&hdr->fees_to, b, j);
 
 			/* We only check one byte; that's enough. */
 			if (prev_txh != prev_txhashes[off+j]) {
