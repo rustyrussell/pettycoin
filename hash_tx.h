@@ -17,14 +17,6 @@ void hash_refs(const struct protocol_input_ref *refs,
 	       size_t num_refs,
 	       struct protocol_double_sha *sha);
 
-/* Get hash for merkle hash into block (include refs if num_refs != 0). */
-void hash_tx_for_block(const union protocol_tx *tx,
-		       const void *hash_prefix,
-		       size_t hash_prefix_len,
-		       const struct protocol_input_ref *refs,
-		       size_t num_refs,
-		       struct protocol_double_sha *sha);
-
 /* Combo deal. */
 void hash_tx_and_refs(const union protocol_tx *tx,
 		      const struct protocol_input_ref *refs,

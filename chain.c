@@ -354,7 +354,7 @@ static void update_block_ptrs_new_shard_or_empty(struct state *state,
 						 struct block *block,
 						 u16 shardnum)
 {
-	/* FIXME: re-check prev_merkles for any descendents. */
+	/* FIXME: re-check prev_txhashes for any descendents. */
 }
 
 /* We've added a new block; update state->longest_chains, state->longest_knowns,

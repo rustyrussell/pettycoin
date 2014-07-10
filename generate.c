@@ -370,7 +370,7 @@ int main(int argc, char *argv[])
 
 	if (argc != 7 && argc != 8)
 		errx(1, "Usage: %s <reward_addr> <difficulty> <prevhash>"
-		     " <num-prev-merkles> <depth> <shardorder> [<nonce>]",
+		     " <num-prev-txhashes> <depth> <shardorder> [<nonce>]",
 			argv[0]);
 
 	if (!from_hex(argv[1], reward_address.addr, sizeof(reward_address)))
@@ -388,7 +388,7 @@ int main(int argc, char *argv[])
 	num_prev_txhashes = strtoul(argv[4], NULL, 0);
 	prev_txhashes = tal_arr(ctx, u8, num_prev_txhashes + 1);
 
-	/* Read in prev merkles, plus "go" byte.  If we are to
+	/* Read in prev txhashes, plus "go" byte.  If we are to
 	 * terminate immediately, this might be 0 bytes. */
 	if (!read_all_or_none(STDIN_FILENO, prev_txhashes, num_prev_txhashes+1))
 		exit(0);

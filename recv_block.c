@@ -117,9 +117,9 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 	if (peer)
 		todo_done_get_block(peer, &sha, true);
 
-	/* Actually check the previous merkles are correct. */
+	/* Actually check the previous txhashes are correct. */
 	if (!check_block_prev_txhashes(state->log, prev, hdr, prev_txhashes)) {
-		log_unusual(log, "new block has bad prev merkles");
+		log_unusual(log, "new block has bad prev txhashes");
 		/* FIXME: provide proof. */
 		return PROTOCOL_ECODE_BAD_PREV_TXHASHES;
 	}
