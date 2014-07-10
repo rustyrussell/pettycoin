@@ -10,15 +10,16 @@ been since I've been on sabbatical: 78 in the last two weeks.
 So yesterday I decided to sit back for a moment and assess priorities
 to get to an alpha release.  Then I found a bug, which lead to some
 more coding.  But this afternoon I finally wrote my TODO list, and it
-looks like this:
+looks like this: [EDIT: I'm updating this on the fly, with pointers
+to the appropriate commit]
 
 ### Implementation: ###
 
 These I think I need to do before a release:
 
-* [Have static genesis](https://github.com/rustyrussell/pettycoin/commit/a170f12c00a3d53efd6fe9b0fae75f40f2cd71aa)
-* [Save to disk / restore from disk](https://github.com/rustyrussell/pettycoin/commit/0f7fbd7a011b1afbbf45237f65d5ecc1ef8ed116)
-* Re-check prev_txhashes when we complete a shard.
+* [<del>Have static genesis</del>](https://github.com/rustyrussell/pettycoin/commit/a170f12c00a3d53efd6fe9b0fae75f40f2cd71aa)
+* [<del>Save to disk / restore from disk</del>](https://github.com/rustyrussell/pettycoin/commit/0f7fbd7a011b1afbbf45237f65d5ecc1ef8ed116)
+* [<del>Re-check prev_txhashes when we complete a shard.</del>](https://github.com/rustyrussell/pettycoin/commit/0ec909cc65c11be52dd9e4ce3903619cca37c669)
 * Real reward address in generating.c
 * JSON RPC API
 
@@ -40,6 +41,7 @@ These can wait:
 * timeout todos
 * off test network.
 * Implement partial knowledge.
+* Generate complaints prev_txhashes being wrong
 
 ### Protocol: ###
 
@@ -49,7 +51,7 @@ Before release:
 * Fees
 * Reward collection.
 * peer location broadcast
-* Spread out prev_txhashes
+* [<del>Spread out prev_txhashes</del>](https://github.com/rustyrussell/pettycoin/commit/c84d0818abccc46f4e1d09979688ccd41366f168)
 
 Sometime later:
 
