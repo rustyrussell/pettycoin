@@ -76,6 +76,8 @@ struct state {
 	char *generator;
 	struct generator *gen;
 	struct protocol_address *reward_addr;
+	bool require_non_gateway_tx_fee;
+	bool require_gateway_tx_fee;
 
 	/* log */
 	struct log *log;

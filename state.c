@@ -50,6 +50,8 @@ struct state *new_state(bool test_net)
 	s->generator = "pettycoin-generate";
 	s->reward_addr = NULL;
 	memset(s->interests, 0xff, sizeof(s->interests)); /* Everything */
+	s->require_non_gateway_tx_fee = false;
+	s->require_gateway_tx_fee = false;
 
 	tal_add_destructor(s, destroy_state);
 

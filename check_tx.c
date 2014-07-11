@@ -159,7 +159,7 @@ enum input_ecode check_tx_inputs(struct state *state,
 				 unsigned int *bad_input_num)
 {
 	unsigned int i, known = 0;
-	u64 input_total = 0, fee;
+	u32 input_total = 0, fee;
 	struct protocol_address my_addr;
 
 	switch (tx_type(tx)) {
@@ -207,8 +207,13 @@ check_inputs:
 	else
 		fee = 0;
 
-	if (input_total != tx_amount_sent(tx) + fee)
+	if (input_total != tx_amount_sent(tx) + fee) {
+		log_debug(state->log,
+			  "Tx inputs %u, sent %u, fee %u: BAD_AMOUNT for ",
+			  input_total, tx_amount_sent(tx), fee);
+		log_add_struct(state->log, union protocol_tx, tx);
 		return ECODE_INPUT_BAD_AMOUNT;
+	}
 
 	return ECODE_INPUT_OK;
 }
@@ -260,9 +265,6 @@ enum protocol_ecode check_tx(struct state *state,
 			     const struct block *inside_block)
 {
 	enum protocol_ecode e;
-
-	log_debug(state->log, "Checking tx ");
-	log_add_struct(state->log, union protocol_tx, tx);
 
 	e = PROTOCOL_ECODE_TX_TYPE_UNKNOWN;
 	switch (tx_type(tx)) {

@@ -297,10 +297,18 @@ int main(int argc, char *argv[])
 			 &log_prefix, "log prefix");
 	opt_register_arg("--connect", add_connect, NULL, state,
 			 "Node to connect to (can be specified multiple times)");
+	/* Generation options. */
 	opt_register_arg("--generator", opt_set_charp, opt_show_charp,
 			 &state->generator, "Binary to try to generate a block");
 	opt_register_arg("--reward-address", set_reward_address, NULL,
 			 state, "Address to send block fee rewards");
+	opt_register_noarg("--require-fees", opt_set_bool,
+			 &state->require_non_gateway_tx_fee,
+			 "Never mine normal transactions without a fee");
+	opt_register_noarg("--require-gateway-fees", opt_set_bool,
+			 &state->require_gateway_tx_fee,
+			 "Never mine gateway transactions without a fee");
+
 	opt_register_noarg("--developer-test",
 			   opt_set_bool, &state->developer_test,
 			   "Developer test mode: connects to localhost");

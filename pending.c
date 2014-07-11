@@ -259,27 +259,53 @@ enum input_ecode add_pending_tx(struct state *state,
 			ierr = ECODE_INPUT_DOUBLESPEND;
 	}
 
-	/* On success, we make copy of tx (which is inside a packet) */
 	switch (ierr) {
 	case ECODE_INPUT_OK:
-		/* If it overflows, pretend it's unknown. */
-		tx = tx_dup(state->pending, tx);
-		if (!insert_pending_tx(state, tx))
-			add_to_unknown_pending(state, tx);
 		break;
 	case ECODE_INPUT_UNKNOWN:
 		/* FIXME: If we did a check_tx_inputs() which included
 		 * TX_PENDING now, we might find doublespends or bad
 		 * amounts already. */
-		tx = tx_dup(state->pending, tx);
-		add_to_unknown_pending(state, tx);
 		break;
 	case ECODE_INPUT_BAD:
 	case ECODE_INPUT_BAD_AMOUNT:
 	case ECODE_INPUT_DOUBLESPEND:
+		log_debug(state->log, "Check tx inputs said ");
+		log_add_enum(state->log, enum input_ecode, ierr);
+		log_add(state->log, " for tx ");
+		log_add_struct(state->log, union protocol_tx, tx);
 		return ierr;
 	}
 
+	/* We still want to transmit these to peers, just not keep them
+	 * ourselves. */
+	switch (tx_type(tx)) {
+	case TX_NORMAL:
+	case TX_TO_GATEWAY:
+		if (state->require_non_gateway_tx_fee && !tx_pays_fee(tx)) {
+			log_info(state->log, "Dropping feeless normal tx ");
+			log_add_struct(state->log, union protocol_tx, tx);
+			/* If we're ECODE_INPUT_UNKNOWN, we don't care. */
+			return ECODE_INPUT_OK;
+		}
+		break;
+	case TX_FROM_GATEWAY:
+		if (state->require_gateway_tx_fee && !tx_pays_fee(tx)) {
+			log_unusual(state->log, "Dropping feeless gateway tx ");
+			log_add_struct(state->log, union protocol_tx, tx);
+			/* If we're ECODE_INPUT_UNKNOWN, we don't care. */
+			return ECODE_INPUT_OK;
+		}
+		break;
+	}
+
+	/* We make copy of tx (which is inside a packet) */
+	tx = tx_dup(state->pending, tx);
+	/* If it overflows, pretend it's unknown. */
+	if (ierr == ECODE_INPUT_UNKNOWN || !insert_pending_tx(state, tx))
+		add_to_unknown_pending(state, tx);
+
+	/* Now put it in txhash and inputhash */
 	add_pending_tx_to_hashes(state, state->pending, tx);
 	return ierr;
 }
