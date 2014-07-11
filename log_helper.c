@@ -53,12 +53,14 @@ void log_add_struct_(struct log *log, const char *structname, const void *ptr)
 		const union protocol_tx *tx = ptr;
 		struct protocol_double_sha sha;
 		struct protocol_address input_addr;
+		const char *feestr = tx_pays_fee(tx) ? "fee" : "no fee";
 		u32 i;
 
 		hash_tx(tx, &sha);
 		switch (tx_type(tx)) {
 		case TX_NORMAL:
-			log_add(log, "NORMAL %u inputs => %u (%u change) ",
+			log_add(log, "NORMAL (%s) %u inputs => %u (%u change) ",
+				feestr,
 				le32_to_cpu(tx->normal.num_inputs),
 				le32_to_cpu(tx->normal.send_amount),
 				le32_to_cpu(tx->normal.change_amount));
@@ -70,7 +72,8 @@ void log_add_struct_(struct log *log, const char *structname, const void *ptr)
 				       &tx->normal.output_addr);
 			goto known;
 		case TX_FROM_GATEWAY:
-			log_add(log, "FROM_GATEWAY %u outputs",
+			log_add(log, "FROM_GATEWAY (%s) %u outputs",
+				feestr,
 				le32_to_cpu(tx->from_gateway.num_outputs));
 			for (i = 0;
 			     i < le32_to_cpu(tx->from_gateway.num_outputs);
@@ -83,7 +86,9 @@ void log_add_struct_(struct log *log, const char *structname, const void *ptr)
 			}
 			goto known;
 		case TX_TO_GATEWAY:
-			log_add(log, "TO_GATEWAY %u inputs => %u (%u change) ",
+			log_add(log, "TO_GATEWAY (%s) %u inputs"
+				" => %u (%u change) ",
+				feestr,
 				le32_to_cpu(tx->to_gateway.num_inputs),
 				le32_to_cpu(tx->to_gateway.send_amount),
 				le32_to_cpu(tx->to_gateway.change_amount));
@@ -95,7 +100,7 @@ void log_add_struct_(struct log *log, const char *structname, const void *ptr)
 				       &tx->to_gateway.to_gateway_addr);
 			goto known;
 		}
-		log_add(log, "UNKNOWN(%u) ", tx_type(tx));
+		log_add(log, "UNKNOWN(%u) (%s) ", tx_type(tx), feestr);
 
 	known:
 		log_add_struct(log, struct protocol_double_sha, &sha);

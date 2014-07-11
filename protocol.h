@@ -39,6 +39,15 @@
 /* How many blocks after feature vote to increment version number. */
 #define PROTOCOL_FEATURE_CONFIRM_DELAY	2016
 
+/* An amount, not a psuedonym! */
+#define PROTOCOL_MAX_SATOSHI (0x80000000 / PROTOCOL_TX_MAX_INPUTS)
+
+/* Fees are set at just under 0.3% of total amount + 1 satoshi. */
+#define PROTOCOL_FEE(x) ((x) * 3 / 1024 + 1)
+
+/* Set this bit in tx->type to indicate you are paying fees. */
+#define PROTOCOL_FEE_TYPE 0x80
+
 struct protocol_double_sha {
 	u8 sha[SHA256_DIGEST_LENGTH /* 32 */ ];
 };
@@ -122,7 +131,7 @@ enum protocol_tx_type {
 /* For use in the union */
 struct protocol_tx_hdr {
 	u8 version;
-	u8 type; /* == TX_NORMAL || TX_FROM_GATEWAY */
+	u8 type; /* Upper bit == pays fee, lower is enum protocol_tx_type */
 	u8 features;
 };
 
@@ -264,6 +273,4 @@ struct protocol_hashes_with_proof {
 	struct protocol_txrefhash txrefhash;
 };
 
-/* An amount, not a psuedonym! */
-#define MAX_SATOSHI 0x7FFFFFFF
 #endif /* PETTYCOIN_PROTOCOL_H */

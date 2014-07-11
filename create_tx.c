@@ -8,7 +8,7 @@
 #include <ccan/tal/tal.h>
 
 static union protocol_tx *
-alloc_tx(const tal_t *ctx, enum protocol_tx_type type, u16 num)
+alloc_tx(const tal_t *ctx, enum protocol_tx_type type, bool pay_fee, u16 num)
 {
 	union protocol_tx *tx;
 	size_t len = 0;
@@ -37,6 +37,8 @@ known:
 	tx = tal_alloc_(ctx, len, false, label);
 	tx->hdr.version = current_version();
 	tx->hdr.type = type;
+	if (pay_fee)
+		tx->hdr.type |= PROTOCOL_FEE_TYPE;
 	tx->hdr.features = 0;
 
 	return tx;
@@ -47,12 +49,13 @@ create_from_gateway_tx(const tal_t *ctx,
 		       const struct protocol_pubkey *gateway_key,
 		       u16 num_payments,
 		       struct protocol_gateway_payment *payment,
+		       bool pay_fee,
 		       EC_KEY *private_key)
 {
 	union protocol_tx *tx;
 	struct protocol_tx_from_gateway *gtx;
 
-	tx = alloc_tx(ctx, TX_FROM_GATEWAY, num_payments);
+	tx = alloc_tx(ctx, TX_FROM_GATEWAY, pay_fee, num_payments);
 	gtx = &tx->from_gateway;
 
 	gtx->gateway_key = *gateway_key;
@@ -112,10 +115,11 @@ create_normal_tx(const tal_t *ctx,
 		 u32 send_amount,
 		 u32 change_amount,
 		 u32 num_inputs,
+		 bool pay_fee,
 		 const struct protocol_input inputs[],
 		 EC_KEY *private_key)
 {
-	union protocol_tx *tx = alloc_tx(ctx, TX_NORMAL, num_inputs);
+	union protocol_tx *tx = alloc_tx(ctx, TX_NORMAL, pay_fee, num_inputs);
 
 	return finish_tx_with_inputs(tx,
 				     &tx->normal.input_key,
@@ -134,10 +138,13 @@ create_to_gateway_tx(const tal_t *ctx,
 		     u32 send_amount,
 		     u32 change_amount,
 		     u32 num_inputs,
+		     bool pay_fee,
 		     const struct protocol_input inputs[],
 		     EC_KEY *private_key)
 {
-	union protocol_tx *tx = alloc_tx(ctx, TX_TO_GATEWAY, num_inputs);
+	union protocol_tx *tx;
+
+	tx = alloc_tx(ctx, TX_TO_GATEWAY, pay_fee, num_inputs);
 
 	return finish_tx_with_inputs(tx,
 				     &tx->to_gateway.input_key,

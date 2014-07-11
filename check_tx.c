@@ -28,10 +28,10 @@ check_tx_with_inputs_wellformed(u8 version,
 	if (!version_ok(version))
 		return PROTOCOL_ECODE_TX_HIGH_VERSION;
 
-	if (le32_to_cpu(send_amount) > MAX_SATOSHI)
+	if (le32_to_cpu(send_amount) > PROTOCOL_MAX_SATOSHI)
 		return PROTOCOL_ECODE_TX_TOO_LARGE;
 
-	if (le32_to_cpu(change_amount) > MAX_SATOSHI)
+	if (le32_to_cpu(change_amount) > PROTOCOL_MAX_SATOSHI)
 		return PROTOCOL_ECODE_TX_TOO_LARGE;
 
 	if (le32_to_cpu(num_inputs) > PROTOCOL_TX_MAX_INPUTS)
@@ -50,7 +50,7 @@ check_tx_with_inputs_wellformed(u8 version,
 static enum protocol_ecode
 check_tx_normal_basic(struct state *state, const union protocol_tx *ntx)
 {
-	assert(ntx->normal.type == TX_NORMAL);
+	assert(tx_type(ntx) == TX_NORMAL);
 	return check_tx_with_inputs_wellformed(ntx->normal.version,
 					       ntx->normal.send_amount,
 					       ntx->normal.change_amount,
@@ -63,7 +63,7 @@ static enum protocol_ecode
 check_tx_to_gateway_basic(struct state *state, const union protocol_tx *tgtx)
 {
 	enum protocol_ecode e;
-	assert(tgtx->to_gateway.type == TX_TO_GATEWAY);
+	assert(tx_type(tgtx) == TX_TO_GATEWAY);
 	e = check_tx_with_inputs_wellformed(tgtx->to_gateway.version,
 					    tgtx->to_gateway.send_amount,
 					    tgtx->to_gateway.change_amount,
@@ -159,20 +159,15 @@ enum input_ecode check_tx_inputs(struct state *state,
 				 unsigned int *bad_input_num)
 {
 	unsigned int i, known = 0;
-	u64 input_total = 0;
+	u64 input_total = 0, fee;
 	struct protocol_address my_addr;
-	le32 send_amount, change_amount;
 
 	switch (tx_type(tx)) {
 	case TX_FROM_GATEWAY:
 		return ECODE_INPUT_OK;
 	case TX_NORMAL:
-		send_amount = tx->normal.send_amount;
-		change_amount = tx->normal.change_amount;
 		goto check_inputs;
 	case TX_TO_GATEWAY:
-		send_amount = tx->to_gateway.send_amount;
-		change_amount = tx->to_gateway.change_amount;
 		goto check_inputs;
 	}
 	abort();
@@ -207,10 +202,14 @@ check_inputs:
 	if (known != num_inputs(tx))
 		return ECODE_INPUT_UNKNOWN;
 
-	if (input_total
-	    != (le32_to_cpu(send_amount) + le32_to_cpu(change_amount))) {
+	if (tx_pays_fee(tx))
+		fee = PROTOCOL_FEE(tx_amount_sent(tx));
+	else
+		fee = 0;
+
+	if (input_total != tx_amount_sent(tx) + fee)
 		return ECODE_INPUT_BAD_AMOUNT;
-	}
+
 	return ECODE_INPUT_OK;
 }
 
@@ -247,7 +246,7 @@ check_tx_from_gateway(struct state *state,
 		else if (shard_of(&out[i].output_addr, shard_ord) != the_shard)
 			return PROTOCOL_ECODE_TX_CROSS_SHARDS;
 
-		if (le32_to_cpu(out[i].send_amount) > MAX_SATOSHI)
+		if (le32_to_cpu(out[i].send_amount) > PROTOCOL_MAX_SATOSHI)
 			return PROTOCOL_ECODE_TX_TOO_LARGE;
 	}
 

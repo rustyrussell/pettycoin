@@ -184,7 +184,7 @@ int main(int argc, char *argv[])
 	payment.send_amount = cpu_to_le32(1000);
 	payment.output_addr = *helper_addr(0);
 	t = create_from_gateway_tx(s, helper_gateway_public_key(),
-				   1, &payment, helper_gateway_key(s));
+				   1, &payment, true, helper_gateway_key(s));
 	/* Gateway txs have empty refs, so this gives 0-len array. */
 	refs = create_refs(s, &genesis, t, 1);
 
@@ -227,15 +227,16 @@ int main(int argc, char *argv[])
 			       next_shard_order(b),
 			       &b->sha, helper_addr(1));
 
-	/* We are going to spend half the gateway tx. */
+	/* We are going to spend over half the gateway tx. */
 	hash_tx(t, &inputs[0].input);
 	inputs[0].output = 0;
 	inputs[0].unused = 0;
 
+	assert(PROTOCOL_FEE(1000) == 3);
 	t = create_normal_tx(s, helper_addr(1),
-			     600, 400, 1, inputs,
+			     600, 397, 1, true, inputs,
 			     helper_private_key(s, 0));
-	assert(t->normal.change_amount == 400);
+	assert(t->normal.change_amount == 397);
 	assert(num_inputs(t) == 1);
 
 	/* This should create a reference back to the gateway tx */
@@ -291,10 +292,11 @@ int main(int argc, char *argv[])
 	inputs[0].output = 1;
 	inputs[0].unused = 0;
 
+	assert(PROTOCOL_FEE(397) == 2);
 	t = create_to_gateway_tx(s, helper_addr(1),
-				 300, 100, 1, inputs,
+				 300, 95, 1, true, inputs,
 				 helper_private_key(s, 0));
-	assert(t->to_gateway.change_amount == 100);
+	assert(t->to_gateway.change_amount == 95);
 	assert(num_inputs(t) == 1);
 
 	/* This should create a reference back to the normal tx */

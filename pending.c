@@ -268,6 +268,9 @@ enum input_ecode add_pending_tx(struct state *state,
 			add_to_unknown_pending(state, tx);
 		break;
 	case ECODE_INPUT_UNKNOWN:
+		/* FIXME: If we did a check_tx_inputs() which included
+		 * TX_PENDING now, we might find doublespends or bad
+		 * amounts already. */
 		tx = tx_dup(state->pending, tx);
 		add_to_unknown_pending(state, tx);
 		break;

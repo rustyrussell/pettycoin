@@ -217,9 +217,9 @@ again:
 
 static void usage(void)
 {
-	errx(1, "Usage: inject from-gateway <privkey> <peer> <port> <dstaddr> <satoshi>\n"
-		"   inject tx <privkey> <peer> <port> <dstaddr> <satout> <change> <tx>[/<out>]...\n"
-		"   inject to-gateway <privkey> <peer> <port> <dstaddr> <satout> <change> <tx>[/<out>]..."
+	errx(1, "Usage: inject [--no-fee] from-gateway <privkey> <peer> <port> <dstaddr> <satoshi>\n"
+		"   inject [--no-fee] tx <privkey> <peer> <port> <dstaddr> <satout> <change> <tx>[/<out>]...\n"
+		"   inject [--no-fee] to-gateway <privkey> <peer> <port> <dstaddr> <satout> <change> <tx>[/<out>]..."
 );
 }
 
@@ -254,12 +254,21 @@ int main(int argc, char *argv[])
 	bool normal = false;
 	bool to_gateway = false;
 	struct protocol_double_sha sha;
+	bool pay_fee = true;
 
-	if (argv[1] && streq(argv[1], "from-gateway"))
+	if (argc < 3)
+		usage();
+	if (streq(argv[1], "--no-fee")) {
+		pay_fee = false;
+		argv++;
+		argc--;
+	}
+
+	if (streq(argv[1], "from-gateway"))
 		from_gateway = true;
-	else if (argv[1] && streq(argv[1], "tx"))
+	else if (streq(argv[1], "tx"))
 		normal = true;
-	else if (argv[1] && streq(argv[1], "to-gateway"))
+	else if (streq(argv[1], "to-gateway"))
 		to_gateway = true;
 	else
 		usage();
@@ -283,7 +292,8 @@ int main(int argc, char *argv[])
 		log_add_struct(NULL, struct protocol_address,
 			       &payment.output_addr);
 
-		tx = create_from_gateway_tx(NULL, &gkey, 1, &payment, key);
+		tx = create_from_gateway_tx(NULL, &gkey, 1, &payment, pay_fee,
+					    key);
 	} else if (normal || to_gateway) {
 		struct protocol_pubkey destkey;
 		EC_KEY *key;
@@ -312,12 +322,12 @@ int main(int argc, char *argv[])
 			tx = create_normal_tx(NULL, &destaddr,
 					      atoi(argv[6]),
 					      atoi(argv[7]), argc - 8,
-					      input, key);
+					      pay_fee, input, key);
 		else
 			tx = create_to_gateway_tx(NULL, &destaddr,
 						  atoi(argv[6]),
 						  atoi(argv[7]), argc - 8,
-						  input, key);
+						  pay_fee, input, key);
 	}
 
 	len = marshal_tx_len(tx);

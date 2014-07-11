@@ -9,7 +9,12 @@
 
 static inline enum protocol_tx_type tx_type(const union protocol_tx *tx)
 {
-	return (enum protocol_tx_type)tx->hdr.type;
+	return (enum protocol_tx_type)(tx->hdr.type & ~PROTOCOL_FEE_TYPE);
+}
+
+static inline bool tx_pays_fee(const union protocol_tx *tx)
+{
+	return tx->hdr.type & PROTOCOL_FEE_TYPE;
 }
 
 /* Only normal and to_gateway transactions have inputs; 0 for others. */

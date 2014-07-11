@@ -184,7 +184,7 @@ int main(int argc, char *argv[])
 	payment.send_amount = cpu_to_le32(1000);
 	payment.output_addr = *helper_addr(0);
 	t = create_from_gateway_tx(s, helper_gateway_public_key(),
-				   1, &payment, helper_gateway_key(s));
+				   1, &payment, true, helper_gateway_key(s));
 	/* Gateway txs have empty refs, so this gives 0-len array. */
 	refs = create_refs(s, &genesis, t, 1);
 
