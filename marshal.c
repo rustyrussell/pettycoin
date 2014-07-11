@@ -208,19 +208,32 @@ enum protocol_ecode unmarshal_tx(const void *buffer, size_t size, size_t *used)
 		len = sizeof(tx->normal) + i;
 		goto known;
 	case TX_FROM_GATEWAY:
-		if (size < sizeof(tx->gateway))
+		if (size < sizeof(tx->from_gateway))
 			return PROTOCOL_ECODE_INVALID_LEN;
 		
 		if (mul_overflows(sizeof(struct protocol_gateway_payment),
-				  le16_to_cpu(tx->gateway.num_outputs)))
+				  le16_to_cpu(tx->from_gateway.num_outputs)))
 			return PROTOCOL_ECODE_INVALID_LEN;
 		i = sizeof(struct protocol_gateway_payment)
-			* le16_to_cpu(tx->gateway.num_outputs);
+			* le16_to_cpu(tx->from_gateway.num_outputs);
 
-		if (add_overflows(sizeof(tx->gateway), i))
+		if (add_overflows(sizeof(tx->from_gateway), i))
 			return PROTOCOL_ECODE_INVALID_LEN;
 
-		len = sizeof(tx->gateway) + i;
+		len = sizeof(tx->from_gateway) + i;
+		goto known;
+	case TX_TO_GATEWAY:
+		if (size < sizeof(tx->to_gateway))
+			return PROTOCOL_ECODE_INVALID_LEN;
+		if (mul_overflows(sizeof(struct protocol_input),
+				  le32_to_cpu(tx->to_gateway.num_inputs)))
+			return PROTOCOL_ECODE_INVALID_LEN;
+		i = sizeof(struct protocol_input)
+			* le32_to_cpu(tx->to_gateway.num_inputs);
+
+		if (add_overflows(sizeof(tx->to_gateway), i))
+			return PROTOCOL_ECODE_INVALID_LEN;
+		len = sizeof(tx->to_gateway) + i;
 		goto known;
 	}
 
@@ -228,7 +241,6 @@ enum protocol_ecode unmarshal_tx(const void *buffer, size_t size, size_t *used)
 	return PROTOCOL_ECODE_TX_TYPE_UNKNOWN;
 
 known:
-
 	if (size < len)
 		return PROTOCOL_ECODE_INVALID_LEN;
 
@@ -265,9 +277,12 @@ size_t marshal_tx_len(const union protocol_tx *tx)
 		return varsize(tx->normal, struct protocol_input,
 			       le32_to_cpu(tx->normal.num_inputs));
 	case TX_FROM_GATEWAY:
-		return varsize(tx->gateway,
+		return varsize(tx->from_gateway,
 			       struct protocol_gateway_payment,
-			       le16_to_cpu(tx->gateway.num_outputs));
+			       le16_to_cpu(tx->from_gateway.num_outputs));
+	case TX_TO_GATEWAY:
+		return varsize(tx->to_gateway, struct protocol_input,
+			       le32_to_cpu(tx->to_gateway.num_inputs));
 	}
 	abort();
 }

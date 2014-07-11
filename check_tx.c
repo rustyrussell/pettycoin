@@ -17,30 +17,58 @@
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/tal.h>
 
-/* Check signature. */
-enum protocol_ecode
-check_tx_normal_basic(struct state *state, const struct protocol_tx_normal *ntx)
+static enum protocol_ecode
+check_tx_with_inputs_wellformed(u8 version,
+				le32 send_amount,
+				le32 change_amount,
+				le32 num_inputs,
+				const union protocol_tx *tx,
+				const struct protocol_pubkey *input_key)
 {
-	if (!version_ok(ntx->version))
+	if (!version_ok(version))
 		return PROTOCOL_ECODE_TX_HIGH_VERSION;
 
-	if (le32_to_cpu(ntx->send_amount) > MAX_SATOSHI)
+	if (le32_to_cpu(send_amount) > MAX_SATOSHI)
 		return PROTOCOL_ECODE_TX_TOO_LARGE;
 
-	if (le32_to_cpu(ntx->change_amount) > MAX_SATOSHI)
+	if (le32_to_cpu(change_amount) > MAX_SATOSHI)
 		return PROTOCOL_ECODE_TX_TOO_LARGE;
 
-	if (le32_to_cpu(ntx->num_inputs) > PROTOCOL_TX_MAX_INPUTS)
+	if (le32_to_cpu(num_inputs) > PROTOCOL_TX_MAX_INPUTS)
 		return PROTOCOL_ECODE_TX_TOO_MANY_INPUTS;
 
-	if (le32_to_cpu(ntx->num_inputs) == 0)
+	if (le32_to_cpu(num_inputs) == 0)
 		return PROTOCOL_ECODE_TX_TOO_MANY_INPUTS;
 
-	if (!check_tx_sign((const union protocol_tx *)ntx,
-			   &ntx->input_key, &ntx->signature))
+	if (!check_tx_sign(tx, input_key))
 		return PROTOCOL_ECODE_TX_BAD_SIG;
 
 	return PROTOCOL_ECODE_NONE;
+}
+
+/* Check signature. */
+static enum protocol_ecode
+check_tx_normal_basic(struct state *state, const union protocol_tx *ntx)
+{
+	assert(ntx->normal.type == TX_NORMAL);
+	return check_tx_with_inputs_wellformed(ntx->normal.version,
+					       ntx->normal.send_amount,
+					       ntx->normal.change_amount,
+					       ntx->normal.num_inputs,
+					       ntx,
+					       &ntx->normal.input_key);
+}
+
+static enum protocol_ecode
+check_tx_to_gateway_basic(struct state *state, const union protocol_tx *tgtx)
+{
+	assert(tgtx->to_gateway.type == TX_TO_GATEWAY);
+	return check_tx_with_inputs_wellformed(tgtx->to_gateway.version,
+					       tgtx->to_gateway.send_amount,
+					       tgtx->to_gateway.change_amount,
+					       tgtx->to_gateway.num_inputs,
+					       tgtx,
+					       &tgtx->to_gateway.input_key);
 }
 
 /* Searches for a spend of this input <= block */
@@ -125,18 +153,25 @@ enum input_ecode check_tx_inputs(struct state *state,
 	unsigned int i, known = 0;
 	u64 input_total = 0;
 	struct protocol_address my_addr;
+	le32 send_amount, change_amount;
 
 	switch (tx_type(tx)) {
 	case TX_FROM_GATEWAY:
 		return ECODE_INPUT_OK;
 	case TX_NORMAL:
-		goto normal;
+		send_amount = tx->normal.send_amount;
+		change_amount = tx->normal.change_amount;
+		goto check_inputs;
+	case TX_TO_GATEWAY:
+		send_amount = tx->to_gateway.send_amount;
+		change_amount = tx->to_gateway.change_amount;
+		goto check_inputs;
 	}
 	abort();
 
-normal:
+check_inputs:
 	/* Get the input address used by this transaction. */
-	pubkey_to_addr(&tx->normal.input_key, &my_addr);
+	get_tx_input_address(tx, &my_addr);
 
 	for (i = 0; i < num_inputs(tx); i++) {
 		u32 amount;
@@ -164,18 +199,18 @@ normal:
 	if (known != num_inputs(tx))
 		return ECODE_INPUT_UNKNOWN;
 
-	if (input_total != (le32_to_cpu(tx->normal.send_amount)
-			    + le32_to_cpu(tx->normal.change_amount))) {
+	if (input_total
+	    != (le32_to_cpu(send_amount) + le32_to_cpu(change_amount))) {
 		return ECODE_INPUT_BAD_AMOUNT;
 	}
 	return ECODE_INPUT_OK;
 }
 
 /* block is NULL if we're not in a block (ie. pending tx) */
-enum protocol_ecode
+static enum protocol_ecode
 check_tx_from_gateway(struct state *state,
 		      const struct block *block,
-		      const struct protocol_tx_gateway *gtx)
+		      const struct protocol_tx_from_gateway *gtx)
 {
 	u32 i;
 	u32 the_shard;
@@ -188,7 +223,7 @@ check_tx_from_gateway(struct state *state,
 	if (!accept_gateway(state, &gtx->gateway_key))
 		return PROTOCOL_ECODE_TX_BAD_GATEWAY;
 
-	out = get_gateway_outputs(gtx);
+	out = get_from_gateway_outputs(gtx);
 
 	/* Each output must be in the same shard. */
 	if (!block)
@@ -206,8 +241,7 @@ check_tx_from_gateway(struct state *state,
 			return PROTOCOL_ECODE_TX_TOO_LARGE;
 	}
 
-	if (!check_tx_sign((const union protocol_tx *)gtx,
-			      &gtx->gateway_key, &gtx->signature))
+	if (!check_tx_sign((const union protocol_tx *)gtx, &gtx->gateway_key))
 		return PROTOCOL_ECODE_TX_BAD_SIG;
 	return PROTOCOL_ECODE_NONE;
 }
@@ -224,10 +258,14 @@ enum protocol_ecode check_tx(struct state *state,
 	e = PROTOCOL_ECODE_TX_TYPE_UNKNOWN;
 	switch (tx_type(tx)) {
 	case TX_FROM_GATEWAY:
-		e = check_tx_from_gateway(state, inside_block, &tx->gateway);
+		e = check_tx_from_gateway(state, inside_block,
+					  &tx->from_gateway);
 		break;
 	case TX_NORMAL:
-		e = check_tx_normal_basic(state, &tx->normal);
+		e = check_tx_normal_basic(state, tx);
+		break;
+	case TX_TO_GATEWAY:
+		e = check_tx_to_gateway_basic(state, tx);
 		break;
 	}
 

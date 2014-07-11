@@ -69,7 +69,7 @@ void complain_bad_input(struct state *state,
 {
 	struct protocol_pkt_complain_tx_bad_input *pkt;
 
-	assert(tx_type(tx) == TX_NORMAL);
+	assert(tx_input(tx, bad_input));
 	log_unusual(state->log, "Block %u ", le32_to_cpu(block->hdr->depth));
 	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
 	log_add(state->log, " invalid due to tx %u in shard %u ",
@@ -99,7 +99,7 @@ void complain_bad_amount(struct state *state,
 	struct protocol_pkt_complain_tx_bad_amount *pkt;
 	unsigned int i;
 
-	assert(tx_type(tx) == TX_NORMAL);
+	assert(num_inputs(tx));
 	log_unusual(state->log, "Block %u ", le32_to_cpu(block->hdr->depth));
 	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
 	log_add(state->log, " invalid amounts in tx %u of shard %u ",
@@ -112,7 +112,6 @@ void complain_bad_amount(struct state *state,
 	tal_packet_append_proof(&pkt, proof);
 	tal_packet_append_tx_with_refs(&pkt, tx, refs);
 
-	/* FIXME: What if input is pending? */
 	for (i = 0; i < num_inputs(tx); i++) {
 		log_add_struct(state->log, union protocol_tx, intx[i]);
 		log_add(state->log, " (output %u)",
@@ -267,7 +266,13 @@ void complain_bad_tx(struct state *state,
 		break;
 
 	case PROTOCOL_ECODE_TX_TOO_MANY_INPUTS:
-		assert(tx_type(tx) == TX_NORMAL);
+		switch (tx_type(tx)) {
+		case TX_NORMAL:
+		case TX_TO_GATEWAY:
+			break;
+		case TX_FROM_GATEWAY:
+			abort();
+		}
 		break;
 
 	default:

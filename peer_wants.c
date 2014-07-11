@@ -32,6 +32,9 @@ bool peer_wants_tx_other(const struct peer *peer, const union protocol_tx *tx)
 		shard = shard_of(&tx->normal.output_addr,
 				 peer->welcome->shard_order);
 		return peer_wants_shard(peer, shard);
+	case TX_TO_GATEWAY:
+		/* These only affect one shard (inputs). */
+		return false;
 	}
 	abort();
 }

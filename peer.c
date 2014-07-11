@@ -487,20 +487,17 @@ tell_peer_about_bad_amount(struct state *state,
 			   const union protocol_tx *tx)
 {
 	struct protocol_pkt_tx_bad_amount *pkt;
-	struct protocol_input *inp;
 	unsigned int i;
-
-	assert(tx_type(tx) == TX_NORMAL);
-	inp = get_normal_inputs(&tx->normal);
 
 	pkt = tal_packet(peer, struct protocol_pkt_tx_bad_amount,
 			 PROTOCOL_PKT_TX_BAD_AMOUNT);
 
 	tal_packet_append_tx(&pkt, tx);
 
-	for (i = 0; i < le32_to_cpu(tx->normal.num_inputs); i++) {
+	for (i = 0; i < num_inputs(tx); i++) {
 		const union protocol_tx *input;
-		input = txhash_gettx(&state->txhash, &inp[i].input, TX_PENDING);
+		input = txhash_gettx(&state->txhash,
+				     &tx_input(tx, i)->input, TX_PENDING);
 		tal_packet_append_tx(&pkt, input);
 	}
 
@@ -1048,18 +1045,17 @@ verify_problem_input(struct state *state,
 	const struct protocol_input *input;
 	u32 amount;
 
-	/* Make sure this tx match the bad input */
+	/* Make sure this tx match the bad input (and ensure it has inputs!) */
 	if (input_num >= num_inputs(tx))
 		return PROTOCOL_ECODE_BAD_INPUTNUM;
 
-	assert(tx_type(tx) == TX_NORMAL);
 	input = tx_input(tx, input_num);
 	hash_tx(in, &sha);
 
 	if (!structeq(&input->input, &sha))
 		return PROTOCOL_ECODE_BAD_INPUT;
 
-	pubkey_to_addr(&tx->normal.input_key, &tx_addr);
+	get_tx_input_address(tx, &tx_addr);
 
 	/* We don't check for doublespends here. */
 	*ierr = check_one_input(state, NULL, NULL, input, in, &tx_addr,
@@ -1167,9 +1163,7 @@ unmarshal_and_check_bad_amount(struct state *state, const union protocol_tx *tx,
 	if (len != 0)
 		return PROTOCOL_ECODE_INVALID_LEN;
 
-	assert(tx_type(tx) == TX_NORMAL);
-	if (total == (le32_to_cpu(tx->normal.send_amount)
-		      + le32_to_cpu(tx->normal.change_amount)))
+	if (total == tx_amount_sent(tx))
 		return PROTOCOL_ECODE_COMPLAINT_INVALID;
 
 	return PROTOCOL_ECODE_NONE;
@@ -1725,9 +1719,6 @@ recv_complain_bad_input_ref(struct peer *peer,
 		return PROTOCOL_ECODE_BAD_INPUT;
 	if (inpos->txoff != ref->txoff)
 		return PROTOCOL_ECODE_BAD_INPUT;
-
-	/* Must be true: otherwise, it would have 0 inputs. */
-	assert(tx_type(tx) == TX_NORMAL);
 
 	/* We expect it to be the wrong tx. */
 	hash_tx(intx, &sha);

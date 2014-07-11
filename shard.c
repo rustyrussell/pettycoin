@@ -11,11 +11,16 @@ u32 shard_of_tx(const union protocol_tx *tx, u8 shard_order)
 	
 	switch (tx_type(tx)) {
 	case TX_NORMAL:
-		pubkey_to_addr(&tx->normal.input_key, &tmp);
+		get_tx_input_address(tx, &tmp);
 		addr = &tmp;
 		goto known;
 	case TX_FROM_GATEWAY:
-		addr = &get_gateway_outputs(&tx->gateway)[0].output_addr;
+		addr = &get_from_gateway_outputs(&tx->from_gateway)[0]
+			.output_addr;
+		goto known;
+	case TX_TO_GATEWAY:
+		get_tx_input_address(tx, &tmp);
+		addr = &tmp;
 		goto known;
 	}
 	abort();

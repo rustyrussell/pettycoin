@@ -9,9 +9,9 @@ bool find_output(const union protocol_tx *tx, u16 output_num,
 
 	switch (tx_type(tx)) {
 	case TX_FROM_GATEWAY:
-		if (output_num > le16_to_cpu(tx->gateway.num_outputs))
+		if (output_num > le16_to_cpu(tx->from_gateway.num_outputs))
 			return false;
-		out = get_gateway_outputs(&tx->gateway);
+		out = get_from_gateway_outputs(&tx->from_gateway);
 		*addr = out[output_num].output_addr;
 		*amount = le32_to_cpu(out[output_num].send_amount);
 		return true;
@@ -23,10 +23,12 @@ bool find_output(const union protocol_tx *tx, u16 output_num,
 			return true;
 		} else if (output_num == 1) {
 			/* Spending the change. */
-			pubkey_to_addr(&tx->normal.input_key, addr);
+			get_tx_input_address(tx, addr);
 			*amount = le32_to_cpu(tx->normal.change_amount);
 			return true;
 		}
+		return false;
+	case TX_TO_GATEWAY:
 		return false;
 	}
 	abort();

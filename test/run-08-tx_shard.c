@@ -98,8 +98,8 @@ int main(void)
 	/* Single payment. */
 	payment[0].send_amount = cpu_to_le32(1000);
 	payment[0].output_addr = *helper_addr(0);
-	tx1 = create_gateway_tx(ctx, helper_gateway_public_key(),
-				1, payment, helper_gateway_key(ctx));
+	tx1 = create_from_gateway_tx(ctx, helper_gateway_public_key(),
+				     1, payment, helper_gateway_key(ctx));
 	assert(tal_parent(tx1) == ctx);
 	assert(num_inputs(tx1) == 0);
 	

@@ -217,8 +217,10 @@ again:
 
 static void usage(void)
 {
-	errx(1, "Usage: inject gateway <privkey> <peer> <port> <dstaddr> <satoshi>\n"
-		"   inject tx <privkey> <peer> <port> <dstaddr> <satout> <change> <tx>[/<out>]...");
+	errx(1, "Usage: inject from-gateway <privkey> <peer> <port> <dstaddr> <satoshi>\n"
+		"   inject tx <privkey> <peer> <port> <dstaddr> <satout> <change> <tx>[/<out>]...\n"
+		"   inject to-gateway <privkey> <peer> <port> <dstaddr> <satout> <change> <tx>[/<out>]..."
+);
 }
 
 static struct protocol_double_sha parse_sha(const char *shastr)
@@ -248,18 +250,21 @@ int main(int argc, char *argv[])
 	int fd;
 	size_t len;
 	struct protocol_net_hdr hdr;
-	bool gateway = false;
+	bool from_gateway = false;
 	bool normal = false;
+	bool to_gateway = false;
 	struct protocol_double_sha sha;
 
-	if (argv[1] && streq(argv[1], "gateway"))
-		gateway = true;
+	if (argv[1] && streq(argv[1], "from-gateway"))
+		from_gateway = true;
 	else if (argv[1] && streq(argv[1], "tx"))
 		normal = true;
+	else if (argv[1] && streq(argv[1], "to-gateway"))
+		to_gateway = true;
 	else
 		usage();
 
-	if (gateway) {
+	if (from_gateway) {
 		struct protocol_pubkey gkey;
 		EC_KEY *key;
 
@@ -278,8 +283,8 @@ int main(int argc, char *argv[])
 		log_add_struct(NULL, struct protocol_address,
 			       &payment.output_addr);
 
-		tx = create_gateway_tx(NULL, &gkey, 1, &payment, key);
-	} else if (normal) {
+		tx = create_from_gateway_tx(NULL, &gkey, 1, &payment, key);
+	} else if (normal || to_gateway) {
 		struct protocol_pubkey destkey;
 		EC_KEY *key;
 		struct protocol_input input[argc - 8];
@@ -303,20 +308,16 @@ int main(int argc, char *argv[])
 				input[i].output = cpu_to_le16(0);
 			input[i].unused = cpu_to_le16(0);
 		}
-		tx = create_normal_tx(NULL, &destaddr, atoi(argv[6]),
-				      atoi(argv[7]), argc - 8, input, key);
-		{
-			struct protocol_pubkey pubkey;
-			unsigned char *p = (void *)&pubkey;
-			struct protocol_address addr;
-
-			if (i2o_ECPublicKey(key, &p) != sizeof(pubkey))
-				abort();
-
-			pubkey_to_addr(&pubkey, &addr);
-			log_unusual(NULL, "Our address is: ");
-			log_add_struct(NULL, struct protocol_address, &addr);
-		}
+		if (normal)
+			tx = create_normal_tx(NULL, &destaddr,
+					      atoi(argv[6]),
+					      atoi(argv[7]), argc - 8,
+					      input, key);
+		else
+			tx = create_to_gateway_tx(NULL, &destaddr,
+						  atoi(argv[6]),
+						  atoi(argv[7]), argc - 8,
+						  input, key);
 	}
 
 	len = marshal_tx_len(tx);

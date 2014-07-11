@@ -16,6 +16,7 @@ setup_dir()
 developer-test
 generator=../../../generate
 log-prefix=$i:
+log-level=info
 # This is test/helper_addr(0).
 reward-address=P-mhA9ozMTVWrSnUX2kB8QjEq9FBen8k3euW
 EOF
@@ -29,17 +30,14 @@ rm -rf pettycoin-* addresses
 touch addresses
 ./serve_addresses &
 
-#flags="--log-level=debug"
-flags="--log-level=info"
-
 for i in `seq 2 $1`; do
     setup_dir pettycoin-$i
-    ../../pettycoin --pettycoin-dir=pettycoin-$i $flags &
+    ../../pettycoin --pettycoin-dir=pettycoin-$i &
 done
 trap "" EXIT
 
 i=1
 setup_dir pettycoin-$i
 #HOME=home-$i valgrind --db-attach=yes --child-silent-after-fork=yes ../../pettycoin --developer-test --generate=../../../../generate --log-prefix="$i:" $flags
-gdb --args ../../pettycoin --pettycoin-dir=pettycoin-$i $flags
+gdb --args ../../pettycoin --pettycoin-dir=pettycoin-$i --log-level=debug
 #HOME=home-$i strace -f -o /tmp/out ../../pettycoin --developer-test --generate=../../../../generate $flags

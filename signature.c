@@ -18,7 +18,10 @@ static struct protocol_signature *get_signature(const union protocol_tx *tx)
 				  &tx->normal.signature);
 	case TX_FROM_GATEWAY:
 		return cast_const(struct protocol_signature *,
-				  &tx->gateway.signature);
+				  &tx->from_gateway.signature);
+	case TX_TO_GATEWAY:
+		return cast_const(struct protocol_signature *,
+				  &tx->to_gateway.signature);
 	}
 	abort();
 }	
@@ -45,8 +48,7 @@ static void sighash_tx(const union protocol_tx *tx,
 }
 
 bool check_tx_sign(const union protocol_tx *tx,
-		   const struct protocol_pubkey *key,
-		   const struct protocol_signature *signature)
+		   const struct protocol_pubkey *key)
 {
 	bool ok = false;	
 	BIGNUM r, s;
@@ -54,6 +56,7 @@ bool check_tx_sign(const union protocol_tx *tx,
 	EC_KEY *eckey = EC_KEY_new_by_curve_name(NID_secp256k1);
 	const unsigned char *k = key->key;
 	struct protocol_double_sha sha;
+	const struct protocol_signature *signature = get_signature(tx);
 
 	/* Get hash of transaction without sig */
 	sighash_tx(tx, &sha);

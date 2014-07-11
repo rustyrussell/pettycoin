@@ -19,11 +19,13 @@ int tx_cmp(const union protocol_tx *a,
 	/* We order by upper bits of output. */
 	switch (tx_type(a)) {
 	case TX_NORMAL:
-		pubkey_to_addr(&a->normal.input_key, &tmpa);
+	case TX_TO_GATEWAY:
+		get_tx_input_address(a, &tmpa);
 		addra = &tmpa;
 		goto known1;
 	case TX_FROM_GATEWAY:
-		addra = &get_gateway_outputs(&a->gateway)[0].output_addr;
+		addra = &get_from_gateway_outputs(&a->from_gateway)[0]
+			.output_addr;
 		goto known1;
 	}
 	abort();
@@ -31,11 +33,13 @@ int tx_cmp(const union protocol_tx *a,
 known1:
 	switch (tx_type(b)) {
 	case TX_NORMAL:
-		pubkey_to_addr(&b->normal.input_key, &tmpb);
+	case TX_TO_GATEWAY:
+		get_tx_input_address(b, &tmpb);
 		addrb = &tmpb;
 		goto known2;
 	case TX_FROM_GATEWAY:
-		addrb = &get_gateway_outputs(&b->gateway)[0].output_addr;
+		addrb = &get_from_gateway_outputs(&b->from_gateway)[0]
+			.output_addr;
 		goto known2;
 	}
 	abort();

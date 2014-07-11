@@ -16,15 +16,6 @@ struct protocol_address;
 struct block;
 struct txhash_elem;
 
-enum protocol_ecode
-check_tx_normal_basic(struct state *state,
-			 const struct protocol_tx_normal *ntx);
-
-enum protocol_ecode
-check_tx_from_gateway(struct state *state,
-		      const struct block *block,
-		      const struct protocol_tx_gateway *gtx);
-
 /* After this, call check_tx_inputs! 
  * inside_block is what block the tx is in (can be NULL).
  */

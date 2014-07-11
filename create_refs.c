@@ -21,10 +21,7 @@ static bool resolve_input(struct state *state,
 	const struct protocol_double_sha *sha;
 	struct txhash_elem *te;
 
-	assert(tx_type(tx) == TX_NORMAL);
-	assert(num < le32_to_cpu(tx->normal.num_inputs));
-
-	sha = &get_normal_inputs(&tx->normal)[num].input;
+	sha = &tx_input(tx, num)->input;
 
 	te = txhash_gettx_ancestor(state, sha, prev_block);
 	if (!te)

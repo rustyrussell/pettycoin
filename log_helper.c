@@ -62,7 +62,7 @@ void log_add_struct_(struct log *log, const char *structname, const void *ptr)
 				le32_to_cpu(tx->normal.num_inputs),
 				le32_to_cpu(tx->normal.send_amount),
 				le32_to_cpu(tx->normal.change_amount));
-			pubkey_to_addr(&tx->normal.input_key, &input_addr);
+			get_tx_input_address(tx, &input_addr);
 			log_add(log, " from ");
 			log_add_struct(log, struct protocol_address, &input_addr);
 			log_add(log, " to ");
@@ -70,16 +70,29 @@ void log_add_struct_(struct log *log, const char *structname, const void *ptr)
 				       &tx->normal.output_addr);
 			goto known;
 		case TX_FROM_GATEWAY:
-			log_add(log, "GATEWAY %u outputs",
-				le32_to_cpu(tx->gateway.num_outputs));
+			log_add(log, "FROM_GATEWAY %u outputs",
+				le32_to_cpu(tx->from_gateway.num_outputs));
 			for (i = 0;
-			     i < le32_to_cpu(tx->gateway.num_outputs);
+			     i < le32_to_cpu(tx->from_gateway.num_outputs);
 			     i++) {
 				log_add(log, " %u:", i);
 				log_add_struct(log,
 					struct protocol_gateway_payment,
-					&get_gateway_outputs(&tx->gateway)[i]);
+					&get_from_gateway_outputs(
+						&tx->from_gateway)[i]);
 			}
+			goto known;
+		case TX_TO_GATEWAY:
+			log_add(log, "TO_GATEWAY %u inputs => %u (%u change) ",
+				le32_to_cpu(tx->to_gateway.num_inputs),
+				le32_to_cpu(tx->to_gateway.send_amount),
+				le32_to_cpu(tx->to_gateway.change_amount));
+			get_tx_input_address(tx, &input_addr);
+			log_add(log, " from ");
+			log_add_struct(log, struct protocol_address, &input_addr);
+			log_add(log, " to ");
+			log_add_struct(log, struct protocol_address,
+				       &tx->to_gateway.to_gateway_addr);
 			goto known;
 		}
 		log_add(log, "UNKNOWN(%u) ", tx_type(tx));

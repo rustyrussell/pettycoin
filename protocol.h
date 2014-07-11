@@ -114,7 +114,8 @@ enum protocol_tx_type {
 	TX_NORMAL = 0,
 	/* Gateway injecting funds from bitcoin network. */
 	TX_FROM_GATEWAY = 1,
-	/* Doublespend penalty transaction? */
+	/* Sending funds back to the bitcoin network. */
+	TX_TO_GATEWAY = 2,
 	/* Fee collection transaction? */
 };
 
@@ -140,7 +141,7 @@ struct protocol_tx_normal {
 	u8 version;
 	u8 type; /* == TX_NORMAL */
 	u8 features;
-	/* return_amount goes back to this key. */
+	/* change_amount goes back to this key. */
 	struct protocol_pubkey input_key;
 	/* send_amount goes to this address. */
 	struct protocol_address output_addr;
@@ -148,7 +149,7 @@ struct protocol_tx_normal {
 	le32 send_amount;
 	/* Amount to return to input_key. */
 	le32 change_amount;
-	/* Number of inputs to spend (<= TX_MAX_INPUTS) */
+	/* Number of inputs to spend (<= PROTOCOL_TX_MAX_INPUTS) */
 	le32 num_inputs;
 	/* ECDSA of double SHA256 of above, and input[num_inputs] below. */
 	struct protocol_signature signature;
@@ -174,7 +175,7 @@ struct protocol_gateway_payment {
 	struct protocol_address output_addr;
 };
 
-struct protocol_tx_gateway {
+struct protocol_tx_from_gateway {
 	u8 version;
 	u8 type; /* == TX_FROM_GATEWAY */
 	u8 features;
@@ -190,10 +191,32 @@ struct protocol_tx_gateway {
 	*/
 };
 
+/* Sending funds to the gateway: very much like TX_NORMAL */
+struct protocol_tx_to_gateway {
+	u8 version;
+	u8 type; /* == TX_TO_GATEWAY */
+	u8 features;
+	/* change_amount goes back to this key. */
+	struct protocol_pubkey input_key;
+	/* send_amount goes to this gateway address. */
+	struct protocol_address to_gateway_addr;
+	/* Amount to output_addr. */
+	le32 send_amount;
+	/* Amount to return to input_key. */
+	le32 change_amount;
+	/* Number of inputs to spend (<= PROTOCOL_TX_MAX_INPUTS) */
+	le32 num_inputs;
+	/* ECDSA of double SHA256 of above, and input[num_inputs] below. */
+	struct protocol_signature signature;
+	/* Followed by:
+	 * struct protocol_input input[num_inputs]; */
+};
+
 union protocol_tx {
 	struct protocol_tx_hdr hdr;
 	struct protocol_tx_normal normal;
-	struct protocol_tx_gateway gateway;
+	struct protocol_tx_from_gateway from_gateway;
+	struct protocol_tx_to_gateway to_gateway;
 };
 
 /* FIXME: Multi-transactions proofs could be much more efficient. */

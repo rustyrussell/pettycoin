@@ -405,7 +405,6 @@ bool check_tx_inputs_and_refs(struct state *state,
 		break;
 	case ECODE_INPUT_UNKNOWN:
 		/* Ask about this input if we're interested. */
-		assert(tx_type(tx) == TX_NORMAL);
 		/* If this tx is in a shard, that means all inputs must
 		 * affect that shard. */
 		if (interested_in_shard(state, b->hdr->shard_order,
