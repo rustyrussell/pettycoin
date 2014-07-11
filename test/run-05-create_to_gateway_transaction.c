@@ -154,11 +154,11 @@ struct pending_block *new_pending_block(struct state *state)
 int main(int argc, char *argv[])
 {
 	struct state *s;
-	struct working_block *w, *w2;
+	struct working_block *w, *w2, *w3;
 	unsigned int i;
 	union protocol_tx *t;
 	struct protocol_gateway_payment payment;
-	struct block *b, *b2, *prev;
+	struct block *b, *b2, *b3, *prev;
 	struct block_shard *shard;
 	struct protocol_input inputs[1];
 	u8 *prev_txhashes;
@@ -217,9 +217,9 @@ int main(int argc, char *argv[])
 	check_block_shard(s, b, shard);
 	assert(block_all_known(b));
 
+	/* Solve third block, with a normal tx in it. */
 	prev_txhashes = make_prev_txhashes(s, b, helper_addr(1));
 
-	/* Solve third block, with a normal tx in it. */
 	fake_time++;
 	w2 = new_working_block(s, 0x1ffffff0,
 			       prev_txhashes, num_prev_txhashes(b),
@@ -233,9 +233,9 @@ int main(int argc, char *argv[])
 	inputs[0].unused = 0;
 
 	t = create_normal_tx(s, helper_addr(1),
-			     500, 500, 1, inputs,
+			     600, 400, 1, inputs,
 			     helper_private_key(s, 0));
-	assert(t->normal.change_amount == 500);
+	assert(t->normal.change_amount == 400);
 	assert(num_inputs(t) == 1);
 
 	/* This should create a reference back to the gateway tx */
@@ -276,6 +276,65 @@ int main(int argc, char *argv[])
 
 	b2->shard[shard->shardnum] = shard;
 	assert(block_all_known(b2));
+
+	/* Now, return 3/4 of change to the gateway, using normal tx. */
+	prev_txhashes = make_prev_txhashes(s, b2, helper_addr(1));
+
+	fake_time++;
+	w3 = new_working_block(s, 0x1ffffff0,
+			       prev_txhashes, num_prev_txhashes(b2),
+			       le32_to_cpu(b2->hdr->depth) + 1,
+			       next_shard_order(b2),
+			       &b2->sha, helper_addr(1));
+
+	hash_tx(t, &inputs[0].input);
+	inputs[0].output = 1;
+	inputs[0].unused = 0;
+
+	t = create_to_gateway_tx(s, helper_addr(1),
+				 300, 100, 1, inputs,
+				 helper_private_key(s, 0));
+	assert(t->to_gateway.change_amount == 100);
+	assert(num_inputs(t) == 1);
+
+	/* This should create a reference back to the normal tx */
+	refs = create_refs(s, b2, t, 1);
+	assert(tal_count(refs) == num_inputs(t));
+	assert(refs[0].blocks_ago == cpu_to_le32(1));
+	assert(refs[0].shard == cpu_to_le16(update.shard));
+	assert(refs[0].txoff == 0);
+	assert(refs[0].unused == 0);
+
+	update.shard = shard_of_tx(t, next_shard_order(b2));
+	update.txoff = 0;
+	update.features = 0;
+	update.unused = 0;
+	hash_tx_and_refs(t, refs, &update.hashes);
+	assert(add_tx(w3, &update));
+	for (i = 0; !solve_block(w3); i++);
+
+	e = check_block_header(s, &w3->hdr, w3->shard_nums, w3->merkles,
+			       w3->prev_txhashes, &w3->tailer, &prev, &sha);
+	assert(e == PROTOCOL_ECODE_NONE);
+	assert(prev == b2);
+
+	b3 = block_add(s, prev, &sha,
+		       &w3->hdr, w3->shard_nums, w3->merkles,
+		       w3->prev_txhashes, &w3->tailer);
+
+	/* This should be correct. */
+	assert(check_prev_txhashes(s, b3, NULL, NULL));
+
+	/* Put the single tx into a shard. */
+	shard = new_block_shard(s, update.shard, 1);
+	b3->shard[shard->shardnum] = shard;
+	put_tx_in_shard(s, NULL, b3, shard, 0, txptr_with_ref(shard, t, refs));
+
+	/* Should work */
+	check_block_shard(s, b3, shard);
+
+	b3->shard[shard->shardnum] = shard;
+	assert(block_all_known(b3));
 
 	tal_free(s);
 	return 0;

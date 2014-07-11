@@ -62,13 +62,21 @@ check_tx_normal_basic(struct state *state, const union protocol_tx *ntx)
 static enum protocol_ecode
 check_tx_to_gateway_basic(struct state *state, const union protocol_tx *tgtx)
 {
+	enum protocol_ecode e;
 	assert(tgtx->to_gateway.type == TX_TO_GATEWAY);
-	return check_tx_with_inputs_wellformed(tgtx->to_gateway.version,
-					       tgtx->to_gateway.send_amount,
-					       tgtx->to_gateway.change_amount,
-					       tgtx->to_gateway.num_inputs,
-					       tgtx,
-					       &tgtx->to_gateway.input_key);
+	e = check_tx_with_inputs_wellformed(tgtx->to_gateway.version,
+					    tgtx->to_gateway.send_amount,
+					    tgtx->to_gateway.change_amount,
+					    tgtx->to_gateway.num_inputs,
+					    tgtx,
+					    &tgtx->to_gateway.input_key);
+
+	if (e == PROTOCOL_ECODE_NONE) {
+		/* We *could* accept payments to anyone, but let's not. */
+		if (!accept_gateway(state, &tgtx->to_gateway.to_gateway_addr))
+		    e = PROTOCOL_ECODE_TX_BAD_GATEWAY;
+	}
+	return e;
 }
 
 /* Searches for a spend of this input <= block */
@@ -216,11 +224,13 @@ check_tx_from_gateway(struct state *state,
 	u32 the_shard;
 	u8 shard_ord;
 	struct protocol_gateway_payment *out;
+	struct protocol_address gwaddr;
 
 	if (!version_ok(gtx->version))
 		return PROTOCOL_ECODE_TX_HIGH_VERSION;
 
-	if (!accept_gateway(state, &gtx->gateway_key))
+	pubkey_to_addr(&gtx->gateway_key, &gwaddr);
+	if (!accept_gateway(state, &gwaddr))
 		return PROTOCOL_ECODE_TX_BAD_GATEWAY;
 
 	out = get_from_gateway_outputs(gtx);

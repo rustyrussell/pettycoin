@@ -1,6 +1,7 @@
 #include "helper_gateway_key.h"
 #include <openssl/obj_mac.h>
 #include "../protocol.h"
+#include "../addr.h"
 
 static const unsigned char gateway_key[] = {
 	0x30,0x81,0xd3,0x02,0x01,0x01,0x04,0x20,0x1e,0xa1,0xa8,0xe9,
@@ -57,4 +58,11 @@ static struct protocol_pubkey gateway_pubkey = {
 const struct protocol_pubkey *helper_gateway_public_key(void)
 {
 	return &gateway_pubkey;
+}
+
+const struct protocol_address *helper_gateway_addr(void)
+{
+	static struct protocol_address gwaddr;
+	pubkey_to_addr(helper_gateway_public_key(), &gwaddr);
+	return &gwaddr;
 }
