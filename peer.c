@@ -514,6 +514,7 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 	unsigned int bad_input_num;
 	struct txhash_iter it;
 	struct txhash_elem *te;
+	bool old;
 
 	log_debug(peer->log, "Received PKT_TX");
 
@@ -546,7 +547,7 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 	todo_done_get_tx(peer, &sha, true);
 
 	/* If inputs are malformed, it might not have known so don't hang up. */
-	switch (add_pending_tx(peer->state, tx, &sha, &bad_input_num)) {
+	switch (add_pending_tx(peer->state, tx, &sha, &bad_input_num, &old)) {
 	case ECODE_INPUT_OK:
 		break;
 	case ECODE_INPUT_UNKNOWN:
@@ -558,7 +559,11 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 
 	/* FIXME: Search blocks for this tx, make complaints! */
 	case ECODE_INPUT_BAD:
-		tell_peer_about_bad_input(peer->state, peer, tx, bad_input_num);
+		/* FIXME: Might be nice to tell peer why we're dropping it
+		 * if it's too close to the horizon */
+		if (!old)
+			tell_peer_about_bad_input(peer->state, peer, tx,
+						  bad_input_num);
 		return PROTOCOL_ECODE_NONE;
 	case ECODE_INPUT_BAD_AMOUNT:
 		tell_peer_about_bad_amount(peer->state, peer, tx);

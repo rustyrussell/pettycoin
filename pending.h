@@ -42,11 +42,14 @@ void block_to_pending(struct state *state, const struct block *block);
 /* Make sure pending txs are OK. */
 void recheck_pending_txs(struct state *state);
 
-/* Add a new transaction from peer to the current block. */
+/* Add a new transaction from peer to the current block.  If it returns
+ * ECODE_INPUT_BAD, too_old (if non-NULL) is true if it's because an input
+ * is too close to horizon, or beyond. */
 enum input_ecode add_pending_tx(struct state *state,
 				const union protocol_tx *tx,
 				const struct protocol_double_sha *sha,
-				unsigned int *bad_input_num);
+				unsigned int *bad_input_num,
+				bool *too_old);
 
 /* Get a new working block. */
 struct pending_block *new_pending_block(struct state *state);

@@ -113,7 +113,9 @@ static bool insert_pending_tx(struct state *state, const union protocol_tx *tx)
 	if (num == 255) {
 		log_unusual(state->log,
 			    "Too many pending txs in shard %u", shard);
-		return false;
+		/* Treat it as unknown, so it will get in next time. */
+		add_to_unknown_pending(state, tx);
+		return true;
 	}
 
 	/* Caller checks it isn't a dup! */
@@ -122,8 +124,10 @@ static bool insert_pending_tx(struct state *state, const union protocol_tx *tx)
 
 	pend = new_pending_tx(state->pending, tx);
 	pend->refs = create_refs(state, state->longest_knowns[0], tx, 1);
-	/* If check_tx_inputs() passed, this can't fail. */
-	assert(pend->refs);
+
+	/* If inputs are too *old*, we can fail to make references. */
+	if (!pend->refs)
+		return false;
 
 	/* Move down to make room, and insert */
 	tal_resize(&pending->pend[shard], num + 1);
@@ -193,7 +197,7 @@ void recheck_pending_txs(struct state *state)
 		struct protocol_double_sha sha;
 
 		hash_tx(txs[i], &sha);
-		add_pending_tx(state, txs[i], &sha, &bad_input_num);
+		add_pending_tx(state, txs[i], &sha, &bad_input_num, NULL);
 	}
 
 	/* Just to print the debug! */		
@@ -234,7 +238,8 @@ static bool find_pending_doublespend(struct state *state,
 enum input_ecode add_pending_tx(struct state *state,
 				const union protocol_tx *tx,
 				const struct protocol_double_sha *sha,
-				unsigned int *bad_input_num)
+				unsigned int *bad_input_num,
+				bool *too_old)
 {
 	enum input_ecode ierr;
 
@@ -274,6 +279,8 @@ enum input_ecode add_pending_tx(struct state *state,
 		log_add_enum(state->log, enum input_ecode, ierr);
 		log_add(state->log, " for tx ");
 		log_add_struct(state->log, union protocol_tx, tx);
+		if (too_old)
+			*too_old = false;
 		return ierr;
 	}
 
@@ -302,8 +309,13 @@ enum input_ecode add_pending_tx(struct state *state,
 	/* We make copy of tx (which is inside a packet) */
 	tx = tx_dup(state->pending, tx);
 	/* If it overflows, pretend it's unknown. */
-	if (ierr == ECODE_INPUT_UNKNOWN || !insert_pending_tx(state, tx))
+	if (ierr == ECODE_INPUT_UNKNOWN)
 		add_to_unknown_pending(state, tx);
+	else if (!insert_pending_tx(state, tx)) {
+		if (too_old)
+			*too_old = true;
+		return ECODE_INPUT_BAD;
+	}
 
 	/* Now put it in txhash and inputhash */
 	add_pending_tx_to_hashes(state, state->pending, tx);
