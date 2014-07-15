@@ -34,6 +34,9 @@ check_tx_with_inputs_wellformed(u8 version,
 	if (le32_to_cpu(change_amount) > PROTOCOL_MAX_SATOSHI)
 		return PROTOCOL_ECODE_TX_TOO_LARGE;
 
+	if (le32_to_cpu(send_amount) + le32_to_cpu(change_amount) == 0)
+		return PROTOCOL_ECODE_TX_TOO_SMALL;
+
 	if (le32_to_cpu(num_inputs) > PROTOCOL_TX_MAX_INPUTS)
 		return PROTOCOL_ECODE_TX_TOO_MANY_INPUTS;
 
@@ -253,6 +256,9 @@ check_tx_from_gateway(struct state *state,
 
 		if (le32_to_cpu(out[i].send_amount) > PROTOCOL_MAX_SATOSHI)
 			return PROTOCOL_ECODE_TX_TOO_LARGE;
+
+		if (le32_to_cpu(out[i].send_amount) == 0)
+			return PROTOCOL_ECODE_TX_TOO_SMALL;
 	}
 
 	if (!check_tx_sign((const union protocol_tx *)gtx, &gtx->gateway_key))

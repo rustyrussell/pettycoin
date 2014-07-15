@@ -39,11 +39,19 @@
 /* How many blocks after feature vote to increment version number. */
 #define PROTOCOL_FEATURE_CONFIRM_DELAY	2016
 
+/* Every PROTOCOL_REWARD_PERIOD, rewards are established, and you can't
+ * spend it until PROTOCOL_REWARD_PERIOD+1 blocks. */
+#define PROTOCOL_REWARD_PERIOD		100
+
 /* An amount, not a psuedonym! */
 #define PROTOCOL_MAX_SATOSHI (0x80000000 / PROTOCOL_TX_MAX_INPUTS)
 
 /* Fees are set at just under 0.3% of total amount + 1 satoshi. */
 #define PROTOCOL_FEE(x) ((x) * 3 / 1024 + 1)
+
+/* If we know total, what was fee?  Multiply by number of txs in block. */
+#define PROTOCOL_REWARD(total, num_tx) \
+	(((u64)(total) * (num_tx) * 3 + 1024) / 1027)
 
 /* Set this bit in tx->type to indicate you are paying fees. */
 #define PROTOCOL_FEE_TYPE 0x80

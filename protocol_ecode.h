@@ -69,6 +69,7 @@ enum protocol_ecode {
 	PROTOCOL_ECODE_TX_BAD_GATEWAY, /* unknown gateway */
 	PROTOCOL_ECODE_TX_CROSS_SHARDS, /* to different shards. */
 	PROTOCOL_ECODE_TX_TOO_LARGE, /* too many satoshi in one transaction. */
+	PROTOCOL_ECODE_TX_TOO_SMALL, /* no satoshi. */
 	PROTOCOL_ECODE_TX_BAD_SIG, /* invalid signature */
 	PROTOCOL_ECODE_TX_TOO_MANY_INPUTS, /* > TX_MAX_INPUTS. */
 

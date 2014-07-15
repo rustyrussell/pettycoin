@@ -68,21 +68,8 @@ input_key:
 	pubkey_to_addr(input_key, addr);
 }
 
-/* Only makes sense for TX_NORMAL and TX_TO_GATEWAY */
-static inline u32 tx_amount_sent(const union protocol_tx *tx)
-{
-	switch (tx_type(tx)) {
-	case TX_NORMAL:
-		return le32_to_cpu(tx->normal.send_amount)
-			+ le32_to_cpu(tx->normal.change_amount);
-	case TX_FROM_GATEWAY:
-		abort();
-	case TX_TO_GATEWAY:
-		return le32_to_cpu(tx->to_gateway.send_amount)
-			+ le32_to_cpu(tx->to_gateway.change_amount);
-	}
-	abort();
-}
+/* Good for fee calculation. */
+u32 tx_amount_sent(const union protocol_tx *tx);
 
 /* Find the output_num'th output in trans */
 bool find_output(const union protocol_tx *trans, u16 output_num,

@@ -47,3 +47,26 @@ u32 find_matching_input(const union protocol_tx *tx,
 	}
 	abort();
 }
+
+u32 tx_amount_sent(const union protocol_tx *tx)
+{
+	switch (tx_type(tx)) {
+	case TX_NORMAL:
+		return le32_to_cpu(tx->normal.send_amount)
+			+ le32_to_cpu(tx->normal.change_amount);
+	case TX_FROM_GATEWAY: {
+		u32 i, total = 0;
+		for (i = 0; i < le16_to_cpu(tx->from_gateway.num_outputs); i++){
+			le32 amount;
+			amount = get_from_gateway_outputs(&tx->from_gateway)
+				[i].send_amount;
+			total += le32_to_cpu(amount);
+		}
+		return total;
+	}
+	case TX_TO_GATEWAY:
+		return le32_to_cpu(tx->to_gateway.send_amount)
+			+ le32_to_cpu(tx->to_gateway.change_amount);
+	}
+	abort();
+}

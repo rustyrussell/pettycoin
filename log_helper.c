@@ -241,6 +241,8 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "PROTOCOL_ECODE_TX_CROSS_SHARDS"; break;
 		case PROTOCOL_ECODE_TX_TOO_LARGE:
 			name = "PROTOCOL_ECODE_TX_TOO_LARGE"; break;
+		case PROTOCOL_ECODE_TX_TOO_SMALL:
+			name = "PROTOCOL_ECODE_TX_TOO_SMALL"; break;
 		case PROTOCOL_ECODE_TX_BAD_SIG:
 			name = "PROTOCOL_ECODE_TX_BAD_SIG"; break;
 		case PROTOCOL_ECODE_TX_TOO_MANY_INPUTS:
