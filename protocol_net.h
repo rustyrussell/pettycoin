@@ -20,9 +20,13 @@ struct protocol_net_hdr {
 	le32 type; /* PROTOCOL_PKT_* */
 };
 
+/* The only currently-defined service bit */
+#define PROTOCOL_NET_SERVICE_NODE	1
 struct protocol_net_address {
+	le32 time;
+	le64 services;
 	u8 addr[16];
-	be16 port;
+	le16 port;
 }  __attribute__((aligned(2)));
 
 enum protocol_pkt_type {
@@ -65,6 +69,9 @@ enum protocol_pkt_type {
 
 	/* Start sending me transactions and new blocks, filtered like this. */
 	PROTOCOL_PKT_SET_FILTER,
+
+	/* Here are some of my peers. */
+	PROTOCOL_PKT_PEERS,
 
 	/* Various complaints about a TX. */
 	PROTOCOL_PKT_TX_BAD_INPUT,
@@ -322,6 +329,14 @@ struct protocol_pkt_txmap {
 	/* If err == PROTOCOL_ECODE_NONE, each set bit is a TX you want:
 	   u8 txmap[(block->shard_nums[shard] + 31) / 32 * 4];
 	*/
+};
+
+/* Here are some peer addresses. */
+struct protocol_pkt_peers {
+	le32 len; /* sizeof(struct protocol_pkt_peers) + ... */
+	le32 type; /* PROTOCOL_PKT_PEERS */
+
+	/* struct protocol_net_address[] */
 };
 
 /* Followed by struct protocol_double_sha of block. */

@@ -47,7 +47,7 @@ int main(void)
 	int fds[2];
 	char *p, *mem1, *mem2, *mem3;
 	int status;
-	size_t maxmem = sizeof(struct log_entry) * 4 + 25 + 25 + 28 + 144;
+	size_t maxmem = sizeof(struct log_entry) * 4 + 25 + 25 + 28 + 161;
 	void *ctx = tal(NULL, char);
 	struct log *log = new_log(ctx, NULL, "PREFIX", LOG_BROKEN+1, maxmem);
 
@@ -75,7 +75,8 @@ int main(void)
 	netaddr.addr[13] = 0;
 	netaddr.addr[14] = 0;
 	netaddr.addr[15] = 1;
-	netaddr.port = cpu_to_be16(65000);
+	netaddr.port = cpu_to_le16(65000);
+	netaddr.time = time_now().ts.tv_sec - 10;
 	log_add_struct(log, struct protocol_net_address, &netaddr);
 
 	/* Make child write log, be sure it's correct. */
@@ -100,7 +101,7 @@ int main(void)
 			  "\\+0\\.000000500 DEBUG: This is a debug message!\n"
 			  "\\+0\\.000000501 INFO: This is an info message!\n"
 			  "\\+0\\.000000502 UNUSUAL: This is an unusual message!\n"
-			  "\\+0\\.000000503 BROKEN: This is a broken message!the sha is ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff and the address is: ::ffff:127\\.0\\.0\\.1:65000\n\n", &mem1));
+			  "\\+0\\.000000503 BROKEN: This is a broken message!the sha is ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff and the address is: ::ffff:127\\.0\\.0\\.1:65000 \\(10 seconds old\\)\n\n", &mem1));
 	assert(atoi(mem1) < maxmem);
 	tal_free(p);
 

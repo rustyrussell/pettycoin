@@ -42,7 +42,7 @@ struct addrinfo *mk_addrinfo(const tal_t *ctx,
 		a->ai_socktype = SOCK_STREAM;
 		a->ai_protocol = IPPROTO_TCP;
 		memcpy(&in->sin_addr, netaddr->addr + 12, 4);
-		in->sin_port = netaddr->port;
+		in->sin_port = htons(le16_to_cpu(netaddr->port));
 		a->ai_addr = (void *)in;
 	} else {
 		struct sockaddr_in6 *in6 = talz(a, struct sockaddr_in6);
@@ -52,7 +52,7 @@ struct addrinfo *mk_addrinfo(const tal_t *ctx,
 		a->ai_socktype = SOCK_STREAM;
 		a->ai_protocol = IPPROTO_TCP;
 		memcpy(&in6->sin6_addr, netaddr->addr, 16);
-		in6->sin6_port = netaddr->port;
+		in6->sin6_port = htons(le16_to_cpu(netaddr->port));
 		a->ai_addr = (void *)in6;
 	}
 	return a;
@@ -65,14 +65,14 @@ static void ipv4_netaddr(struct protocol_net_address *netaddr,
 	memset(netaddr->addr, 0, 10);
 	memset(netaddr->addr + 10, 0xff, 2);
 	memcpy(netaddr->addr + 12, &in->sin_addr, 4);
-	netaddr->port = in->sin_port;
+	netaddr->port = cpu_to_le16(ntohs(in->sin_port));
 }
 
 static void ipv6_netaddr(struct protocol_net_address *netaddr,
 			 const struct sockaddr_in6 *in6)
 {
 	memcpy(netaddr->addr, &in6->sin6_addr, 16);
-	netaddr->port = in6->sin6_port;
+	netaddr->port = cpu_to_le16(ntohs(in6->sin6_port));
 }
 
 bool addrinfo_to_netaddr(struct protocol_net_address *netaddr,

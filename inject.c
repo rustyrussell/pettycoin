@@ -145,7 +145,7 @@ static void welcome_and_init(int fd, const struct protocol_net_address *netaddr)
 
 	/* Fix it up, but pretend to be interested in the same. */
 	w->random++;
-	w->listen_port = 0;
+	w->listen_port = cpu_to_le16(0);
 	w->you = *netaddr;
 
 	if (!write_all(fd, w, le32_to_cpu(hdr.len)))

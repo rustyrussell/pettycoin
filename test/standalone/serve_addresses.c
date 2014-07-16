@@ -10,18 +10,21 @@
 #include <fcntl.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include "../../protocol_net.h"
 
-static struct io_plan free_contents(struct io_conn *conn, le32 *contents)
+static struct io_plan free_pkt(struct io_conn *conn,
+			       struct protocol_pkt_peers *pkt)
 {
-	free(contents);
+	free(pkt);
 	return io_close();
 }
 
 static void send_addresses(int fd, void *unused)
 {
 	struct stat st;
-	le32 *contents;
-	int addrfd, len;
+	struct protocol_pkt_peers *pkt;
+	size_t len;
+	int addrfd;
 
 	addrfd = open("addresses", O_RDONLY);
 	if (addrfd < 0)
@@ -29,15 +32,16 @@ static void send_addresses(int fd, void *unused)
 
 	fstat(addrfd, &st);
 
-	len = sizeof(le32)*2 + st.st_size;
-	contents = malloc(len);
-	contents[0] = cpu_to_le32(len);
-	contents[1] = 0;
-	if (!read_all(addrfd, contents + 2, st.st_size))
+	len = sizeof(*pkt) + st.st_size;
+	pkt = malloc(len);
+	pkt->len = cpu_to_le32(len);
+	pkt->type = cpu_to_le32(PROTOCOL_PKT_PEERS);
+
+	if (!read_all(addrfd, pkt + 1, st.st_size))
 		err(1, "Reading %u bytes", (unsigned)st.st_size);
 	close(addrfd);
 
-	io_new_conn(fd, io_write(contents, len, free_contents, contents));
+	io_new_conn(fd, io_write(pkt, len, free_pkt, pkt));
 }
 
 int main(int argc, char *argv[])

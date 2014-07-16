@@ -8,6 +8,7 @@
 #include "protocol_net.h"
 #include "tx.h"
 #include <arpa/inet.h>
+#include <ccan/time/time.h>
 #include <errno.h>
 #include <netinet/in.h>
 #include <openssl/bn.h>
@@ -40,7 +41,11 @@ void log_add_struct_(struct log *log, const char *structname, const void *ptr)
 				strerror(errno));
 		else
 			log_add(log, "%s", str);
-		log_add(log, ":%u", be16_to_cpu(addr->port));
+		log_add(log, ":%u", le16_to_cpu(addr->port));
+		if (le32_to_cpu(addr->time) != 0)
+			log_add(log, " (%u seconds old)", 
+				(u32)time_now().ts.tv_sec
+				- le32_to_cpu(addr->time));
 	} else if (streq(structname, "struct protocol_address")) {
 		char *addr = pettycoin_to_base58(NULL, true, ptr, true);
 		log_add(log, "%s", addr);
@@ -157,6 +162,8 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 
 		case PROTOCOL_PKT_SET_FILTER:
 			name = "PROTOCOL_PKT_SET_FILTER"; break;
+		case PROTOCOL_PKT_PEERS:
+			name = "PROTOCOL_PKT_PEERS"; break;
 		case PROTOCOL_PKT_TX:
 			name = "PROTOCOL_PKT_TX"; break;
 		case PROTOCOL_PKT_HASHES_IN_BLOCK:

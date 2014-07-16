@@ -40,7 +40,6 @@
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/tal.h>
-#include <ccan/time/time.h>
 #include <errno.h>
 #include <netinet/in.h>
 #include <stdio.h>
@@ -430,6 +429,26 @@ recv_set_filter(struct peer *peer, const struct protocol_pkt_set_filter *pkt)
 
 	/* This is our indication to send them unsolicited txs from now on */
 	peer->they_are_syncing = false;
+	return PROTOCOL_ECODE_NONE;
+}
+
+static enum protocol_ecode
+recv_pkt_peers(struct peer *peer, const struct protocol_pkt_peers *pkt)
+{
+	unsigned int i, num, len = le32_to_cpu(pkt->len) - sizeof(*pkt);
+	const struct protocol_net_address *addr;
+
+	/* Got to send an exact number, and at least one! */
+	if (len % sizeof(struct protocol_net_address))
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	num = len / sizeof(struct protocol_net_address);
+	if (num == 0)
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	addr = (const struct protocol_net_address *)(pkt + 1);
+	for (i = 0; i < num; i++)
+		peer_cache_add(peer->state, addr + i);
 	return PROTOCOL_ECODE_NONE;
 }
 
@@ -1318,6 +1337,9 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 	case PROTOCOL_PKT_SET_FILTER:
 		err = recv_set_filter(peer, peer->incoming);
 		break;
+	case PROTOCOL_PKT_PEERS:
+		err = recv_pkt_peers(peer, peer->incoming);
+		break;
 	case PROTOCOL_PKT_BLOCK:
 		err = recv_pkt_block(peer, peer->incoming);
 		break;
@@ -1351,6 +1373,7 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 	case PROTOCOL_PKT_TXMAP:
 		err = recv_txmap(peer, peer->incoming);
 		break;
+
 	case PROTOCOL_PKT_TX_BAD_INPUT:
 		err = recv_tx_bad_input(peer, peer->incoming);
 		break;
@@ -1481,13 +1504,13 @@ static struct io_plan welcome_received(struct io_conn *conn, struct peer *peer)
 	}
 
 	log_info(peer->log, "Welcome received: listen port is %u",
-		 be16_to_cpu(peer->welcome->listen_port));
+		 le16_to_cpu(peer->welcome->listen_port));
 
 	/* Replace port we see with port they want us to connect to. */
 	peer->you.port = peer->welcome->listen_port;
 
 	/* Create/update time for this peer. */
-	peer_cache_update(state, &peer->you, time_now().ts.tv_sec);
+	peer_cache_refresh(state, &peer->you);
 
 	mutual = mutual_block_search(peer, peer->welcome_blocks,
 				     le16_to_cpu(peer->welcome->num_blocks));
@@ -1621,7 +1644,7 @@ void new_peer(struct state *state, int fd, const struct protocol_net_address *a)
 
 	if (inet_ntop(AF_INET6, peer->you.addr, name, sizeof(name)) == NULL)
 		strcpy(name, "UNCONVERTABLE-IPV6");
-	sprintf(name + strlen(name), ":%u:", be16_to_cpu(peer->you.port));
+	sprintf(name + strlen(name), ":%u:", le16_to_cpu(peer->you.port));
 	peer->log = new_log(peer, state->log,
 			    name, state->log_level, PEER_LOG_MAX);
 

@@ -98,9 +98,10 @@ static void make_listeners(struct state *state)
 				    strerror(errno));
 			close_noerr(fd1);
 		} else {
-			state->listen_port = addr.sin_port = in6.sin6_port;
+			addr.sin_port = in6.sin6_port;
+			state->listen_port = ntohs(addr.sin_port);
 			log_info(state->log, "Creating IPv6 listener on port %u",
-				 be16_to_cpu(state->listen_port));
+				 state->listen_port);
 			io_new_listener(fd1, incoming, state);
 		}
 	}
@@ -115,9 +116,9 @@ static void make_listeners(struct state *state)
 				    strerror(errno));
 			close_noerr(fd2);
 		} else {
-			state->listen_port = addr.sin_port;
+			state->listen_port = ntohs(addr.sin_port);
 			log_info(state->log, "Creating IPv4 listener on port %u",
-				 be16_to_cpu(state->listen_port));
+				 state->listen_port);
 			io_new_listener(fd2, incoming, state);
 		}
 	}
@@ -128,10 +129,12 @@ static void make_listeners(struct state *state)
 	if (state->developer_test) {
 		int fd;
 		struct protocol_net_address a
-			= { { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff,
+			= { 0, PROTOCOL_NET_SERVICE_NODE,
+			    { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff,
 			      0x7f, 0, 0, 1 } };
 
-		a.port = state->listen_port;
+		a.time = cpu_to_le32(time(NULL));
+		a.port = cpu_to_le16(state->listen_port);
 
 		fd = open("addresses", O_WRONLY|O_APPEND, 0600);
 		if (fd < 0)
