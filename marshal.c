@@ -235,6 +235,9 @@ enum protocol_ecode unmarshal_tx(const void *buffer, size_t size, size_t *used)
 			return PROTOCOL_ECODE_INVALID_LEN;
 		len = sizeof(tx->to_gateway) + i;
 		goto known;
+	case TX_CLAIM:
+		len = sizeof(tx->claim);
+		goto known;
 	}
 
 	/* Unknown type. */
@@ -283,6 +286,8 @@ size_t marshal_tx_len(const union protocol_tx *tx)
 	case TX_TO_GATEWAY:
 		return varsize(tx->to_gateway, struct protocol_input,
 			       le32_to_cpu(tx->to_gateway.num_inputs));
+	case TX_CLAIM:
+		return sizeof(tx->claim);
 	}
 	abort();
 }

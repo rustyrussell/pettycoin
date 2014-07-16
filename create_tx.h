@@ -32,4 +32,11 @@ create_to_gateway_tx(const tal_t *ctx,
 		     bool pay_fee,
 		     const struct protocol_input inputs[],
 		     EC_KEY *private_key);
+
+union protocol_tx *
+create_claim_tx(const tal_t *ctx,
+		const struct protocol_double_sha *reward_tx,
+		u32 amount,
+		bool pay_fee,
+		EC_KEY *private_key);
 #endif /* PETTYCOIN_CREATE_TX_H */

@@ -60,6 +60,9 @@ struct block *block_find_any(struct state *state,
 /* Do we have every tx in this block? */
 bool block_all_known(const struct block *block);
 
+/* Does the block have 0 transactions? */
+bool block_empty(const struct block *block);
+
 static inline const struct block *genesis_block(const struct state *state)
 {
 	return list_top(state->block_depth[0], struct block, list);

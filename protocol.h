@@ -133,7 +133,8 @@ enum protocol_tx_type {
 	TX_FROM_GATEWAY = 1,
 	/* Sending funds back to the bitcoin network. */
 	TX_TO_GATEWAY = 2,
-	/* Fee collection transaction? */
+	/* Fee collection transaction */
+	TX_CLAIM = 3
 };
 
 /* For use in the union */
@@ -229,11 +230,31 @@ struct protocol_tx_to_gateway {
 	 * struct protocol_input input[num_inputs]; */
 };
 
+/* Special transaction to claim a block reward. */
+struct protocol_tx_claim {
+	u8 version;
+	u8 type; /* == TX_CLAIM */
+	u8 features;
+
+	/* Send to this key. */
+	struct protocol_pubkey input_key;
+
+	/* How much are we claiming? */
+	le32 amount;
+
+	/* The transaction in the block we're claiming which sets reward. */
+	struct protocol_input input;
+
+	/* ECDSA of double SHA256 of above */
+	struct protocol_signature signature;
+};
+
 union protocol_tx {
 	struct protocol_tx_hdr hdr;
 	struct protocol_tx_normal normal;
 	struct protocol_tx_from_gateway from_gateway;
 	struct protocol_tx_to_gateway to_gateway;
+	struct protocol_tx_claim claim;
 };
 
 /* FIXME: Multi-transactions proofs could be much more efficient. */

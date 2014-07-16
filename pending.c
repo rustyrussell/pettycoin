@@ -275,6 +275,7 @@ enum input_ecode add_pending_tx(struct state *state,
 	case ECODE_INPUT_BAD:
 	case ECODE_INPUT_BAD_AMOUNT:
 	case ECODE_INPUT_DOUBLESPEND:
+	case ECODE_INPUT_CLAIM_BAD:
 		log_debug(state->log, "Check tx inputs said ");
 		log_add_enum(state->log, enum input_ecode, ierr);
 		log_add(state->log, " for tx ");
@@ -289,6 +290,7 @@ enum input_ecode add_pending_tx(struct state *state,
 	switch (tx_type(tx)) {
 	case TX_NORMAL:
 	case TX_TO_GATEWAY:
+	case TX_CLAIM:
 		if (state->require_non_gateway_tx_fee && !tx_pays_fee(tx)) {
 			log_info(state->log, "Dropping feeless normal tx ");
 			log_add_struct(state->log, union protocol_tx, tx);

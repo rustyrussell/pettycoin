@@ -114,6 +114,14 @@ void complain_doublespend(struct state *state,
 void log_to_file(int fd, const struct log *log) { fprintf(stderr, "log_to_file called!\n"); abort(); }
 /* Generated stub for logv */
 void logv(struct log *log, enum log_level level, const char *fmt, va_list ap) { fprintf(stderr, "logv called!\n"); abort(); }
+/* Generated stub for reward_amount */
+u32 reward_amount(const struct block *reward_block,
+		  const union protocol_tx *tx) { fprintf(stderr, "reward_amount called!\n"); abort(); }
+/* Generated stub for reward_get_tx */
+bool reward_get_tx(struct state *state,
+		   const struct block *reward_block,
+		   const struct block *claim_block,
+		   u16 *shardnum, u8 *txoff) { fprintf(stderr, "reward_get_tx called!\n"); abort(); }
 /* Generated stub for save_tx */
 void save_tx(struct state *state, struct block *block, u16 shard, u8 txoff) { fprintf(stderr, "save_tx called!\n"); abort(); }
 /* Generated stub for send_tx_in_block_to_peers */

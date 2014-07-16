@@ -30,6 +30,10 @@ alloc_tx(const tal_t *ctx, enum protocol_tx_type type, bool pay_fee, u16 num)
 		len = sizeof(struct protocol_tx_to_gateway)
 			+ num * sizeof(struct protocol_input);
 		goto known;
+	case TX_CLAIM:
+		label = "struct protocol_tx_claim";
+		len = sizeof(struct protocol_tx_claim);
+		goto known;
 	}
 	abort();
 
@@ -155,4 +159,31 @@ create_to_gateway_tx(const tal_t *ctx,
 				     gateway_addr, send_amount, change_amount,
 				     num_inputs, inputs,
 				     private_key);
+}
+
+union protocol_tx *
+create_claim_tx(const tal_t *ctx,
+		const struct protocol_double_sha *reward_tx,
+		u32 amount,
+		bool pay_fee,
+		EC_KEY *private_key)
+{
+	unsigned char *p;
+	union protocol_tx *tx;
+
+	tx = alloc_tx(ctx, TX_CLAIM, pay_fee, 1);
+
+	/* Create public key ourselves, saves them passing it in. */
+	p = tx->claim.input_key.key;
+	if (i2o_ECPublicKey(private_key, &p) != sizeof(tx->claim.input_key))
+		return tal_free(tx);
+	tx->claim.amount = cpu_to_le32(amount);
+	tx->claim.input.input = *reward_tx;
+	tx->claim.input.output = cpu_to_le16(0);
+	tx->claim.input.unused = cpu_to_le16(0);
+
+	if (!sign_tx(tx, private_key))
+		return tal_free(tx);
+
+	return tx;
 }

@@ -28,6 +28,13 @@ bool find_output(const union protocol_tx *tx, u16 output_num,
 			return true;
 		}
 		return false;
+	case TX_CLAIM:
+		if (output_num == 0) {
+			get_tx_input_address(tx, addr);
+			*amount = le32_to_cpu(tx->claim.amount);
+			return true;
+		}
+		return false;
 	case TX_TO_GATEWAY:
 		return false;
 	}
@@ -67,6 +74,8 @@ u32 tx_amount_sent(const union protocol_tx *tx)
 	case TX_TO_GATEWAY:
 		return le32_to_cpu(tx->to_gateway.send_amount)
 			+ le32_to_cpu(tx->to_gateway.change_amount);
+	case TX_CLAIM:
+		return le32_to_cpu(tx->claim.amount);
 	}
 	abort();
 }

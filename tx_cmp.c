@@ -27,6 +27,10 @@ int tx_cmp(const union protocol_tx *a,
 		addra = &get_from_gateway_outputs(&a->from_gateway)[0]
 			.output_addr;
 		goto known1;
+	case TX_CLAIM:
+		pubkey_to_addr(&a->claim.input_key, &tmpa);
+		addra = &tmpa;
+		goto known1;
 	}
 	abort();
 
@@ -40,6 +44,10 @@ known1:
 	case TX_FROM_GATEWAY:
 		addrb = &get_from_gateway_outputs(&b->from_gateway)[0]
 			.output_addr;
+		goto known2;
+	case TX_CLAIM:
+		pubkey_to_addr(&b->claim.input_key, &tmpb);
+		addrb = &tmpb;
 		goto known2;
 	}
 	abort();

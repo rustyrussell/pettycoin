@@ -271,6 +271,7 @@ void complain_bad_tx(struct state *state,
 		case TX_TO_GATEWAY:
 			break;
 		case TX_FROM_GATEWAY:
+		case TX_CLAIM:
 			abort();
 		}
 		break;

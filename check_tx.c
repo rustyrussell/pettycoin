@@ -6,11 +6,13 @@
 #include "hash_tx.h"
 #include "overflows.h"
 #include "protocol.h"
+#include "reward.h"
 #include "shadouble.h"
 #include "shard.h"
 #include "signature.h"
 #include "state.h"
 #include "tx.h"
+#include "tx_in_hashes.h"
 #include "version.h"
 #include <assert.h>
 #include <ccan/endian/endian.h>
@@ -82,6 +84,22 @@ check_tx_to_gateway_basic(struct state *state, const union protocol_tx *tgtx)
 	return e;
 }
 
+/* We also need check_one_input(). */
+static enum protocol_ecode
+check_tx_claim(struct state *state, const union protocol_tx *tx)
+{
+	if (!version_ok(tx->claim.version))
+		return PROTOCOL_ECODE_TX_HIGH_VERSION;
+
+	if (le32_to_cpu(tx->claim.amount) > PROTOCOL_MAX_SATOSHI)
+		return PROTOCOL_ECODE_TX_TOO_LARGE;
+
+	if (!check_tx_sign(tx, &tx->claim.input_key))
+		return PROTOCOL_ECODE_TX_BAD_SIG;
+
+	return PROTOCOL_ECODE_NONE;
+}
+
 /* Searches for a spend of this input <= block */
 struct txhash_elem *tx_find_doublespend(struct state *state,
 					const struct block *block,
@@ -125,15 +143,12 @@ struct txhash_elem *tx_find_doublespend(struct state *state,
 	return NULL;
 }
 
-/* If block is non-NULL, check for double-spends in that block or others.
- * If me is set, ignore that one (ie. we're already in block). */
-enum input_ecode check_one_input(struct state *state,
-				 const struct block *block,
-				 const struct txhash_elem *me,
-				 const struct protocol_input *inp,
-				 const union protocol_tx *intx,
-				 const struct protocol_address *my_addr,
-				 u32 *amount)
+/* Not usable for checking TX_CLAIM inputs!  */
+enum input_ecode check_simple_input(struct state *state,
+				    const struct protocol_input *inp,
+				    const union protocol_tx *intx,
+				    const struct protocol_address *my_addr,
+				    u32 *amount)
 {
 	struct protocol_address addr;
 
@@ -149,11 +164,107 @@ enum input_ecode check_one_input(struct state *state,
 		return ECODE_INPUT_BAD;
 	}
 
-	if (block && tx_find_doublespend(state, block, me, inp))
+	return ECODE_INPUT_OK;
+}
+
+/* block contains a TX_CLAIM against te/intx */
+static bool check_claim_input(struct state *state,
+			      const struct block *block,
+			      const struct protocol_input *inp,
+			      struct txhash_elem *te,
+			      const union protocol_tx *intx,
+			      const struct protocol_address *my_addr,
+			      u32 *amount)
+{
+	u16 shardnum;
+	u8 txoff;
+
+	assert(te->status == TX_IN_BLOCK);
+
+	/* input must refer to one past end of normal outpus. */
+	if (le16_to_cpu(inp->output) != num_outputs(intx) + 1)
+		return false;
+
+	/* Too soon to get tx, or block empty? */
+	if (!reward_get_tx(state, te->u.block, block, &shardnum, &txoff))
+		return false;
+
+	/* Check it was to this address. */
+	if (!structeq(my_addr, &te->u.block->hdr->fees_to)) {
+		log_debug(state->log, "Claim mismatch against block ");
+		log_add_struct(state->log, struct protocol_double_sha,
+			       &te->u.block->sha);
+		return false;
+	}
+
+	/* Is this the transaction to base reward off? */
+	if (te->shardnum != shardnum || te->txoff != txoff)
+		return false;
+
+	*amount = reward_amount(te->u.block, intx);
+	return ECODE_INPUT_OK;
+}
+
+/* If me is set, ignore that one (ie. we're already in block). */
+static enum input_ecode check_one_input(struct state *state,
+					const struct block *block,
+					const struct txhash_elem *me,
+					const struct protocol_input *inp,
+					const struct protocol_address *my_addr,
+					bool is_claim,
+					u32 *amount)
+{
+	const union protocol_tx *intx;
+	struct txhash_elem *te;
+
+	te = txhash_gettx_ancestor(state, &inp->input, block);
+	if (!te)
+		return ECODE_INPUT_UNKNOWN;
+
+	/* We might know tx hash, but not the tx itself. */
+	intx = block_get_tx(te->u.block, te->shardnum, te->txoff);
+	if (!intx)
+		return ECODE_INPUT_UNKNOWN;
+
+	if (is_claim) {
+		if (!check_claim_input(state, block, inp, te, intx, my_addr,
+				       amount))
+			return ECODE_INPUT_CLAIM_BAD;
+	} else {
+		enum protocol_ecode e;
+		e = check_simple_input(state, inp, intx, my_addr, amount);
+		if (e != PROTOCOL_ECODE_NONE)
+			return e;
+	}
+
+	/* Doublespend reports work fine for TX_CLAIM, too. */
+	if (tx_find_doublespend(state, block, me, inp))
 		return ECODE_INPUT_DOUBLESPEND;
 
 	return ECODE_INPUT_OK;
 }
+
+static bool correct_amount(struct state *state,
+			   const union protocol_tx *tx,
+			   u32 total)
+{
+	u32 fee;
+
+	if (tx_pays_fee(tx))
+		fee = PROTOCOL_FEE(tx_amount_sent(tx));
+	else
+		fee = 0;
+
+	if (total != tx_amount_sent(tx) + fee) {
+		log_debug(state->log,
+			  "Tx inputs %u, sent %u, fee %u: BAD_AMOUNT for ",
+			  total, tx_amount_sent(tx), fee);
+		log_add_struct(state->log, union protocol_tx, tx);
+		return false;
+	}
+	return true;
+}
+
 
 enum input_ecode check_tx_inputs(struct state *state,
 				 const struct block *block,
@@ -162,10 +273,14 @@ enum input_ecode check_tx_inputs(struct state *state,
 				 unsigned int *bad_input_num)
 {
 	unsigned int i, known = 0;
-	u32 input_total = 0, fee;
+	u32 input_total = 0;
 	struct protocol_address my_addr;
+	bool is_claim = false;
 
 	switch (tx_type(tx)) {
+	case TX_CLAIM:
+		is_claim = true;
+		goto check_inputs;
 	case TX_FROM_GATEWAY:
 		return ECODE_INPUT_OK;
 	case TX_NORMAL:
@@ -183,40 +298,27 @@ check_inputs:
 		u32 amount;
 		enum input_ecode e;
 		const struct protocol_input *inp = tx_input(tx, i);
-		const union protocol_tx *intx;
 
-		intx = txhash_gettx(&state->txhash, &inp->input, TX_IN_BLOCK);
-		if (!intx) {
+		e = check_one_input(state, block, me,
+				    inp, &my_addr, is_claim, &amount);
+		if (e == ECODE_INPUT_UNKNOWN) {
 			/* We keep searching for worse errors. */
 			*bad_input_num = i;
 			continue;
 		}
-		known++;
-
-		e = check_one_input(state, block, me,
-				    inp, intx, &my_addr, &amount);
 		if (e != ECODE_INPUT_OK) {
 			*bad_input_num = i;
 			return ECODE_INPUT_BAD;
 		}
+		known++;
 		input_total += amount;
 	}
 
 	if (known != num_inputs(tx))
 		return ECODE_INPUT_UNKNOWN;
 
-	if (tx_pays_fee(tx))
-		fee = PROTOCOL_FEE(tx_amount_sent(tx));
-	else
-		fee = 0;
-
-	if (input_total != tx_amount_sent(tx) + fee) {
-		log_debug(state->log,
-			  "Tx inputs %u, sent %u, fee %u: BAD_AMOUNT for ",
-			  input_total, tx_amount_sent(tx), fee);
-		log_add_struct(state->log, union protocol_tx, tx);
+	if (!correct_amount(state, tx, input_total))
 		return ECODE_INPUT_BAD_AMOUNT;
-	}
 
 	return ECODE_INPUT_OK;
 }
@@ -244,6 +346,8 @@ check_tx_from_gateway(struct state *state,
 
 	/* Each output must be in the same shard. */
 	if (!block)
+		/* FIXME: This is wrong.  gtx might be old, such as in
+		 * recv_tx_bad_input()... */
 		shard_ord = next_shard_order(state->longest_knowns[0]);
 	else
 		shard_ord = block->hdr->shard_order;
@@ -283,6 +387,9 @@ enum protocol_ecode check_tx(struct state *state,
 		break;
 	case TX_TO_GATEWAY:
 		e = check_tx_to_gateway_basic(state, tx);
+		break;
+	case TX_CLAIM:
+		e = check_tx_claim(state, tx);
 		break;
 	}
 

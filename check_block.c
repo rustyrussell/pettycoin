@@ -473,6 +473,7 @@ bool check_tx_inputs_and_refs(struct state *state,
 				     &other_proof, other_tx, other_refs);
 
 		/* Nothing wrong with this block though! */
+		break;
 	}
 	}
 

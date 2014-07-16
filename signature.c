@@ -22,6 +22,9 @@ static struct protocol_signature *get_signature(const union protocol_tx *tx)
 	case TX_TO_GATEWAY:
 		return cast_const(struct protocol_signature *,
 				  &tx->to_gateway.signature);
+	case TX_CLAIM:
+		return cast_const(struct protocol_signature *,
+				  &tx->claim.signature);
 	}
 	abort();
 }	

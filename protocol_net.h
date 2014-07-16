@@ -426,7 +426,6 @@ struct protocol_pkt_complain_doublespend {
 	*/
 };
 
-
 /* This block contains out-of-order transaction. */
 struct protocol_pkt_complain_tx_misorder {
 	le32 len; /* sizeof(struct protocol_pkt_complain_tx_misorder) */

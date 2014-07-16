@@ -27,7 +27,8 @@ enum input_ecode {
 	ECODE_INPUT_UNKNOWN,
 	ECODE_INPUT_BAD,
 	ECODE_INPUT_BAD_AMOUNT,
-	ECODE_INPUT_DOUBLESPEND
+	ECODE_INPUT_DOUBLESPEND,
+	ECODE_INPUT_CLAIM_BAD
 };
 
 /* Note that this won't resolve inputs which are pending: you'll get
@@ -38,14 +39,12 @@ enum input_ecode check_tx_inputs(struct state *state,
 				 const union protocol_tx *tx,
 				 unsigned int *bad_input_num);
 
-/* Useful for checking complaints. */
-enum input_ecode check_one_input(struct state *state,
-				 const struct block *block,
-				 const struct txhash_elem *me,
-				 const struct protocol_input *inp,
-				 const union protocol_tx *intx,
-				 const struct protocol_address *my_addr,
-				 u32 *amount);
+/* Useful for checking complaints (not for TX_CLAIM txs). */
+enum input_ecode check_simple_input(struct state *state,
+				    const struct protocol_input *inp,
+				    const union protocol_tx *intx,
+				    const struct protocol_address *my_addr,
+				    u32 *amount);
 
 /* Gets result if above return ECODE_INPUT_DOUBLESPEND. */
 struct txhash_elem *tx_find_doublespend(struct state *state,

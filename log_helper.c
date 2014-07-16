@@ -99,6 +99,19 @@ void log_add_struct_(struct log *log, const char *structname, const void *ptr)
 			log_add_struct(log, struct protocol_address,
 				       &tx->to_gateway.to_gateway_addr);
 			goto known;
+		case TX_CLAIM: {
+			struct protocol_address addr;
+
+			log_add(log, "CLAIM (%s) for %u on tx ",
+				feestr, le32_to_cpu(tx->claim.amount));
+			log_add_struct(log, struct protocol_double_sha,
+				       &tx->claim.input.input);
+			log_add(log, " to ");
+			pubkey_to_addr(&tx->claim.input_key, &addr);
+			log_add_struct(log, struct protocol_address, &addr);
+			log_add(log, " ");
+			goto known;
+		}
 		}
 		log_add(log, "UNKNOWN(%u) (%s) ", tx_type(tx), feestr);
 
@@ -284,6 +297,8 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "ECODE_INPUT_BAD_AMOUNT"; break;
 		case ECODE_INPUT_DOUBLESPEND:
 			name = "ECODE_INPUT_DOUBLESPEND"; break;
+		case ECODE_INPUT_CLAIM_BAD:
+			name = "ECODE_INPUT_CLAIM_BAD"; break;
 		}
 	} else if (streq(enumname, "enum ref_ecode")) {
 		switch ((enum ref_ecode)val) {

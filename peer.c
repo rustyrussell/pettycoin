@@ -532,6 +532,20 @@ tell_peer_about_bad_amount(struct state *state,
 	todo_for_peer(peer, pkt);
 }
 
+static void send_claim_input(struct peer *peer,
+			     const struct protocol_double_sha *sha)
+{
+	struct txhash_elem *te;
+
+	/* Since check_one_input() did this, it must give known tx */
+	te = txhash_gettx_ancestor(peer->state, sha,
+				   peer->state->longest_knowns[0]);
+	assert(te->status == TX_IN_BLOCK);
+
+	todo_for_peer(peer, pkt_tx_in_block(peer, te->u.block,
+					    te->shardnum, te->txoff));
+}
+
 static enum protocol_ecode
 recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 {
@@ -600,6 +614,13 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 		tell_peer_about_doublespend(peer->state,
 					    peer->state->longest_knowns[0],
 					    peer, tx, bad_input_num);
+		return PROTOCOL_ECODE_NONE;
+	case ECODE_INPUT_CLAIM_BAD:
+		/* If we tell peer about input, it can figure it out:
+		 * if their head block is different, the claim might
+		 * be valid for them! */
+		assert(tx_type(tx) == TX_CLAIM);
+		send_claim_input(peer, &tx_input(tx, 0)->input);
 		return PROTOCOL_ECODE_NONE;
 	}
 
@@ -1053,6 +1074,10 @@ verify_problem_input(struct state *state,
 	if (input_num >= num_inputs(tx))
 		return PROTOCOL_ECODE_BAD_INPUTNUM;
 
+	/* You can't use this to complain about TX_CLAIMs. */
+	if (tx_type(tx) == TX_CLAIM)
+		return PROTOCOL_ECODE_BAD_INPUTNUM;
+
 	input = tx_input(tx, input_num);
 	hash_tx(in, &sha);
 
@@ -1062,8 +1087,7 @@ verify_problem_input(struct state *state,
 	get_tx_input_address(tx, &tx_addr);
 
 	/* We don't check for doublespends here. */
-	*ierr = check_one_input(state, NULL, NULL, input, in, &tx_addr,
-				&amount);
+	*ierr = check_simple_input(state, input, in, &tx_addr, &amount);
 	if (total)
 		*total += amount;
 	return PROTOCOL_ECODE_NONE;

@@ -111,6 +111,14 @@ void complain_doublespend(struct state *state,
 			  const struct protocol_proof *proof2,
 			  const union protocol_tx *tx2,
 			  const struct protocol_input_ref *refs2) { fprintf(stderr, "complain_doublespend called!\n"); abort(); }
+/* Generated stub for reward_amount */
+u32 reward_amount(const struct block *reward_block,
+		  const union protocol_tx *tx) { fprintf(stderr, "reward_amount called!\n"); abort(); }
+/* Generated stub for reward_get_tx */
+bool reward_get_tx(struct state *state,
+		   const struct block *reward_block,
+		   const struct block *claim_block,
+		   u16 *shardnum, u8 *txoff) { fprintf(stderr, "reward_get_tx called!\n"); abort(); }
 /* Generated stub for save_tx */
 void save_tx(struct state *state, struct block *block, u16 shard, u8 txoff) { fprintf(stderr, "save_tx called!\n"); abort(); }
 /* Generated stub for send_tx_in_block_to_peers */

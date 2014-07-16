@@ -182,3 +182,14 @@ union protocol_tx *block_get_tx(const struct block *block,
 
 	return s->u[txoff].txp.tx;
 }
+
+bool block_empty(const struct block *block)
+{
+	unsigned int i;
+
+	for (i = 0; i < num_shards(block->hdr); i++) {
+		if (block->shard_nums[i] != 0)
+			return false;
+	}
+	return true;
+}
