@@ -46,9 +46,24 @@ enum input_ecode check_simple_input(struct state *state,
 				    const struct protocol_address *my_addr,
 				    u32 *amount);
 
+/* Checking claim inputs. */
+bool check_claim_input(struct state *state,
+		       const struct block *claim_block,
+		       const struct protocol_input *claim_inp,
+		       const struct block *reward_block,
+		       u16 reward_shard, u8 reward_txoff,
+		       const union protocol_tx *reward_tx,
+		       const struct protocol_address *my_addr,
+		       u32 *amount);
+
 /* Gets result if above return ECODE_INPUT_DOUBLESPEND. */
 struct txhash_elem *tx_find_doublespend(struct state *state,
 					const struct block *block,
 					const struct txhash_elem *me,
 					const struct protocol_input *inp);
+
+/* Does this tx add up? */
+bool correct_amount(struct state *state,
+		    const union protocol_tx *tx,
+		    u32 total_inputs);
 #endif /* PETTYCOIN_CHECK_TX_H */

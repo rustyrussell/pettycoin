@@ -189,6 +189,9 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "PROTOCOL_PKT_COMPLAIN_BAD_INPUT_REF"; break;
 		case PROTOCOL_PKT_COMPLAIN_TX_BAD_AMOUNT:
 			name = "PROTOCOL_PKT_COMPLAIN_TX_BAD_AMOUNT"; break;
+		case PROTOCOL_PKT_COMPLAIN_CLAIM_INPUT_INVALID:
+			name = "PROTOCOL_PKT_COMPLAIN_CLAIM_INPUT_INVALID";
+			break;
 		case PROTOCOL_PKT_PIGGYBACK:
 			name = "PROTOCOL_PKT_PIGGYBACK"; break;
 		}

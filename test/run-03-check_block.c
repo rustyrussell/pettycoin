@@ -77,6 +77,14 @@ void complain_bad_amount(struct state *state,
 			 const union protocol_tx *tx,
 			 const struct protocol_input_ref *refs,
 			 const union protocol_tx *intx[]) { fprintf(stderr, "complain_bad_amount called!\n"); abort(); }
+/* Generated stub for complain_bad_claim */
+void complain_bad_claim(struct state *state,
+			struct block *claim_block,
+			const struct protocol_proof *claim_proof,
+			const union protocol_tx *claim_tx,
+			const struct protocol_input_ref *claim_refs,
+			const struct block *reward_block,
+			u16 reward_shard, u8 reward_txoff) { fprintf(stderr, "complain_bad_claim called!\n"); abort(); }
 /* Generated stub for complain_bad_input */
 void complain_bad_input(struct state *state,
 			struct block *block,

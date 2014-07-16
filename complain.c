@@ -309,3 +309,33 @@ void complain_bad_prev_txhashes(struct state *state,
 {
 	/* FIXME: Implement! */
 }
+
+void complain_bad_claim(struct state *state,
+			struct block *claim_block,
+			const struct protocol_proof *claim_proof,
+			const union protocol_tx *claim_tx,
+			const struct protocol_input_ref *claim_refs,
+			const struct block *reward_block,
+			u16 reward_shard, u8 reward_txoff)
+{
+	struct protocol_pkt_complain_claim_input_invalid *pkt;
+	struct protocol_proof reward_proof;
+
+	pkt = tal_packet(claim_block,
+			 struct protocol_pkt_complain_claim_input_invalid,
+			 PROTOCOL_PKT_COMPLAIN_CLAIM_INPUT_INVALID);
+	tal_packet_append_proof(&pkt, claim_proof);
+	tal_packet_append_tx_with_refs(&pkt, claim_tx, claim_refs);
+
+	create_proof(&reward_proof, reward_block, reward_shard, reward_txoff);
+	tal_packet_append_proof(&pkt, &reward_proof);
+	tal_packet_append_tx_with_refs(&pkt,
+				       block_get_tx(reward_block,
+						    reward_shard,
+						    reward_txoff),
+				       block_get_refs(reward_block,
+						      reward_shard,
+						      reward_txoff));
+
+	publish_complaint(state, claim_block, pkt, NULL);
+}

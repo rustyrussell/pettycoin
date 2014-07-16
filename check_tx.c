@@ -167,41 +167,40 @@ enum input_ecode check_simple_input(struct state *state,
 	return ECODE_INPUT_OK;
 }
 
-/* block contains a TX_CLAIM against te/intx */
-static bool check_claim_input(struct state *state,
-			      const struct block *block,
-			      const struct protocol_input *inp,
-			      struct txhash_elem *te,
-			      const union protocol_tx *intx,
-			      const struct protocol_address *my_addr,
-			      u32 *amount)
+/* block contains a TX_CLAIM against reward_block */
+bool check_claim_input(struct state *state,
+		       const struct block *claim_block,
+		       const struct protocol_input *claim_inp,
+		       const struct block *reward_block,
+		       u16 reward_shard, u8 reward_txoff,
+		       const union protocol_tx *reward_tx,
+		       const struct protocol_address *my_addr,
+		       u32 *amount)
 {
 	u16 shardnum;
 	u8 txoff;
 
-	assert(te->status == TX_IN_BLOCK);
-
 	/* input must refer to one past end of normal outpus. */
-	if (le16_to_cpu(inp->output) != num_outputs(intx) + 1)
+	if (le16_to_cpu(claim_inp->output) != num_outputs(reward_tx) + 1)
 		return false;
 
 	/* Too soon to get tx, or block empty? */
-	if (!reward_get_tx(state, te->u.block, block, &shardnum, &txoff))
+	if (!reward_get_tx(state, reward_block, claim_block, &shardnum, &txoff))
+		return false;
+
+	/* Is this the right transaction to base reward off? */
+	if (reward_shard != shardnum || reward_txoff != txoff)
 		return false;
 
 	/* Check it was to this address. */
-	if (!structeq(my_addr, &te->u.block->hdr->fees_to)) {
+	if (!structeq(my_addr, &reward_block->hdr->fees_to)) {
 		log_debug(state->log, "Claim mismatch against block ");
 		log_add_struct(state->log, struct protocol_double_sha,
-			       &te->u.block->sha);
+			       &reward_block->sha);
 		return false;
 	}
 
-	/* Is this the transaction to base reward off? */
-	if (te->shardnum != shardnum || te->txoff != txoff)
-		return false;
-
-	*amount = reward_amount(te->u.block, intx);
+	*amount = reward_amount(reward_block, reward_tx);
 	return ECODE_INPUT_OK;
 }
 
@@ -227,8 +226,10 @@ static enum input_ecode check_one_input(struct state *state,
 		return ECODE_INPUT_UNKNOWN;
 
 	if (is_claim) {
-		if (!check_claim_input(state, block, inp, te, intx, my_addr,
-				       amount))
+		assert(te->status == TX_IN_BLOCK);
+		if (!check_claim_input(state, block, inp,
+				       te->u.block, te->shardnum, te->txoff,
+				       intx, my_addr, amount))
 			return ECODE_INPUT_CLAIM_BAD;
 	} else {
 		enum protocol_ecode e;
@@ -244,9 +245,7 @@ static enum input_ecode check_one_input(struct state *state,
 	return ECODE_INPUT_OK;
 }
 
-static bool correct_amount(struct state *state,
-			   const union protocol_tx *tx,
-			   u32 total)
+bool correct_amount(struct state *state, const union protocol_tx *tx, u32 total)
 {
 	u32 fee;
 
@@ -317,8 +316,12 @@ check_inputs:
 	if (known != num_inputs(tx))
 		return ECODE_INPUT_UNKNOWN;
 
-	if (!correct_amount(state, tx, input_total))
+	if (!correct_amount(state, tx, input_total)) {
+		/* We can't use a bad amount complaint for TX_CLAIMs. */
+		if (tx_type(tx) == TX_CLAIM)
+			return ECODE_INPUT_CLAIM_BAD;
 		return ECODE_INPUT_BAD_AMOUNT;
+	}
 
 	return ECODE_INPUT_OK;
 }

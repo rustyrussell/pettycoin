@@ -475,6 +475,17 @@ bool check_tx_inputs_and_refs(struct state *state,
 		/* Nothing wrong with this block though! */
 		break;
 	}
+	case ECODE_INPUT_CLAIM_BAD: {
+		struct txhash_elem *reward;
+		assert(tx_type(tx) == TX_CLAIM);
+		reward = txhash_gettx_ancestor(state, &tx->claim.input.input,
+					       b);
+
+		complain_bad_claim(state, b, proof, tx, refs,
+				   reward->u.block, reward->shardnum,
+				   reward->txoff);
+		return false;
+	}
 	}
 
 	rerr = check_tx_refs(state, b, tx, refs,

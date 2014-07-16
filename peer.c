@@ -1436,6 +1436,9 @@ recv_complain_tx_misorder(struct peer *peer,
 	if (e)
 		return e;
 
+	if (len != 0)
+		return PROTOCOL_ECODE_INVALID_LEN;
+
 	if (!structeq(&pos1->block, &pos2->block))
 		return PROTOCOL_ECODE_BAD_MISORDER_POS;
 
@@ -1510,6 +1513,9 @@ recv_complain_tx_invalid(struct peer *peer,
 		if (e == PROTOCOL_ECODE_NONE)
 			return PROTOCOL_ECODE_COMPLAINT_INVALID;
 	}
+
+	if (len != 0)
+		return PROTOCOL_ECODE_INVALID_LEN;
 
 	/* In theory we don't need to know the error, but it's good for
 	 * diagnosing problems. */
@@ -1740,6 +1746,9 @@ recv_complain_bad_input_ref(struct peer *peer,
 		return e;
 	}
 
+	if (len != 0)
+		return PROTOCOL_ECODE_INVALID_LEN;
+
 	/* Now, check that they proved the referenced position */
 	if (block_ancestor(b, le32_to_cpu(ref->blocks_ago)) != inb)
 		return PROTOCOL_ECODE_BAD_INPUT;
@@ -1755,6 +1764,77 @@ recv_complain_bad_input_ref(struct peer *peer,
 
 	/* Mark it invalid, and tell everyone else if it wasn't already. */
 	publish_complaint(peer->state, b, tal_packet_dup(b, pkt), peer);
+	return PROTOCOL_ECODE_NONE;
+}
+
+static enum protocol_ecode
+recv_complain_claim_input_invalid(struct peer *peer,
+		    const struct protocol_pkt_complain_claim_input_invalid *pkt)
+{
+	const union protocol_tx *claim_tx, *reward_tx;
+	const struct protocol_position *claim_pos, *reward_pos;
+	enum protocol_ecode e;
+	struct block *claim_b, *reward_b;
+	const char *p;
+	struct protocol_double_sha sha;
+	struct protocol_address claim_addr;
+	size_t len = le32_to_cpu(pkt->len);
+	u32 amount;
+
+	if (len < sizeof(*pkt))
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	p = (const char *)(pkt + 1);
+	len -= sizeof(*pkt);
+
+	e = unmarshal_proven_tx(peer->state, &p, &len,
+				&claim_b, &claim_tx, &claim_pos);
+	if (e) {
+		if (e == PROTOCOL_ECODE_UNKNOWN_BLOCK) {
+			/* If we don't know it, that's OK.  Try to find out. */
+			todo_add_get_block(peer->state, &claim_pos->block);
+			/* FIXME: Keep complaint in this case? */
+			return PROTOCOL_ECODE_NONE;
+		}
+		return e;
+	}
+
+	e = unmarshal_proven_tx(peer->state, &p, &len,
+				&reward_b, &reward_tx, &reward_pos);
+	if (e) {
+		if (e == PROTOCOL_ECODE_UNKNOWN_BLOCK) {
+			/* If we don't know it, that's OK.  Try to find out. */
+			todo_add_get_block(peer->state, &reward_pos->block);
+			/* FIXME: Keep complaint in this case? */
+			return PROTOCOL_ECODE_NONE;
+		}
+		return e;
+	}
+
+	if (len != 0)
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	if (tx_type(claim_tx) != TX_CLAIM)
+		return PROTOCOL_ECODE_COMPLAINT_INVALID;
+
+	/* Reward tx must match input of claim. */
+	hash_tx(reward_tx, &sha);
+	if (!structeq(&claim_tx->claim.input.input, &sha))
+		return PROTOCOL_ECODE_COMPLAINT_INVALID;
+
+	get_tx_input_address(claim_tx, &claim_addr);
+	if (check_claim_input(peer->state, claim_b, tx_input(claim_tx, 0),
+			      reward_b, le16_to_cpu(reward_pos->shard),
+			      reward_pos->txoff, reward_tx, &claim_addr,
+			      &amount)) {
+		/* OK, claim is valid, check amount */
+		if (correct_amount(peer->state, claim_tx, amount))
+			return PROTOCOL_ECODE_COMPLAINT_INVALID;
+	}
+
+	/* Mark it invalid, and tell everyone else if it wasn't already. */
+	publish_complaint(peer->state, claim_b, tal_packet_dup(claim_b, pkt),
+			  peer);
 	return PROTOCOL_ECODE_NONE;
 }
 
@@ -1859,6 +1939,9 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 		break;
 	case PROTOCOL_PKT_COMPLAIN_BAD_INPUT_REF:
 		err = recv_complain_bad_input_ref(peer, peer->incoming);
+		break;
+	case PROTOCOL_PKT_COMPLAIN_CLAIM_INPUT_INVALID:
+		err = recv_complain_claim_input_invalid(peer, peer->incoming);
 		break;
 
 	/* These should not be used after sync. */

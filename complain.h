@@ -77,6 +77,14 @@ void complain_bad_prev_txhashes(struct state *state,
 				const struct block *bad_prev,
 				u16 bad_prev_shard);
 
+void complain_bad_claim(struct state *state,
+			struct block *claim_block,
+			const struct protocol_proof *claim_proof,
+			const union protocol_tx *claim_tx,
+			const struct protocol_input_ref *claim_refs,
+			const struct block *reward_block,
+			u16 reward_shard, u8 reward_txoff);
+
 void publish_complaint(struct state *state,
 		       struct block *block,
 		       const void *complaint,

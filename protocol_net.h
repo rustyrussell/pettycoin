@@ -78,6 +78,7 @@ enum protocol_pkt_type {
 	PROTOCOL_PKT_COMPLAIN_DOUBLESPEND,
 	PROTOCOL_PKT_COMPLAIN_BAD_INPUT_REF,
 	PROTOCOL_PKT_COMPLAIN_TX_BAD_AMOUNT,
+	PROTOCOL_PKT_COMPLAIN_CLAIM_INPUT_INVALID,
 
 	/* This is used to pad a packet. */
 	PROTOCOL_PKT_PIGGYBACK,
@@ -434,6 +435,17 @@ struct protocol_pkt_complain_tx_misorder {
 	/* These must refer to the same block!
 	  struct protocol_tx_with_proof proof1;
 	  struct protocol_tx_with_proof proof2;
+	*/
+};
+
+/* This block contains a claim using an invalid reward tx. */
+struct protocol_pkt_complain_claim_input_invalid {
+	le32 len; /* sizeof(struct protocol_pkt_complain_claim_invalid) + ... */
+	le32 type; /* PROTOCOL_PKT_COMPLAIN_CLAIM_INVALID */
+
+	/* First the claim, then the tx its using as reward:
+	   struct protocol_tx_with_proof claim;
+	   struct protocol_tx_with_proof reward_tx;
 	*/
 };
 
