@@ -69,4 +69,8 @@ void send_block_to_peers(struct state *state,
 
 void broadcast_to_peers(struct state *state, const struct protocol_net_hdr *pkt,
 			const struct peer *exclude);
+
+enum protocol_ecode
+unmarshal_and_check_tx(struct state *state, const char **p, size_t *len,
+		       const union protocol_tx **tx);
 #endif /* PETTYCOIN_PEER_H */

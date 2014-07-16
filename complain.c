@@ -82,8 +82,7 @@ void complain_bad_input(struct state *state,
 			 PROTOCOL_PKT_COMPLAIN_TX_BAD_INPUT);
 	pkt->inputnum = cpu_to_le32(bad_input);
 
-	tal_packet_append_proof(&pkt, proof);
-	tal_packet_append_tx_with_refs(&pkt, tx, refs);
+	tal_packet_append_proven_tx(&pkt, proof, tx, refs);
 	tal_packet_append_tx(&pkt, intx);
 
 	publish_complaint(state, block, pkt, NULL);
@@ -109,8 +108,7 @@ void complain_bad_amount(struct state *state,
 
 	pkt = tal_packet(block, struct protocol_pkt_complain_tx_bad_amount,
 			 PROTOCOL_PKT_COMPLAIN_TX_BAD_AMOUNT);
-	tal_packet_append_proof(&pkt, proof);
-	tal_packet_append_tx_with_refs(&pkt, tx, refs);
+	tal_packet_append_proven_tx(&pkt, proof, tx, refs);
 
 	for (i = 0; i < num_inputs(tx); i++) {
 		log_add_struct(state->log, union protocol_tx, intx[i]);
@@ -151,12 +149,11 @@ void complain_misorder(struct state *state,
 
 	pkt = tal_packet(block, struct protocol_pkt_complain_tx_misorder,
 			 PROTOCOL_PKT_COMPLAIN_TX_MISORDER);
-	tal_packet_append_proof(&pkt, proof);
-	tal_packet_append_tx_with_refs(&pkt, tx, refs);
+	tal_packet_append_proven_tx(&pkt, proof, tx, refs);
 
 	create_proof(&conflict_proof, block, shardnum, conflict_txoff);
-	tal_packet_append_proof(&pkt, &conflict_proof);
-	tal_packet_append_tx_with_refs(&pkt, conflict_tx, conflict_refs);
+	tal_packet_append_proven_tx(&pkt, &conflict_proof,
+				    conflict_tx, conflict_refs);
 
 	publish_complaint(state, block, pkt, NULL);
 }
@@ -199,14 +196,12 @@ void complain_bad_input_ref(struct state *state,
 	pkt->inputnum = cpu_to_le32(bad_refnum);
 
 	/* This is the tx which has the bad reference. */
-	tal_packet_append_proof(&pkt, proof);
-	tal_packet_append_tx_with_refs(&pkt, tx, refs);
+	tal_packet_append_proven_tx(&pkt, proof, tx, refs);
 
 	/* This is where the ref points to. */
 	create_proof(&ref_proof, block_referred_to,
 		     le16_to_cpu(bad_ref->shard), bad_ref->txoff);
-	tal_packet_append_proof(&pkt, &ref_proof);
-	tal_packet_append_tx_with_refs(&pkt, bad_intx, bad_intx_refs);
+	tal_packet_append_proven_tx(&pkt, &ref_proof, bad_intx, bad_intx_refs);
 
 	publish_complaint(state, block, pkt, NULL);
 }
@@ -233,11 +228,8 @@ void complain_doublespend(struct state *state,
 	pkt->input1 = cpu_to_le32(input1);
 	pkt->input2 = cpu_to_le32(input2);
 	
-	tal_packet_append_proof(&pkt, proof1);
-	tal_packet_append_tx_with_refs(&pkt, tx1, refs1);
-
-	tal_packet_append_proof(&pkt, proof2);
-	tal_packet_append_tx_with_refs(&pkt, tx2, refs2);
+	tal_packet_append_proven_tx(&pkt, proof1, tx1, refs1);
+	tal_packet_append_proven_tx(&pkt, proof2, tx2, refs2);
 
 	publish_complaint(state, block2, pkt, NULL);
 }
@@ -295,8 +287,7 @@ void complain_bad_tx(struct state *state,
 			 PROTOCOL_PKT_COMPLAIN_TX_INVALID);
 	pkt->error = cpu_to_le32(err);
 
-	tal_packet_append_proof(&pkt, proof);
-	tal_packet_append_tx_with_refs(&pkt, tx, refs);
+	tal_packet_append_proven_tx(&pkt, proof, tx, refs);
 
 	publish_complaint(state, block, pkt, NULL);
 }
@@ -324,18 +315,16 @@ void complain_bad_claim(struct state *state,
 	pkt = tal_packet(claim_block,
 			 struct protocol_pkt_complain_claim_input_invalid,
 			 PROTOCOL_PKT_COMPLAIN_CLAIM_INPUT_INVALID);
-	tal_packet_append_proof(&pkt, claim_proof);
-	tal_packet_append_tx_with_refs(&pkt, claim_tx, claim_refs);
+	tal_packet_append_proven_tx(&pkt, claim_proof, claim_tx, claim_refs);
 
 	create_proof(&reward_proof, reward_block, reward_shard, reward_txoff);
-	tal_packet_append_proof(&pkt, &reward_proof);
-	tal_packet_append_tx_with_refs(&pkt,
-				       block_get_tx(reward_block,
-						    reward_shard,
-						    reward_txoff),
-				       block_get_refs(reward_block,
-						      reward_shard,
-						      reward_txoff));
+	tal_packet_append_proven_tx(&pkt, &reward_proof,
+				    block_get_tx(reward_block,
+						 reward_shard,
+						 reward_txoff),
+				    block_get_refs(reward_block,
+						   reward_shard,
+						   reward_txoff));
 
 	publish_complaint(state, claim_block, pkt, NULL);
 }

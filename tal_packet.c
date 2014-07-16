@@ -46,14 +46,6 @@ void tal_packet_append_tx_(void *ppkt, const union protocol_tx *tx)
 	tal_packet_append_(ppkt, tx, marshal_tx_len(tx));
 }
 
-void tal_packet_append_tx_with_refs_(void *ppkt,
-				     const union protocol_tx *tx,
-				     const struct protocol_input_ref *refs)
-{
-	tal_packet_append_tx_(ppkt, tx);
-	tal_packet_append_(ppkt, refs, marshal_input_ref_len(tx));
-}
-
 void tal_packet_append_block_(void *ppkt, const struct block *block)
 {
 	struct protocol_net_hdr **hdr = ppkt;
@@ -92,7 +84,12 @@ void tal_packet_append_pos_(void *ppkt, const struct protocol_double_sha *block,
 	tal_packet_append_(ppkt, &pos, sizeof(pos));
 }
 
-void tal_packet_append_proof_(void *ppkt, const struct protocol_proof *proof)
+void tal_packet_append_proven_tx_(void *ppkt,
+				  const struct protocol_proof *proof,
+				  const union protocol_tx *tx,
+				  const struct protocol_input_ref *refs)
 {
 	tal_packet_append_(ppkt, proof, sizeof(*proof));
+	tal_packet_append_tx_(ppkt, tx);
+	tal_packet_append_(ppkt, refs, marshal_input_ref_len(tx));
 }

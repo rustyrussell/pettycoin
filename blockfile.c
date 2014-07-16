@@ -159,10 +159,9 @@ void save_tx(struct state *state, struct block *block, u16 shard, u8 txoff)
 
 	pkt->err = cpu_to_le32(PROTOCOL_ECODE_NONE);
 	create_proof(&proof, block, shard, txoff);
-	tal_packet_append_proof(&pkt, &proof);
-	tal_packet_append_tx_with_refs(&pkt,
-				       block_get_tx(block, shard, txoff),
-				       block_get_refs(block, shard, txoff));
+	tal_packet_append_proven_tx(&pkt, &proof,
+				    block_get_tx(block, shard, txoff),
+				    block_get_refs(block, shard, txoff));
 
 	if (!write_all(state->blockfd, pkt, le32_to_cpu(pkt->len)))
 		err(1, "writing tx to blockfile");

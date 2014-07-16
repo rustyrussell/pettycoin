@@ -89,4 +89,5 @@ void publish_complaint(struct state *state,
 		       struct block *block,
 		       const void *complaint,
 		       struct peer *origin);
+
 #endif /* PETTYCOIN_COMPLAIN_H */

@@ -17,8 +17,6 @@ void *tal_packet_dup(const tal_t *ctx, const void *pkt);
 	tal_packet_append_(ptr_to_ptr(ppkt), (mem), (len))
 #define tal_packet_append_tx(ppkt, tx) \
 	tal_packet_append_tx_(ptr_to_ptr(ppkt), (tx))
-#define tal_packet_append_tx_with_refs(ppkt, tx, refs)		\
-	tal_packet_append_tx_with_refs_(ptr_to_ptr(ppkt), (tx), (refs))
 #define tal_packet_append_block(ppkt, block)		\
 	tal_packet_append_block_(ptr_to_ptr(ppkt), (block))
 #define tal_packet_append_sha(ppkt, sha)		\
@@ -27,15 +25,12 @@ void *tal_packet_dup(const tal_t *ctx, const void *pkt);
 	tal_packet_append_txrefhash_(ptr_to_ptr(ppkt), (hashes))
 #define tal_packet_append_pos(ppkt, block, shard, txoff)		\
 	tal_packet_append_pos_(ptr_to_ptr(ppkt), (block), (shard), (txoff))
-#define tal_packet_append_proof(ppkt, proof) \
-	tal_packet_append_proof_(ptr_to_ptr(ppkt), (proof))
+#define tal_packet_append_proven_tx(ppkt, proof, tx, refs)		\
+	tal_packet_append_proven_tx_(ptr_to_ptr(ppkt), (proof), (tx), (refs))
 
 union protocol_tx;
 void tal_packet_append_tx_(void *ppkt, const union protocol_tx *tx);
 struct protocol_input_ref;
-void tal_packet_append_tx_with_refs_(void *ppkt,
-				     const union protocol_tx *tx,
-				     const struct protocol_input_ref *refs);
 
 void tal_packet_append_(void *ppkt, const void *mem, size_t len);
 
@@ -52,6 +47,8 @@ void tal_packet_append_txrefhash_(void *ppkt,
 void tal_packet_append_pos_(void *ppkt, const struct protocol_double_sha *block,
 			    u16 shardnum, u8 txoff);
 
-void tal_packet_append_proof_(void *ppkt,
-			      const struct protocol_proof *proof);
+void tal_packet_append_proven_tx_(void *ppkt,
+				  const struct protocol_proof *proof,
+				  const union protocol_tx *tx,
+				  const struct protocol_input_ref *refs);
 #endif /* PETTYCOIN_TAL_PACKET_H */
