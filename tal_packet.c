@@ -79,12 +79,12 @@ void tal_packet_append_txrefhash_(void *ppkt,
 	tal_packet_append_(ppkt, hashes, sizeof(*hashes));
 }
 
-void tal_packet_append_pos_(void *ppkt, const struct block *block,
+void tal_packet_append_pos_(void *ppkt, const struct protocol_double_sha *block,
 			    u16 shardnum, u8 txoff)
 {
 	struct protocol_position pos;
 
-	pos.block = block->sha;
+	pos.block = *block;
 	pos.shard = cpu_to_le16(shardnum);
 	pos.txoff = txoff;
 	pos.unused = 0;

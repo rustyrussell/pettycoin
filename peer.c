@@ -202,6 +202,54 @@ static void send_to_interested_peers(struct state *state,
 	}
 }
 
+/* We know this tx, create packet to prove it. */
+static struct protocol_pkt_tx_in_block *pkt_tx_in_block(tal_t *ctx,
+							const struct block *b,
+							u16 shard,
+							u8 txoff)
+{
+	struct protocol_pkt_tx_in_block *pkt;
+	struct protocol_proof proof;
+
+	pkt = tal_packet(ctx, struct protocol_pkt_tx_in_block,
+			 PROTOCOL_PKT_TX_IN_BLOCK);
+
+	pkt->err = cpu_to_le32(PROTOCOL_ECODE_NONE);
+	create_proof(&proof, b, shard, txoff);
+	tal_packet_append_proof(&pkt, &proof);
+	tal_packet_append_tx_with_refs(&pkt,
+				       block_get_tx(b, shard, txoff),
+				       block_get_refs(b, shard, txoff));
+	return pkt;
+}
+
+/* We don't know this tx, create packet to reply to pkt_get_tx_in_block. */
+static struct protocol_pkt_tx_in_block *
+pkt_tx_in_block_err(tal_t *ctx, enum protocol_ecode e,
+		    const struct protocol_double_sha *block,
+		    u16 shard, u8 txoff)
+{
+	struct protocol_pkt_tx_in_block *pkt;
+
+	pkt = tal_packet(ctx, struct protocol_pkt_tx_in_block,
+			 PROTOCOL_PKT_TX_IN_BLOCK);
+
+	pkt->err = cpu_to_le32(e);
+	tal_packet_append_pos(&pkt, block, shard, txoff);
+	return pkt;
+}
+
+static struct protocol_pkt_block *pkt_block(tal_t *ctx, const struct block *b)
+{
+	struct protocol_pkt_block *blk;
+ 
+	blk = marshal_block(ctx,
+			    b->hdr, b->shard_nums, b->merkles, b->prev_txhashes,
+			    b->tailer);
+
+	return blk;
+}
+
 /* We sent unsolicited TXs to any peer who's interested. */
 static void send_tx_to_peers(struct state *state, struct peer *exclude,
 			     const union protocol_tx *tx)
@@ -222,32 +270,12 @@ static void send_tx_to_peers(struct state *state, struct peer *exclude,
 void send_tx_in_block_to_peers(struct state *state, const struct peer *exclude,
 			       struct block *block, u16 shard, u8 txoff)
 {
-	struct protocol_pkt_hashes_in_block *pkt;
-	struct protocol_proof proof;
-	struct protocol_txrefhash scratch;
+	struct protocol_pkt_tx_in_block *pkt;
 
-	pkt = tal_packet(state, struct protocol_pkt_hashes_in_block,
-			 PROTOCOL_PKT_HASHES_IN_BLOCK);
-	create_proof(&proof, block, shard, txoff);
-	tal_packet_append_proof(&pkt, &proof);
-	tal_packet_append_txrefhash(&pkt,
-				    txrefhash_in_shard(block->shard[shard],
-						       txoff, &scratch));
-
+	pkt = pkt_tx_in_block(state, block, shard, txoff);
 	send_to_interested_peers(state, exclude,
 				 block_get_tx(block, shard, txoff), true, pkt);
 	tal_free(pkt);
-}
-
-static struct protocol_pkt_block *block_pkt(tal_t *ctx, const struct block *b)
-{
-	struct protocol_pkt_block *blk;
- 
-	blk = marshal_block(ctx,
-			    b->hdr, b->shard_nums, b->merkles, b->prev_txhashes,
-			    b->tailer);
-
-	return blk;
 }
 
 void send_block_to_peers(struct state *state,
@@ -267,7 +295,7 @@ void send_block_to_peers(struct state *state,
 			continue;
 
 		/* FIXME: Respect filter! */
-		todo_for_peer(peer, block_pkt(peer, block));
+		todo_for_peer(peer, pkt_block(peer, block));
 	}
 }
 
@@ -711,18 +739,12 @@ recv_get_tx_in_block(struct peer *peer,
 		     void **reply)
 {
 	struct block *b;
-	struct protocol_pkt_tx_in_block *r;
-	struct protocol_proof proof;
-	union protocol_tx *tx;
 	u16 shard;
 	u8 txoff;
 
 	if (le32_to_cpu(pkt->len) != sizeof(*pkt))
 		return PROTOCOL_ECODE_INVALID_LEN;
 
-	r = tal_packet(peer, struct protocol_pkt_tx_in_block,
-		       PROTOCOL_PKT_TX_IN_BLOCK);
-		       
 	shard = le16_to_cpu(pkt->pos.shard);
 	txoff = pkt->pos.txoff;
 
@@ -730,42 +752,31 @@ recv_get_tx_in_block(struct peer *peer,
 	if (!b) {
 		/* If we don't know it, that's OK.  Try to find out. */
 		todo_add_get_block(peer->state, &pkt->pos.block);
-		r->err = cpu_to_le32(PROTOCOL_ECODE_UNKNOWN_BLOCK);
-		goto unknown;
+		*reply = pkt_tx_in_block_err(peer, PROTOCOL_ECODE_UNKNOWN_BLOCK,
+					     &pkt->pos.block, shard, txoff);
+		return PROTOCOL_ECODE_NONE;
 	} else if (shard >= num_shards(b->hdr)) {
 		log_unusual(peer->log, "Invalid get_tx for shard %u of ",
 			    shard);
 		log_add_struct(peer->log, struct protocol_double_sha,
 			       &pkt->pos.block);
-		tal_free(r);
 		return PROTOCOL_ECODE_BAD_SHARDNUM;
 	} else if (txoff >= b->shard_nums[shard]) {
 		log_unusual(peer->log, "Invalid get_tx for txoff %u of shard %u of ",
 			    txoff, shard);
 		log_add_struct(peer->log, struct protocol_double_sha,
 			       &pkt->pos.block);
-		tal_free(r);
 		return PROTOCOL_ECODE_BAD_TXOFF;
 	}
 
-	tx = block_get_tx(b, shard, txoff);
-	if (!tx) {
-		r->err = cpu_to_le32(PROTOCOL_ECODE_UNKNOWN_TX);
-		goto unknown;
+	if (!block_get_tx(b, shard, txoff)) {
+		*reply = pkt_tx_in_block_err(peer, PROTOCOL_ECODE_UNKNOWN_TX,
+					     &pkt->pos.block, shard, txoff);
+		return PROTOCOL_ECODE_NONE;
 	}
 
-	r->err = cpu_to_le32(PROTOCOL_ECODE_NONE);
-	create_proof(&proof, b, shard, txoff);
-	tal_packet_append_proof(&r, &proof);
-	tal_packet_append_tx_with_refs(&r, tx, block_get_refs(b, shard, txoff));
-
-done:
-	*reply = r;
+	*reply = pkt_tx_in_block(peer, b, shard, txoff);
 	return PROTOCOL_ECODE_NONE;
-
-unknown:
-	tal_packet_append_pos(&r, b, shard, txoff);
-	goto done;
 }
 
 static enum protocol_ecode
@@ -783,20 +794,8 @@ recv_get_tx(struct peer *peer,
 	te = txhash_gettx_ancestor(peer->state, &pkt->tx,
 				   peer->state->preferred_chain);
 	if (te && shard_is_tx(te->u.block->shard[te->shardnum], te->txoff)) {
-		struct protocol_pkt_tx_in_block *r;
-		struct protocol_proof proof;
-
-		r = tal_packet(peer, struct protocol_pkt_tx_in_block,
-			       PROTOCOL_PKT_TX_IN_BLOCK);
-		r->err = cpu_to_le32(PROTOCOL_ECODE_NONE);
-		tx = block_get_tx(te->u.block, te->shardnum, te->txoff);
-		create_proof(&proof, te->u.block, te->shardnum, te->txoff);
-		tal_packet_append_proof(&r, &proof);
-		tal_packet_append_tx_with_refs(&r, 
-					       tx, block_get_refs(te->u.block,
-								  te->shardnum,
-								  te->txoff));
-		*reply = r;
+		*reply = pkt_tx_in_block(peer, 
+					 te->u.block, te->shardnum, te->txoff);
 		return PROTOCOL_ECODE_NONE;
 	}
 
