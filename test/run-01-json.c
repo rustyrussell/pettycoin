@@ -1,35 +1,33 @@
 #include <stdio.h>
 #include <stdarg.h>
-#include <ccan/tal/str/str.h>
+#include <ccan/read_write_all/read_write_all.h>
+#include <ccan/tal/tal.h>
 
 static char *output;
 
-static void my_vprintf(const char *fmt, va_list ap)
+#define write_all write_to_output
+
+static bool write_to_output(int fd, const void *data, size_t size)
 {
-	if (output)
-		tal_append_vfmt(&output, fmt, ap);
-	else
-		output = tal_vfmt(NULL, fmt, ap);
+	size_t len;
+
+	if (output) {
+		len = tal_count(output);
+		tal_resize(&output, len + size);
+	} else {
+		len = 0;
+		output = tal_arr(NULL, char, size);
+	}
+	memcpy(output + len, data, size);
+	return true;
 }
-
-static void my_printf(const char *fmt, ...)
-{
-	va_list ap;
-
-	va_start(ap, fmt);
-	my_vprintf(fmt, ap);
-	va_end(ap);
-}
-
-#define printf my_printf
-#define vprintf my_vprintf
 
 #include "../log.h"
 
 #undef log_unusual
-#undef log_debug
+#undef log_info
 #define log_unusual(...)
-#define log_debug(...)
+#define log_info(...)
 
 #include "../json.c"
 

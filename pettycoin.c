@@ -282,6 +282,7 @@ int main(int argc, char *argv[])
 	char *pettycoin_dir;
 	struct state *state;
 	char *log_prefix = "";
+	char *rpc_filename = NULL;
 
 	pseudorand_init();
 	state = new_state(true);
@@ -301,6 +302,10 @@ int main(int argc, char *argv[])
 			 &log_prefix, "log prefix");
 	opt_register_arg("--connect", add_connect, NULL, state,
 			 "Node to connect to (can be specified multiple times)");
+	opt_register_arg("--rpc", opt_set_charp, opt_show_charp,
+			 &rpc_filename,
+			 "Enable JSON-RPC on filename (- for stdin/stdout)");
+
 	/* Generation options. */
 	opt_register_arg("--generator", opt_set_charp, opt_show_charp,
 			 &state->generator, "Binary to try to generate a block");
@@ -355,7 +360,7 @@ int main(int argc, char *argv[])
 	make_listeners(state);
 	fill_peers(state);
 	start_generating(state);
-	setup_json(state);
+	setup_json(state, rpc_filename);
 
 	io_loop();
 
