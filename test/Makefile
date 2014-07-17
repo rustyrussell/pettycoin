@@ -5,7 +5,7 @@ CCANDIR := ../../ccan/
 BASECFLAGS := -ggdb -I $(CCANDIR) -Wall -DFASTCHECK
 CFLAGS := -MMD $(BASECFLAGS)
 LDLIBS := -lcrypto -lrt
-CCAN_OBJS := ccan-noerr.o ccan-tal.o ccan-take.o ccan-list.o ccan-read_write_all.o ccan-htable.o ccan-isaac64.o ccan-tal-str.o ccan-str.o ccan-time.o ccan-strmap.o ccan-hash.o
+CCAN_OBJS := ccan-noerr.o ccan-tal.o ccan-take.o ccan-list.o ccan-read_write_all.o ccan-htable.o ccan-isaac64.o ccan-tal-str.o ccan-str.o ccan-time.o ccan-strmap.o ccan-hash.o ccan-io-io.o ccan-io-poll.o ccan-timer.o
 HELPER_OBJS := $(HELPERS:.c=.o)
 
 # Can't use --leack-check, as openssl leaks?
@@ -63,6 +63,12 @@ ccan-isaac64.o: $(CCANDIR)/ccan/isaac/isaac64.c
 ccan-time.o: $(CCANDIR)/ccan/time/time.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-strmap.o: $(CCANDIR)/ccan/strmap/strmap.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-io-io.o: $(CCANDIR)/ccan/io/io.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-io-poll.o: $(CCANDIR)/ccan/io/poll.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-timer.o: $(CCANDIR)/ccan/timer/timer.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:

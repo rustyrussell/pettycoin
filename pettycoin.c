@@ -1,6 +1,7 @@
 #include "base58.h"
 #include "blockfile.h"
 #include "generating.h"
+#include "json.h"
 #include "log.h"
 #include "netaddr.h"
 #include "peer.h"
@@ -354,6 +355,7 @@ int main(int argc, char *argv[])
 	make_listeners(state);
 	fill_peers(state);
 	start_generating(state);
+	setup_json(state);
 
 	io_loop();
 
