@@ -106,9 +106,12 @@ bool get_fd_addr(int fd, struct protocol_net_address *addr)
 		struct sockaddr_in in;
 		struct sockaddr_in6 in6;
 	} u;
-	socklen_t len = sizeof(len);
+	socklen_t len = sizeof(u);
 
 	if (getsockname(fd, &u.sa, &len) != 0)
+		return false;
+
+	if (len > sizeof(u))
 		return false;
 
 	if (u.sa.sa_family == AF_INET) {
