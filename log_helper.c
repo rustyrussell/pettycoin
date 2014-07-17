@@ -162,6 +162,8 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 
 		case PROTOCOL_PKT_SET_FILTER:
 			name = "PROTOCOL_PKT_SET_FILTER"; break;
+		case PROTOCOL_PKT_GET_PEERS:
+			name = "PROTOCOL_PKT_GET_PEERS"; break;
 		case PROTOCOL_PKT_PEERS:
 			name = "PROTOCOL_PKT_PEERS"; break;
 		case PROTOCOL_PKT_TX:

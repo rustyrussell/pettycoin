@@ -69,7 +69,6 @@ static struct io_plan digest_peer_addrs(struct io_conn *conn,
 		  "seed server supplied %u peers in %u bytes",
 		  num, le32_to_cpu(*len));
 	for (i = 0; i < num; i++) {
-		log_debug(lookup->state->log, "Adding address to peer cache: ");
 		log_add_struct(lookup->state->log,
 			       struct protocol_net_address, &addr[i]);
 		peer_cache_add(lookup->state, &addr[i]);
@@ -135,6 +134,17 @@ static void seed_peers(struct state *state)
 	}
 }
 
+static bool peer_already(struct state *state,
+			 const struct protocol_net_address *a)
+{
+	struct peer *p;
+
+	list_for_each(&state->peers, p, list)
+		if (same_address(&p->you, a))
+			return true;
+	return false;
+}
+
 void fill_peers(struct state *state)
 {
 	if (!state->refill_peers)
@@ -142,9 +152,12 @@ void fill_peers(struct state *state)
 
 	while (state->num_peers < MIN_PEERS) {
 		struct protocol_net_address *a;
-		int fd;
+		int i, fd;
 
-		a = read_peer_cache(state);
+		for (a = peer_cache_first(state, &i);
+		     a && peer_already(state, a);
+		     a = peer_cache_next(state, &i));
+
 		if (!a) {
 			log_debug(state->log, "Seeding peer cache");
 			seed_peers(state);
@@ -247,6 +260,13 @@ static struct protocol_pkt_block *pkt_block(tal_t *ctx, const struct block *b)
 			    b->tailer);
 
 	return blk;
+}
+
+/* FIXME: Send these more regularly. */
+static struct protocol_pkt_get_peers *pkt_get_peers(tal_t *ctx)
+{
+	return tal_packet(ctx, struct protocol_pkt_get_peers,
+			  PROTOCOL_PKT_GET_PEERS);
 }
 
 /* We sent unsolicited TXs to any peer who's interested. */
@@ -433,6 +453,28 @@ recv_set_filter(struct peer *peer, const struct protocol_pkt_set_filter *pkt)
 }
 
 static enum protocol_ecode
+recv_get_peers(struct peer *peer, const struct protocol_pkt_peers *pkt,
+	       void **reply)
+{
+	struct protocol_pkt_peers *r;
+	struct protocol_net_address *a;
+	int i;
+
+	if (le32_to_cpu(pkt->len) != sizeof(*pkt))
+		return PROTOCOL_ECODE_INVALID_LEN;
+
+	r = tal_packet(peer, struct protocol_pkt_peers, PROTOCOL_PKT_PEERS);
+
+	for (a = peer_cache_first(peer->state, &i);
+	     a;
+	     a = peer_cache_next(peer->state, &i))
+		tal_packet_append_net_address(&r, a);
+
+	*reply = r;
+	return PROTOCOL_ECODE_NONE;
+}
+
+static enum protocol_ecode
 recv_pkt_peers(struct peer *peer, const struct protocol_pkt_peers *pkt)
 {
 	unsigned int i, num, len = le32_to_cpu(pkt->len) - sizeof(*pkt);
@@ -445,6 +487,8 @@ recv_pkt_peers(struct peer *peer, const struct protocol_pkt_peers *pkt)
 	num = len / sizeof(struct protocol_net_address);
 	if (num == 0)
 		return PROTOCOL_ECODE_INVALID_LEN;
+
+	log_debug(peer->log, "Peer supplied %u peers", num);
 
 	addr = (const struct protocol_net_address *)(pkt + 1);
 	for (i = 0; i < num; i++)
@@ -1337,6 +1381,9 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 	case PROTOCOL_PKT_SET_FILTER:
 		err = recv_set_filter(peer, peer->incoming);
 		break;
+	case PROTOCOL_PKT_GET_PEERS:
+		err = recv_get_peers(peer, peer->incoming, &reply);
+		break;
 	case PROTOCOL_PKT_PEERS:
 		err = recv_pkt_peers(peer, peer->incoming);
 		break;
@@ -1467,6 +1514,9 @@ static struct io_plan check_sync_or_horizon(struct io_conn *conn,
 	io_set_finish(peer->r, close_reader, peer);
 	io_set_finish(peer->w, close_writer, peer);
 	tal_steal(peer->state, peer);
+
+	/* Ask them for more peers. */
+	todo_for_peer(peer, pkt_get_peers(peer));
 
 	/* Now we sync any children. */
 	return plan_output(conn, peer);

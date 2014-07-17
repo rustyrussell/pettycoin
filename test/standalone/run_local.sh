@@ -38,6 +38,7 @@ trap "" EXIT
 
 i=1
 setup_dir pettycoin-$i
-#HOME=home-$i valgrind --db-attach=yes --child-silent-after-fork=yes ../../pettycoin --developer-test --generate=../../../../generate --log-prefix="$i:" $flags
+#valgrind --db-attach=yes --child-silent-after-fork=yes ../../pettycoin --pettycoin-dir=pettycoin-$i --log-level=debug
 gdb --args ../../pettycoin --pettycoin-dir=pettycoin-$i --log-level=debug
-#HOME=home-$i strace -f -o /tmp/out ../../pettycoin --developer-test --generate=../../../../generate $flags
+#strace ../../pettycoin --pettycoin-dir=pettycoin-$i --log-level=debug
+

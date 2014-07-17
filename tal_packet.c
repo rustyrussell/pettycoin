@@ -93,3 +93,9 @@ void tal_packet_append_proven_tx_(void *ppkt,
 	tal_packet_append_tx_(ppkt, tx);
 	tal_packet_append_(ppkt, refs, marshal_input_ref_len(tx));
 }
+
+void tal_packet_append_net_address_(void *ppkt,
+				    const struct protocol_net_address *addr)
+{
+	tal_packet_append_(ppkt, addr, sizeof(*addr));
+}

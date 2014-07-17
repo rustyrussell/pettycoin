@@ -30,13 +30,6 @@ struct peer_cache {
 	struct peer_cache_file file;
 };
 
-static bool same_address(const struct protocol_net_address *a,
-			 const struct protocol_net_address *b)
-{
-	return memcmp(a->addr, b->addr, sizeof(a->addr)) == 0
-		&& a->port == b->port;
-}
-
 static bool get_lock(int fd)
 {
 	struct flock fl;
@@ -165,43 +158,20 @@ void init_peer_cache(struct state *state)
 	}
 }
 
-static bool peer_already(struct state *state, const struct protocol_net_address *a)
+struct protocol_net_address *peer_cache_first(struct state *state, int *i)
 {
-	struct peer *p;
-
-	list_for_each(&state->peers, p, list)
-		if (same_address(&p->you, a))
-			return true;
-	return false;
+	*i = -1;
+	return peer_cache_next(state, i);
 }
 
-struct protocol_net_address *read_peer_cache(struct state *state)
+struct protocol_net_address *peer_cache_next(struct state *state, int *i)
 {
-	struct peer_cache *pc = state->peer_cache;
-	int start;
-	static int i;
+	BUILD_ASSERT(sizeof(*i) * CHAR_BIT >= PEER_HASH_BITS);
 
-	BUILD_ASSERT(sizeof(start) * CHAR_BIT >= PEER_HASH_BITS);
-
-	start = i;
-	do {
-		if (!is_zero_addr(&pc->file.h[i])) {
-			if (!peer_already(state, &pc->file.h[i])) {
-				log_debug(state->log, "Address peer cache ");
-				log_add_struct(state->log,
-					       struct protocol_net_address,
-					       &pc->file.h[i]);
-				return &pc->file.h[i];
-			}
-			log_debug(state->log, "Peer cache gave repeat ");
-			log_add_struct(state->log,
-				       struct protocol_net_address,
-				       &pc->file.h[i]);
-		}
-		i = (i+1) % ARRAY_SIZE(pc->file.h);
-	} while (i != start);
-
-	log_debug(state->log, "Peer cache is empty");
+	for ((*i)++; *i < ARRAY_SIZE(state->peer_cache->file.h); (*i)++) {
+		if (!is_zero_addr(&state->peer_cache->file.h[*i]))
+			return &state->peer_cache->file.h[*i];
+	}
 	return NULL;
 }
 
@@ -260,8 +230,6 @@ void peer_cache_add(struct state *state,
 
 	log_debug(state->log, "peer_cache replacing ");
 	log_add_struct(state->log, struct protocol_net_address, a);
-	log_add(state->log, " with ");
-	log_add_struct(state->log, struct protocol_net_address, addr);
 
 	/* Don't let it get into the future, and consider it never if
 	 * older than 3 hours. */
@@ -277,6 +245,9 @@ void peer_cache_add(struct state *state,
 	/* Copy and update timestamp */
 	*a = *addr;
 	a->time = cpu_to_le32(timestamp);
+
+	log_add(state->log, " with ");
+	log_add_struct(state->log, struct protocol_net_address, a);
 
 	update_on_disk(state, state->peer_cache, a);
 }

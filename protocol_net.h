@@ -70,6 +70,8 @@ enum protocol_pkt_type {
 	/* Start sending me transactions and new blocks, filtered like this. */
 	PROTOCOL_PKT_SET_FILTER,
 
+	/* Please send me your peers. */
+	PROTOCOL_PKT_GET_PEERS,
 	/* Here are some of my peers. */
 	PROTOCOL_PKT_PEERS,
 
@@ -329,6 +331,11 @@ struct protocol_pkt_txmap {
 	/* If err == PROTOCOL_ECODE_NONE, each set bit is a TX you want:
 	   u8 txmap[(block->shard_nums[shard] + 31) / 32 * 4];
 	*/
+};
+
+struct protocol_pkt_get_peers {
+	le32 len; /* sizeof(struct protocol_pkt_get_peers) */
+	le32 type; /* PROTOCOL_PKT_GET_PEERS */
 };
 
 /* Here are some peer addresses. */
