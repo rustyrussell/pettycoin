@@ -26,6 +26,7 @@ These I think I need to do before a release:
 
 These can wait:
 
+* Roll in CCAN
 * Remember bad txs
 * Use filtering of peers.
 * Timeout for slow-syncing peers.
@@ -48,10 +49,10 @@ These can wait:
 
 Before release:
 
-* Payment to gateway.
-* Fees
-* Reward collection.
-* peer location broadcast
+* [<del>Payment to gateway.</del>](https://github.com/rustyrussell/pettycoin/commit/c0fcb928be0ba33b865b488750184b48be295688)
+* [<del>Fees</del>](https://github.com/rustyrussell/pettycoin/commit/881e3158f93314eefecd6448d69d736f6f522c76)
+* [<del>Reward collection.</del>](https://github.com/rustyrussell/pettycoin/commit/cf0c7eec54352b48a56bd6df6d4c8c962ae25984)
+* [<del>peer location broadcast</del>](https://github.com/rustyrussell/pettycoin/commit/87e32c86f9a0d366d428aff15957949585a18d3f)
 * [<del>Spread out prev_txhashes</del>](https://github.com/rustyrussell/pettycoin/commit/c84d0818abccc46f4e1d09979688ccd41366f168)
 
 Sometime later:
@@ -110,4 +111,4 @@ And these are nice to have:
 * Mailing list
 * White paper
 
-So far, I have done the first two, and am working my way down the list!
+I am crossing these off as I complete them...
