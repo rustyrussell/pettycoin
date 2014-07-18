@@ -29,6 +29,7 @@ static bool write_to_output(int fd, const void *data, size_t size)
 #define log_unusual(...)
 #define log_info(...)
 
+#include "../jsonrpc.c"
 #include "../json.c"
 
 void test(const char *input, const char *expect, bool needs_more)

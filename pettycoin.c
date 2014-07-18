@@ -1,7 +1,7 @@
 #include "base58.h"
 #include "blockfile.h"
 #include "generating.h"
-#include "json.h"
+#include "jsonrpc.h"
 #include "log.h"
 #include "netaddr.h"
 #include "peer.h"
@@ -360,7 +360,7 @@ int main(int argc, char *argv[])
 	make_listeners(state);
 	fill_peers(state);
 	start_generating(state);
-	setup_json(state, rpc_filename);
+	setup_jsonrpc(state, rpc_filename);
 
 	io_loop();
 
