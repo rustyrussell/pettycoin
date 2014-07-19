@@ -6,6 +6,7 @@
 #include "peer.h"
 #include "pending.h"
 #include "shard.h"
+#include "tal_arr.h"
 #include "todo.h"
 #include <ccan/cast/cast.h>
 #include <ccan/structeq/structeq.h>
@@ -16,13 +17,6 @@ static void set_single(const struct block ***arr, const struct block *b)
 {
 	tal_resize(arr, 1);
 	(*arr)[0] = b;
-}
-
-static void add_single(const struct block ***arr, const struct block *b)
-{
-	size_t num = tal_count(*arr);
-	tal_resize(arr, num+1);
-	(*arr)[num] = b;
 }
 
 struct block *step_towards(const struct block *curr, const struct block *target)
@@ -176,7 +170,7 @@ static void find_longest_descendents(const struct block *block,
 		break;
 	case 0:
 		/* Add to bests. */
-		add_single(bests, block);
+		tal_arr_append(bests, block);
 		break;
 	}
 
@@ -259,7 +253,7 @@ static bool update_known_recursive(struct state *state, struct block *block)
 		knowns_changed = true;
 		break;
 	case 0:
-		add_single(&state->longest_knowns, block);
+		tal_arr_append(&state->longest_knowns, block);
 		knowns_changed = true;
 		break;
 	case -1:
@@ -396,7 +390,7 @@ void update_block_ptrs_new_block(struct state *state, struct block *block)
 		new_longest(state, block);
 		break;
 	case 0:
-		add_single(&state->longest_chains, block);
+		tal_arr_append(&state->longest_chains, block);
 		new_longest(state, block);
 		break;
 	}

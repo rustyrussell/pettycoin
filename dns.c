@@ -4,6 +4,7 @@
 #include "protocol_net.h"
 #include <assert.h>
 #include <ccan/err/err.h>
+#include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/tal.h>
 #include <netdb.h>
 #include <sys/socket.h>
@@ -23,32 +24,33 @@ static void lookup_and_write(int fd, const char *name, const char *port)
 	struct addrinfo *addr, *i;
 	struct protocol_net_address *addresses;
 	struct protocol_net_hdr hdr;
+	size_t num;
 
 	if (getaddrinfo(name, port, NULL, &addr) != 0)
 		return;
 
-	addresses = tal_arr(NULL, struct protocol_net_address, 0);
-	for (i = addr; i; i = i->ai_next) {
-		struct protocol_net_address a;
-		size_t n;
+	num = 0;
+	for (i = addr; i; i = i->ai_next)
+		num++;
 
-		if (!addrinfo_to_netaddr(&a, i))
+	addresses = tal_arr(NULL, struct protocol_net_address, num);
+	num = 0;
+	for (i = addr; i; i = i->ai_next) {
+		if (!addrinfo_to_netaddr(&addresses[num], i))
 			continue;
-		n = tal_count(addresses);
-		tal_resize(&addresses, n + 1);
-		addresses[n] = a;
+		num++;
 	}
 
-	if (!tal_count(addresses))
+	if (!num) {
+		tal_free(addresses);
 		return;
+	}
 
-	hdr.len = cpu_to_le32(tal_count(addresses) * sizeof(addresses[0])
-			      + sizeof(hdr));
+	hdr.len = cpu_to_le32(num * sizeof(addresses[0]) + sizeof(hdr));
 	hdr.type = 0;
 
-	if (write(fd, &hdr, sizeof(hdr)) != sizeof(hdr))
-		return;
-	write(fd, addresses, le32_to_cpu(hdr.len) - sizeof(hdr));
+	if (write_all(fd, &hdr, sizeof(hdr)))
+		write_all(fd, addresses, num * sizeof(addresses[0]));
 	tal_free(addresses);
 }
 

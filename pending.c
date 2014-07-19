@@ -7,6 +7,7 @@
 #include "pending.h"
 #include "shard.h"
 #include "state.h"
+#include "tal_arr.h"
 #include "timestamp.h"
 #include "tx.h"
 #include "tx_cmp.h"
@@ -129,12 +130,8 @@ static bool insert_pending_tx(struct state *state, const union protocol_tx *tx)
 	if (!pend->refs)
 		return false;
 
-	/* Move down to make room, and insert */
-	tal_resize(&pending->pend[shard], num + 1);
-	memmove(pending->pend[shard] + pos + 1,
-		pending->pend[shard] + pos,
-		(num - pos) * sizeof(*pending->pend[shard]));
-	pending->pend[shard][pos] = pend;
+	/* Insert into array at pos. */
+	tal_arr_add(&pending->pend[shard], pos, pend);
 
 	log_debug(state->log, "Added tx to shard %u position %zu",
 		  shard, pos);
@@ -327,13 +324,7 @@ enum input_ecode add_pending_tx(struct state *state,
 static void remove_pending_tx(struct state *state,
 			      u16 shard, unsigned int i)
 {
-	struct pending_block *pending = state->pending;
-	size_t num = tal_count(pending->pend[shard]);
-
-	memmove(pending->pend[shard] + i,
-		pending->pend[shard] + i + 1,
-		(num - i - 1) * sizeof(*pending->pend[shard]));
-	tal_resize(&pending->pend[shard], num - 1);
+	tal_arr_del(&state->pending->pend[shard], i);
 
 	/* Very rare, so don't optimize the remove case.  */
 	restart_generating(state);

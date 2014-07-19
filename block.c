@@ -11,6 +11,7 @@
 #include "protocol.h"
 #include "shard.h"
 #include "state.h"
+#include "tal_arr.h"
 #include "tal_packet.h"
 #include "tx.h"
 #include <ccan/structeq/structeq.h>
@@ -97,9 +98,8 @@ struct block *block_add(struct state *state,
 	if (depth >= tal_count(state->block_depth)) {
 		/* We can only increment block depths. */
 		assert(depth == tal_count(state->block_depth));
-		tal_resize(&state->block_depth, depth + 1);
-		state->block_depth[depth]
-			= tal(state->block_depth, struct list_head);
+		tal_arr_append(&state->block_depth,
+			       tal(state->block_depth, struct list_head));
 		list_head_init(state->block_depth[depth]);
 	}
 
