@@ -88,12 +88,12 @@ out:
 /*
  * Decode a base58-encoded string into a byte sequence.
  */
-bool raw_decode_base58(BIGNUM *bn, const char *src)
+bool raw_decode_base58(BIGNUM *bn, const char *src, size_t len)
 {
 	BN_init(bn);
 	BN_zero(bn);
 
-	while (*src) {
+	while (len) {
 		int val = decode_char(*src);
 		if (val < 0) {
 			BN_free(bn);
@@ -102,6 +102,7 @@ bool raw_decode_base58(BIGNUM *bn, const char *src)
 		BN_mul_word(bn, 58);
 		BN_add_word(bn, val);
 		src++;
+		len--;
 	}
 
 	return true;
@@ -153,7 +154,7 @@ char *pettycoin_to_base58(const tal_t *ctx, bool test_net,
 
 bool pettycoin_from_base58(bool *test_net,
 			   struct protocol_address *addr,
-			   const char *base58)
+			   const char *base58, size_t base58_len)
 {
 	u8 buf[1 + RIPEMD160_DIGEST_LENGTH + 4];
 	BIGNUM bn;
@@ -161,13 +162,14 @@ bool pettycoin_from_base58(bool *test_net,
 	u8 csum[4];
 	bool is_bitcoin = false;
 
-	if (strstarts(base58, "P-")) {
+	if (base58_len > 2 && strstarts(base58, "P-")) {
 		/* pettycoin-ized bitcoin address. */
 		is_bitcoin = true;
 		base58 += 2;
+		base58_len -= 2;
 	}
 
-	if (!raw_decode_base58(&bn, base58))
+	if (!raw_decode_base58(&bn, base58, base58_len))
 		return false;
 
 	len = BN_num_bytes(&bn);
@@ -229,7 +231,7 @@ bool ripemd_from_base58(u8 *version, u8 ripemd160[RIPEMD160_DIGEST_LENGTH],
 		return false;
 
 	/* Fails if it contains invalid characters. */
-	if (!raw_decode_base58(&bn, base58))
+	if (!raw_decode_base58(&bn, base58, strlen(base58)))
 		return false;
 
 	/* Too big? */

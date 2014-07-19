@@ -267,7 +267,7 @@ static char *set_reward_address(const char *arg, struct state *state)
 	}
 	state->reward_addr = tal(state, struct protocol_address);
 
-	if (!pettycoin_from_base58(&test_net, state->reward_addr, arg))
+	if (!pettycoin_from_base58(&test_net, state->reward_addr, arg, strlen(arg)))
 		return strdup("Could not parse address");
 	if (test_net && !state->test_net)
 		return strdup("Reward address is on testnet");

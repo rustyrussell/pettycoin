@@ -72,7 +72,7 @@ static EC_KEY *get_privkey(const char *arg, struct protocol_pubkey *gkey)
 	EC_KEY *priv = EC_KEY_new_by_curve_name(NID_secp256k1);
 	BIGNUM bn;
 
-	if (!raw_decode_base58(&bn, arg))
+	if (!raw_decode_base58(&bn, arg, strlen(arg)))
 		errx(1, "Could not decode privkey");
 
 	keylen = BN_num_bytes(&bn);
@@ -283,7 +283,7 @@ int main(int argc, char *argv[])
 
 		payment.send_amount = cpu_to_le32(atoi(argv[6]));
 		if (!pettycoin_from_base58(&test_net, &payment.output_addr,
-					   argv[5]))
+					   argv[5], strlen(argv[5])))
 			errx(1, "Invalid dstaddr");
 		if (!test_net)
 			errx(1, "dstaddr is not on test net!");
@@ -304,7 +304,7 @@ int main(int argc, char *argv[])
 		if (argc < 9)
 			usage();
 
-		if (!pettycoin_from_base58(&test_net, &destaddr, argv[5]))
+		if (!pettycoin_from_base58(&test_net, &destaddr, argv[5], strlen(argv[5])))
 			errx(1, "Invalid dstaddr %s", argv[5]);
 		if (!test_net)
 			errx(1, "dstaddr is not on test net!");
