@@ -282,7 +282,7 @@ int main(int argc, char *argv[])
 	char *pettycoin_dir;
 	struct state *state;
 	char *log_prefix = "";
-	char *rpc_filename = NULL;
+	char *rpc_filename = "pettycoin-rpc";
 
 	pseudorand_init();
 	state = new_state(true);
@@ -302,9 +302,8 @@ int main(int argc, char *argv[])
 			 &log_prefix, "log prefix");
 	opt_register_arg("--connect", add_connect, NULL, state,
 			 "Node to connect to (can be specified multiple times)");
-	opt_register_arg("--rpc", opt_set_charp, opt_show_charp,
-			 &rpc_filename,
-			 "Enable JSON-RPC on filename (- for stdin/stdout)");
+	opt_register_arg("--rpc-file", opt_set_charp, opt_show_charp,
+			 &rpc_filename, "Set JSON-RPC socket (or /dev/tty)");
 
 	/* Generation options. */
 	opt_register_arg("--generator", opt_set_charp, opt_show_charp,
