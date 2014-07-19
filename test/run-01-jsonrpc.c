@@ -3,31 +3,6 @@
 #include <ccan/io/io.h>
 #include <ccan/tal/tal.h>
 
-static char *output;
-
-#undef io_write
-#define io_write(buffer, len, next, data)	\
-	save_io_write(buffer, len, next, data)
-
-static struct io_plan save_io_write(const void *data,
-				    size_t size,
-				    void *cb,
-				    void *arg)
-{
-	size_t len;
-
-	if (output) {
-		len = tal_count(output);
-		tal_resize(&output, len + size + 1);
-	} else {
-		len = 0;
-		output = tal_arr(NULL, char, size + 1);
-	}
-	memcpy(output + len, data, size);
-	output[len + size] = '\0';
-	return io_always(cb, arg);
-}
-
 #include "../log.h"
 
 #undef log_unusual
@@ -40,39 +15,40 @@ static struct io_plan save_io_write(const void *data,
 
 void test(const char *input, const char *expect, bool needs_more, int extra)
 {
-	struct json_buf *buf = tal(NULL, struct json_buf);
+	struct json_connection *jcon = tal(NULL, struct json_connection);
 	struct io_plan plan;
 
-	buf->used = 0;
-	buf->len_read = strlen(input);
-	buf->buffer = tal_dup(buf, char, input, strlen(input), 0);
-	buf->output = NULL;
+	jcon->used = 0;
+	jcon->len_read = strlen(input);
+	jcon->buffer = tal_dup(jcon, char, input, strlen(input), 0);
+	list_head_init(&jcon->output);
 
-	plan = read_json(NULL, buf);
+	plan = read_json(NULL, jcon);
 	if (needs_more) {
 		/* Should have done partial read for rest. */
-		assert(buf->used == strlen(input));
+		assert(jcon->used == strlen(input));
 		assert(plan.next == (void *)read_json);
-		assert(plan.u1.cp == buf->buffer + strlen(input));
+		assert(plan.u1.cp == jcon->buffer + strlen(input));
+		assert(list_empty(&jcon->output));
 	} else if (!expect) {
 		/* Should have returned io_close. */
 		assert(plan.next == NULL);
 	} else {
 		/* Should have finished. */
-		assert(buf->used == extra);
+		assert(jcon->used == extra);
 		assert(plan.next == (void *)read_json);
-		assert(output && streq(output, expect));
+		assert(!list_empty(&jcon->output));
+		assert(streq(list_top(&jcon->output, struct json_output, list)
+			     ->json, expect));
 	}
-
-	output = tal_free(output);
-	tal_free(buf);
+	tal_free(jcon);
 }	
 
 int main(void)
 {
 	unsigned int i;
 	const char *cmd;
-	const char echocmd[] = "{ \"method\" : \"echo\", "
+	const char echocmd[] = "{ \"method\" : \"dev-echo\", "
 		"\"params\" : [ \"hello\", \"Arabella!\" ], "
 		"\"id\" : \"1\" }";
 	const char echoresult[]

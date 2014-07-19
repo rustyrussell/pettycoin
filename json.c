@@ -63,7 +63,7 @@ jsmntok_t *json_parse_input(const char *input, int len, bool *valid)
 
 again:	
 	jsmn_init(&parser);
-	ret = jsmn_parse(&parser, input, len, toks, tal_count(toks));
+	ret = jsmn_parse(&parser, input, len, toks, tal_count(toks) - 1);
 
 	switch (ret) {
 	case JSMN_ERROR_INVAL:
@@ -78,7 +78,12 @@ again:
 
 	/* Cut to length and return. */
 	*valid = true;
-	tal_resize(&toks, ret);
+	tal_resize(&toks, ret + 1);
+	/* Make sure last one is always referencable. */
+	toks[ret].type = -1;
+	toks[ret].start = toks[ret].end = toks[ret].size = 0;
+	toks[ret].parent = -1;
+	
 	return toks;
 }
 

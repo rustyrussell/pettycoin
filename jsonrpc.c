@@ -17,53 +17,50 @@
 #include <sys/types.h>
 #include <sys/un.h>
 
-struct json_buf {
-	struct state *state;
-	/* How much is already filled. */
-	size_t used;
-	/* How much has just been filled. */
-	size_t len_read;
-	char *buffer;
-
-	/* Output (for freeing next time). */
-	char *output;
+struct json_output {
+	struct list_node list;
+	const char *json;
 };
 
-static void free_buf(struct io_conn *conn, struct json_buf *buf)
+static void free_jcon(struct io_conn *conn, struct json_connection *jcon)
 {
-	log_info(buf->state->log, "Closing json input (%s)", strerror(errno));
-	tal_free(buf);
+	log_info(jcon->state->log, "Closing json input (%s)", strerror(errno));
+	tal_free(jcon);
 }
 
 struct command {
 	const char *name;
-	char *(*dispatch)(const char *buffer,
+	char *(*dispatch)(struct json_connection *jcon,
 			  const jsmntok_t *params,
 			  char **response);
 	const char *description;
+	const char *help;
 };
 
-static char *json_help(const char *buffer,
+static char *json_help(struct json_connection *jcon,
 		       const jsmntok_t *params,
 		       char **response);
 
-static char *json_echo(const char *buffer,
+static char *json_echo(struct json_connection *jcon,
 		       const jsmntok_t *params,
 		       char **response)
 {
 	tal_append_fmt(response, "{ \"num\" : %u, %.*s }",
 		       params->size,
 		       json_tok_len(params),
-		       json_tok_contents(buffer, params));
+		       json_tok_contents(jcon->buffer, params));
 	return NULL;
 }
 
 static const struct command cmdlist[] = {
-	{ "help", json_help, "describe commands" },
-	{ "echo", json_echo, "echo parameters" }
+	{ "help", json_help, "describe commands",
+	  "[<command>] if specified gives details about a single command." },
+	/* Developer/debugging options. */
+	{ "dev-echo", json_echo, "echo parameters",
+	  "Simple echo test for developers" },
 };
 
-static char *json_help(const char *buffer,
+static char *json_help(struct json_connection *jcon,
 		       const jsmntok_t *params,
 		       char **response)
 {
@@ -92,95 +89,110 @@ static const struct command *find_cmd(const char *buffer, const jsmntok_t *tok)
 }
 
 /* Returns NULL if it's a fatal error. */
-static char *parse_request(struct json_buf *buf, const jsmntok_t tok[])
+static char *parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 {
 	const jsmntok_t *method, *id, *params, *t;
 	const struct command *cmd;
 	char *result, *error;
 
 	if (tok[0].type != JSMN_OBJECT) {
-		log_unusual(buf->state->log, "Expected {} for json command");
+		log_unusual(jcon->state->log, "Expected {} for json command");
 		return NULL;
 	}
 
-	method = json_get_label(buf->buffer, tok, "method");
-	params = json_get_label(buf->buffer, tok, "params");
-	id = json_get_label(buf->buffer, tok, "id");
+	method = json_get_label(jcon->buffer, tok, "method");
+	params = json_get_label(jcon->buffer, tok, "params");
+	id = json_get_label(jcon->buffer, tok, "id");
 
 	if (!id || !method || !params) {
-		log_unusual(buf->state->log, "json: No %s",
+		log_unusual(jcon->state->log, "json: No %s",
 			    !id ? "id" : (!method ? "method" : "params"));
 		return NULL;
 	}
 
 	id++;
 	if (id->type != JSMN_STRING && id->type != JSMN_PRIMITIVE) {
-		log_unusual(buf->state->log,
+		log_unusual(jcon->state->log,
 			    "Expected string/primitive for id");
 		return NULL;
 	}
 
 	t = method + 1;
 	if (t->type != JSMN_STRING) {
-		log_unusual(buf->state->log, "Expected string for method");
+		log_unusual(jcon->state->log, "Expected string for method");
 		return NULL;
 	}
 
-	cmd = find_cmd(buf->buffer, t);
+	cmd = find_cmd(jcon->buffer, t);
 	if (!cmd) {
-		return tal_fmt(buf,
+		return tal_fmt(jcon,
 			      "{ \"result\" : null,"
 			      " \"error\" : \"Unknown command '%.*s'\","
 			      " \"id\" : %.*s }\n",
 			      (int)(t->end - t->start),
-			      buf->buffer + t->start,
+			      jcon->buffer + t->start,
 			      json_tok_len(id),
-			      json_tok_contents(buf->buffer, id));
+			      json_tok_contents(jcon->buffer, id));
 	}
 
 	t = params + 1;
 	if (t->type != JSMN_ARRAY) {
-		log_unusual(buf->state->log, "Expected array after params");
+		log_unusual(jcon->state->log, "Expected array after params");
 		return NULL;
 	}
 
-	result = tal_arr(buf, char, 0);
-	error = cmd->dispatch(buf->buffer, t, &result);
+	result = tal_arr(jcon, char, 0);
+	error = cmd->dispatch(jcon, t, &result);
 	if (error)
-		return tal_fmt(buf,
+		return tal_fmt(jcon,
 			      "{ \"result\" : null,"
 			      " \"error\" : \"%s\","
 			      " \"id\" : %.*s }\n",
 			      error,
 			      json_tok_len(id),
-			      json_tok_contents(buf->buffer, id));
-	return tal_fmt(buf,
+			      json_tok_contents(jcon->buffer, id));
+	return tal_fmt(jcon,
 		       "{ \"result\" : %s,"
 		       " \"error\" : null,"
 		       " \"id\" : %.*s }\n",
 		       result,
 		       json_tok_len(id),
-		       json_tok_contents(buf->buffer, id));
+		       json_tok_contents(jcon->buffer, id));
 }
 
-static struct io_plan read_json(struct io_conn *conn, struct json_buf *buf)
+static struct io_plan write_json(struct io_conn *conn,
+				 struct json_connection *jcon)
+{
+	struct json_output *out;
+	
+	out = list_pop(&jcon->output, struct json_output, list);
+	if (!out)
+		return io_wait(jcon, write_json, jcon);
+
+	jcon->outbuf = tal_steal(jcon, out->json);
+	tal_free(out);
+		
+	return io_write(jcon->outbuf, strlen(jcon->outbuf), write_json, jcon);
+}
+
+static struct io_plan read_json(struct io_conn *conn,
+				struct json_connection *jcon)
 {
 	jsmntok_t *toks;
 	bool valid;
-
-	buf->output = tal_free(buf->output);
+	struct json_output *out;
 
 	/* Resize larger if we're full. */
-	buf->used += buf->len_read;
-	if (buf->used == tal_count(buf->buffer))
-		tal_resize(&buf->buffer, buf->used * 2);
+	jcon->used += jcon->len_read;
+	if (jcon->used == tal_count(jcon->buffer))
+		tal_resize(&jcon->buffer, jcon->used * 2);
 
-	toks = json_parse_input(buf->buffer, buf->used, &valid);
+	toks = json_parse_input(jcon->buffer, jcon->used, &valid);
 	if (!toks) {
 		if (!valid) {
-			log_unusual(buf->state->log,
+			log_unusual(jcon->state->log,
 				    "Invalid token in json input: '%.*s'",
-				    (int)buf->used, buf->buffer);
+				    (int)jcon->used, jcon->buffer);
 			return io_close();
 		}
 		/* We need more. */
@@ -188,50 +200,52 @@ static struct io_plan read_json(struct io_conn *conn, struct json_buf *buf)
 	}
 
 	/* Empty buffer? (eg. just whitespace). */
-	if (tal_count(toks) == 0) {
-		buf->used = 0;
+	if (tal_count(toks) == 1) {
+		jcon->used = 0;
 		goto read_more;
 	}
 
-	buf->output = parse_request(buf, toks);
-	if (!buf->output)
+	out = tal(jcon, struct json_output);
+	out->json = parse_request(jcon, toks);
+	if (!out->json)
 		return io_close();
 
-	/* Remove first {}. */
-	memmove(buf->buffer, buf->buffer + toks[0].end,
-		tal_count(buf->buffer) - toks[0].end);
-	buf->used -= toks[0].end;
-	tal_free(toks);
+	/* Queue for writing, and wake writer. */
+	list_add_tail(&jcon->output, &out->list);
+	io_wake(jcon);
 
-	/* Write output, then return as if we read 0 bytes to go again. */
-	buf->len_read = 0;
-	return io_write(buf->output, strlen(buf->output), read_json, buf);
+	/* Remove first {}. */
+	memmove(jcon->buffer, jcon->buffer + toks[0].end,
+		tal_count(jcon->buffer) - toks[0].end);
+	jcon->used -= toks[0].end;
 
 read_more:
 	tal_free(toks);
-	buf->len_read = tal_count(buf->buffer) - buf->used;
-	return io_read_partial(buf->buffer + buf->used,
-			       &buf->len_read, read_json, buf);
+	jcon->len_read = tal_count(jcon->buffer) - jcon->used;
+	return io_read_partial(jcon->buffer + jcon->used,
+			       &jcon->len_read, read_json, jcon);
 }
 
 static void init_rpc(int fd, struct state *state)
 {
-	struct json_buf *buf;
+	struct json_connection *jcon;
 	struct io_conn *conn;
 
-	buf = tal(state, struct json_buf);
-	buf->state = state;
-	buf->used = 0;
-	buf->len_read = 64;
-	buf->buffer = tal_arr(buf, char, buf->len_read);
-	buf->output = NULL;
+	jcon = tal(state, struct json_connection);
+	jcon->state = state;
+	jcon->used = 0;
+	jcon->len_read = 64;
+	jcon->buffer = tal_arr(jcon, char, jcon->len_read);
+	list_head_init(&jcon->output);
 
 	conn = io_new_conn(fd,
-			   io_read_partial(buf->buffer, &buf->len_read,
-					   read_json, buf));
-	io_set_finish(conn, free_buf, buf);
-}
+			   io_read_partial(jcon->buffer, &jcon->len_read,
+					   read_json, jcon));
+	/* Leave writer idle. */
+	io_duplex(conn, io_wait(jcon, write_json, jcon));
 
+	io_set_finish(conn, free_jcon, jcon);
+}
 
 static void rpc_connected(int fd, struct state *state)
 {
