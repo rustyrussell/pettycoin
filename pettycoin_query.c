@@ -82,33 +82,33 @@ int main(int argc, char *argv[])
 	}
 	resp[off] = '\0';
 
-	result = json_get_label(resp, toks, "result");
+	result = json_get_member(resp, toks, "result");
 	if (!result)
 		errx(ERROR_TALKING_TO_PETTYCOIN,
 		     "Missing 'result' in response '%s'", resp);
-	error = json_get_label(resp, toks, "error");
+	error = json_get_member(resp, toks, "error");
 	if (!error)
 		errx(ERROR_TALKING_TO_PETTYCOIN,
 		     "Missing 'error' in response '%s'", resp);
-	id = json_get_label(resp, toks, "id");
+	id = json_get_member(resp, toks, "id");
 	if (!id)
 		errx(ERROR_TALKING_TO_PETTYCOIN,
 		     "Missing 'id' in response '%s'", resp);
-	if (!json_tok_streq(resp, id + 1, idstr))
+	if (!json_tok_streq(resp, id, idstr))
 		errx(ERROR_TALKING_TO_PETTYCOIN,
 		     "Incorrect 'id' in response: %.*s",
-		     json_tok_len(id + 1), json_tok_contents(resp, id + 1));
+		     json_tok_len(id), json_tok_contents(resp, id));
 
-	if (json_tok_is_null(resp, error + 1)) {
+	if (json_tok_is_null(resp, error)) {
 		printf("%.*s\n",
-		       json_tok_len(result + 1),
-		       json_tok_contents(resp, result + 1));
+		       json_tok_len(result),
+		       json_tok_contents(resp, result));
 		tal_free(idstr);
 		return 0;
 	}
 
 	printf("%.*s\n",
-	       json_tok_len(error + 1), json_tok_contents(resp, error + 1));
+	       json_tok_len(error), json_tok_contents(resp, error));
 	tal_free(idstr);
 	return 1;
 }

@@ -4,7 +4,7 @@ MKGENESIS_OBJS := mkgenesis.o shadouble.o hash_block.o merkle_hashes.o merkle_re
 SIZES_OBJS := sizes.o
 MKPRIV_OBJS := mkpriv.o
 INJECT_OBJS := inject.o base58.o create_tx.o marshal.o netaddr.o hash_tx.o minimal_log.o shadouble.o signature.o hash_block.o merkle_recurse.o
-PETTYCOIN_QUERY_OBJS := pettycoin_query.o json.o
+PETTYCOIN_QUERY_OBJS := pettycoin_query.o json.o base58.o
 
 BINS := generate mkgenesis pettycoin sizes mkpriv inject pettycoin_query
 CCAN_OBJS := ccan-asort.o ccan-breakpoint.o ccan-tal.o ccan-tal-path.o ccan-tal-str.o ccan-take.o ccan-list.o ccan-str.o ccan-opt-helpers.o ccan-opt.o ccan-opt-parse.o ccan-opt-usage.o ccan-read_write_all.o ccan-htable.o ccan-io-io.o ccan-io-poll.o ccan-timer.o ccan-time.o ccan-noerr.o ccan-hash.o ccan-isaac64.o ccan-net.o ccan-err.o ccan-tal-grab_file.o

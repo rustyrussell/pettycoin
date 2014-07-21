@@ -45,10 +45,12 @@ static char *json_echo(struct json_connection *jcon,
 		       const jsmntok_t *params,
 		       char **response)
 {
-	tal_append_fmt(response, "{ \"num\" : %u, %.*s }",
-		       params->size,
-		       json_tok_len(params),
-		       json_tok_contents(jcon->buffer, params));
+	json_object_start(response, NULL);
+	json_add_num(response, "num", params->size);
+	json_add_literal(response, "echo",
+			 json_tok_contents(jcon->buffer, params),
+			 json_tok_len(params));
+	json_object_end(response);
 	return NULL;
 }
 
@@ -66,13 +68,14 @@ static char *json_help(struct json_connection *jcon,
 {
 	unsigned int i;
 
-	json_array_start(response);
+	json_array_start(response, NULL);
 	for (i = 0; i < ARRAY_SIZE(cmdlist); i++) {
-		json_object(response,
-			    "command", cmdlist[i].name, JSMN_STRING,
-			    "description", cmdlist[i].description, JSMN_STRING,
-			    NULL);
-		json_array_next(response);
+		json_add_object(response,
+				"command", JSMN_STRING,
+				cmdlist[i].name,
+				"description", JSMN_STRING,
+				cmdlist[i].description,
+				NULL);
 	}
 	json_array_end(response);
 	return NULL;
@@ -91,7 +94,7 @@ static const struct command *find_cmd(const char *buffer, const jsmntok_t *tok)
 /* Returns NULL if it's a fatal error. */
 static char *parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 {
-	const jsmntok_t *method, *id, *params, *t;
+	const jsmntok_t *method, *id, *params;
 	const struct command *cmd;
 	char *result, *error;
 
@@ -100,9 +103,9 @@ static char *parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 		return NULL;
 	}
 
-	method = json_get_label(jcon->buffer, tok, "method");
-	params = json_get_label(jcon->buffer, tok, "params");
-	id = json_get_label(jcon->buffer, tok, "id");
+	method = json_get_member(jcon->buffer, tok, "method");
+	params = json_get_member(jcon->buffer, tok, "params");
+	id = json_get_member(jcon->buffer, tok, "id");
 
 	if (!id || !method || !params) {
 		log_unusual(jcon->state->log, "json: No %s",
@@ -110,39 +113,37 @@ static char *parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 		return NULL;
 	}
 
-	id++;
 	if (id->type != JSMN_STRING && id->type != JSMN_PRIMITIVE) {
 		log_unusual(jcon->state->log,
 			    "Expected string/primitive for id");
 		return NULL;
 	}
 
-	t = method + 1;
-	if (t->type != JSMN_STRING) {
+	if (method->type != JSMN_STRING) {
 		log_unusual(jcon->state->log, "Expected string for method");
 		return NULL;
 	}
 
-	cmd = find_cmd(jcon->buffer, t);
+	cmd = find_cmd(jcon->buffer, method);
 	if (!cmd) {
 		return tal_fmt(jcon,
 			      "{ \"result\" : null,"
 			      " \"error\" : \"Unknown command '%.*s'\","
 			      " \"id\" : %.*s }\n",
-			      (int)(t->end - t->start),
-			      jcon->buffer + t->start,
+			      (int)(method->end - method->start),
+			      jcon->buffer + method->start,
 			      json_tok_len(id),
 			      json_tok_contents(jcon->buffer, id));
 	}
 
-	t = params + 1;
-	if (t->type != JSMN_ARRAY) {
-		log_unusual(jcon->state->log, "Expected array after params");
+	if (params->type != JSMN_ARRAY && params->type != JSMN_OBJECT) {
+		log_unusual(jcon->state->log,
+			    "Expected array or object for params");
 		return NULL;
 	}
 
 	result = tal_arr(jcon, char, 0);
-	error = cmd->dispatch(jcon, t, &result);
+	error = cmd->dispatch(jcon, params, &result);
 	if (error)
 		return tal_fmt(jcon,
 			      "{ \"result\" : null,"
