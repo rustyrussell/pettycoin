@@ -28,18 +28,16 @@ static void free_jcon(struct io_conn *conn, struct json_connection *jcon)
 	tal_free(jcon);
 }
 
-struct command {
-	const char *name;
-	char *(*dispatch)(struct json_connection *jcon,
-			  const jsmntok_t *params,
-			  char **response);
-	const char *description;
-	const char *help;
-};
-
 static char *json_help(struct json_connection *jcon,
 		       const jsmntok_t *params,
 		       char **response);
+
+static const struct json_command help_command = {
+	"help",
+	json_help,
+	"describe commands",
+	"[<command>] if specified gives details about a single command."
+};
 
 static char *json_echo(struct json_connection *jcon,
 		       const jsmntok_t *params,
@@ -54,12 +52,17 @@ static char *json_echo(struct json_connection *jcon,
 	return NULL;
 }
 
-static const struct command cmdlist[] = {
-	{ "help", json_help, "describe commands",
-	  "[<command>] if specified gives details about a single command." },
+static const struct json_command echo_command = {
+	"dev-echo",
+	json_echo,
+	"echo parameters",
+	"Simple echo test for developers"
+};
+
+static const struct json_command *cmdlist[] = {
+	&help_command, &getinfo_command,
 	/* Developer/debugging options. */
-	{ "dev-echo", json_echo, "echo parameters",
-	  "Simple echo test for developers" },
+	&echo_command
 };
 
 static char *json_help(struct json_connection *jcon,
@@ -72,22 +75,23 @@ static char *json_help(struct json_connection *jcon,
 	for (i = 0; i < ARRAY_SIZE(cmdlist); i++) {
 		json_add_object(response,
 				"command", JSMN_STRING,
-				cmdlist[i].name,
+				cmdlist[i]->name,
 				"description", JSMN_STRING,
-				cmdlist[i].description,
+				cmdlist[i]->description,
 				NULL);
 	}
 	json_array_end(response);
 	return NULL;
 }
 
-static const struct command *find_cmd(const char *buffer, const jsmntok_t *tok)
+static const struct json_command *find_cmd(const char *buffer,
+					   const jsmntok_t *tok)
 {
 	unsigned int i;
 
 	for (i = 0; i < ARRAY_SIZE(cmdlist); i++)
-		if (json_tok_streq(buffer, tok, cmdlist[i].name))
-			return &cmdlist[i];
+		if (json_tok_streq(buffer, tok, cmdlist[i]->name))
+			return cmdlist[i];
 	return NULL;
 }
 
@@ -95,7 +99,7 @@ static const struct command *find_cmd(const char *buffer, const jsmntok_t *tok)
 static char *parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 {
 	const jsmntok_t *method, *id, *params;
-	const struct command *cmd;
+	const struct json_command *cmd;
 	char *result, *error;
 
 	if (tok[0].type != JSMN_OBJECT) {

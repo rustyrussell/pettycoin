@@ -83,4 +83,3 @@ void fatal(struct state *state, const char *fmt, ...)
 
 	exit(1);
 }
-	

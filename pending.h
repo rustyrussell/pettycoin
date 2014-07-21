@@ -56,4 +56,5 @@ struct pending_block *new_pending_block(struct state *state);
 
 void drop_pending_tx(struct state *state, const union protocol_tx *tx);
 
+size_t num_pending_known(struct state *state);
 #endif /* PETTYCOIN_PENDING_H */

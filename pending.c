@@ -139,6 +139,17 @@ static bool insert_pending_tx(struct state *state, const union protocol_tx *tx)
 	return true;
 }
 
+size_t num_pending_known(struct state *state)
+{
+	size_t known = 0;
+	unsigned int shard;
+
+	for (shard = 0; shard < ARRAY_SIZE(state->pending->pend); shard++)
+		known += tal_count(state->pending->pend[shard]);
+
+	return known;
+}
+
 /* We've added a whole heap of transactions, recheck them and set input refs. */
 void recheck_pending_txs(struct state *state)
 {
@@ -154,9 +165,7 @@ void recheck_pending_txs(struct state *state)
 
 	/* Size up and allocate an array. */
 	unknown = state->pending->num_unknown;
-	known = 0;
-	for (shard = 0; shard < ARRAY_SIZE(state->pending->pend); shard++)
-		known += tal_count(state->pending->pend[shard]);
+	known = num_pending_known(state);
 
 	txs = tal_arr(state, const union protocol_tx *, unknown + known);
 
