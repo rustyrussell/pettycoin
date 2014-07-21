@@ -60,7 +60,7 @@ static const struct json_command echo_command = {
 };
 
 static const struct json_command *cmdlist[] = {
-	&help_command, &getinfo_command,
+	&help_command, &getinfo_command, &sendrawtransaction_command,
 	/* Developer/debugging options. */
 	&echo_command
 };
@@ -89,8 +89,10 @@ static const struct json_command *find_cmd(const char *buffer,
 {
 	unsigned int i;
 
+	/* cmdlist[i]->name can be NULL in test code. */
 	for (i = 0; i < ARRAY_SIZE(cmdlist); i++)
-		if (json_tok_streq(buffer, tok, cmdlist[i]->name))
+		if (cmdlist[i]->name
+		    && json_tok_streq(buffer, tok, cmdlist[i]->name))
 			return cmdlist[i];
 	return NULL;
 }

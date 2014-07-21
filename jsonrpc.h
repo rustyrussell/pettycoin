@@ -38,5 +38,6 @@ void setup_jsonrpc(struct state *state, const char *rpc_filename);
 
 /* Commands (from other files) */
 extern struct json_command getinfo_command;
+extern struct json_command sendrawtransaction_command;
 
 #endif /* PETTYCOIN_JSONRPC_H */

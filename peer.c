@@ -270,8 +270,8 @@ static struct protocol_pkt_get_peers *pkt_get_peers(tal_t *ctx)
 }
 
 /* We sent unsolicited TXs to any peer who's interested. */
-static void send_tx_to_peers(struct state *state, struct peer *exclude,
-			     const union protocol_tx *tx)
+void send_tx_to_peers(struct state *state, struct peer *exclude,
+		      const union protocol_tx *tx)
 {
 	struct protocol_pkt_tx *pkt;
 
