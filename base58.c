@@ -149,7 +149,7 @@ char *pettycoin_to_base58(const tal_t *ctx, bool test_net,
 	if (bitcoin_style)
 		return tal_fmt(ctx, "P-%s", p);
 	else
-		return tal_strdup(ctx, out);
+		return tal_strdup(ctx, p);
 }
 
 bool pettycoin_from_base58(bool *test_net,
