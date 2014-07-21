@@ -1,6 +1,7 @@
 #include "addr.h"
 #include "base58.h"
 #include "check_tx.h"
+#include "ecode_names.h"
 #include "hash_tx.h"
 #include "input_refs.h"
 #include "log.h"
@@ -205,98 +206,7 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 			name = "PROTOCOL_PKT_PIGGYBACK"; break;
 		}
 	} else if (streq(enumname, "enum protocol_ecode")) {
-		switch ((enum protocol_ecode)val) {
-		case PROTOCOL_ECODE_NONE:
-			name = "PROTOCOL_ECODE_NONE"; break;
-		case PROTOCOL_ECODE_UNKNOWN_COMMAND:
-			name = "PROTOCOL_ECODE_UNKNOWN_COMMAND"; break;
-		case PROTOCOL_ECODE_UNKNOWN_ERRCODE:
-			name = "PROTOCOL_ECODE_UNKNOWN_ERRCODE"; break;
-		case PROTOCOL_ECODE_INVALID_LEN:
-			name = "PROTOCOL_ECODE_INVALID_LEN"; break;
-		case PROTOCOL_ECODE_SHOULD_BE_WAITING:
-			name = "PROTOCOL_ECODE_SHOULD_BE_WAITING"; break;
-		case PROTOCOL_ECODE_HIGH_VERSION:
-			name = "PROTOCOL_ECODE_HIGH_VERSION"; break;
-		case PROTOCOL_ECODE_LOW_VERSION:
-			name = "PROTOCOL_ECODE_LOW_VERSION"; break;
-		case PROTOCOL_ECODE_NO_INTEREST:
-			name = "PROTOCOL_ECODE_NO_INTEREST"; break;
-		case PROTOCOL_ECODE_BAD_SHARD_ORDER:
-			name = "PROTOCOL_ECODE_BAD_SHARD_ORDER"; break;
-		case PROTOCOL_ECODE_WRONG_GENESIS:
-			name = "PROTOCOL_ECODE_WRONG_GENESIS"; break;
-		case PROTOCOL_ECODE_NO_MUTUAL:
-			name = "PROTOCOL_ECODE_NO_MUTUAL"; break;
-		case PROTOCOL_ECODE_FILTER_INVALID:
-			name = "PROTOCOL_ECODE_FILTER_INVALID"; break;
-		case PROTOCOL_ECODE_UNKNOWN_BLOCK:
-			name = "PROTOCOL_ECODE_UNKNOWN_BLOCK"; break;
-		case PROTOCOL_ECODE_UNKNOWN_SHARD:
-			name = "PROTOCOL_ECODE_UNKNOWN_SHARD"; break;
-		case PROTOCOL_ECODE_UNKNOWN_TX:
-			name = "PROTOCOL_ECODE_UNKNOWN_TX"; break;
-		case PROTOCOL_ECODE_BAD_TXOFF:
-			name = "PROTOCOL_ECODE_BAD_TXOFF"; break;
-		case PROTOCOL_ECODE_BAD_SHARDNUM:
-			name = "PROTOCOL_ECODE_BAD_SHARDNUM"; break;
-		case PROTOCOL_ECODE_BLOCK_HIGH_VERSION:
-			name = "PROTOCOL_ECODE_BLOCK_HIGH_VERSION"; break;
-		case PROTOCOL_ECODE_BLOCK_LOW_VERSION:
-			name = "PROTOCOL_ECODE_BLOCK_LOW_VERSION"; break;
-		case PROTOCOL_ECODE_BAD_TIMESTAMP:
-			name = "PROTOCOL_ECODE_BAD_TIMESTAMP"; break;
-		case PROTOCOL_ECODE_BAD_PREV_TXHASHES:
-			name = "PROTOCOL_ECODE_BAD_PREV_TXHASHES"; break;
-		case PROTOCOL_ECODE_BAD_DIFFICULTY:
-			name = "PROTOCOL_ECODE_BAD_DIFFICULTY"; break;
-		case PROTOCOL_ECODE_INSUFFICIENT_WORK:
-			name = "PROTOCOL_ECODE_INSUFFICIENT_WORK"; break;
-		case PROTOCOL_ECODE_BAD_DEPTH:
-			name = "PROTOCOL_ECODE_BAD_DEPTH"; break;
-		case PROTOCOL_ECODE_TX_HIGH_VERSION:
-			name = "PROTOCOL_ECODE_TX_HIGH_VERSION"; break;
-		case PROTOCOL_ECODE_TX_LOW_VERSION:
-			name = "PROTOCOL_ECODE_TX_LOW_VERSION"; break;
-		case PROTOCOL_ECODE_TX_TYPE_UNKNOWN:
-			name = "PROTOCOL_ECODE_TX_TYPE_UNKNOWN"; break;
-		case PROTOCOL_ECODE_TX_BAD_GATEWAY:
-			name = "PROTOCOL_ECODE_TX_BAD_GATEWAY"; break;
-		case PROTOCOL_ECODE_TX_CROSS_SHARDS:
-			name = "PROTOCOL_ECODE_TX_CROSS_SHARDS"; break;
-		case PROTOCOL_ECODE_TX_TOO_LARGE:
-			name = "PROTOCOL_ECODE_TX_TOO_LARGE"; break;
-		case PROTOCOL_ECODE_TX_TOO_SMALL:
-			name = "PROTOCOL_ECODE_TX_TOO_SMALL"; break;
-		case PROTOCOL_ECODE_TX_BAD_SIG:
-			name = "PROTOCOL_ECODE_TX_BAD_SIG"; break;
-		case PROTOCOL_ECODE_TX_TOO_MANY_INPUTS:
-			name = "PROTOCOL_ECODE_TX_TOO_MANY_INPUTS"; break;
-		case PROTOCOL_ECODE_BAD_PROOF:
-			name = "PROTOCOL_ECODE_BAD_PROOF"; break;
-		case PROTOCOL_ECODE_REF_BAD_BLOCKS_AGO:
-			name = "PROTOCOL_ECODE_REF_BAD_BLOCKS_AGO"; break;
-		case PROTOCOL_ECODE_REF_BAD_SHARD:
-			name = "PROTOCOL_ECODE_REF_BAD_SHARD"; break;
-		case PROTOCOL_ECODE_REF_BAD_TXOFF:
-			name = "PROTOCOL_ECODE_REF_BAD_TXOFF"; break;
-		case PROTOCOL_ECODE_BAD_MERKLE:
-			name = "PROTOCOL_ECODE_BAD_MERKLE"; break;
-		case PROTOCOL_ECODE_BAD_INPUTNUM:
-			name = "PROTOCOL_ECODE_BAD_INPUTNUM"; break;
-		case PROTOCOL_ECODE_BAD_INPUT:
-			name = "PROTOCOL_ECODE_BAD_INPUT"; break;
-		case PROTOCOL_ECODE_COMPLAINT_INVALID:
-			name = "PROTOCOL_ECODE_COMPLAINT_INVALID"; break;
-		case PROTOCOL_ECODE_BAD_MISORDER_POS:
-			name = "PROTOCOL_ECODE_BAD_MISORDER_POS"; break;
-		case PROTOCOL_ECODE_BAD_DOUBLESPEND_BLOCKS:
-			name = "PROTOCOL_ECODE_BAD_DOUBLESPEND_BLOCKS"; break;
-		case PROTOCOL_ECODE_PRIV_UNKNOWN_PREV:
-			name = "PROTOCOL_ECODE_PRIV_UNKNOWN_PREV"; break;
-		case PROTOCOL_ECODE_MAX:
-			break; /* Shouldn't happen! */
-		}
+		name = ecode_name(val);
 	} else if (streq(enumname, "enum input_ecode")) {
 		switch ((enum input_ecode)val) {
 		case ECODE_INPUT_OK:

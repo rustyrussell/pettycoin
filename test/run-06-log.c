@@ -13,6 +13,7 @@ static struct timeabs my_time;
 #define time_now() my_time
 #include "../log.c"
 #include "../log_helper.c"
+#include "../ecode_names.c"
 #include "../base58.c"
 #include "../marshal.c"
 #include "../shadouble.c"
