@@ -16,12 +16,24 @@ fi
 
 for SYMBOL; do
     WHERE=$(grep -nH "^[a-z0-9_ ]* [*]*$SYMBOL(" ../*.h)
+    if [ x"$WHERE" != x ]; then
+	STUB='\n{ fprintf(stderr, "'$SYMBOL' called!\\n"); abort(); }'
+    else
+	WHERE=$(grep -nH "^extern struct [a-zA-Z0-9_]* $SYMBOL;$" ../*.h)
+	if [ x"$WHERE" != x ]; then
+	    STUB=';'
+	else
+	    echo "/* Could not find declaration for $SYMBOL */"
+	    continue
+	fi
+    fi
+	
+    echo "/* Generated stub for $SYMBOL */"
     FILE=${WHERE%%:*}
     FILE_AND_LINE=${WHERE%:*}
     LINE=${FILE_AND_LINE#*:}
-    END=$(tail -n +$LINE < $FILE | grep -n ');');
+    END=$(tail -n +$LINE < $FILE | grep -n ';$');
     NUM=${END%%:*}
 
-    echo "/* Generated stub for $SYMBOL */"
-    tail -n +$LINE < $FILE | head -n $NUM | sed 's/);/) { fprintf(stderr, "'$SYMBOL' called!\\n"); abort(); }/'
+    tail -n +$LINE < $FILE | head -n $NUM | sed 's/^extern *//' | sed "s/;\$/$STUB/"
 done

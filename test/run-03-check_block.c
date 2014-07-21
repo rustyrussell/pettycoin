@@ -55,28 +55,33 @@ static time_t my_time(time_t *p)
 void add_txhash_to_hashes(struct state *state,
 			  const tal_t *ctx,
 			  struct block *block, u16 shard, u8 txoff,
-			  const struct protocol_double_sha *txhash) { fprintf(stderr, "add_txhash_to_hashes called!\n"); abort(); }
+			  const struct protocol_double_sha *txhash)
+{ fprintf(stderr, "add_txhash_to_hashes called!\n"); abort(); }
 /* Generated stub for add_tx_to_hashes */
 void add_tx_to_hashes(struct state *state,
 		      const tal_t *ctx,
 		      struct block *block, u16 shard, u8 txoff,
-		      const union protocol_tx *tx) { fprintf(stderr, "add_tx_to_hashes called!\n"); abort(); }
+		      const union protocol_tx *tx)
+{ fprintf(stderr, "add_tx_to_hashes called!\n"); abort(); }
 /* Generated stub for block_to_pending */
-void block_to_pending(struct state *state, const struct block *block) { fprintf(stderr, "block_to_pending called!\n"); abort(); }
+void block_to_pending(struct state *state, const struct block *block)
+{ fprintf(stderr, "block_to_pending called!\n"); abort(); }
 /* Generated stub for check_tx_refs */
 enum ref_ecode check_tx_refs(struct state *state,
 			     const struct block *block,
 			     const union protocol_tx *tx,
 			     const struct protocol_input_ref *refs,
 			     unsigned int *bad_ref,
-			     struct block **block_referred_to) { fprintf(stderr, "check_tx_refs called!\n"); abort(); }
+			     struct block **block_referred_to)
+{ fprintf(stderr, "check_tx_refs called!\n"); abort(); }
 /* Generated stub for complain_bad_amount */
 void complain_bad_amount(struct state *state,
 			 struct block *block,
 			 const struct protocol_proof *proof,
 			 const union protocol_tx *tx,
 			 const struct protocol_input_ref *refs,
-			 const union protocol_tx *intx[]) { fprintf(stderr, "complain_bad_amount called!\n"); abort(); }
+			 const union protocol_tx *intx[])
+{ fprintf(stderr, "complain_bad_amount called!\n"); abort(); }
 /* Generated stub for complain_bad_claim */
 void complain_bad_claim(struct state *state,
 			struct block *claim_block,
@@ -84,7 +89,8 @@ void complain_bad_claim(struct state *state,
 			const union protocol_tx *claim_tx,
 			const struct protocol_input_ref *claim_refs,
 			const struct block *reward_block,
-			u16 reward_shard, u8 reward_txoff) { fprintf(stderr, "complain_bad_claim called!\n"); abort(); }
+			u16 reward_shard, u8 reward_txoff)
+{ fprintf(stderr, "complain_bad_claim called!\n"); abort(); }
 /* Generated stub for complain_bad_input */
 void complain_bad_input(struct state *state,
 			struct block *block,
@@ -92,7 +98,8 @@ void complain_bad_input(struct state *state,
 			const union protocol_tx *tx,
 			const struct protocol_input_ref *refs,
 			unsigned int bad_input,
-			const union protocol_tx *intx) { fprintf(stderr, "complain_bad_input called!\n"); abort(); }
+			const union protocol_tx *intx)
+{ fprintf(stderr, "complain_bad_input called!\n"); abort(); }
 /* Generated stub for complain_bad_input_ref */
 void complain_bad_input_ref(struct state *state,
 			    struct block *block,
@@ -100,12 +107,14 @@ void complain_bad_input_ref(struct state *state,
 			    const union protocol_tx *tx,
 			    const struct protocol_input_ref *refs,
 			    unsigned int bad_refnum,
-			    const struct block *block_referred_to) { fprintf(stderr, "complain_bad_input_ref called!\n"); abort(); }
+			    const struct block *block_referred_to)
+{ fprintf(stderr, "complain_bad_input_ref called!\n"); abort(); }
 /* Generated stub for complain_bad_prev_txhashes */
 void complain_bad_prev_txhashes(struct state *state,
 				struct block *block,
 				const struct block *bad_prev,
-				u16 bad_prev_shard) { fprintf(stderr, "complain_bad_prev_txhashes called!\n"); abort(); }
+				u16 bad_prev_shard)
+{ fprintf(stderr, "complain_bad_prev_txhashes called!\n"); abort(); }
 /* Generated stub for complain_doublespend */
 void complain_doublespend(struct state *state,
 			  struct block *block1,
@@ -117,45 +126,58 @@ void complain_doublespend(struct state *state,
 			  u32 input2,
 			  const struct protocol_proof *proof2,
 			  const union protocol_tx *tx2,
-			  const struct protocol_input_ref *refs2) { fprintf(stderr, "complain_doublespend called!\n"); abort(); }
+			  const struct protocol_input_ref *refs2)
+{ fprintf(stderr, "complain_doublespend called!\n"); abort(); }
 /* Generated stub for log_to_file */
-void log_to_file(int fd, const struct log *log) { fprintf(stderr, "log_to_file called!\n"); abort(); }
+void log_to_file(int fd, const struct log *log)
+{ fprintf(stderr, "log_to_file called!\n"); abort(); }
 /* Generated stub for logv */
-void logv(struct log *log, enum log_level level, const char *fmt, va_list ap) { fprintf(stderr, "logv called!\n"); abort(); }
+void logv(struct log *log, enum log_level level, const char *fmt, va_list ap)
+{ fprintf(stderr, "logv called!\n"); abort(); }
 /* Generated stub for reward_amount */
 u32 reward_amount(const struct block *reward_block,
-		  const union protocol_tx *tx) { fprintf(stderr, "reward_amount called!\n"); abort(); }
+		  const union protocol_tx *tx)
+{ fprintf(stderr, "reward_amount called!\n"); abort(); }
 /* Generated stub for reward_get_tx */
 bool reward_get_tx(struct state *state,
 		   const struct block *reward_block,
 		   const struct block *claim_block,
-		   u16 *shardnum, u8 *txoff) { fprintf(stderr, "reward_get_tx called!\n"); abort(); }
+		   u16 *shardnum, u8 *txoff)
+{ fprintf(stderr, "reward_get_tx called!\n"); abort(); }
 /* Generated stub for save_tx */
-void save_tx(struct state *state, struct block *block, u16 shard, u8 txoff) { fprintf(stderr, "save_tx called!\n"); abort(); }
+void save_tx(struct state *state, struct block *block, u16 shard, u8 txoff)
+{ fprintf(stderr, "save_tx called!\n"); abort(); }
 /* Generated stub for send_tx_in_block_to_peers */
 void send_tx_in_block_to_peers(struct state *state, const struct peer *exclude,
-			       struct block *block, u16 shard, u8 txoff) { fprintf(stderr, "send_tx_in_block_to_peers called!\n"); abort(); }
+			       struct block *block, u16 shard, u8 txoff)
+{ fprintf(stderr, "send_tx_in_block_to_peers called!\n"); abort(); }
 /* Generated stub for todo_add_get_tx */
 void todo_add_get_tx(struct state *state,
-		     const struct protocol_double_sha *tx) { fprintf(stderr, "todo_add_get_tx called!\n"); abort(); }
+		     const struct protocol_double_sha *tx)
+{ fprintf(stderr, "todo_add_get_tx called!\n"); abort(); }
 /* Generated stub for todo_add_get_tx_in_block */
 void todo_add_get_tx_in_block(struct state *state,
 			      const struct protocol_double_sha *block,
-			      u16 shardnum, u8 txoff) { fprintf(stderr, "todo_add_get_tx_in_block called!\n"); abort(); }
+			      u16 shardnum, u8 txoff)
+{ fprintf(stderr, "todo_add_get_tx_in_block called!\n"); abort(); }
 /* Generated stub for todo_forget_about_block */
 void todo_forget_about_block(struct state *state,
-			     const struct protocol_double_sha *block) { fprintf(stderr, "todo_forget_about_block called!\n"); abort(); }
+			     const struct protocol_double_sha *block)
+{ fprintf(stderr, "todo_forget_about_block called!\n"); abort(); }
 /* Generated stub for txhash_gettx_ancestor */
 struct txhash_elem *txhash_gettx_ancestor(struct state *state,
 					  const struct protocol_double_sha *sha,
-					  const struct block *block) { fprintf(stderr, "txhash_gettx_ancestor called!\n"); abort(); }
+					  const struct block *block)
+{ fprintf(stderr, "txhash_gettx_ancestor called!\n"); abort(); }
 /* Generated stub for upgrade_tx_in_hashes */
 void upgrade_tx_in_hashes(struct state *state,
 			  const tal_t *ctx,
 			  const struct protocol_double_sha *sha,
-			  const union protocol_tx *tx) { fprintf(stderr, "upgrade_tx_in_hashes called!\n"); abort(); }
+			  const union protocol_tx *tx)
+{ fprintf(stderr, "upgrade_tx_in_hashes called!\n"); abort(); }
 /* Generated stub for wake_peers */
-void wake_peers(struct state *state) { fprintf(stderr, "wake_peers called!\n"); abort(); }
+void wake_peers(struct state *state)
+{ fprintf(stderr, "wake_peers called!\n"); abort(); }
 /* AUTOGENERATED MOCKS END */
 
 struct log *new_log(const tal_t *ctx,
