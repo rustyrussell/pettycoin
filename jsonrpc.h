@@ -17,6 +17,9 @@ struct json_connection {
 	/* How much has just been filled. */
 	size_t len_read;
 
+	/* We've been told to stop. */
+	bool stop;
+
 	struct list_head output;
 	const char *outbuf;
 };

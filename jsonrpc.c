@@ -59,8 +59,24 @@ static const struct json_command echo_command = {
 	"Simple echo test for developers"
 };
 
+static char *json_stop(struct json_connection *jcon,
+		       const jsmntok_t *params,
+		       char **response)
+{
+	jcon->stop = true;
+	json_add_string(response, NULL, "Shutting down");
+	return NULL;
+}
+
+static const struct json_command stop_command = {
+	"stop",
+	json_stop,
+	"Shutdown the pettycoin process",
+	"What part of shutdown wasn't clear?"
+};
+
 static const struct json_command *cmdlist[] = {
-	&help_command, &getinfo_command, &sendrawtransaction_command,
+	&help_command, &getinfo_command, &sendrawtransaction_command, &stop_command,
 	/* Developer/debugging options. */
 	&echo_command, &listtodo_command
 };
@@ -173,8 +189,14 @@ static struct io_plan write_json(struct io_conn *conn,
 	struct json_output *out;
 	
 	out = list_pop(&jcon->output, struct json_output, list);
-	if (!out)
+	if (!out) {
+		if (jcon->stop) {
+			log_unusual(jcon->state->log, "JSON-RPC shutdown");
+			/* Return us to toplevel pettycoin.c */
+			return io_break(jcon->state, io_close());
+		}
 		return io_wait(jcon, write_json, jcon);
+	}
 
 	jcon->outbuf = tal_steal(jcon, out->json);
 	tal_free(out);
@@ -243,6 +265,7 @@ static void init_rpc(int fd, struct state *state)
 	jcon->used = 0;
 	jcon->len_read = 64;
 	jcon->buffer = tal_arr(jcon, char, jcon->len_read);
+	jcon->stop = false;
 	list_head_init(&jcon->output);
 
 	conn = io_new_conn(fd,
