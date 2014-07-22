@@ -150,8 +150,9 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 			} else {
 				/* Otherwise, tell peers about new block. */
 				send_block_to_peers(state, peer, b);
-				/* Start asking about stuff we need. */
-				ask_block_contents(state, b);
+				if (peer)
+					/* Start asking about stuff we need. */
+					ask_block_contents(state, b);
 			}
 		}
 	}
@@ -353,6 +354,10 @@ recv_shard(struct state *state, struct log *log, struct peer *peer,
 		  b->shard[shard]->txcount,
 		  b->shard[shard]->hashcount,
 		  b->shard[shard]->size);
+
+	/* Mark it off the TODO list. */
+	if (peer)
+		todo_done_get_shard(peer, &pkt->block, shard, true);
 
 	/* This may resolve some of the txs if we know them already. */
 	for (i = 0; i < b->shard_nums[shard]; i++)
