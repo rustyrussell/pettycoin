@@ -78,18 +78,24 @@ static int make_listen_fd(struct state *state, int domain, void *addr, socklen_t
 	return -1;
 }
 
-static void make_listeners(struct state *state)
+static void make_listeners(struct state *state, unsigned int portnum)
 {
 	struct sockaddr_in addr;
+	struct sockaddr_in6 addr6;
 	socklen_t len;
 	int fd1, fd2;
 
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = INADDR_ANY;
-	addr.sin_port = 0;
+	addr.sin_port = htons(portnum);
+
+	addr6.sin6_family = AF_INET6;
+	addr6.sin6_addr = in6addr_any;
+	addr6.sin6_port = htons(portnum);
 
 	/* IPv6, since on Linux that (usually) binds to IPv4 too. */
-	fd1 = make_listen_fd(state, AF_INET6, NULL, 0);
+	fd1 = make_listen_fd(state, AF_INET6, portnum ? &addr6 : NULL,
+			     sizeof(addr6));
 	if (fd1 >= 0) {
 		struct sockaddr_in6 in6;
 
@@ -271,6 +277,7 @@ int main(int argc, char *argv[])
 	char *pettycoin_dir, *rpc_filename;
 	struct state *state;
 	char *log_prefix = "";
+	unsigned int portnum = 0;
 
 	pseudorand_init();
 	state = new_state(true);
@@ -293,6 +300,9 @@ int main(int argc, char *argv[])
 			 &log_prefix, "log prefix");
 	opt_register_arg("--connect", add_connect, NULL, state,
 			 "Node to connect to (can be specified multiple times)");
+	opt_register_arg("--port", opt_set_uintval, NULL, &portnum,
+			 "Port to bind to (otherwise, dynamic port is used)");
+
 	/* Generation options. */
 	opt_register_arg("--generator", opt_set_charp, opt_show_charp,
 			 &state->generator, "Binary to try to generate a block");
@@ -344,7 +354,7 @@ int main(int argc, char *argv[])
 	/* Start up. */
 	load_blocks(state);
 	init_peer_cache(state);
-	make_listeners(state);
+	make_listeners(state, portnum);
 	fill_peers(state);
 	start_generating(state);
 	setup_jsonrpc(state, rpc_filename);
