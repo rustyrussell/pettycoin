@@ -656,9 +656,13 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 	case ECODE_INPUT_OK:
 		break;
 	case ECODE_INPUT_UNKNOWN:
-		/* Ask about this input. */
-		todo_add_get_tx(peer->state,
-				&tx_input(tx, bad_input_num)->input);
+		/* We don't resolve inputs which are still pending, so
+		 * check here before we bother our peers. */
+		if (!txhash_gettx(&peer->state->txhash,
+				  &tx_input(tx, bad_input_num)->input,
+				  TX_PENDING))
+			todo_add_get_tx(peer->state,
+					&tx_input(tx, bad_input_num)->input);
 		/* We can still use it to resolve hashes. */
 		break;
 
