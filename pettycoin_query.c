@@ -81,6 +81,8 @@ int main(int argc, char *argv[])
 			     "Malformed response '%.*s'", off, resp);
 	}
 	resp[off] = '\0';
+	if (i < 0)
+		err(ERROR_TALKING_TO_PETTYCOIN, "reading response");
 
 	result = json_get_member(resp, toks, "result");
 	if (!result)
