@@ -3,10 +3,10 @@ GENERATE_OBJS := generate.o merkle_hashes.o merkle_recurse.o hash_tx.o tx_cmp.o 
 MKGENESIS_OBJS := mkgenesis.o shadouble.o hash_block.o merkle_hashes.o merkle_recurse.o minimal_log.o
 SIZES_OBJS := sizes.o
 MKPRIV_OBJS := mkpriv.o
-INJECT_OBJS := inject.o base58.o create_tx.o marshal.o netaddr.o hash_tx.o minimal_log.o shadouble.o signature.o hash_block.o merkle_recurse.o
+PETTYCOIN_TX_OBJS := pettycoin-tx.o base58.o create_tx.o marshal.o hash_tx.o minimal_log.o shadouble.o signature.o hash_block.o merkle_recurse.o json.o
 PETTYCOIN_QUERY_OBJS := pettycoin_query.o json.o base58.o
 
-BINS := generate mkgenesis pettycoin sizes mkpriv inject pettycoin_query
+BINS := generate mkgenesis pettycoin sizes mkpriv pettycoin-tx pettycoin_query
 CCAN_OBJS := ccan-asort.o ccan-breakpoint.o ccan-tal.o ccan-tal-path.o ccan-tal-str.o ccan-take.o ccan-list.o ccan-str.o ccan-opt-helpers.o ccan-opt.o ccan-opt-parse.o ccan-opt-usage.o ccan-read_write_all.o ccan-htable.o ccan-io-io.o ccan-io-poll.o ccan-timer.o ccan-time.o ccan-noerr.o ccan-hash.o ccan-isaac64.o ccan-net.o ccan-err.o ccan-tal-grab_file.o
 CCANDIR=../ccan/
 VERSION:=$(shell git describe --dirty --always 2>/dev/null || echo Unknown)
@@ -25,8 +25,8 @@ all: $(BINS)
 mkpriv: $(MKPRIV_OBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(MKPRIV_OBJS) $(LDLIBS)
 
-inject: $(INJECT_OBJS) $(CCAN_OBJS)
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(INJECT_OBJS) $(CCAN_OBJS) $(LDLIBS)
+pettycoin-tx: $(PETTYCOIN_TX_OBJS) $(CCAN_OBJS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(PETTYCOIN_TX_OBJS) $(CCAN_OBJS) $(LDLIBS)
 
 generate: $(GENERATE_OBJS) $(CCAN_OBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(GENERATE_OBJS) $(CCAN_OBJS) $(LDLIBS)
