@@ -169,7 +169,7 @@ void recheck_pending_txs(struct state *state)
 
 	txs = tal_arr(state, const union protocol_tx *, unknown + known);
 
-	log_debug(state->log, "Rechecking pending (%u known, %u unknown)",
+	log_info(state->log, "Rechecking pending (%u known, %u unknown)",
 		  known, unknown);
 
 	/* Now move pending from shards. */
@@ -211,7 +211,7 @@ void recheck_pending_txs(struct state *state)
 	for (shard = 0; shard < ARRAY_SIZE(state->pending->pend); shard++)
 		known += tal_count(state->pending->pend[shard]);
 
-	log_debug(state->log, "Now have %u known, %u unknown",
+	log_info(state->log, "Now have %u known, %u unknown",
 		  known, state->pending->num_unknown);
 
 	/* Restart generator on this block. */

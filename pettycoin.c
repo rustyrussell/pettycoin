@@ -6,6 +6,7 @@
 #include "netaddr.h"
 #include "peer.h"
 #include "peer_cache.h"
+#include "pettycoin_dir.h"
 #include "protocol.h"
 #include "protocol_net.h"
 #include "pseudorand.h"
@@ -17,7 +18,6 @@
 #include <ccan/noerr/noerr.h>
 #include <ccan/opt/opt.h>
 #include <ccan/tal/grab_file/grab_file.h>
-#include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
 #include <errno.h>
@@ -183,17 +183,6 @@ static char *arg_log_level(const char *arg, enum log_level *log_level)
 	return NULL;
 }
 
-static char *make_pettycoin_dir(const tal_t *ctx)
-{
-	char *path;
-	const char *env = getenv("HOME");
-	if (!env)
-		return ".";
-
-	path = path_join(ctx, env, ".pettycoin");
-	return path;
-}
-
 /* FIXME: make this nicer! */
 static void config_log_stderr_exit(const char *fmt, ...)
 {
@@ -279,21 +268,23 @@ static char *set_reward_address(const char *arg, struct state *state)
 
 int main(int argc, char *argv[])
 {
-	char *pettycoin_dir;
+	char *pettycoin_dir, *rpc_filename;
 	struct state *state;
 	char *log_prefix = "";
-	char *rpc_filename = "pettycoin-rpc";
 
 	pseudorand_init();
 	state = new_state(true);
-	pettycoin_dir = make_pettycoin_dir(state);
 
 	err_set_progname(argv[0]);
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
 	io_set_alloc(io_allocfn, tal_reallocfn, tal_freefn);
 
-	opt_register_early_arg("--pettycoin-dir", opt_set_charp, opt_show_charp,
-			       &pettycoin_dir, "pettycoin_dif");
+	pettycoin_dir_register_opts(state, &pettycoin_dir, &rpc_filename);
+
+	opt_register_noarg("--help|-h", opt_usage_and_exit, "",
+			   "Show this message");
+	opt_register_noarg("--version|-V", opt_version_and_exit, VERSION,
+			   "Display version and exit");
 
 	opt_register_arg("--log-level", arg_log_level, NULL,
 			 &state->log_level,
@@ -302,9 +293,6 @@ int main(int argc, char *argv[])
 			 &log_prefix, "log prefix");
 	opt_register_arg("--connect", add_connect, NULL, state,
 			 "Node to connect to (can be specified multiple times)");
-	opt_register_arg("--rpc-file", opt_set_charp, opt_show_charp,
-			 &rpc_filename, "Set JSON-RPC socket (or /dev/tty)");
-
 	/* Generation options. */
 	opt_register_arg("--generator", opt_set_charp, opt_show_charp,
 			 &state->generator, "Binary to try to generate a block");

@@ -232,13 +232,6 @@ static void finish_todo(struct peer *peer,
 	struct todo_request *todo;
 	const char *status;
 
-	log_debug(peer->log, "Peer replied with %s ",
-		  success ? "success" : "unsuccess");
-	log_add_enum(peer->log, enum protocol_pkt_type, type);
-	log_add(peer->log, " block ");
-	log_add_struct(peer->log, struct protocol_double_sha, sha);
-	log_add(peer->log, ":%u", shardnum);
-
 	todo = find_todo(peer->state, type, sha, shardnum, txoff);
 	if (!todo) {
 		/* Someone else may have answered */

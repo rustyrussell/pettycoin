@@ -2,7 +2,9 @@
  * Helper to submit via JSON-RPC and get back response.
  */
 #include "json.h"
+#include "pettycoin_dir.h"
 #include <ccan/err/err.h>
+#include <ccan/opt/opt.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/str/str.h>
 #include <ccan/tal/str/str.h>
@@ -17,23 +19,58 @@
 #define ERROR_TALKING_TO_PETTYCOIN 2
 #define ERROR_USAGE 3
 
+/* Tal wrappers for opt. */
+static void *opt_allocfn(size_t size)
+{
+	return tal_alloc_(NULL, size, false, TAL_LABEL("opt_allocfn", ""));
+}
+
+static void *tal_reallocfn(void *ptr, size_t size)
+{
+	if (!ptr)
+		return opt_allocfn(size);
+	tal_resize_(&ptr, 1, size, false);
+	return ptr;
+}
+
+static void tal_freefn(void *ptr)
+{
+	tal_free(ptr);
+}
+
 /* Simple test code to create a gateway transaction */
 int main(int argc, char *argv[])
 {
 	int fd, i, off;
-	const char *rpc_filename;
-	char *cmd, *resp, *idstr;
+	const char *method;
+	char *cmd, *resp, *idstr, *rpc_filename;
 	struct sockaddr_un addr;
 	jsmntok_t *toks;
 	const jsmntok_t *result, *error, *id;
+	char *pettycoin_dir;
+	const tal_t *ctx = tal(NULL, char);
 
 	err_set_progname(argv[0]);
 
-	if (argc < 3)
-		errx(ERROR_USAGE,
-		     "Usage: %s <rpcfile> <command> [<params>...]", argv[0]);
+	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
+	pettycoin_dir_register_opts(ctx, &pettycoin_dir, &rpc_filename);
 
-	rpc_filename = argv[1];
+	opt_register_noarg("--help|-h", opt_usage_and_exit,
+			   "<command> [<params>...]", "Show this message");
+	opt_register_noarg("--version|-V", opt_version_and_exit, VERSION,
+			   "Display version and exit");
+
+	opt_early_parse(argc, argv, opt_log_stderr_exit);
+	opt_parse(&argc, argv, opt_log_stderr_exit);
+
+	method = argv[1];
+	if (!method)
+		errx(ERROR_USAGE, "Need at least one argument\n%s",
+		     opt_usage(argv[0], NULL));
+
+	if (chdir(pettycoin_dir) != 0)
+		err(ERROR_TALKING_TO_PETTYCOIN, "Moving into '%s'",
+		    pettycoin_dir);
 
 	fd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (strlen(rpc_filename) + 1 > sizeof(addr.sun_path))
@@ -45,12 +82,12 @@ int main(int argc, char *argv[])
 		err(ERROR_TALKING_TO_PETTYCOIN,
 		    "Connecting to '%s'", rpc_filename);
 
-	idstr = tal_fmt(NULL, "pettycoin_query-%i", getpid());
-	cmd = tal_fmt(idstr,
+	idstr = tal_fmt(ctx, "pettycoin_query-%i", getpid());
+	cmd = tal_fmt(ctx,
 		      "{ \"method\" : \"%s\", \"id\" : \"%s\", \"params\" : [ ",
-		      argv[2], idstr);
+		      method, idstr);
 
-	for (i = 3; i < argc; i++) {
+	for (i = 2; i < argc; i++) {
 		/* Numbers are left unquoted, and quoted things left alone. */
 		if (strspn(argv[i], "0123456789") == strlen(argv[i])
 		    || argv[i][0] == '"')
@@ -105,12 +142,12 @@ int main(int argc, char *argv[])
 		printf("%.*s\n",
 		       json_tok_len(result),
 		       json_tok_contents(resp, result));
-		tal_free(idstr);
+		tal_free(ctx);
 		return 0;
 	}
 
 	printf("%.*s\n",
 	       json_tok_len(error), json_tok_contents(resp, error));
-	tal_free(idstr);
+	tal_free(ctx);
 	return 1;
 }
