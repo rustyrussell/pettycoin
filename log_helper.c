@@ -5,6 +5,7 @@
 #include "hash_tx.h"
 #include "input_refs.h"
 #include "log.h"
+#include "pkt_names.h"
 #include "protocol.h"
 #include "protocol_net.h"
 #include "tx.h"
@@ -135,76 +136,7 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned val)
 {
 	const char *name = NULL;
 	if (streq(enumname, "enum protocol_pkt_type")) {
-		switch ((enum protocol_pkt_type)val) {
-		case PROTOCOL_PKT_NONE:
-		case PROTOCOL_PKT_MAX:
-			break; /* Shouldn't happen! */ 
-
-		case PROTOCOL_PKT_ERR:
-			name = "PROTOCOL_PKT_ERR"; break;
-		case PROTOCOL_PKT_WELCOME:
-			name = "PROTOCOL_PKT_WELCOME"; break;
-		case PROTOCOL_PKT_HORIZON:
-			name = "PROTOCOL_PKT_HORIZON"; break;
-		case PROTOCOL_PKT_SYNC:
-			name = "PROTOCOL_PKT_SYNC"; break;
-		case PROTOCOL_PKT_GET_CHILDREN:
-			name = "PROTOCOL_PKT_GET_CHILDREN"; break;
-		case PROTOCOL_PKT_CHILDREN:
-			name = "PROTOCOL_PKT_CHILDREN"; break;
-		case PROTOCOL_PKT_GET_BLOCK:
-			name = "PROTOCOL_PKT_GET_BLOCK"; break;
-		case PROTOCOL_PKT_BLOCK:
-			name = "PROTOCOL_PKT_BLOCK"; break;
-		case PROTOCOL_PKT_GET_SHARD:
-			name = "PROTOCOL_PKT_GET_SHARD"; break;
-		case PROTOCOL_PKT_SHARD:
-			name = "PROTOCOL_PKT_SHARD"; break;
-
-		case PROTOCOL_PKT_SET_FILTER:
-			name = "PROTOCOL_PKT_SET_FILTER"; break;
-		case PROTOCOL_PKT_GET_PEERS:
-			name = "PROTOCOL_PKT_GET_PEERS"; break;
-		case PROTOCOL_PKT_PEERS:
-			name = "PROTOCOL_PKT_PEERS"; break;
-		case PROTOCOL_PKT_TX:
-			name = "PROTOCOL_PKT_TX"; break;
-		case PROTOCOL_PKT_HASHES_IN_BLOCK:
-			name = "PROTOCOL_PKT_HASHES_IN_BLOCK"; break;
-		case PROTOCOL_PKT_TX_IN_BLOCK:
-			name = "PROTOCOL_PKT_TX_IN_BLOCK"; break;
-		case PROTOCOL_PKT_GET_TX:
-			name = "PROTOCOL_PKT_GET_TX"; break;
-		case PROTOCOL_PKT_GET_TX_IN_BLOCK:
-			name = "PROTOCOL_PKT_GET_TX_IN_BLOCK"; break;
-		case PROTOCOL_PKT_GET_TXMAP:
-			name = "PROTOCOL_PKT_GET_TXMAP"; break;
-		case PROTOCOL_PKT_TXMAP:
-			name = "PROTOCOL_PKT_TXMAP"; break;
-		case PROTOCOL_PKT_TX_BAD_INPUT:
-			name = "PROTOCOL_PKT_TX_BAD_INPUT"; break;
-		case PROTOCOL_PKT_TX_BAD_AMOUNT:
-			name = "PROTOCOL_PKT_TX_BAD_AMOUNT"; break;
-		case PROTOCOL_PKT_TX_DOUBLESPEND:
-			name = "PROTOCOL_PKT_TX_DOUBLESPEND"; break;
-		case PROTOCOL_PKT_COMPLAIN_TX_MISORDER:
-			name = "PROTOCOL_PKT_COMPLAIN_TX_MISORDER"; break;
-		case PROTOCOL_PKT_COMPLAIN_TX_INVALID:
-			name = "PROTOCOL_PKT_COMPLAIN_TX_INVALID"; break;
-		case PROTOCOL_PKT_COMPLAIN_TX_BAD_INPUT:
-			name = "PROTOCOL_PKT_COMPLAIN_TX_BAD_INPUT"; break;
-		case PROTOCOL_PKT_COMPLAIN_DOUBLESPEND:
-			name = "PROTOCOL_PKT_COMPLAIN_DOUBLESPEND"; break;
-		case PROTOCOL_PKT_COMPLAIN_BAD_INPUT_REF:
-			name = "PROTOCOL_PKT_COMPLAIN_BAD_INPUT_REF"; break;
-		case PROTOCOL_PKT_COMPLAIN_TX_BAD_AMOUNT:
-			name = "PROTOCOL_PKT_COMPLAIN_TX_BAD_AMOUNT"; break;
-		case PROTOCOL_PKT_COMPLAIN_CLAIM_INPUT_INVALID:
-			name = "PROTOCOL_PKT_COMPLAIN_CLAIM_INPUT_INVALID";
-			break;
-		case PROTOCOL_PKT_PIGGYBACK:
-			name = "PROTOCOL_PKT_PIGGYBACK"; break;
-		}
+		name = pkt_name(val);
 	} else if (streq(enumname, "enum protocol_ecode")) {
 		name = ecode_name(val);
 	} else if (streq(enumname, "enum input_ecode")) {

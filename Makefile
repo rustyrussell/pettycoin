@@ -1,4 +1,4 @@
-PETTYCOIN_OBJS := block.o check_block.o check_tx.o difficulty.o shadouble.o timestamp.o gateways.o hash_tx.o pettycoin.o merkle_txs.o merkle_recurse.o tx_cmp.o genesis.o marshal.o hash_block.o prev_txhashes.o state.o tal_packet.o dns.o netaddr.o peer.o peer_cache.o pseudorand.o welcome.o log.o generating.o blockfile.o pending.o log_helper.o txhash.o signature.o proof.o chain.o features.o todo.o base58.o sync.o create_refs.o shard.o packet_io.o tx.o complain.o block_shard.o recv_block.o input_refs.o peer_wants.o inputhash.o tx_in_hashes.o merkle_hashes.o recv_tx.o reward.o recv_complain.o json.o jsonrpc.o getinfo.o ecode_names.o sendrawtransaction.c pettycoin_dir.o
+PETTYCOIN_OBJS := block.o check_block.o check_tx.o difficulty.o shadouble.o timestamp.o gateways.o hash_tx.o pettycoin.o merkle_txs.o merkle_recurse.o tx_cmp.o genesis.o marshal.o hash_block.o prev_txhashes.o state.o tal_packet.o dns.o netaddr.o peer.o peer_cache.o pseudorand.o welcome.o log.o generating.o blockfile.o pending.o log_helper.o txhash.o signature.o proof.o chain.o features.o todo.o base58.o sync.o create_refs.o shard.o packet_io.o tx.o complain.o block_shard.o recv_block.o input_refs.o peer_wants.o inputhash.o tx_in_hashes.o merkle_hashes.o recv_tx.o reward.o recv_complain.o json.o jsonrpc.o getinfo.o ecode_names.o sendrawtransaction.c pettycoin_dir.o pkt_names.o
 GENERATE_OBJS := generate.o merkle_hashes.o merkle_recurse.o hash_tx.o tx_cmp.o shadouble.o marshal.o minimal_log.o timestamp.o tal_packet.o
 MKGENESIS_OBJS := mkgenesis.o shadouble.o hash_block.o merkle_hashes.o merkle_recurse.o minimal_log.o
 SIZES_OBJS := sizes.o
@@ -51,6 +51,9 @@ check: check-include-order
 
 ecode_names.c: protocol_ecode.h Makefile
 	(echo '#include "ecode_names.h"'; echo 'struct ecode_names ecode_names[] = {'; sed -n 's/^\t\(PROTOCOL_ECODE_[A-Z_]*\)/\t{ \1, "\1" }/p' < $<; echo ' { 0, NULL } };') > $@
+
+pkt_names.c: protocol_net.h Makefile
+	(echo '#include "pkt_names.h"'; echo 'struct pkt_names pkt_names[] = {'; sed -n 's/^\t\(PROTOCOL_PKT_[A-Z_]*\)/\t{ \1, "\1" }/p' < $<; echo ' { 0, NULL } };') > $@
 
 check-include-order:
 	@for f in *.c; do if [ "$$(grep '^#include' < $$f)" != "$$(grep '^#include' < $$f | LANG=C sort)" ]; then echo "$$f:1: includes out of order"; exit 1; fi; done

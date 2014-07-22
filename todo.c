@@ -1,3 +1,5 @@
+#include "jsonrpc.h"
+#include "pkt_names.h"
 #include "protocol_net.h"
 #include "state.h"
 #include "todo.h"
@@ -358,3 +360,51 @@ void *get_todo_pkt(struct state *state, struct peer *peer)
 	}
 	return NULL;
 }
+
+static char *json_listtodo(struct json_connection *jcon,
+			   const jsmntok_t *params,
+			   char **response)
+{
+	struct todo_request *todo;
+
+	json_array_start(response, NULL);
+	list_for_each(&jcon->state->todo, todo, list) {
+		unsigned int i;
+		struct protocol_double_sha *sha;
+		le16 *shardnum;
+		u8 *txoff;
+		
+		get_todo_ptrs(jcon->state, todo, &sha, &shardnum, &txoff);
+		json_object_start(response, NULL);
+		json_add_string(response, "type",
+				pkt_name(cpu_to_le32(todo->pkt.hdr.type)));
+		if (sha)
+			json_add_double_sha(response, "sha", sha);
+		if (shardnum)
+			json_add_num(response, "shard", le16_to_cpu(*shardnum));
+		if (txoff)
+			json_add_num(response, "txoff", *txoff);
+
+		json_array_start(response, "peers_asked");
+		for (i = 0; i < MAX_PEERS; i++)
+			if (bitmap_test_bit(todo->peers_asked, i))
+				json_add_num(response, NULL, i);
+		json_array_end(response);
+
+		json_array_start(response, "peers_failed");
+		for (i = 0; i < MAX_PEERS; i++)
+			if (bitmap_test_bit(todo->peers_failed, i))
+				json_add_num(response, NULL, i);
+		json_array_end(response);
+		json_object_end(response);
+	}
+	json_array_end(response);
+	return NULL;
+}
+
+struct json_command listtodo_command = {
+	"dev-listtodo",
+	json_listtodo,
+	"List all outstanding TODO requests",
+	""
+};

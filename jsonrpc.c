@@ -62,7 +62,7 @@ static const struct json_command echo_command = {
 static const struct json_command *cmdlist[] = {
 	&help_command, &getinfo_command, &sendrawtransaction_command,
 	/* Developer/debugging options. */
-	&echo_command
+	&echo_command, &listtodo_command
 };
 
 static char *json_help(struct json_connection *jcon,
