@@ -73,7 +73,10 @@ void json_get_params(const char *buffer, const jsmntok_t param[], ...)
 	const jsmntok_t **tokptr, *p, *end;
 
 	if (param->type == JSMN_ARRAY) {
-		p = param + 1;
+		if (param->size == 0)
+			p = NULL;
+		else
+			p = param + 1;
 		end = skip_elem(param);
 	} else
 		assert(param->type == JSMN_OBJECT);
@@ -213,28 +216,30 @@ void json_add_null(char **result, const char *fieldname)
 	tal_append_fmt(result, "null");
 }
 
+void json_add_hex(char **result, const char *fieldname, const void *data,
+		  size_t len)
+{
+	char *hex = tal_arr(*result, char, len * 2 + 1);
+	const u8 *p = data;
+	size_t i;
+
+	for (i = 0; i < len; i++)
+		sprintf(hex + i*2, "%02x", p[i]);
+
+	json_add_string(result, fieldname, hex);
+	tal_free(hex);
+}
+
 void json_add_pubkey(char **result, const char *fieldname,
 		     const struct protocol_pubkey *pubkey)
 {
-	char hex[sizeof(*pubkey) * 2 + 1];
-	unsigned int i;
-
-	for (i = 0; i < sizeof(pubkey->key); i++)
-		sprintf(hex + i*2, "%02x", pubkey->key[i]);
-
-	json_add_string(result, fieldname, hex);
+	json_add_hex(result, fieldname, pubkey->key, sizeof(pubkey->key));
 }
 
 void json_add_double_sha(char **result, const char *fieldname,
 			 const struct protocol_double_sha *sha)
 {
-	char hex[sizeof(*sha) * 2 + 1];
-	unsigned int i;
-
-	for (i = 0; i < sizeof(sha->sha); i++)
-		sprintf(hex + i*2, "%02x", sha->sha[i]);
-
-	json_add_string(result, fieldname, hex);
+	json_add_hex(result, fieldname, sha->sha, sizeof(sha->sha));
 }
 
 void json_add_address(char **result, const char *fieldname, bool test_net,

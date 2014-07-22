@@ -58,6 +58,9 @@ void json_add_num(char **result, const char *fieldname, unsigned int value);
 void json_add_bool(char **result, const char *fieldname, bool value);
 /* '"fieldname" : null' or 'null' if fieldname is NULL */
 void json_add_null(char **result, const char *fieldname);
+/* '"fieldname" : "0189abcdef..."' or "0189abcdef..." if fieldname is NULL */
+void json_add_hex(char **result, const char *fieldname, const void *data,
+		  size_t len);
 
 /* '"fieldname" : "BASE58..."' or 'BASE58...' if fieldname is NULL */
 void json_add_address(char **result, const char *fieldname, bool test_net,
