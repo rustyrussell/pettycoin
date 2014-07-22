@@ -5,7 +5,13 @@ vgcore.*
 generate
 mkgenesis
 pettycoin
+pettycoin-query
+pettycoin-tx
 TAGS
 inject
 mkpriv
 sizes
+ecode_names.c
+genesis.c
+pkt_names.c
+TODO
