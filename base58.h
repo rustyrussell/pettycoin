@@ -15,6 +15,9 @@
  */
 #define BASE58_ADDR_MAX_LEN 36
 
+#define PETTY_PREFIX		 56
+#define PETTY_PREFIX_TESTNET	 120
+
 /* Pettycoin address encoded in base58, with version and checksum */
 char *pettycoin_to_base58(const tal_t *ctx, bool test_net,
 			  const struct protocol_address *addr,

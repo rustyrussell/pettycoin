@@ -5,8 +5,9 @@ SIZES_OBJS := sizes.o
 MKPRIV_OBJS := mkpriv.o
 PETTYCOIN_TX_OBJS := pettycoin-tx.o base58.o create_tx.o marshal.o hash_tx.o minimal_log.o shadouble.o signature.o hash_block.o merkle_recurse.o json.o pettycoin_dir.o
 PETTYCOIN_QUERY_OBJS := pettycoin-query.o json.o base58.o pettycoin_dir.o
+PETTY_ADDR_OBJS := petty-addr.o base58.o
 
-BINS := generate mkgenesis pettycoin sizes mkpriv pettycoin-tx pettycoin-query
+BINS := generate mkgenesis pettycoin sizes mkpriv pettycoin-tx pettycoin-query petty-addr
 CCAN_OBJS := ccan-asort.o ccan-breakpoint.o ccan-tal.o ccan-tal-path.o ccan-tal-str.o ccan-take.o ccan-list.o ccan-str.o ccan-opt-helpers.o ccan-opt.o ccan-opt-parse.o ccan-opt-usage.o ccan-read_write_all.o ccan-htable.o ccan-io-io.o ccan-io-poll.o ccan-timer.o ccan-time.o ccan-noerr.o ccan-hash.o ccan-isaac64.o ccan-net.o ccan-err.o ccan-tal-grab_file.o
 CCANDIR=../ccan/
 VERSION:=$(shell git describe --dirty --always 2>/dev/null || echo Unknown)
@@ -42,6 +43,9 @@ pettycoin-query: $(PETTYCOIN_QUERY_OBJS) $(CCAN_OBJS)
 
 sizes: $(SIZES_OBJS) $(CCAN_OBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(SIZES_OBJS) $(CCAN_OBJS) $(LDLIBS)
+
+petty-addr: $(PETTY_ADDR_OBJS) $(CCAN_OBJS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(PETTY_ADDR_OBJS) $(CCAN_OBJS) $(LDLIBS)
 
 genesis.c: mkgenesis
 	./mkgenesis $(TEST_GENESIS_DIFFICULTY) $(TEST_GENESIS_TIMESTAMP) $(TEST_GENESIS_NONCE) > $@.tmp; STATUS=$$?; if [ $$STATUS = 0 ]; then mv $@.tmp $@; else rm -f $@.tmp; exit $$STATUS; fi

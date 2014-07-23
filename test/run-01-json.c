@@ -137,8 +137,8 @@ int main(void)
 
 	assert(streq(cmd_arr, "{ \"key\" : \"0214f24666a59e62c8b92a0b4b58f2a1cdeb573ea377e42f411be028292ff81926\","
 		     " \"sha\" : \"2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a\","
-		     " \"test-address\" : \"Zd24GjQpC6xAFULS1b8rBUfYN3vUomh3VC\","
-		     " \"address\" : \"ZDgTHd7XUvVHS3CLzAoXhMPkjYfY2Zadff\" }"));
+		     " \"test-address\" : \"qKCafy33t92L9Nmoxx8H6NHDuiyGViqWBZ\","
+		     " \"address\" : \"PZZyf1xcSbNFodrGQ6ot4LrsdSUu1bgmkc\" }"));
 	tal_free(ctx);
 	return 0;
 }

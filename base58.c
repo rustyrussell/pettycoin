@@ -135,7 +135,7 @@ char *pettycoin_to_base58(const tal_t *ctx, bool test_net,
 	if (bitcoin_style)
 		buf[0] = test_net ? 111 : 0;
 	else
-		buf[0] = test_net ? 'Q' : 'P';
+		buf[0] = test_net ? PETTY_PREFIX_TESTNET : PETTY_PREFIX;
 
 	BUILD_ASSERT(sizeof(*addr) == RIPEMD160_DIGEST_LENGTH);
 	memcpy(buf+1, addr, RIPEMD160_DIGEST_LENGTH);
@@ -177,7 +177,7 @@ bool pettycoin_from_base58(bool *test_net,
 		return false;
 
 	memset(buf, 0, sizeof(buf));
-	BN_bn2bin(&bn, buf);
+	BN_bn2bin(&bn, buf + sizeof(buf) - len);
 	BN_free(&bn);
 
 	if (is_bitcoin) {
@@ -188,9 +188,9 @@ bool pettycoin_from_base58(bool *test_net,
 		else
 			return false;
 	} else {
-		if (buf[0] == 'Q')
+		if (buf[0] == PETTY_PREFIX_TESTNET)
 			*test_net = true;
-		else if (buf[0] == 'P')
+		else if (buf[0] == PETTY_PREFIX)
 			*test_net = false;
 		else
 			return false;
