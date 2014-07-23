@@ -10,7 +10,7 @@
 #include <fcntl.h>
 #include <sys/socket.h>
 #include <netdb.h>
-#include "../../protocol_net.h"
+#include "../protocol_net.h"
 
 static struct io_plan free_pkt(struct io_conn *conn,
 			       struct protocol_pkt_peers *pkt)
