@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>FAQ: pettycoin.org</title>
+
+    <link rel="stylesheet" type="text/css" href="stylesheets/pettycoin.css">
+  </head>
+
+  <body>
+    <script src="js/jquery-1.11.0.min.js"></script>
+    <script>
+      function more(a) {
+      if ($(a).next('[class=details]').css('display') != 'none') {
+      $(a).nextAll('[class=details]').css('display', 'none');
+      } else {
+      $(a).nextAll('[class=details]').css('display', 'block');
+      }
+      return false;
+      }
+    </script>
+
+    <section>
+      <h1> Pettycoin: Frequently Asked Questions </h1>
+
+      <p class="widebox">
+	Hi!  If you want answers which aren't listed here, you should
+	<a href="https://github.com/rustyrussell/pettycoin/issues">ask
+	  me</a>.  You're probably not the only one wondering...
+      </p>
+      
+      <h2>Pettycoin vs Bitcoin</h2>
+
+      <div class="boxhalf">
+	<h4 id="altcoin"><a href="#altcoin" onclick="return more('#altcoin');">
+	    Is Pettycoin an altcoin?
+	</a></h4>
+	<p class="details">
+	  No; an altcoin is an alternative currency which copies
+	  bitcoin, with some (often trivial) variation, and starts
+	  from scratch.  In some ways, it's an established path:
+	  start mining, give away as many as you can in a
+	  desperate bid for attention, then sell before the price
+	  crashes.  Pettycoin uses real bitcoins, so it can't
+	  reward early adopters by giving them away.
+	</p>
+      </div>
+
+      <div class="boxhalf">
+	<h4 id="compete"><a href="#compete" onclick="return more('#compete');">
+	    Does pettycoin compete with bitcoin?
+	</a></h4>
+	<p class="details">
+	  No; pettycoin is designed to complement bitcoin.
+	  Various Bitcoin vendors already perform "off-blockchain"
+	  internal transactions to avoid fees and delay.  This
+	  takes that model a step further, with an open and
+	  relatively decentralized network.
+	</p>
+      </div>
+
+      <div class="boxhalf">
+	<h4 id="mergemine"><a href="#mergemine" onclick="return more('#mergemine');">
+	    Can bitcoin miners mergemine pettycoin?
+	</a></h4>
+	<p class="details">
+	  Yes, but not yet.  See <a href="#todo-protocol">the todo list.</a>
+	</p>
+      </div>
+
+      <div class="boxhalf">
+	<h4 id="sidechain"><a href="#sidechain" onclick="return more('#sidechain');">
+	    Is pettycoin a sidechain?
+	</a></h4>
+	<p class="details">
+	  No (for now).  Sidechains require a non-trivial modification
+	  to the bitcoin protocol to support them; logically that
+	  should only happen when it benefits the bitcoin network
+	  itself.  That possibility lies in the distant future, so
+	  meanwhile we use gateways.
+	</p>
+      </div>
+
+      <div class="boxhalf">
+	<h4 id="fees"><a href="#fees" onclick="return more('#fees');">
+	    What fees does a pettycoin transaction have?
+	</a></h4>
+	<p class="details">
+	  The pettycoin fee is fixed at 0.3% of the total bitcoins
+	  being used (actually, 3 / 1024 + 1 satoshi), which is
+	  slightly less.  But you can mark a transaction as paying no
+	  fees, and it's expected that miners will accept these for
+	  quite a long time.
+	</p>
+      </div>
+
+      <div class="boxhalf">
+	<h4 id="miner-paid"><a href="#miner-paid" onclick="return more('#miner-paid');">
+	    How do pettycoin miners get paid?
+	</a></h4>
+	<p class="details">
+	  Firstly, using standard rewards: a "random" transaction is
+	  chosen in a block: the reward to the miner is simply the fee
+	  on this transaction multiplied by the number of
+	  transactions.  Statistically, this should be correct.
+	</p>
+	<p class="details">
+	  Secondly, a share of future rewards will be scattered back
+	  to the miners of early blocks.
+	  See <a href="#todo-protocol">the todo list.</a>
+	</p>
+      </div>
+
+      <h2> Getting Bitcoins Into and Out of Pettycoin </h2>
+
+      <div class="boxhalf">
+	<h4 id="into-pettycoin"><a href="#into-pettycoin" onclick="return more('#into-pettycoin');">
+	    How do I get bitcoin into the pettycoin network?
+	</a></h4>
+	<p class="details">
+	  If you are using your own coins (not an online wallet),
+	  simply sent some BTC to the gateway.  It will inject
+	  those bits into the pettycoin network at the
+	  same <a href="#address">address</a>.
+	</p>
+      </div>
+      <div class="boxhalf">
+	<h4 id="out-of-pettycoin"><a href="#out-of-pettycoin" onclick="return more('#out-of-pettycoin');">
+	    How do I get bitcoin off the pettycoin network?
+	</a></h4>
+	<p class="details">
+	  You can send it to a gateway in a TX_TO_GATEWAY
+	  transaction, which will remove it from the pettycoin
+	  network: the gateway will inject it back into the gateway.
+	</p>
+	<p class="details">
+	  Otherwise, simply waiting a month for
+	  the <a href="#horizon">horizon</a> to pass will cause
+	  the gateway to reinject the now-unusable transaction
+	  onto the bitcoin network.
+	</p>
+      </div>
+
+      <div class="boxhalf">
+	<h4 id="forgotten-coins"><a href="#forgotten-coins" onclick="return more('#forgotten-coins');">
+	    What happens if I forget my pettycoins?
+	</a></h4>
+	<p class="details">
+	  They will <a href="#horizon">time out</a> after a month,
+	  and a wateway will return them to the same address on
+	  the bitcoin network.
+	</p>
+      </div>
+
+      <div class="boxhalf">
+	<h4 id="to-bitcoin-user"><a href="#to-bitcoin-user" onclick="return more('#to-bitcoin-user');">
+	    Can I send bitcoins to a bitcoin user via the pettycoin network?
+	</a></h4>
+	<p class="details">
+	  Yes!  Simply send them some pettycoins, and if they
+	  don't collect them they'll <a href="#horizon">fall
+	    out</a> into the bitcoin network.
+	</p>
+      </div>
+
+      <h2> What Are The Worst Things About Pettycoin? </h2>
+
+      <div class="widebox">
+	<p>
+	  This one gets its own section.  I'm sure people who don't read
+	  this far will be <em>shocked</em> when they find these out, and rage
+	  upon the Internets.
+	</p>
+	<p>
+	  Lucky you got here first!
+	</p>
+	
+	<div class="boxhalf">
+	  <h4 id="privacy"><a href="#privacy" onclick="return more('#privacy');">
+	      Horrible privacy properties.
+	  </a></h4>
+	  <p class="details">
+	    The simplified bitcoin transactions are <em>too</em>
+	    simple: all inputs and the change go to the same
+	    address.  This makes transactions explicitly trivial to
+	    track: if you pay 10 people it'll be obvious that one
+	    person made those ten payments.
+	  </p>
+	  <p class="details">
+	    At a time when the bitcoin network is implementing things
+	    like <a href="https://bitcointalk.org/index.php?topic=279249.0">coinjoin</a>,
+	    it's clear that making a network with <em>worse</em> privacy
+	    is a bad idea.
+	  </p>
+	  <p class="details">
+	    See <a href="#todo-protocol">the todo list</a>
+	  </p>
+	</div>
+
+	<div class="boxhalf">
+	  <h4 id="gateway-trust"><a href="#gateway-trust" onclick="return more('#gateway-trust');">
+	      Trusting the gateways.
+	  </a></h4>
+	  <p class="details">
+	    The gateways are holding your bitcoins: a hack or a
+	    corrupt gateway means your coins are gone.  While
+	    gateways' operations can be audited and its behavior
+	    watched, you are subject to this risk until your coins
+	    return to the bitcoin network.
+	  </p>
+	  <p class="details">
+	    For this reason, the initial gateway will only take very
+	    small amounts: I don't want to be holding your coins
+	    either!
+	  </p>
+	</div>
+
+	<div class="boxhalf">
+	  <h4 id="no-gui"><a href="#no-gui" onclick="return more('#no-gui');">
+	      No GUI.
+	  </a></h4>
+	  <p class="details">
+	    Currently there's only a commandline client, and you
+	    have to build everything out of scripting and string.
+	  </p>
+	</div>
+
+	<div class="boxhalf">
+	  <h4 id="web-sucks"><a href="#web-sucks" onclick="return more('#web-sucks');">
+	      Terrible logo and web pages.
+	  </a></h4>
+	  <p class="details">
+	    I learnt Javascript and CSS yesterday, but no webside can
+	    teach taste (though <a href="http://jk.ozlabs.org">Jeremy
+	      Kerr</a> tried: you should have seen it before!).  Patches
+	    welcome...
+	  </p>
+	</div>
+
+	<div class="boxhalf">
+	  <h4 id="author-sucks"><a href="#author-sucks" onclick="return more('#author-sucks');">
+	      The main author is annoying.
+	  </a></h4>
+	  <p class="details">
+	    I mean, he lives in a half-hour timezone.  Who does that?  WHO???
+	  </p>
+	</div>
+      </div>
+
+      <h2> The Protocol Details </h2>
+
+      <div class="boxhalf">
+	<h4 id="address"><a href="#address" onclick="return more('#address');">
+	    What does an address look like?
+	</a></h4>
+	<p class="details">
+	  Normal bitcoin addresses have a '1' prefix, like
+	  1RustyRX2oai4EYYDpQGWvEL62BBGqN9T.  The pettycoin equivalent
+	  is PYMh1yfZH8keWL3PuiUFRYAHaLSzvB2Kd4, but you can use
+	  'P-1RustyRX2oai4EYYDpQGWvEL62BBGqN9T' for convenience.
+	</p>
+	<p class="details">
+	  Technical details: bitcoin binary address use a 0 prefix (or
+	  111 for testnet), which encodes to '1' (or 'm').  Pettycoin
+	  uses 56 (120 for testnet), which encodes to 'P' (or 'q').
+	</p>
+      </div>
+
+      <div class="boxhalf">
+	<h4 id="transaction"><a href="#transaction" onclick="return more('#transaction');">
+	    What does a transaction look like?
+	</a></h4>
+
+	<p class="details">
+	  A normal transaction has up to 4 inputs, which must be to the same
+	  address, and two outputs: the amount being sent, and the implied
+	  amount of change.  It's between 168 and 276 bytes long:
+	</p>
+	<pre class="details">
+	  /* Core of a transaction */
+	  struct protocol_tx_normal {
+	  u8 version;
+	  u8 type; /* == TX_NORMAL | PROTOCOL_FEE_TYPE */
+	  u8 features;
+	  /* change_amount goes back to this key. */
+	  struct protocol_pubkey input_key;
+	  /* send_amount goes to this address. */
+	  struct protocol_address output_addr;
+	  /* Amount to output_addr. */
+	  le32 send_amount;
+	  /* Amount to return to input_key. */
+	  le32 change_amount;
+	  /* Number of inputs to spend (&lt;= PROTOCOL_TX_MAX_INPUTS) */
+	  le32 num_inputs;
+	  /* ECDSA of double SHA256 of above, and input[num_inputs] below. */
+	  struct protocol_signature signature;
+	  };
+	</pre>
+
+	<p class="details">
+	  The transaction is followed by details of the inputs:
+	</p>
+	<pre class="details">
+	  struct protocol_input {
+	  /* This identifies the transaction. */
+	  struct protocol_double_sha input;
+	  /* This identifies the output.
+	  * For normal transactions, 0 == send_amount, 1 = change */
+	  le16 output;
+	  le16 unused;
+	  };
+	</pre>
+	<p class="details">
+	  Other transaction types are as expected: TX_FROM_GATEWAY
+	  doesn't have any inputs, just outputs.  TX_TO_GATEWAY
+	  doesn't have any outputs (from a pettycoin point-of-view).
+	  TX_CLAIM is a little special, and deserves its own section.
+	</p>
+      </div>
+
+      <div class="boxhalf">
+	<h4 id="shard"><a href="#shard" onclick="return more('#shard');">
+	    What does a shard look like?
+	</a></h4>
+	<p class="details">
+	  Each transaction belongs in a shard: which shard depends on
+	  the lower bits of the input address.  There are currently 4
+	  shards, and a network vote can increase this in future up to
+	  65536.
+	</p>
+	<p class="details">
+	  The assumption is that you will choose your addresses to all
+	  belong to the same shard, so you don't have to monitor the
+	  entire network.
+	</p>
+      </div>
+
+      <div class="boxhalf">
+	<h4 id="block"><a href="#block" onclick="return more('#block');">
+	    What does a block look like?
+	</a></h4>
+	<p class="details">
+	  A block contains a header (nonce, previous block, address
+	  for miner reward, some metadata), an array of sizes for each
+	  shard, an array of merkle hashes for each shard, then
+	  finally a bitcoin-compatible tailer (timestamp, difficulty,
+	  32-bit nonce).
+	<p class="details">
+	  The merkle hash for each shard is a hashing together of
+	  transactions similar
+	  to <a href="https://en.bitcoin.it/wiki/Protocol_specification#Merkle_Trees">
+	    bitcoin</a>, with the notable variation that each
+	  transaction is hashed together with the back-references for
+	  each input, to tell you where they are in the blockchain:
+	</p>
+	<pre class="details">
+struct protocol_input_ref {
+	/* Follow -&gt;prev this many times. */
+	le32 blocks_ago;
+	le16 shard;
+	/* Offset within that shard. */
+	u8 txoff;
+	u8 unused;
+};
+	</pre>
+      </div>
+
+      <div class="boxhalf">
+	<h4 id="miners"><a href="#miners" onclick="return more('#miners);">
+	    Why Do Miners Need To Know The Whole Network?
+	</a></h4>
+
+	<p class="details">
+	  In the bitcoin network, a node will only accept a block when
+	  it sees and checks the entire contents.  For pettycoin, we
+	  rely on checking what we can, and ensuring that there's a
+	  way to <a href="#complaints">concisely prove</a> any problem
+	  we might find.
+	</p>
+	<p class="details">
+	  But this only works if the contents of a block are widely
+	  known, thus we require miners to hash the contents of some
+	  previous blocks with their own output address (which will be
+	  different for each miner).
+	</p>
+	<p class="details">
+	  Its assumed that miners will want to collect as many
+	  transactions as they can, so this "full knowledge"
+	  requirement isn't overly burdensome on them.
+	</p>
+      </div>
+
+      <div class="boxhalf">
+	<h4 id="horizon"><a href="#horizon" onclick="return more('#horizon');">
+	    What happens to old blocks?
+	</a></h4>
+	<p class="details">
+	  A transaction in block B can't reference a transaction in
+	  any block whose timestamp is more than 30 days behind B's
+	  timestamp.  In future, this saves everyone storing all the
+	  blocks in the history.
+	</p>
+	<p class="details">
+	  Thus you can't spend old transactions.  The current gateway
+	  will send them back to the same address(es) on the bitcoin
+	  network.
+	</p>
+      </div>
+
+      <div class="boxhalf">
+	<h4 id="complaints"><a href="#complaints" onclick="return more('#complaints');">
+	    How do nodes indicate they've found a problem?
+	</a></h4>
+	<p class="details">
+	  Pettycoin uses a system of "complaint" packets, which
+	  require no prior knowledge other than the block metadata
+	  (ie. you don't need to know any transactions to validate a
+	  complaint).  A valid complaint makes the block (and any
+	  descendents) invalid.
+	</p>
+	<p class="details">
+	  Each complaint contains the transaction(s) it is complaining
+	  about, and uses the merkle tree to prove that it is
+	  in the block.
+	</p>
+	<dl class="details">
+	  <dt>PROTOCOL_PKT_COMPLAIN_TX_MISORDER</dt>
+	  <dd>
+	    Two transactions are out-of-order in the shard.
+	  </dd>
+	  <dt>PROTOCOL_PKT_COMPLAIN_TX_INVALID</dt>
+	  <dd>
+	    A "transaction" isn't a valid transaction.
+	  </dd>
+	  <dt>PROTOCOL_PKT_COMPLAIN_TX_BAD_INPUT</dt>
+	  <dd>
+	    A transaction uses an invalid input (ie. not your coins).
+	  </dd>
+	  <dt>PROTOCOL_PKT_COMPLAIN_DOUBLESPEND</dt>
+	  <dd>
+	    Two transactions in blocks attempt to spend the same inputs.
+	  </dd>
+	  <dt>PROTOCOL_PKT_COMPLAIN_BAD_INPUT_REF</dt>
+	  <dd>
+	    The reference in the block which points to the input transaction
+	    is actually pointing to a different transaction.
+	  </dd>
+	  <dt>PROTOCOL_PKT_COMPLAIN_TX_BAD_AMOUNT</dt>
+	  <dd>
+	    A transaction doesn't spend its inputs exactly (including
+	    fees, if any).
+	  </dd>
+	  <dt>PROTOCOL_PKT_COMPLAIN_CLAIM_INPUT_INVALID</dt>
+	  <dd>
+	    A claim transaction uses the wrong reference transaction to
+	    calculate the reward.
+	  </dd>
+	  <dt>PROTOCOL_PKT_COMPLAIN_BAD_PREVTXHASHES</dt>
+	  <dd>
+	    A block doesn't have the right previous txhashes for a
+	    previous block.  This complaint contains all the
+	    transactions in the hash.
+	  </dd>
+	</dl>
+      </div>
+
+      <h2> Status, And Unimplemented Stuff </h2>
+
+      <div class="boxhalf">
+	<h4 id="status"><a href="#status" onclick="return more('#status');">
+	    What is the current status?
+	</a></h4>
+	<p class="details">
+	  <strong> The client:</strong> operable on Linux, with some missing
+	  features and numerous FIXMEs.  It only operates on the
+	  pettycoin test network.
+	</p>
+	<p class="details">
+	  <strong> The network:</strong> There is are several servers
+	  which should be running, and the client will seed their
+	  addresses from "peers.pettycoin.org" port 9000.
+	</p>
+	<p class="details">
+	  <strong> The tools:</strong> There is a commandline client
+	  to create transactions (pettycoin-tx), and another to inject
+	  them (pettycoin-query).  There is also the world's worst
+	  wallet implementation, (dumb-wallet) which creates a single
+	  address and can query a running pettycoin to find out what
+	  its balance is.
+	</p>
+      </div>
+
+      <div class="boxhalf">
+	<h4 id="todo-protocol"><a href="#todo-protocol" onclick="return more('#todo-protocol');">
+	    What features are unimplemented in the protocol?
+	</a></h4>
+	<p class="details">
+	  The protocol is not currently set in stone; there are many
+	  people in the cryptocurrency communities who are far
+	  brighter than I who may suggest radical improvement!
+	</p>
+	<p class="details">
+	  But here are the missing parts I know of:
+	</p>
+	<ul class="details">
+	  <li> Links to multiple prev packets (skiplist-style) to
+	    allow discard of over-horizon blocks </li>
+	  <li> Multiple gateways, with owner of tx chosen by random
+	    (chance proportional to inputs). </li>
+	  <li> Voting protocol to add new gateway. </li>
+	  <li> Define how voting is used to increase shard order. </li>
+	  <li> Faster block times (10s instead of 10 minutes?). </li>
+	  <li> Merge mining for bitcoin miners. </li>
+	  <li> Foldback of future rewards after N years. </li>
+	  <li> Coinjoin style transactions. </li>
+	  <li> Network time consensus. </li>
+	</ul>
+      </div>
+
+      <div class="boxhalf">
+	<h4 id="todo-client"><a href="#todo-client" onclick="return more('#todo-client');">
+	    What features are unimplemented in the client?
+	</a></h4>
+	<p class="details">
+	  Other than anticipated cleanups, protocol changes above,
+	  cross-platform, optimization and robusteness issues, there
+	  are several known missing pieces:
+	</p>
+	<ul class="details">
+	  <li> Peer filtering, so not every node sends everything. </li>
+	  <li> Piggyback packets to summarize what was omitted. </li>
+	  <li> Several complain packets are not implemented (tx in
+	    wrong shard in block, prev_txhashes wrong). </li>
+	  <li> Support for the real network (ie. not testnet) is
+	    deliberately missing. </li>
+	  <li> Partial knowledge, so client doesn't always listen
+	    for all shards. </li>
+	  <li> Much more testing! </li>
+	</ul>
+      </div>
+
+      <div class="boxhalf">
+	<h4 id="todo-tools"><a href="#todo-tools" onclick="return more('#todo-tools');">
+	    What tools need to be written?
+	</a></h4>
+	<ul class="details">
+	  <li> A tool to monitor gateways from the pettycoin and
+	    bitcoin sides. </li>
+	  <li> A decent wallet. </li>
+	  <li> Network visualization tools, and health monitoring. </li>
+	</ul>
+      </div>
+
+      <h2> About The Developers </h2>
+
+      <div class="boxhalf">
+	<h4 id="whoami"><a href="#whoami" onclick="return more('#whoami');">
+	    Who are you?
+	</a></h4>
+
+	<p class="details">
+	  Rusty Russell
+	  (<a href="mailto:rusty@rustcorp.com.au">rusty@rustcorp.com.au</a>).
+	  I'm a long-time software developer who is interested in the
+	  bitcoin protocol and took a sabbatical from my day job to
+	  hack on pettycoin.
+	</p>
+      </div>
+    </section>
+
+    <footer>
+      Back to <a href="http://pettycoin.org">pettycoin.org</a>
+    </footer>
+  </body>
+</html>

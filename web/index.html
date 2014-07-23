@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>pettycoin.org - losing tiny amounts of money at scale</title>
+    
+    <link rel="stylesheet" type="text/css" href="stylesheets/pettycoin.css">
+  </head>
+
+  <body>
+    <script src="js/jquery-1.11.0.min.js"></script>
+    <script>
+      function show_more(a) {
+      $(a).parent().nextAll('[class=details]').css('display', 'block');
+      $(a).remove();
+      }
+    </script>
+    <section>
+      <div class="boxthird">
+	<h1> About Pettycoin </h1>
+	<p> Pettycoin is an experimental open source project to create
+	  a public, scalable off-bitcoin network for small bitcoin
+	  transactions.  <strong>It currently only runs on a test
+	    network.</strong>
+	  <a href="faq.html" id="about" onclick="show_more('#about'); return false;">(more...)</a></p>
+
+	<p class="details">
+	  <a href="faq.html#into-pettycoin">Gateways</a> pass bitcoins
+	  between the bitcoin and pettycoin networks.  Pettycoin
+	  uses <a href="faq.html#transaction">cut-down bitcoin
+	    transactions</a>, which are divided
+	  into <a href="faq.html#shard">shards</a>.
+	  <a href="faq.html#miners">Miners</a> need to know all the
+	  shards, but normal
+	  nodes <a href="faq.html#shard">only need</a>
+	  the shards for
+	  their <a href="faq.html#addresses">addresses</a> (but if
+	  they find a problem the
+	  can <a href="faq.html#complaints">convince</a> all the
+	  nodes, whether they're in the same shard or not.
+	</p>
+	<p class="details">
+	  Pettycoin transactions may opt to pay
+	  a <a href="faq.html#fees">0.3% fee</a> to support the
+	  miners.  Transactions which
+	  are <a href="faq.html#horizon">not spent within a
+	    month</a> are returned to the bitcoin network by the
+	  gateways.
+	</p>
+	<p class="details">
+	  The <a href="faq.html#status">current code</a>
+	  is <strong>not ready for real usage</strong>!  For more
+	  answers, see the <a href="faq.html">complete FAQ</a>.
+	</p>
+      </div>
+
+      <div class="boxthird"><h1> Download </h1>
+	<p> Pettycoin is Free and Open Source, and the source code is 
+	  available on <a href="https://github.com/rustyrussell/pettycoin">GitHub</a>!
+	</p>
+      </div>
+
+      <div class="boxthird"><h1> Development Information </h1>
+	<p> Pettycoin is under active development, as you can read on
+	  the <a href="https://rustyrussell.github.io/pettycoin/">development
+	    blog</a>.  One day there will also be a mailing list to ask
+	  questions, so people don't have to
+	  use <a href="https://github.com/rustyrussell/pettycoin/issues">the
+	    bugtracker</a>.
+	</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="praisequote">
+	<a href="images/who-has-time-and-skill-to-make-a-decent-pettycoin-logo.svg"><img class="logo" src="images/who-has-time-and-skill-to-make-a-decent-pettycoin-logo.png"></a>
+	<p>
+	  <em>Horribly insecure, unreliable. Also way too many unresolved issues. Not a good solution to the block size issue.</em> <br> -- <a href="http://www.reddit.com/r/Bitcoin/comments/1xr1d8/pettycoin_100k_transactions_per_second_as_an/cfdxpai">Some guy on reddit</a>
+	</p>
+      </div>
+    </section>
+
+  </body>
+</html> 
