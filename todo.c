@@ -86,14 +86,14 @@ static struct todo_request *find_todo(struct state *state,
 }
 
 #define new_todo_request(state, type, structtype, blocksha, shardnum, txoff) \
-	((structtype *)new_todo_request_((state), (type), sizeof(structtype), \
-					 (blocksha), (shardnum), (txoff)))
+	new_todo_request_((state), (type), sizeof(structtype),		\
+			  (blocksha), (shardnum), (txoff))
 
-static void *new_todo_request_(struct state *state,
-			       enum protocol_pkt_type type,
-			       size_t pktlen,
-			       const struct protocol_double_sha *sha,
-			       u16 shardnum, u8 txoff)
+static void new_todo_request_(struct state *state,
+			      enum protocol_pkt_type type,
+			      size_t pktlen,
+			      const struct protocol_double_sha *sha,
+			      u16 shardnum, u8 txoff)
 {
 	struct todo_request *t;
 	struct protocol_double_sha *t_sha;
@@ -102,7 +102,7 @@ static void *new_todo_request_(struct state *state,
 
 	/* We don't insert duplicates. */
 	if (find_todo(state, type, sha, shardnum, txoff))
-		return NULL;
+		return;
 
 	t = tal(state, struct todo_request);
 
@@ -122,8 +122,6 @@ static void *new_todo_request_(struct state *state,
 
 	/* In case a peer is waiting for something to do. */
 	wake_peers(state);
-
-	return &t->pkt;
 }
 
 void todo_add_get_children(struct state *state,
