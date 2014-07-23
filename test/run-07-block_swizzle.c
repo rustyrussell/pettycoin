@@ -14,7 +14,7 @@ static time_t my_time(time_t *p)
 #define main generate_main
 #define time my_time
 
-#include "../generate.c"
+#include "../pettycoin-generate.c"
 #include "../timestamp.c"
 #undef main
 #undef time

@@ -1,5 +1,5 @@
 PETTYCOIN_OBJS := block.o check_block.o check_tx.o difficulty.o shadouble.o timestamp.o gateways.o hash_tx.o pettycoin.o merkle_txs.o merkle_recurse.o tx_cmp.o genesis.o marshal.o hash_block.o prev_txhashes.o state.o tal_packet.o dns.o netaddr.o peer.o peer_cache.o pseudorand.o welcome.o log.o generating.o blockfile.o pending.o log_helper.o txhash.o signature.o proof.o chain.o features.o todo.o base58.o sync.o create_refs.o shard.o packet_io.o tx.o complain.o block_shard.o recv_block.o input_refs.o peer_wants.o inputhash.o tx_in_hashes.o merkle_hashes.o recv_tx.o reward.o recv_complain.o json.o jsonrpc.o getinfo.o ecode_names.o sendrawtransaction.c pettycoin_dir.o pkt_names.o
-GENERATE_OBJS := generate.o merkle_hashes.o merkle_recurse.o hash_tx.o tx_cmp.o shadouble.o marshal.o minimal_log.o timestamp.o tal_packet.o
+PETTYCOIN_GENERATE_OBJS := pettycoin-generate.o merkle_hashes.o merkle_recurse.o hash_tx.o tx_cmp.o shadouble.o marshal.o minimal_log.o timestamp.o tal_packet.o
 MKGENESIS_OBJS := mkgenesis.o shadouble.o hash_block.o merkle_hashes.o merkle_recurse.o minimal_log.o
 SIZES_OBJS := sizes.o
 MKPRIV_OBJS := mkpriv.o
@@ -7,7 +7,7 @@ PETTYCOIN_TX_OBJS := pettycoin-tx.o base58.o create_tx.o marshal.o hash_tx.o min
 PETTYCOIN_QUERY_OBJS := pettycoin-query.o json.o base58.o pettycoin_dir.o
 PETTY_ADDR_OBJS := petty-addr.o base58.o
 
-BINS := generate mkgenesis pettycoin sizes mkpriv pettycoin-tx pettycoin-query petty-addr
+BINS := pettycoin-generate mkgenesis pettycoin sizes mkpriv pettycoin-tx pettycoin-query petty-addr
 CCAN_OBJS := ccan-asort.o ccan-breakpoint.o ccan-tal.o ccan-tal-path.o ccan-tal-str.o ccan-take.o ccan-list.o ccan-str.o ccan-opt-helpers.o ccan-opt.o ccan-opt-parse.o ccan-opt-usage.o ccan-read_write_all.o ccan-htable.o ccan-io-io.o ccan-io-poll.o ccan-timer.o ccan-time.o ccan-noerr.o ccan-hash.o ccan-isaac64.o ccan-net.o ccan-err.o ccan-tal-grab_file.o
 CCANDIR=../ccan/
 VERSION:=$(shell git describe --dirty --always 2>/dev/null || echo Unknown)
@@ -29,8 +29,8 @@ mkpriv: $(MKPRIV_OBJS)
 pettycoin-tx: $(PETTYCOIN_TX_OBJS) $(CCAN_OBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(PETTYCOIN_TX_OBJS) $(CCAN_OBJS) $(LDLIBS)
 
-generate: $(GENERATE_OBJS) $(CCAN_OBJS)
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(GENERATE_OBJS) $(CCAN_OBJS) $(LDLIBS)
+pettycoin-generate: $(PETTYCOIN_GENERATE_OBJS) $(CCAN_OBJS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(PETTYCOIN_GENERATE_OBJS) $(CCAN_OBJS) $(LDLIBS)
 
 mkgenesis: $(MKGENESIS_OBJS) $(CCAN_OBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(MKGENESIS_OBJS) $(CCAN_OBJS) $(LDLIBS)

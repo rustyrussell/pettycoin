@@ -14,7 +14,7 @@ setup_dir()
     cat > $1/config <<EOF
 # Generated config file
 developer-test
-generator=../../../generate
+generator=../../../pettycoin-generate
 log-prefix=$i:
 log-level=info
 # This is test/helper_addr(0).
