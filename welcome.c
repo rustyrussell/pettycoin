@@ -74,7 +74,7 @@ struct protocol_pkt_welcome *make_welcome(const tal_t *ctx,
 		       PROTOCOL_PKT_WELCOME);
 	w->version = cpu_to_le32(current_version());
 	memcpy(w->moniker, "ICBINB! " VERSION "                        ", 32);
-	w->random = state->random_welcome;
+	w->uuid = state->uuid;
 	w->you = *a;
 	w->listen_port = cpu_to_le16(state->listen_port);
 	w->unused = 0;

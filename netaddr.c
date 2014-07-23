@@ -81,6 +81,10 @@ bool addrinfo_to_netaddr(struct protocol_net_address *netaddr,
 	if (a->ai_protocol != IPPROTO_TCP)
 		return false;
 
+	netaddr->time = cpu_to_le32(0);
+	netaddr->unused = cpu_to_le16(0);
+	memset(&netaddr->uuid, 0, sizeof(netaddr->uuid));
+
 	if (a->ai_family == AF_INET) {
 		ipv4_netaddr(netaddr, (void *)a->ai_addr);
 		return true;
@@ -114,6 +118,9 @@ bool get_fd_addr(int fd, struct protocol_net_address *addr)
 	if (len > sizeof(u))
 		return false;
 
+	addr->time = cpu_to_le32(0);
+	addr->unused = cpu_to_le16(0);
+	memset(&addr->uuid, 0, sizeof(addr->uuid));
 	if (u.sa.sa_family == AF_INET) {
 		ipv4_netaddr(addr, &u.in);
 		return true;

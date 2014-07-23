@@ -20,14 +20,18 @@ struct protocol_net_hdr {
 	le32 type; /* PROTOCOL_PKT_* */
 };
 
-/* The only currently-defined service bit */
-#define PROTOCOL_NET_SERVICE_NODE	1
+/* Uniquely identify a running instance (in case it has multiple addresses) */
+struct protocol_net_uuid {
+	u8 bytes[16];
+};
+
 struct protocol_net_address {
 	le32 time;
-	le64 services;
 	u8 addr[16];
 	le16 port;
-}  __attribute__((aligned(2)));
+	le16 unused;
+	struct protocol_net_uuid uuid;
+};
 
 enum protocol_pkt_type {
 	/* Invalid. */
@@ -102,8 +106,8 @@ struct protocol_pkt_welcome {
 	le32 version; /* Protocol version, currently 1. */
 	/* Freeform software version. */
 	char moniker[28];
-	/* Self-detection */
-	le64 random;
+	/* Duplicate detection */
+	struct protocol_net_uuid uuid;
 	/* Address we see you at. */
 	struct protocol_net_address you;
 	/* Port you can connect to us at (if != 0) */

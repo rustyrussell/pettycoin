@@ -21,6 +21,7 @@ static void destroy_state(struct state *state)
 struct state *new_state(bool test_net)
 {
 	struct state *s = tal(NULL, struct state);
+	unsigned int i;
 
 	s->test_net = test_net;
 	s->developer_test = false;
@@ -42,7 +43,8 @@ struct state *new_state(bool test_net)
 	s->refill_peers = true;
 	s->peer_seeding = false;
 	s->peer_cache = NULL;
-	s->random_welcome = isaac64_next_uint64(isaac64);
+	for (i = 0; i < sizeof(s->uuid.bytes); i++)
+		s->uuid.bytes[i] = isaac64_next_uint(isaac64, 256);
 	bitmap_zero(s->peer_map, MAX_PEERS);
 	s->peer_seed_count = 0;
 	s->log_level = LOG_BROKEN;

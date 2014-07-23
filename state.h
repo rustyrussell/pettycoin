@@ -56,7 +56,7 @@ struct state {
 	size_t num_peers;
 	size_t num_peers_connected;
 	struct list_head peers;
-	u64 random_welcome;
+	struct protocol_net_uuid uuid;
 	BITMAP_DECLARE(peer_map, MAX_PEERS);
 
 	/* Features we've warned about. */

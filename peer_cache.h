@@ -18,6 +18,8 @@ void init_peer_cache(struct state *state);
 
 void peer_cache_add(struct state *state, 
 		    const struct protocol_net_address *addr);
+void peer_cache_update_uuid(struct state *state, 
+			    const struct protocol_net_address *addr);
 void peer_cache_refresh(struct state *state, 
 			const struct protocol_net_address *addr);
 void peer_cache_del(struct state *state,

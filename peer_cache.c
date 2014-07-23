@@ -1,3 +1,4 @@
+/* This is a simple hash of IPv4/v6 address and port. */
 #include "log.h"
 #include "peer.h"
 #include "peer_cache.h"
@@ -183,6 +184,19 @@ static void update_on_disk(struct state *state,
 	if (write(pc->fd, a, sizeof(*a)) != sizeof(*a))
 		log_unusual(state->log, "Trouble writing peer_cache: %s",
 			    strerror(errno));
+}
+
+void peer_cache_update_uuid(struct state *state, 
+			    const struct protocol_net_address *addr)
+{
+	struct protocol_net_address *a;
+
+	a = peer_hash_entry(state->peer_cache, addr);
+
+	if (same_address(a, addr)) {
+		a->uuid = addr->uuid;
+		update_on_disk(state, state->peer_cache, a);
+	}
 }
 
 void peer_cache_refresh(struct state *state, 

@@ -135,13 +135,13 @@ static void make_listeners(struct state *state, unsigned int portnum)
 
 	if (state->developer_test) {
 		int fd;
-		struct protocol_net_address a
-			= { 0, PROTOCOL_NET_SERVICE_NODE,
-			    { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff,
-			      0x7f, 0, 0, 1 } };
+		struct protocol_net_address a = 
+			{ 0, { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff,
+			       0x7f, 0, 0, 1 }, 0, 0 };
 
 		a.time = cpu_to_le32(time(NULL));
 		a.port = cpu_to_le16(state->listen_port);
+		a.uuid = state->uuid;
 
 		fd = open("addresses", O_WRONLY|O_APPEND, 0600);
 		if (fd < 0)

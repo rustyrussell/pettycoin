@@ -33,6 +33,7 @@
 #include "tx_in_hashes.h"
 #include "welcome.h"
 #include <arpa/inet.h>
+#include <ccan/array_size/array_size.h>
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/cast/cast.h>
 #include <ccan/err/err.h>
@@ -134,13 +135,24 @@ static void seed_peers(struct state *state)
 	}
 }
 
+static bool empty_uuid(const struct protocol_net_uuid *uuid)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(uuid->bytes); i++)
+		if (uuid->bytes[i] != 0)
+			return false;
+	return true;
+}
+
 static bool peer_already(struct state *state,
-			 const struct protocol_net_address *a)
+			 const struct protocol_net_uuid *uuid,
+			 const struct peer *exclude)
 {
 	struct peer *p;
 
 	list_for_each(&state->peers, p, list)
-		if (same_address(&p->you, a))
+		if (p != exclude && structeq(&p->you.uuid, uuid))
 			return true;
 	return false;
 }
@@ -155,8 +167,14 @@ void fill_peers(struct state *state)
 		int i, fd;
 
 		for (a = peer_cache_first(state, &i);
-		     a && peer_already(state, a);
-		     a = peer_cache_next(state, &i));
+		     a;
+		     a = peer_cache_next(state, &i)) {
+			if (empty_uuid(&a->uuid))
+				break;
+			if (!peer_already(state, &a->uuid, NULL))
+				break;
+		}
+
 
 		if (!a) {
 			log_debug(state->log, "Seeding peer cache");
@@ -1543,13 +1561,6 @@ static struct io_plan welcome_received(struct io_conn *conn, struct peer *peer)
 	tal_steal(peer, peer->welcome);
 	peer->state->num_peers_connected++;
 
-	/* Are we talking to ourselves? */
-	if (peer->welcome->random == state->random_welcome) {
-		log_debug(peer->log, "The peer is ourselves: closing");
-		peer_cache_del(state, &peer->you, true);
-		return io_close();
-	}
-
 	e = check_welcome(state, peer->welcome, &peer->welcome_blocks);
 	if (e != PROTOCOL_ECODE_NONE) {
 		log_unusual(peer->log, "Peer welcome was invalid:");
@@ -1559,6 +1570,23 @@ static struct io_plan welcome_received(struct io_conn *conn, struct peer *peer)
 
 	log_info(peer->log, "Welcome received: listen port is %u",
 		 le16_to_cpu(peer->welcome->listen_port));
+
+	/* Are we talking to ourselves? */
+	if (structeq(&peer->welcome->uuid, &state->uuid)) {
+		log_debug(peer->log, "The peer is ourselves: closing");
+		peer_cache_del(state, &peer->you, true);
+		return io_close();
+	}
+
+	/* Update UUID (it might have changed from what was in cache). */
+	peer->you.uuid = peer->welcome->uuid;
+	peer_cache_update_uuid(state, &peer->you);
+
+	/* This can happen if using both IPv4 and IPv6. */
+	if (peer_already(state, &peer->you.uuid, peer)) {
+		log_debug(peer->log, "Duplicate peer: closing");
+		return io_close();
+	}
 
 	/* Replace port we see with port they want us to connect to. */
 	peer->you.port = peer->welcome->listen_port;
