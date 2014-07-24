@@ -15,6 +15,7 @@ setup_dir()
 # Generated config file
 developer-test
 generator=../../../pettycoin-generate
+seeding
 log-prefix=$i:
 log-level=info
 # This is test/helper_addr(0).

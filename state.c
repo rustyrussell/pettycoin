@@ -36,6 +36,7 @@ struct state *new_state(bool test_net)
 	list_head_init(&s->todo);
 	txhash_init(&s->txhash);
 	inputhash_init(&s->inputhash);
+	s->nopeers_ok = false;
 	s->num_peers = 0;
 	s->num_peers_connected = 0;
 	list_head_init(&s->peers);

@@ -118,8 +118,11 @@ static void seed_peers(struct state *state)
 	}
 
 	if (state->peer_seed_count++ > 2) {
-		if (state->developer_test)
+		if (state->nopeers_ok) {
+			log_unusual(state->log,
+				    "Can't find peers, staying lonely");
 			return;
+		}
 
 		fatal(state, "Failed to connect to any peers, or peer server");
 	}

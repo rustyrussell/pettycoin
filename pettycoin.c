@@ -302,6 +302,8 @@ int main(int argc, char *argv[])
 			 "Node to connect to (can be specified multiple times)");
 	opt_register_arg("--port", opt_set_uintval, NULL, &portnum,
 			 "Port to bind to (otherwise, dynamic port is used)");
+	opt_register_noarg("--seeding", opt_set_bool, &state->nopeers_ok,
+			 "Don't exit if there are no peers to connect to");
 
 	/* Generation options. */
 	opt_register_arg("--generator", opt_set_charp, opt_show_charp,
@@ -317,7 +319,7 @@ int main(int argc, char *argv[])
 
 	opt_register_noarg("--developer-test",
 			   opt_set_bool, &state->developer_test,
-			   "Developer test mode: connects to localhost");
+			   "Developer test mode: read peers from 'addresses'");
 
 	/* Parse --pettycoin-dir first. */
 	opt_early_parse(argc, argv, opt_log_stderr_exit);

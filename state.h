@@ -52,6 +52,9 @@ struct state {
 	/* All inputs to transactions. */
 	struct inputhash inputhash;
 
+	/* Are we a bootstrap node? */
+	bool nopeers_ok;
+
 	/* Number of current peers (some may be connecting) */
 	size_t num_peers;
 	size_t num_peers_connected;
