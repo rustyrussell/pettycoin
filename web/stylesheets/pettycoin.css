@@ -8,24 +8,20 @@ img.logo {
     display: none;
 }
 
-div.box, div.boxhalf, div.boxthird {
+div.boxed, div.boxthird {
     padding: 5px 10px; 
     border-radius: 1em 1em;
-    float: left;
     background: #F8F0E7;
     border: thin solid #e0e0e0;
     box-shadow: 5px 5px 5px #c0c0c0;
 }
 
 div.boxthird {
+    float: left;
     width: 29%;
 }
 
-div.boxhalf {
-    width: 46%;
-}
-
-.widebox {
+.rawtext {
     padding: 5px 10px; 
     clear: both;
 }
