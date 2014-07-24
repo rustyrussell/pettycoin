@@ -2,7 +2,7 @@
 *.d
 *~
 vgcore.*
-generate
+pettycoin-generate
 mkgenesis
 pettycoin
 pettycoin-query
