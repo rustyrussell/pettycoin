@@ -27,9 +27,6 @@ trap "killall serve_addresses; killall pettycoin" EXIT
 
 rm -rf pettycoin-* addresses
 
-touch addresses
-./serve_addresses &
-
 for i in `seq 2 $1`; do
     setup_dir pettycoin-$i
     ../../pettycoin --pettycoin-dir=pettycoin-$i &

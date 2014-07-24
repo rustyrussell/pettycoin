@@ -39,6 +39,7 @@
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
 #include <ccan/structeq/structeq.h>
+#include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/tal.h>
 #include <errno.h>
@@ -51,33 +52,39 @@
 
 struct peer_lookup {
 	struct state *state;
-	void *pkt;
+	struct protocol_pkt_peers *pkt;
 };
 
-static struct io_plan digest_peer_addrs(struct io_conn *conn,
-					struct peer_lookup *lookup)
+static bool digest_peer_addrs(struct state *state, const void *data, u32 len)
 {
-	le32 *len = lookup->pkt;
 	u32 num, i;
-	struct protocol_net_address *addr;
+	const struct protocol_net_address *addr = data;
 
-	num = (le32_to_cpu(*len) - sizeof(struct protocol_net_hdr))
-	       / sizeof(*addr);
-	/* Addresses are after header (which includes unused type field). */
-	addr = (void *)(len + 2);
+	num = len / sizeof(*addr);
+	if (num == 0 || (len % sizeof(*addr)) != 0)
+		return false;
 
-	log_debug(lookup->state->log,
-		  "seed server supplied %u peers in %u bytes",
-		  num, le32_to_cpu(*len));
 	for (i = 0; i < num; i++) {
-		log_add_struct(lookup->state->log,
+		log_add_struct(state->log,
 			       struct protocol_net_address, &addr[i]);
-		peer_cache_add(lookup->state, &addr[i]);
+		peer_cache_add(state, &addr[i]);
 	}
 
 	/* We can now get more from cache. */
-	fill_peers(lookup->state);
+	fill_peers(state);
+	return true;
+}
 
+static struct io_plan digest_peer_pkt(struct io_conn *conn,
+				      struct peer_lookup *lookup)
+{
+	log_debug(lookup->state->log,
+		  "seed server supplied %u bytes of peers",
+		  le32_to_cpu(lookup->pkt->len));
+
+	/* Addresses are after header. */
+	digest_peer_addrs(lookup->state, lookup->pkt + 1,
+			  le32_to_cpu(lookup->pkt->len) - sizeof(*lookup->pkt));
 	return io_close();
 }
 
@@ -88,7 +95,7 @@ static struct io_plan read_seed_peers(struct io_conn *conn,
 
 	log_debug(state->log, "Connected to seed server, reading peers");
 	lookup->state = state;
-	return io_read_packet(&lookup->pkt, digest_peer_addrs, lookup);
+	return io_read_packet(&lookup->pkt, digest_peer_pkt, lookup);
 }
 
 /* This gets called when the connection closes, fail or success. */
@@ -117,8 +124,21 @@ static void seed_peers(struct state *state)
 		fatal(state, "Failed to connect to any peers, or peer server");
 	}
 
-	if (state->developer_test)
-		server = "localhost";
+	if (state->developer_test) {
+		void *data = grab_file(state, "addresses");
+
+		if (!data)
+			err(1, "Opening 'addresses' file");
+
+		log_debug(state->log,
+			  "seed file supplied %u bytes of peers",
+			  le32_to_cpu(tal_count(data) - 1));
+
+		if (!digest_peer_addrs(state, data, tal_count(data) - 1))
+			errx(1, "Invalid contents of addresses file");
+		tal_free(data);
+		return;
+	}
 
 	connector = dns_resolve_and_connect(state, server, "9000",
 					    read_seed_peers);
@@ -495,22 +515,13 @@ recv_get_peers(struct peer *peer, const struct protocol_pkt_peers *pkt,
 static enum protocol_ecode
 recv_pkt_peers(struct peer *peer, const struct protocol_pkt_peers *pkt)
 {
-	unsigned int i, num, len = le32_to_cpu(pkt->len) - sizeof(*pkt);
-	const struct protocol_net_address *addr;
+	unsigned int len = le32_to_cpu(pkt->len) - sizeof(*pkt);
 
-	/* Got to send an exact number, and at least one! */
-	if (len % sizeof(struct protocol_net_address))
+	log_debug(peer->log, "Peer supplied %u peer bytes", len);
+
+	if (!digest_peer_addrs(peer->state, pkt + 1, len))
 		return PROTOCOL_ECODE_INVALID_LEN;
 
-	num = len / sizeof(struct protocol_net_address);
-	if (num == 0)
-		return PROTOCOL_ECODE_INVALID_LEN;
-
-	log_debug(peer->log, "Peer supplied %u peers", num);
-
-	addr = (const struct protocol_net_address *)(pkt + 1);
-	for (i = 0; i < num; i++)
-		peer_cache_add(peer->state, addr + i);
 	return PROTOCOL_ECODE_NONE;
 }
 

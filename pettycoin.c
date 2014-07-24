@@ -143,7 +143,7 @@ static void make_listeners(struct state *state, unsigned int portnum)
 		a.port = cpu_to_le16(state->listen_port);
 		a.uuid = state->uuid;
 
-		fd = open("addresses", O_WRONLY|O_APPEND, 0600);
+		fd = open("addresses", O_CREAT|O_WRONLY|O_APPEND, 0600);
 		if (fd < 0)
 			err(1, "Opening addresses");
 		write(fd, &a, sizeof(a));
