@@ -19,6 +19,9 @@ bool json_tok_streq(const char *buffer, const jsmntok_t *tok, const char *str);
 /* Is this the null primitive? */
 bool json_tok_is_null(const char *buffer, const jsmntok_t *tok);
 
+/* Return the next same-level element. */
+const jsmntok_t *json_skip_elem(const jsmntok_t *tok);
+
 /* Get the parameters (by position or name).  Followed by pairs
  * of const char *name, const jsmntok_t **ret_ptr, then NULL.
  * *ret_ptr will be set to NULL if it's a literal 'null' or not present.
@@ -28,6 +31,15 @@ void json_get_params(const char *buffer, const jsmntok_t param[], ...);
 /* Get top-level member. */
 const jsmntok_t *json_get_member(const char *buffer, const jsmntok_t tok[],
 				 const char *label);
+
+/* Get index'th array member. */
+const jsmntok_t *json_get_arr(const char *buffer, const jsmntok_t tok[],
+			      size_t index);
+
+/* Guide is a string with . for members, [] around indexes. */
+const jsmntok_t *json_delve(const char *buffer,
+			    const jsmntok_t *tok,
+			    const char *guide);
 
 /* If input is complete and valid, return tokens. */
 jsmntok_t *json_parse_input(const char *input, int len, bool *valid);

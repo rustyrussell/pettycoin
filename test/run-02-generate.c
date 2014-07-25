@@ -34,6 +34,7 @@ static time_t my_time(time_t *p)
 #include "../shard.c"
 #include "../tal_packet.c"
 #include "../minimal_log.c"
+#include "../hex.c"
 
 int main(int argc, char *argv[])
 {
