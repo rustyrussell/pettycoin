@@ -51,7 +51,8 @@ petty-addr: $(PETTY_ADDR_OBJS) $(CCAN_OBJS)
 genesis.c: mkgenesis
 	./mkgenesis $(TEST_GENESIS_DIFFICULTY) $(TEST_GENESIS_TIMESTAMP) $(TEST_GENESIS_NONCE) > $@.tmp; STATUS=$$?; if [ $$STATUS = 0 ]; then mv $@.tmp $@; else rm -f $@.tmp; exit $$STATUS; fi
 
-check: check-include-order
+.PHONY: test
+check test: check-include-order
 	$(MAKE) -C test check
 
 ecode_names.c: protocol_ecode.h Makefile
