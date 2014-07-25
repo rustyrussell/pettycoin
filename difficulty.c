@@ -91,7 +91,8 @@ u32 get_difficulty(struct state *state, const struct block *prev)
 	const struct block *genesis = genesis_block(state), *start;
 
 	const u32 interval = PROTOCOL_DIFFICULTY_UPDATE_BLOCKS;
-	const u64 ideal_time = PROTOCOL_BLOCK_TARGET_TIME * interval;
+	const u64 ideal_time = PROTOCOL_BLOCK_TARGET_TIME(state->test_net)
+		* interval;
 
 	prev_difficulty = le32_to_cpu(prev->tailer->difficulty);
 

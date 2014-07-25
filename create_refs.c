@@ -29,7 +29,7 @@ static bool resolve_input(struct state *state,
 
 	/* Don't include any transactions within 1 hour of cutoff. */
 	if (le32_to_cpu(te->u.block->tailer->timestamp)
-	    + PROTOCOL_TX_HORIZON_SECS - CLOSE_TO_HORIZON
+	    + PROTOCOL_TX_HORIZON_SECS(state->test_net) - CLOSE_TO_HORIZON
 	    < current_time())
 		return false;
 

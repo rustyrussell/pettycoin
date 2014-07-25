@@ -102,6 +102,7 @@ int main(int argc, char *argv[])
 	state = tal(NULL, struct state);
 	state->block_depth = tal_arr(state, struct list_head *, 1);
 	state->block_depth[0] = tal(state->block_depth, struct list_head);
+	state->test_net = true;
 	list_head_init(state->block_depth[0]);
 
 	/* get_difficulty() can ask about genesis block. */
@@ -119,7 +120,7 @@ int main(int argc, char *argv[])
 	/* Try making it easier. */
 	b1 = add_fake_blocks(state, &genesis, diff1,
 			     PROTOCOL_DIFFICULTY_UPDATE_BLOCKS-1,
-			     PROTOCOL_BLOCK_TARGET_TIME * 2);
+			     PROTOCOL_BLOCK_TARGET_TIME(true) * 2);
 
 	diff1 = get_difficulty(state, b1);
 	/* Won't change. */
@@ -128,7 +129,7 @@ int main(int argc, char *argv[])
 	/* Try making it faster. */
 	b1 = add_fake_blocks(state, &genesis, diff1,
 			     PROTOCOL_DIFFICULTY_UPDATE_BLOCKS-1,
-			     PROTOCOL_BLOCK_TARGET_TIME / 2);
+			     PROTOCOL_BLOCK_TARGET_TIME(true) / 2);
 
 	diff2 = get_difficulty(state, b1);
 	/* Target should halve (but not quite due to out-by-one) */
@@ -144,7 +145,7 @@ int main(int argc, char *argv[])
 	diff1 = diff2;
 	b2 = add_fake_blocks(state, b1, diff1,
 			     PROTOCOL_DIFFICULTY_UPDATE_BLOCKS,
-			     PROTOCOL_BLOCK_TARGET_TIME / 2);
+			     PROTOCOL_BLOCK_TARGET_TIME(state->test_net) / 2);
 
 	diff2 = get_difficulty(state, b2);
 	/* Target should halve. */
@@ -154,7 +155,7 @@ int main(int argc, char *argv[])
 	/* Limit to 1/4. */
 	b2 = add_fake_blocks(state, b1, diff1,
 			     PROTOCOL_DIFFICULTY_UPDATE_BLOCKS,
-			     PROTOCOL_BLOCK_TARGET_TIME / 16);
+			     PROTOCOL_BLOCK_TARGET_TIME(state->test_net) / 16);
 
 	diff2 = get_difficulty(state, b2);
 	/* Target should quarter. */
@@ -166,7 +167,7 @@ int main(int argc, char *argv[])
 	diff1 = diff2;
 	b2 = add_fake_blocks(state, b1, diff1,
 			     PROTOCOL_DIFFICULTY_UPDATE_BLOCKS,
-			     PROTOCOL_BLOCK_TARGET_TIME / 16);
+			     PROTOCOL_BLOCK_TARGET_TIME(state->test_net) / 16);
 
 	diff2 = get_difficulty(state, b2);
 	/* Target should quarter. */
@@ -178,7 +179,7 @@ int main(int argc, char *argv[])
 	/* Limit to * 4. */
 	b2 = add_fake_blocks(state, b2, diff1,
 			     PROTOCOL_DIFFICULTY_UPDATE_BLOCKS,
-			     PROTOCOL_BLOCK_TARGET_TIME * 10);
+			     PROTOCOL_BLOCK_TARGET_TIME(state->test_net) * 10);
 
 	diff2 = get_difficulty(state, b2);
 	/* Target should multiply by 4. */

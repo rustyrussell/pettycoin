@@ -15,7 +15,7 @@ static enum protocol_ecode check_ref(struct state *state,
 		return PROTOCOL_ECODE_REF_BAD_BLOCKS_AGO;
 
 	/* Beyond horizon? */
-	if (le32_to_cpu(b->tailer->timestamp) + PROTOCOL_TX_HORIZON_SECS
+	if (le32_to_cpu(b->tailer->timestamp) + PROTOCOL_TX_HORIZON_SECS(state->test_net)
 	    < le32_to_cpu(block->tailer->timestamp))
 		return PROTOCOL_ECODE_REF_BAD_BLOCKS_AGO;
 

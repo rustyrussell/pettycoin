@@ -99,7 +99,7 @@ static const struct block *find_horizon(const struct state *state)
 	/* 11 in a row beyond horizon makes this fairly certain. */
 	while (b != genesis_block(state)) {
 		if (le32_to_cpu(b->tailer->timestamp)
-		    + PROTOCOL_TX_HORIZON_SECS + CLOSE_TO_HORIZON
+		    + PROTOCOL_TX_HORIZON_SECS(state->test_net) + CLOSE_TO_HORIZON
 		    < current_time()) {
 			if (!horizon)
 				horizon = b;
