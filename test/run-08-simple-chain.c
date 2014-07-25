@@ -188,7 +188,8 @@ int main(void)
 	assert(bests[0] == strmap_get(&blockmap, "block2-9"));
 
 	/* Extend it by one */
-	add_next_block(state, bests[0], tal_strdup(state, "block2-10"), 0);
+	add_next_block(state, cast_const(struct block *, bests[0]),
+		       tal_strdup(state, "block2-10"), 0);
 	find_longest_descendents(&genesis, &bests);
 	assert(tal_count(bests) == 1);
 	assert(bests[0] == strmap_get(&blockmap, "block2-10"));

@@ -43,7 +43,6 @@ static struct block *add_fake_blocks(const tal_t *ctx,
 int main(int argc, char *argv[])
 {
 	u32 diff1, diff2;
-	BIGNUM bn1;
 	struct state *state;
 	struct block *b1, *b2;
 	u32 exp, mantissa, tmp;
