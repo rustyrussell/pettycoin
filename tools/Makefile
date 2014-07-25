@@ -1,6 +1,6 @@
 LDLIBS := -lcrypto -lrt
 CCAN_OBJS := ccan-read_write_all.o ccan-net.o ccan-err.o ccan-tal.o ccan-noerr.o ccan-take.o ccan-list.o
-CCANDIR=../../ccan/
+CCANDIR=../ccan/
 CFLAGS = -ggdb -I $(CCANDIR) -Wall -Wmissing-prototypes -DVERSION=\"$(VERSION)\" -fstack-protector
 BINS = make-peer-packet
 

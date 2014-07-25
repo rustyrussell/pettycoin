@@ -1,7 +1,7 @@
 SOURCES := $(wildcard run-*.c)
 HELPERS := $(wildcard helper*.c)
 BINS := $(SOURCES:.c=)
-CCANDIR := ../../ccan/
+CCANDIR := ../ccan/
 BASECFLAGS := -ggdb -I $(CCANDIR) -Wall -DFASTCHECK
 CFLAGS := -MMD $(BASECFLAGS)
 LDLIBS := -lcrypto -lrt

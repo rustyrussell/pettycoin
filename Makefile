@@ -9,7 +9,7 @@ PETTY_ADDR_OBJS := petty-addr.o base58.o
 
 BINS := pettycoin-generate mkgenesis pettycoin sizes mkpriv pettycoin-tx pettycoin-query petty-addr
 CCAN_OBJS := ccan-asort.o ccan-breakpoint.o ccan-tal.o ccan-tal-path.o ccan-tal-str.o ccan-take.o ccan-list.o ccan-str.o ccan-opt-helpers.o ccan-opt.o ccan-opt-parse.o ccan-opt-usage.o ccan-read_write_all.o ccan-htable.o ccan-io-io.o ccan-io-poll.o ccan-timer.o ccan-time.o ccan-noerr.o ccan-hash.o ccan-isaac64.o ccan-net.o ccan-err.o ccan-tal-grab_file.o
-CCANDIR=../ccan/
+CCANDIR=ccan/
 VERSION:=$(shell git describe --dirty --always 2>/dev/null || echo Unknown)
 #CFLAGS = -O3 -flto -ggdb -I $(CCANDIR) -Wall -DVERSION=\"$(VERSION)\"
 CFLAGS = -ggdb -I $(CCANDIR) -Wall -Wmissing-prototypes -DVERSION=\"$(VERSION)\"
