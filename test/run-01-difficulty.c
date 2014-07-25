@@ -189,6 +189,7 @@ int main(int argc, char *argv[])
 
 	tal_free(state);
 	BN_CTX_free(c);
+	BN_free(&genesis.total_work);
 
 	return 0;
 }

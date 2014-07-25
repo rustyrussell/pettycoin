@@ -38,6 +38,9 @@ EC_KEY *helper_gateway_key(const tal_t *ctx)
 	if (!d2i_ECPrivateKey(&priv, &p, sizeof(gateway_key)))
 		abort();
 
+	if (!EC_KEY_check_key(priv))
+		abort();
+
 	/* We *always* used compressed form keys. */
 	EC_KEY_set_conv_form(priv, POINT_CONVERSION_COMPRESSED);
 
