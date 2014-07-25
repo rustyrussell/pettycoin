@@ -1,0 +1,52 @@
+#! /bin/sh
+
+set -e
+
+find_command()
+{
+    WHAT=$1
+    shift
+
+    # Return if already set.
+    if [ -n "$(eval echo \$$WHAT)" ]; then
+	eval echo "\$$WHAT"
+	return 0;
+    fi
+    for arg; do
+	if type "$arg" > /dev/null; then
+	    echo "$arg"
+	    return 0
+	fi
+    done
+    echo "Could not find \$WHAT, tried $@" >&2
+    exit 1
+}    
+
+# Set defaults
+for arg; do
+    case "$arg" in
+	CC=*)
+	    CC=$(echo "$arg" | cut -d= -f2-)
+	    ;;
+	CFLAGS=*)
+	    CFLAGS=$(echo "$arg" | cut -d= -f2-)
+	    ;;
+	# See http://www.gnu.org/prep/standards/html_node/Configuration.html
+	*)
+	    echo "configure doesn't support real args yet" >&2
+	    exit 1
+    esac
+done
+
+CC=$(find_command CC gcc cc)
+if [ -z "$CFLAGS" ]; then
+    CFLAGS="-g3 -ggdb -Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition"
+fi
+echo CC is "$CC"
+echo CFLAGS is "$CFLAGS"
+
+echo Building ccan/configurator...
+$CC $CFLAGS -o ccan/tools/configurator/configurator ccan/tools/configurator/configurator.c
+echo Generating config.h...
+ccan/tools/configurator/configurator "$CC" $CFLAGS > ccan/config.h
+echo Configuration complete.
