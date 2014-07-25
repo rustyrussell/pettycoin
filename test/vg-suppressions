@@ -1,8 +1,6 @@
 {
    OpenSSL-leaks-apparently
    Memcheck:Leak
-   match-leak-kinds: reachable
    fun:malloc
    fun:CRYPTO_malloc
-   obj:/lib/x86_64-linux-gnu/libcrypto.so.1.0.0
 }
