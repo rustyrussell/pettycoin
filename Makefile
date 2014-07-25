@@ -62,9 +62,9 @@ pkt_names.c: protocol_net.h Makefile
 	(echo '#include "pkt_names.h"'; echo 'struct pkt_names pkt_names[] = {'; sed -n 's/^\t\(PROTOCOL_PKT_[A-Z_]*\)/\t{ \1, "\1" }/p' < $<; echo ' { 0, NULL } };') > $@
 
 check-include-order:
-	@for f in *.c; do if [ "$$(grep '^#include' < $$f)" != "$$(grep '^#include' < $$f | LANG=C sort)" ]; then echo "$$f:1: includes out of order"; exit 1; fi; done
+	@for f in *.c; do if [ "$$(grep '^#include' < $$f)" != "$$(grep '^#include' < $$f | LC_ALL=C sort)" ]; then echo "$$f:1: includes out of order"; grep '^#include' < $$f; echo VERSUS; grep '^#include' < $$f | LC_ALL=C sort; exit 1; fi; done
 	@for f in $$(grep -l '^#include' *.h); do if [ "$$(grep '^#include' < $$f | head -n1)" != '#include "config.h"' ]; then echo "$$f:1: doesn't include config.h first"; exit 1; fi; done
-	@for f in $$(grep -l '^#include' *.h); do if [ "$$(grep '^#include' < $$f | tail -n +2)" != "$$(grep '^#include' < $$f | tail -n +2 | LANG=C sort)" ]; then echo "$$f:1: includes out of order"; fi; done
+	@for f in $$(grep -l '^#include' *.h); do if [ "$$(grep '^#include' < $$f | tail -n +2)" != "$$(grep '^#include' < $$f | tail -n +2 | LC_ALL=C sort)" ]; then echo "$$f:1: includes out of order"; fi; done
 
 clean:
 	$(RM) $(BINS) *.o
