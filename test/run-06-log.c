@@ -89,6 +89,7 @@ int main(void)
 		err(1, "forking");
 	case 0:
 		close(fds[0]);
+		setenv("TZ", "UTC", 1);
 		log_to_file(fds[1], log);
 		tal_free(ctx);
 		exit(0);
@@ -100,7 +101,7 @@ int main(void)
 	assert(strlen(p) + 1 == tal_count(p));
 
 	assert(tal_strreg(p, p,
-			  "PREFIX ([0-9])* bytes, Sun Nov 10 16:57:35 2013\n"
+			  "PREFIX ([0-9])* bytes, Sun Nov 10 06:27:35 2013\n"
 			  "\\+0\\.000000500 DEBUG: This is a debug message!\n"
 			  "\\+0\\.000000501 INFO: This is an info message!\n"
 			  "\\+0\\.000000502 UNUSUAL: This is an unusual message!\n"
@@ -121,6 +122,7 @@ int main(void)
 		err(1, "forking");
 	case 0:
 		close(fds[0]);
+		setenv("TZ", "UTC", 1);
 		log_to_file(fds[1], log);
 		tal_free(ctx);
 		exit(0);
@@ -133,7 +135,7 @@ int main(void)
 	assert(strlen(p) + 1 == tal_count(p));
 
 	assert(tal_strreg(p, p,
-			  "PREFIX ([0-9]*) bytes, Sun Nov 10 16:57:35 2013\n"
+			  "PREFIX ([0-9]*) bytes, Sun Nov 10 06:27:35 2013\n"
 			  "\\.\\.\\. 4 skipped\\.\\.\\.\n"
 			  "\\+0.000000504 DEBUG: Overflow!\n"
 			  "\\+0.000000504 DEBUG: Log pruned 4 entries \\(mem ([0-9]*) -> ([0-9]*)\\)\n\n", &mem1, &mem2, &mem3));
