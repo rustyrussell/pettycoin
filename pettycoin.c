@@ -22,6 +22,7 @@
 #include <ccan/tal/tal.h>
 #include <errno.h>
 #include <netdb.h>
+#include <signal.h>
 #include <sys/fcntl.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -360,6 +361,9 @@ int main(int argc, char *argv[])
 	fill_peers(state);
 	start_generating(state);
 	setup_jsonrpc(state, rpc_filename);
+
+	/* We handle write errors, don't kill us! */
+	signal(SIGPIPE, SIG_IGN);
 
 	io_loop();
 
