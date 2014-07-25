@@ -15,9 +15,10 @@ VERSION:=$(shell git describe --dirty --always 2>/dev/null || echo Unknown)
 CFLAGS = -ggdb -I $(CCANDIR) -Wall -Wmissing-prototypes -DVERSION=\"$(VERSION)\"
 LDFLAGS = -O3 -flto
 LDLIBS := -lcrypto -lrt
+GENERATE_CFLAGS=-O3
 
-# We set this low for convenient testing.
-TEST_GENESIS_DIFFICULTY=0x1effffff
+# Satoshi used 0x1d00ffff; we make it 60 times easier for testing.
+TEST_GENESIS_DIFFICULTY=0x1d3bffc4
 TEST_GENESIS_TIMESTAMP=1404886369
 TEST_GENESIS_NONCE=MarcusArabellAlex
 
@@ -30,7 +31,7 @@ pettycoin-tx: $(PETTYCOIN_TX_OBJS) $(CCAN_OBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(PETTYCOIN_TX_OBJS) $(CCAN_OBJS) $(LDLIBS)
 
 pettycoin-generate: $(PETTYCOIN_GENERATE_OBJS) $(CCAN_OBJS)
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(PETTYCOIN_GENERATE_OBJS) $(CCAN_OBJS) $(LDLIBS)
+	$(CC) $(CFLAGS) $(GENERATE_CFLAGS) $(LDFLAGS) -o $@ $(PETTYCOIN_GENERATE_OBJS) $(CCAN_OBJS) $(LDLIBS)
 
 mkgenesis: $(MKGENESIS_OBJS) $(CCAN_OBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(MKGENESIS_OBJS) $(CCAN_OBJS) $(LDLIBS)
