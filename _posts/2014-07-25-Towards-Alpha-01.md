@@ -10,7 +10,7 @@ on the TODO list.  This week was more polishing: a
 [code of conduct](http://pettycoin.org/conduct.html), and a
 [mailing list](http://lists.ozlabs.org/listinfo/pettycoin-dev).
 
-Thanks to the suggestion of [Tim Ansell](https://github.com/mithro)
+Thanks to the suggestion of [Tim Ansell](http://blog.mithis.net/)
 pettycoin also has an IRC channel and uses
 [Travis](https://travis-ci.org/rustyrussell/pettycoin) (which I'd
 never heard of before) for CI.
