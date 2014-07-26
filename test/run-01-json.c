@@ -4,12 +4,12 @@
 
 int main(void)
 {
-	jsmntok_t *toks_arr, *toks_obj, *obj_params, *arr_params,
+	jsmntok_t *toks_arr, *toks_obj,
 		*arg1, *arg2, *arg3, *arg4, *arg5;
+	const jsmntok_t *arr_params, *obj_params;
 	void *ctx;
-	char *str;
 	bool valid;
-	const char *cmd_arr, *cmd_obj;
+	char *cmd_arr, *cmd_obj;
 	struct protocol_double_sha sha;
 
 	ctx = tal(NULL, char);
@@ -112,6 +112,25 @@ int main(void)
 	assert(arg4 == toks_obj + 15);
 	assert(arg4->type == JSMN_STRING);	
 	assert(arg5 == NULL);
+
+	/* Test json_delve() */
+	assert(json_delve(cmd_arr, toks_arr, ".method") == toks_arr + 2);
+	assert(json_delve(cmd_arr, toks_arr, ".params[0]") == toks_arr + 5);
+	assert(json_delve(cmd_arr, toks_arr, ".params[1]") == toks_arr + 6);
+	assert(json_delve(cmd_arr, toks_arr, ".params[2]") == toks_arr + 10);
+	assert(json_delve(cmd_arr, toks_arr, ".params[1][2]") == toks_arr + 9);
+	assert(json_delve(cmd_arr, toks_arr, ".params[4]") == NULL);
+	assert(json_delve(cmd_arr, toks_arr, ".params[1][4]") == NULL);
+	assert(json_delve(cmd_arr, toks_arr, ".params[3][4]") == NULL);
+	assert(json_delve(cmd_arr, toks_arr, ".unknown") == NULL);
+	assert(json_delve(cmd_arr, toks_arr, ".unknown[1]") == NULL);
+	assert(json_delve(cmd_arr, toks_arr, ".param") == NULL);
+	assert(json_delve(cmd_arr, toks_arr, ".params\"") == NULL);
+	assert(json_delve(cmd_arr, toks_arr, ".dev-echo") == NULL);
+	assert(json_delve(cmd_arr, toks_arr, ".id[0]") == NULL);
+
+	assert(json_delve(cmd_obj, toks_obj, ".params.arg3.one")
+	       == toks_obj + 13);
 
 	/* More exotic object creation */
 	cmd_arr = tal_arr(ctx, char, 0);

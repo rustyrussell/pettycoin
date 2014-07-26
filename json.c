@@ -30,6 +30,8 @@ bool json_tok_streq(const char *buffer, const jsmntok_t *tok, const char *str)
 {
 	if (tok->type != JSMN_STRING)
 		return false;
+	if (tok->end - tok->start != strlen(str))
+		return false;
 	return strncmp(buffer + tok->start, str, tok->end - tok->start) == 0;
 }
 
@@ -40,13 +42,13 @@ bool json_tok_is_null(const char *buffer, const jsmntok_t *tok)
 	return buffer[tok->start] == 'n';
 }
 
-static const jsmntok_t *skip_elem(const jsmntok_t *tok)
+const jsmntok_t *json_next(const jsmntok_t *tok)
 {
 	const jsmntok_t *t;
 	size_t i;
 
 	for (t = tok + 1, i = 0; i < tok->size; i++)
-		t = skip_elem(t);
+		t = json_next(t);
 
 	return t;
 }
@@ -58,12 +60,67 @@ const jsmntok_t *json_get_member(const char *buffer, const jsmntok_t tok[],
 
 	assert(tok->type == JSMN_OBJECT);
 
-	end = skip_elem(tok);
-	for (t = tok + 1; t < end; t = skip_elem(t+1))
+	end = json_next(tok);
+	for (t = tok + 1; t < end; t = json_next(t+1))
 		if (json_tok_streq(buffer, t, label))
 			return t + 1;
 		
 	return NULL;
+}
+
+const jsmntok_t *json_get_arr(const char *buffer, const jsmntok_t tok[],
+			      size_t index)
+{
+	const jsmntok_t *t, *end;
+
+	assert(tok->type == JSMN_ARRAY);
+
+	end = json_next(tok);
+	for (t = tok + 1; t < end; t = json_next(t)) {
+		if (index == 0)
+			return t;
+		index--;
+	}
+
+	return NULL;
+}
+
+/* Guide is a string with . for members, [] around indexes. */
+const jsmntok_t *json_delve(const char *buffer,
+			    const jsmntok_t *tok,
+			    const char *guide)
+{
+	while (*guide) {
+		const char *key;
+		size_t len = strcspn(guide+1, ".[]");
+
+		key = tal_strndup(NULL, guide+1, len);
+		switch (guide[0]) {
+		case '.':
+			if (tok->type != JSMN_OBJECT)
+				return tal_free(key);
+			tok = json_get_member(buffer, tok, key);
+			if (!tok)
+				return tal_free(key);
+			break;
+		case '[':
+			if (tok->type != JSMN_ARRAY)
+				return tal_free(key);
+			tok = json_get_arr(buffer, tok, atol(key));
+			if (!tok)
+				return tal_free(key);
+			/* Must be terminated */
+			assert(guide[1+strlen(key)] == ']');
+			len++;
+			break;
+		default:
+			abort();
+		}
+		tal_free(key);
+		guide += len + 1;
+	}
+
+	return tok;
 }
 
 void json_get_params(const char *buffer, const jsmntok_t param[], ...)
@@ -77,7 +134,7 @@ void json_get_params(const char *buffer, const jsmntok_t param[], ...)
 			p = NULL;
 		else
 			p = param + 1;
-		end = skip_elem(param);
+		end = json_next(param);
 	} else
 		assert(param->type == JSMN_OBJECT);
 
@@ -87,7 +144,7 @@ void json_get_params(const char *buffer, const jsmntok_t param[], ...)
 		if (param->type == JSMN_ARRAY) {
 			*tokptr = p;
 			if (p) {
-				p = skip_elem(p);
+				p = json_next(p);
 				if (p == end)
 					p = NULL;
 			}
