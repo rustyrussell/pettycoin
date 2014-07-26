@@ -9,7 +9,7 @@ img.logo {
 }
 
 div.boxed, div.boxthird {
-    padding: 5px 10px; 
+    padding: 0.25% 0.5%; 
     border-radius: 1em 1em;
     background: #F8F0E7;
     border: thin solid #e0e0e0;
@@ -18,7 +18,8 @@ div.boxed, div.boxthird {
 
 div.boxthird {
     float: left;
-    width: 29%;
+    width: 31%;
+    margin: 0.5%;
 }
 
 .rawtext {
