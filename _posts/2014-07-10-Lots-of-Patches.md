@@ -102,13 +102,13 @@ These are required to have a pettycoin network:
 
 * Write gateway bot.
     * Deploy gateway bot.
-* Peer location bootstrap server.
+* <del>Peer location bootstrap server</del>.
 * Permanent nodes
 
 And these are nice to have:
 
-* Website
-* Mailing list
+* [<del>Website</del>](http://pettycoin.org)
+* [<del>Mailing list</del>](http://lists.ozlabs.org/listinfo/pettycoin-dev)
 * White paper
 
 I am crossing these off as I complete them...
