@@ -25,6 +25,11 @@ TEST_GENESIS_NONCE=MarcusArabellAlex
 
 all: $(BINS)
 
+$(PETTYCOIN_OBJS) $(PETTYCOIN_GENERATE_OBJS) $(MKGENESIS_OBJS) $(SIZES_OBJS) $(MKPRIV_OBJS) $(PETTYCOIN_TX_OBJS) $(PETTYCOIN_QUERY_OBJS) $(PETTY_ADDR_OBJS) $(PETTYCOIN_GATEWAY_OBJS) $(CCAN_OBJS): ccan/config.h
+
+ccan/config.h: configure
+	./configure
+
 mkpriv: $(MKPRIV_OBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(MKPRIV_OBJS) $(LDLIBS)
 
@@ -77,7 +82,7 @@ TAGS:
 	etags *.[ch]
 
 distclean: clean
-	$(RM) genesis.c ecode_names.c
+	$(RM) genesis.c ecode_names.c ccan/config.h
 
 ccan-asort.o: $(CCANDIR)/ccan/asort/asort.c
 	$(CC) $(CFLAGS) -c -o $@ $<
