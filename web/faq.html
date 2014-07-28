@@ -8,14 +8,17 @@
 
     <script src="js/jquery-1.11.0.min.js"></script>
     <script>
-      function more(a) {
-      if ($(a).next('[class=details]').css('display') != 'none') {
-      $(a).nextAll('[class=details]').css('display', 'none');
-      } else {
-      $(a).nextAll('[class=details]').css('display', 'block');
+      function more(event) {
+           var elem = $(event.target).parents("div").find("p.details");
+           var display = elem.css("display");
+           display = display == "none" ? "block" : "none";
+           elem.css("display", display);
+           return false;
       }
-      return false;
-      }
+
+      $(document).ready(function() {
+           $("div.boxed h4 a").click(more);
+      });
     </script>
   </head>
 
@@ -32,7 +35,7 @@
       <h2>Pettycoin vs Bitcoin</h2>
 
       <div class="boxed">
-	<h4 id="altcoin"><a href="#altcoin" onclick="return more('#altcoin');">
+	<h4 id="altcoin"><a href="#altcoin">
 	    Is pettycoin an altcoin?
 	</a></h4>
 	<p class="details">
@@ -47,7 +50,7 @@
       </div>
 
       <div class="boxed">
-	<h4 id="compete"><a href="#compete" onclick="return more('#compete');">
+	<h4 id="compete"><a href="#compete">
 	    Does pettycoin compete with bitcoin?
 	</a></h4>
 	<p class="details">
@@ -60,7 +63,7 @@
       </div>
 
       <div class="boxed">
-	<h4 id="mergemine"><a href="#mergemine" onclick="return more('#mergemine');">
+	<h4 id="mergemine"><a href="#mergemine">
 	    Can bitcoin miners mergemine pettycoin?
 	</a></h4>
 	<p class="details">
@@ -69,7 +72,7 @@
       </div>
 
       <div class="boxed">
-	<h4 id="sidechain"><a href="#sidechain" onclick="return more('#sidechain');">
+	<h4 id="sidechain"><a href="#sidechain">
 	    Is pettycoin a sidechain?
 	</a></h4>
 	<p class="details">
@@ -82,7 +85,7 @@
       </div>
 
       <div class="boxed">
-	<h4 id="fees"><a href="#fees" onclick="return more('#fees');">
+	<h4 id="fees"><a href="#fees">
 	    What fees does a pettycoin transaction have?
 	</a></h4>
 	<p class="details">
@@ -95,7 +98,7 @@
       </div>
 
       <div class="boxed">
-	<h4 id="miner-paid"><a href="#miner-paid" onclick="return more('#miner-paid');">
+	<h4 id="miner-paid"><a href="#miner-paid">
 	    How do pettycoin miners get paid?
 	</a></h4>
 	<p class="details">
@@ -114,7 +117,7 @@
       <h2> Getting Bitcoins Into and Out of Pettycoin </h2>
 
       <div class="boxed">
-	<h4 id="into-pettycoin"><a href="#into-pettycoin" onclick="return more('#into-pettycoin');">
+	<h4 id="into-pettycoin"><a href="#into-pettycoin">
 	    How do I get bitcoin into the pettycoin network?
 	</a></h4>
 	<p class="details">
@@ -126,7 +129,7 @@
       </div>
 
       <div class="boxed">
-	<h4 id="out-of-pettycoin"><a href="#out-of-pettycoin" onclick="return more('#out-of-pettycoin');">
+	<h4 id="out-of-pettycoin"><a href="#out-of-pettycoin">
 	    How do I get bitcoin off the pettycoin network?
 	</a></h4>
 	<p class="details">
@@ -143,7 +146,7 @@
       </div>
 
       <div class="boxed">
-	<h4 id="forgotten-coins"><a href="#forgotten-coins" onclick="return more('#forgotten-coins');">
+	<h4 id="forgotten-coins"><a href="#forgotten-coins">
 	    What happens if I forget my pettycoins?
 	</a></h4>
 	<p class="details">
@@ -154,7 +157,7 @@
       </div>
 
       <div class="boxed">
-	<h4 id="to-bitcoin-user"><a href="#to-bitcoin-user" onclick="return more('#to-bitcoin-user');">
+	<h4 id="to-bitcoin-user"><a href="#to-bitcoin-user">
 	    Can I send bitcoins to a bitcoin user via the pettycoin network?
 	</a></h4>
 	<p class="details">
@@ -178,7 +181,7 @@
       </div>
 	
 	<div class="boxed">
-	  <h4 id="privacy"><a href="#privacy" onclick="return more('#privacy');">
+	  <h4 id="privacy"><a href="#privacy">
 	      Horrible privacy properties.
 	  </a></h4>
 	  <p class="details">
@@ -200,7 +203,7 @@
 	</div>
 
 	<div class="boxed">
-	  <h4 id="gateway-trust"><a href="#gateway-trust" onclick="return more('#gateway-trust');">
+	  <h4 id="gateway-trust"><a href="#gateway-trust">
 	      Trusting the gateways.
 	  </a></h4>
 	  <p class="details">
@@ -218,7 +221,7 @@
 	</div>
 
 	<div class="boxed">
-	  <h4 id="no-gui"><a href="#no-gui" onclick="return more('#no-gui');">
+	  <h4 id="no-gui"><a href="#no-gui">
 	      No GUI.
 	  </a></h4>
 	  <p class="details">
@@ -228,7 +231,7 @@
 	</div>
 
 	<div class="boxed">
-	  <h4 id="web-sucks"><a href="#web-sucks" onclick="return more('#web-sucks');">
+	  <h4 id="web-sucks"><a href="#web-sucks">
 	      Terrible logo and web pages.
 	  </a></h4>
 	  <p class="details">
@@ -240,21 +243,21 @@
 	</div>
 
 	<div class="boxed">
-	  <h4 id="author-sucks"><a href="#author-sucks" onclick="return more('#author-sucks');">
+	  <h4 id="author-sucks"><a href="#author-sucks">
 	      The main author is annoying.
 	  </a></h4>
 	  <p class="details">
 	    I mean, he lives in a half-hour timezone.  Who does that?  WHO???
 	  </p>
 	  <p class="details">
-	    But his wife is hot!
+	    But his wife is awesome!  (And thanks for proofreading!)
 	  </p>
 	</div>
 
       <h2> The Protocol Details </h2>
 
       <div class="boxed">
-	<h4 id="address"><a href="#address" onclick="return more('#address');">
+	<h4 id="address"><a href="#address">
 	    What does an address look like?
 	</a></h4>
 	<p class="details">
@@ -271,7 +274,7 @@
       </div>
 
       <div class="boxed">
-	<h4 id="transaction"><a href="#transaction" onclick="return more('#transaction');">
+	<h4 id="transaction"><a href="#transaction">
 	    What does a transaction look like?
 	</a></h4>
 
@@ -323,7 +326,7 @@ struct protocol_input {
       </div>
 
       <div class="boxed">
-	<h4 id="shard"><a href="#shard" onclick="return more('#shard');">
+	<h4 id="shard"><a href="#shard">
 	    What does a shard look like?
 	</a></h4>
 	<p class="details">
@@ -340,7 +343,7 @@ struct protocol_input {
       </div>
 
       <div class="boxed">
-	<h4 id="block"><a href="#block" onclick="return more('#block');">
+	<h4 id="block"><a href="#block">
 	    What does a block look like?
 	</a></h4>
 	<p class="details">
@@ -370,7 +373,7 @@ struct protocol_input_ref {
       </div>
 
       <div class="boxed">
-	<h4 id="miners"><a href="#miners" onclick="return more('#miners');">
+	<h4 id="miners"><a href="#miners">
 	    Why do miners need to know the whole network?
 	</a></h4>
 
@@ -395,7 +398,7 @@ struct protocol_input_ref {
       </div>
 
       <div class="boxed">
-	<h4 id="horizon"><a href="#horizon" onclick="return more('#horizon');">
+	<h4 id="horizon"><a href="#horizon">
 	    What happens to old blocks?
 	</a></h4>
 	<p class="details">
@@ -412,7 +415,7 @@ struct protocol_input_ref {
       </div>
 
       <div class="boxed">
-	<h4 id="miner-claims"><a href="#miner-claims" onclick="return more('#miner-claims');">
+	<h4 id="miner-claims"><a href="#miner-claims">
 	    How do miners claim their reward?
 	</a></h4>
 	<p class="details">
@@ -429,7 +432,7 @@ struct protocol_input_ref {
       </div>
 
       <div class="boxed">
-	<h4 id="complaints"><a href="#complaints" onclick="return more('#complaints');">
+	<h4 id="complaints"><a href="#complaints">
 	    How do nodes indicate they've found a problem?
 	</a></h4>
 	<p class="details">
@@ -488,7 +491,7 @@ struct protocol_input_ref {
       <h2> Status, And Unimplemented Stuff </h2>
 
       <div class="boxed">
-	<h4 id="status"><a href="#status" onclick="return more('#status');">
+	<h4 id="status"><a href="#status">
 	    What is the current status?
 	</a></h4>
 	<p class="details">
@@ -512,7 +515,7 @@ struct protocol_input_ref {
       </div>
 
       <div class="boxed">
-	<h4 id="todo-protocol"><a href="#todo-protocol" onclick="return more('#todo-protocol');">
+	<h4 id="todo-protocol"><a href="#todo-protocol">
 	    What features are unimplemented in the protocol?
 	</a></h4>
 	<p class="details">
@@ -539,7 +542,7 @@ struct protocol_input_ref {
       </div>
 
       <div class="boxed">
-	<h4 id="todo-client"><a href="#todo-client" onclick="return more('#todo-client');">
+	<h4 id="todo-client"><a href="#todo-client">
 	    What features are unimplemented in the client?
 	</a></h4>
 	<p class="details">
@@ -562,7 +565,7 @@ struct protocol_input_ref {
       </div>
 
       <div class="boxed">
-	<h4 id="todo-tools"><a href="#todo-tools" onclick="return more('#todo-tools');">
+	<h4 id="todo-tools"><a href="#todo-tools">
 	    What tools need to be written?
 	</a></h4>
 	<ul class="details">
@@ -576,7 +579,7 @@ struct protocol_input_ref {
       <h2> About The Developers </h2>
 
       <div class="boxed">
-	<h4 id="whoami"><a href="#whoami" onclick="return more('#whoami');">
+	<h4 id="whoami"><a href="#whoami">
 	    Who are you?
 	</a></h4>
 
