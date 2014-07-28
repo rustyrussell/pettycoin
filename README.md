@@ -28,7 +28,9 @@ Things you can do:
 
 * Create a transaction with `./pettycoin-tx`.
 
-* **COMING SOON** Run a gateway.
+* Send test coins from the bitcoin network to the prototype gateway at `muQY1RFhzu2exJj4wihqfotzDDztS1ieZv` (only if you control the sending address!)
+
+* Run your own gateway (see [docs/RUNNING-A-GATEWAY.md](https://github.com/rustyrussell/pettycoin/blob/master/docs/RUNNING-A-GATEWAY.md).
 
 * **COMING SOON** Create and monitor a simple test wallet.
 
