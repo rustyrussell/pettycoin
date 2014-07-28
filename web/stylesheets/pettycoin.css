@@ -22,6 +22,10 @@ div.boxthird {
     margin: 0.5%;
 }
 
+div {
+    margin: 10px;
+}
+
 .rawtext {
     padding: 5px 10px; 
     clear: both;
