@@ -1,5 +1,6 @@
 #include "../json.c"
 #include "../base58.c"
+#include "../hex.c"
 #include "helper_key.h"
 
 int main(void)

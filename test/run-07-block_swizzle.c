@@ -129,6 +129,9 @@ void complain_doublespend(struct state *state,
 			  const union protocol_tx *tx2,
 			  const struct protocol_input_ref *refs2)
 { fprintf(stderr, "complain_doublespend called!\n"); abort(); }
+/* Generated stub for from_hex */
+bool from_hex(const char *str, size_t slen, void *buf, size_t bufsize)
+{ fprintf(stderr, "from_hex called!\n"); abort(); }
 /* Generated stub for reward_amount */
 u32 reward_amount(const struct block *reward_block,
 		  const union protocol_tx *tx)

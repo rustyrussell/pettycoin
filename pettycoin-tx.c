@@ -18,7 +18,7 @@
 #include "base58.h"
 #include "create_tx.h"
 #include "hash_tx.h"
-#include "json.h"
+#include "hex.h"
 #include "log.h"
 #include "marshal.h"
 #include <assert.h>
@@ -117,32 +117,19 @@ static void usage(void)
 );
 }
 
-static bool from_hex(const char *hexstr, u8 *dest)
-{
-	unsigned int i;
-
-	for (i = 0; i < strlen(hexstr) / 2; i++) {
-		unsigned int v;
-
-		if (sscanf(hexstr + i*2, "%02x", &v) != 1)
-			return false;
-		dest[i] = v;
-	}
-	return true;
-}
-
 static struct protocol_double_sha parse_txhash(const char *txraw)
 {
-	union protocol_tx *tx = malloc(strlen(txraw) / 2);
+	size_t len = strlen(txraw) / 2;
+	union protocol_tx *tx = malloc(len);
 	struct protocol_double_sha sha;
 
-	if (strlen(txraw) / 2 < sizeof(struct protocol_tx_hdr))
+	if (len < sizeof(struct protocol_tx_hdr))
 		errx(1, "Short raw tx '%s'", txraw);
 
-	if (strlen(txraw) % 2 || !from_hex(txraw, (u8 *)tx))	
+	if (!from_hex(txraw, strlen(txraw), (u8 *)tx, len))
 		errx(1, "Bad raw tx '%s'", txraw);
 
-	if (marshal_tx_len(tx) != strlen(txraw) / 2)
+	if (marshal_tx_len(tx) != len)
 		errx(1, "Bad length raw tx '%s'", txraw);
 
 	/* You can make this crash, of course */
@@ -157,7 +144,7 @@ static struct protocol_double_sha parse_tx(const char *txstr)
 	if (strstarts(txstr, "raw:"))
 		return parse_txhash(txstr + 4);
 
-	if (strlen(txstr) != 32 * 2 || !from_hex(txstr, sha.sha))
+	if (!from_hex(txstr, strlen(txstr), &sha.sha, sizeof(sha.sha)))
 		errx(1, "Bad sha '%s'", txstr);
 
 	return sha;
@@ -173,7 +160,7 @@ int main(int argc, char *argv[])
 	bool normal = false;
 	bool to_gateway = false;
 	bool pay_fee = true;
-	char *request;
+	char *txhash;
 
 	if (argc < 3)
 		usage();
@@ -245,12 +232,8 @@ int main(int argc, char *argv[])
 						  pay_fee, input, key);
 	}
 
-	request = tal_arr(NULL, char, 0);
-	/* Reuse this as an easy hexstring maker */
-	json_add_hex(&request, NULL, tx, marshal_tx_len(tx));
-	/* Strip "" */
-	request[strlen(request) - 1] = '\0';
-	printf("%s", request + 1);
-	tal_free(request);
+	txhash = to_hex(NULL, tx, marshal_tx_len(tx));
+	printf("%s", txhash);
+	tal_free(txhash);
 	return 0;
 }

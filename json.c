@@ -1,5 +1,6 @@
 /* JSON core and helpers */
 #include "base58.h"
+#include "hex.h"
 #include "json.h"
 #include "protocol.h"
 #include <assert.h>
@@ -276,12 +277,7 @@ void json_add_null(char **result, const char *fieldname)
 void json_add_hex(char **result, const char *fieldname, const void *data,
 		  size_t len)
 {
-	char *hex = tal_arr(*result, char, len * 2 + 1);
-	const u8 *p = data;
-	size_t i;
-
-	for (i = 0; i < len; i++)
-		sprintf(hex + i*2, "%02x", p[i]);
+	char *hex = to_hex(*result, data, len);
 
 	json_add_string(result, fieldname, hex);
 	tal_free(hex);

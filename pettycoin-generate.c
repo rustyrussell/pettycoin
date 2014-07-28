@@ -7,6 +7,7 @@
 #include "difficulty.h"
 #include "features.h"
 #include "generate.h"
+#include "hex.h"
 #include "marshal.h"
 #include "merkle_hashes.h"
 #include "protocol.h"
@@ -294,39 +295,6 @@ static void read_txs(struct working_block *w)
 	tal_free(update);
 }
 
-static bool char_to_hex(u8 *val, char c)
-{
-	if (c >= '0' && c <= '9') {
-		*val = c - '0';
-		return true;
-	}
- 	if (c >= 'a' && c <= 'f') {
-		*val = c - 'a' + 10;
-		return true;
-	}
- 	if (c >= 'A' && c <= 'F') {
-		*val = c - 'A' + 10;
-		return true;
-	}
-	return false;
-}
-
-static bool from_hex(const char *str, u8 *buf, size_t bufsize)
-{
-	u8 v1, v2;
-
-	while (*str) {
-		if (!char_to_hex(&v1, str[0]) || !char_to_hex(&v2, str[1]))
-			return false;
-		if (!bufsize)
-			return false;
-		*(buf++) = (v1 << 4) | v2;
-		str += 2;
-		bufsize--;
-	}
-	return bufsize == 0;
-}
-
 /* ''Talkin' 'bout my generation...''  */
 static void write_block(int fd, const struct working_block *w)
 {
@@ -373,14 +341,16 @@ int main(int argc, char *argv[])
 		     " <num-prev-txhashes> <depth> <shardorder> [<nonce>]",
 			argv[0]);
 
-	if (!from_hex(argv[1], reward_address.addr, sizeof(reward_address)))
+	if (!from_hex(argv[1], strlen(argv[1]),
+		      reward_address.addr, sizeof(reward_address)))
 		errx(1, "Invalid reward address");
 
 	difficulty = strtoul(argv[2], NULL, 0);
 	if (!valid_difficulty(difficulty))
 		errx(1, "Invalid difficulty");
 
-	if (!from_hex(argv[3], prev_hash.sha, sizeof(prev_hash)))
+	if (!from_hex(argv[3], strlen(argv[3]),
+		      prev_hash.sha, sizeof(prev_hash)))
 		errx(1, "Invalid previous hash");
 
 	depth = strtoul(argv[5], NULL, 0);
