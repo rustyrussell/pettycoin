@@ -4,6 +4,7 @@
 #include "protocol.h"
 #include <ccan/tal/tal.h>
 #include <openssl/bn.h>
+#include <openssl/ec.h>
 #include <openssl/ripemd.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -14,6 +15,10 @@
  * plus 1 terminator.
  */
 #define BASE58_ADDR_MAX_LEN 36
+
+/* For encoding private keys, it's 302 bits.
+ * 58^51 < 2^302, but 58^52 > 2^302.  So 52 digits, plus one terminator. */
+#define BASE58_KEY_MAX_LEN 53
 
 #define PETTY_PREFIX		 56
 #define PETTY_PREFIX_TESTNET	 120
@@ -31,6 +36,11 @@ bool ripemd_from_base58(u8 *version, u8 ripemd160[RIPEMD160_DIGEST_LENGTH],
 
 char *base58_with_check(char dest[BASE58_ADDR_MAX_LEN],
 			u8 buf[1 + RIPEMD160_DIGEST_LENGTH + 4]);
+
+char *key_to_base58(const tal_t *ctx, bool test_net, EC_KEY *key,
+		    bool bitcoin_style);
+EC_KEY *key_from_base58(const char *base58, size_t base58_len,
+			bool *test_net, struct protocol_pubkey *key);
 
 bool raw_decode_base58(BIGNUM *bn, const char *src, size_t len);
 void base58_get_checksum(u8 csum[4], const u8 buf[], size_t buflen);

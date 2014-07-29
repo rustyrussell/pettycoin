@@ -8,15 +8,9 @@
 #include <assert.h>
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/tal/str/str.h>
+#include <openssl/obj_mac.h>
 #include <openssl/sha.h>
 #include <string.h>
-
-/* Encoding is version byte + ripemd160 + 4-byte checksum == 200 bits => 2^200.
- *
- * Now, 58^34 < 2^200, but 58^35 > 2^200.  So 35 digits is sufficient,
- * plus 1 terminator.
- */
-#define BASE58_ADDR_MAX_LEN 36
 
 static const char enc[] =
 	"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
@@ -254,4 +248,144 @@ bool ripemd_from_base58(u8 *version, u8 ripemd160[RIPEMD160_DIGEST_LENGTH],
 	*version = buf[0];
 	memcpy(ripemd160, buf + 1, RIPEMD160_DIGEST_LENGTH);
 	return true;
+}
+
+char *key_to_base58(const tal_t *ctx, bool test_net, EC_KEY *key,
+		    bool bitcoin_style)
+{
+	u8 buf[1 + 32 + 1 + 4];
+	char out[BASE58_KEY_MAX_LEN + 2], *p;
+        const BIGNUM *bn = EC_KEY_get0_private_key(key);
+	int len;
+
+	buf[0] = test_net ? 239 : 128;
+	/* This is the difference between bitcoin and pettycoin! */
+	if (!bitcoin_style)
+		buf[0] += 'P' - 'B';
+
+	/* Make sure any zeroes are at the front of number (MSB) */
+	len = BN_num_bytes(bn);
+	assert(len <= 32);
+	memset(buf + 1, 0, 32 - len);
+	BN_bn2bin(bn, buf + 1 + 32 - len);
+
+	/* Mark this as a compressed key. */
+	buf[1 + 32] = 1;
+
+	/* Append checksum */
+	base58_get_checksum(buf + 1 + 32 + 1, buf, 1 + 32 + 1);
+
+	p = encode_base58(out, BASE58_KEY_MAX_LEN, buf, sizeof(buf));
+
+	if (bitcoin_style)
+		return tal_fmt(ctx, "P-%s", p);
+	else
+		return tal_strdup(ctx, p);
+}
+
+// Thus function based on bitcoin's key.cpp:
+// Copyright (c) 2009-2012 The Bitcoin developers
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+static bool EC_KEY_regenerate_key(EC_KEY *eckey, BIGNUM *priv_key)
+{
+	BN_CTX *ctx = NULL;
+	EC_POINT *pub_key = NULL;
+	const EC_GROUP *group = EC_KEY_get0_group(eckey);
+
+	if ((ctx = BN_CTX_new()) == NULL)
+		return false;
+
+	pub_key = EC_POINT_new(group);
+	if (pub_key == NULL)
+		return false;
+
+	if (!EC_POINT_mul(group, pub_key, priv_key, NULL, NULL, ctx))
+		return false;
+
+	EC_KEY_set_private_key(eckey, priv_key);
+	EC_KEY_set_public_key(eckey, pub_key);
+
+	BN_CTX_free(ctx);
+	EC_POINT_free(pub_key);
+	return true;
+}
+
+EC_KEY *key_from_base58(const char *base58, size_t base58_len,
+			bool *test_net, struct protocol_pubkey *key)
+{
+	size_t keylen;
+	u8 keybuf[1 + 32 + 1 + 4], *pubkey;
+	u8 csum[4];
+	EC_KEY *priv;
+	BIGNUM bn;
+	bool is_bitcoin;
+
+	if (base58_len > 2 && strstarts(base58, "P-")) {
+		/* pettycoin-ized bitcoin address. */
+		is_bitcoin = true;
+		base58 += 2;
+		base58_len -= 2;
+	} else
+		is_bitcoin = false;
+
+	if (!raw_decode_base58(&bn, base58, base58_len))
+		return NULL;
+
+	keylen = BN_num_bytes(&bn);
+	/* Pettycoin always uses compressed keys. */
+	if (keylen == 1 + 32 + 4)
+		goto fail_free_bn;
+	if (keylen != 1 + 32 + 1 + 4)
+		goto fail_free_bn;
+	BN_bn2bin(&bn, keybuf);
+
+	base58_get_checksum(csum, keybuf, keylen - sizeof(csum));
+	if (memcmp(csum, keybuf + keylen - sizeof(csum), sizeof(csum)) != 0)
+		goto fail_free_bn;
+
+	/* Byte after key should be 1 to represent a compressed key. */
+	if (keybuf[1 + 32] != 1)
+		goto fail_free_bn;
+
+	if (is_bitcoin) {
+		if (keybuf[0] == 128)
+			*test_net = false;
+		else if (keybuf[0] == 239)
+			*test_net = true;
+		else
+			goto fail_free_bn;
+	} else {
+		if (keybuf[0] == 128 + 'P' - 'B')
+			*test_net = false;
+		else if (keybuf[0] == 239 + 'P' - 'B')
+			*test_net = true;
+		else
+			goto fail_free_bn;
+	}
+
+	priv = EC_KEY_new_by_curve_name(NID_secp256k1);
+	/* We *always* used compressed form keys. */
+	EC_KEY_set_conv_form(priv, POINT_CONVERSION_COMPRESSED);
+
+	BN_free(&bn);
+        BN_init(&bn);
+        if (!BN_bin2bn(keybuf + 1, 32, &bn))
+		goto fail_free_priv;
+        if (!EC_KEY_regenerate_key(priv, &bn))
+		goto fail_free_priv;
+
+	/* Save public key */ 
+	pubkey = key->key;
+	keylen = i2o_ECPublicKey(priv, &pubkey);
+	assert(keylen == sizeof(key->key));
+
+	BN_free(&bn);
+	return priv;
+
+fail_free_priv:
+	EC_KEY_free(priv);
+fail_free_bn:
+	BN_free(&bn);
+	return NULL;
 }
