@@ -37,16 +37,16 @@ static void usage(void)
 );
 }
 
-static struct protocol_double_sha parse_txhash(const char *txraw)
+static struct protocol_double_sha parse_txhash(const char *txraw, size_t slen)
 {
-	size_t len = strlen(txraw) / 2;
+	size_t len = slen / 2;
 	union protocol_tx *tx = malloc(len);
 	struct protocol_double_sha sha;
 
 	if (len < sizeof(struct protocol_tx_hdr))
 		errx(1, "Short raw tx '%s'", txraw);
 
-	if (!from_hex(txraw, strlen(txraw), (u8 *)tx, len))
+	if (!from_hex(txraw, slen, (u8 *)tx, len))
 		errx(1, "Bad raw tx '%s'", txraw);
 
 	if (marshal_tx_len(tx) != len)
@@ -57,14 +57,25 @@ static struct protocol_double_sha parse_txhash(const char *txraw)
 	return sha;
 }
 
-static struct protocol_double_sha parse_tx(const char *txstr)
+static struct protocol_double_sha parse_tx(const char *txstr, le16 *outnum)
 {
 	struct protocol_double_sha sha;
+	const char *slash;
+	size_t slen;
+
+	slash = strchr(txstr, '/');
+	if (slash) {
+		slen = slash - txstr;
+		*outnum = cpu_to_le16(atoi(slash + 1));
+	} else {
+		slen = strlen(txstr);
+		*outnum = cpu_to_le16(0);
+	}
 
 	if (strstarts(txstr, "raw:"))
-		return parse_txhash(txstr + 4);
+		return parse_txhash(txstr + 4, slen - 4);
 
-	if (!from_hex(txstr, strlen(txstr), &sha.sha, sizeof(sha.sha)))
+	if (!from_hex(txstr, slen, &sha.sha, sizeof(sha.sha)))
 		errx(1, "Bad sha '%s'", txstr);
 
 	return sha;
@@ -144,11 +155,7 @@ int main(int argc, char *argv[])
 			errx(1, "Key is not for test net");
 
 		for (i = 0; i < argc - 6; i++) {
-			input[i].input = parse_tx(argv[6+i]);
-			if (argv[6+i][64] == '/')
-				input[i].output = cpu_to_le16(atoi(argv[6+i] + 65));
-			else
-				input[i].output = cpu_to_le16(0);
+			input[i].input = parse_tx(argv[6+i], &input[i].output);
 			input[i].unused = cpu_to_le16(0);
 		}
 		if (normal)
