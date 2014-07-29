@@ -201,6 +201,7 @@ again:
 	switch (ret) {
 	case JSMN_ERROR_INVAL:
 		*valid = false;
+		return tal_free(toks);
 	case JSMN_ERROR_PART:
 		*valid = true;
 		return tal_free(toks);
