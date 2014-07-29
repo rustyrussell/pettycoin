@@ -408,7 +408,7 @@ struct protocol_input_ref {
 	  blocks in the history.
 	</p>
 	<p class="details">
-	  Thus you can't spend old transactions.  The current gateway
+	  Thus you can't spend old transactions.  The gateway eventually
 	  will send them back to the same address(es) on the bitcoin
 	  network.
 	</p>
@@ -502,7 +502,13 @@ struct protocol_input_ref {
 	<p class="details">
 	  <strong> The network:</strong> There is are several servers
 	  which should be running, and the client will seed their
-	  addresses from "peers.pettycoin.org" port 9000.
+	  addresses from "peers.pettycoin.org" port 9000.  There is a
+	  gateway running at address
+	  mnwYn3mP11dWvJUbyraBqYBkx8TgWSLgVn on the bitcoin test
+	  network; it should inject bitcoins onto the pettycoin
+	  network at the same address they were sent from
+	  (technically, the source address of the first input).  It does
+	  not yet return bitcoins to the bitcoin network.
 	</p>
 	<p class="details">
 	  <strong> The tools:</strong> There is a commandline client

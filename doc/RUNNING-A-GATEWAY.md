@@ -5,6 +5,10 @@ On the test network, anyone can run a pettycoin gateway.  It listens
 to the bitcoin (test) network for network sends, and injects funds
 into the pettycoin network.
 
+There is currently one running at address
+mnwYn3mP11dWvJUbyraBqYBkx8TgWSLgVn on the bitcoin test network, if you
+don't want to run your own.
+
 **It does not yet return funds to the bitcoin network!**
 
 Daemons You Need To Be Running
