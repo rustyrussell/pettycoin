@@ -16,6 +16,10 @@ int json_tok_len(const jsmntok_t *t);
 /* Is this a string equal to str? */
 bool json_tok_streq(const char *buffer, const jsmntok_t *tok, const char *str);
 
+/* Extract number from this (may be a string, or a number literal) */
+bool json_tok_number(const char *buffer, const jsmntok_t *tok,
+		     unsigned int *num);
+
 /* Is this the null primitive? */
 bool json_tok_is_null(const char *buffer, const jsmntok_t *tok);
 
@@ -58,6 +62,7 @@ void json_object_end(char **ptr);
 struct protocol_address;
 struct protocol_pubkey;
 struct protocol_double_sha;
+struct protocol_signature;
 
 /* '"fieldname" : "value"' or '"value"' if fieldname is NULL*/
 void json_add_string(char **result, const char *fieldname, const char *value);
@@ -77,12 +82,15 @@ void json_add_hex(char **result, const char *fieldname, const void *data,
 /* '"fieldname" : "BASE58..."' or 'BASE58...' if fieldname is NULL */
 void json_add_address(char **result, const char *fieldname, bool test_net,
 		      const struct protocol_address *addr);
-/* '"fieldname" : "pubkey-hex..."' or 'pubkey-kex...' if fieldname is NULL*/
+/* '"fieldname" : "pubkey-hex..."' or 'pubkey-hex...' if fieldname is NULL*/
 void json_add_pubkey(char **result, const char *fieldname,
 		     const struct protocol_pubkey *pubkey);
-/* '"fieldname" : "sha-hex..."' or 'sha-kex...' if fieldname is NULL */
+/* '"fieldname" : "sha-hex..."' or 'sha-hex...' if fieldname is NULL */
 void json_add_double_sha(char **result, const char *fieldname,
 			 const struct protocol_double_sha *sha);
+/* '"fieldname" : "sig-hex..."' or 'sig-hex...' if fieldname is NULL */
+void json_add_signature(char **result, const char *fieldname,
+			 const struct protocol_signature *sig);
 
 void json_add_object(char **result, ...);
 

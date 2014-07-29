@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
+#include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -35,6 +36,28 @@ bool json_tok_streq(const char *buffer, const jsmntok_t *tok, const char *str)
 		return false;
 	return strncmp(buffer + tok->start, str, tok->end - tok->start) == 0;
 }
+
+bool json_tok_number(const char *buffer, const jsmntok_t *tok,
+		     unsigned int *num)
+{
+	char *end;
+	unsigned long l;
+
+	l = strtoul(buffer + tok->start, &end, 0);
+	if (end != buffer + tok->end)
+		return false;
+
+	*num = l;
+
+	/* Check for overflow */
+	if (l == ULONG_MAX && errno == ERANGE)
+		return false;
+
+	if (*num != l)
+		return false;
+
+	return true;
+}	
 
 bool json_tok_is_null(const char *buffer, const jsmntok_t *tok)
 {
@@ -302,6 +325,12 @@ void json_add_address(char **result, const char *fieldname, bool test_net,
 
 	json_add_string(result, fieldname, str);
 	tal_free(str);
+}
+
+void json_add_signature(char **result, const char *fieldname,
+			 const struct protocol_signature *sig)
+{
+	json_add_hex(result, fieldname, sig, sizeof(sig));
 }
 
 void json_add_object(char **result, ...)

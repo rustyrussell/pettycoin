@@ -76,7 +76,8 @@ static const struct json_command stop_command = {
 };
 
 static const struct json_command *cmdlist[] = {
-	&help_command, &getinfo_command, &sendrawtransaction_command, &stop_command,
+	&help_command, &getinfo_command, &sendrawtransaction_command,
+	&stop_command, &listtransactions_command,
 	/* Developer/debugging options. */
 	&echo_command, &listtodo_command
 };
@@ -166,7 +167,13 @@ static char *parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 
 	result = tal_arr(jcon, char, 0);
 	error = cmd->dispatch(jcon, params, &result);
-	if (error)
+	if (error) {
+		char *quote;
+
+		/* Remove " */
+		while ((quote = strchr(error, '"')) != NULL)
+			*quote = '\'';
+
 		return tal_fmt(jcon,
 			      "{ \"result\" : null,"
 			      " \"error\" : \"%s\","
@@ -174,6 +181,7 @@ static char *parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 			      error,
 			      json_tok_len(id),
 			      json_tok_contents(jcon->buffer, id));
+	}
 	return tal_fmt(jcon,
 		       "{ \"result\" : %s,"
 		       " \"error\" : null,"

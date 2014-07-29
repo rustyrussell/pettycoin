@@ -321,13 +321,11 @@ static void tal_freefn(void *ptr)
 	tal_free(ptr);
 }
 
-static unsigned long num_of(const char *buffer, const jsmntok_t *tok)
+static unsigned int num_of(const char *buffer, const jsmntok_t *tok)
 {
-	char *end;
-	unsigned long val;
+	unsigned int val;
 
-	val = strtoul(buffer + tok->start, &end, 0);
-	if (end != buffer + tok->end)
+	if (!json_tok_number(buffer, tok, &val))
 		errx(1, "Invalid number value in '%.*s'",
 		     json_tok_len(tok),
 		     json_tok_contents(buffer, tok));
@@ -340,7 +338,7 @@ static const char *get_first_input_addr(const tal_t *ctx,
 					const jsmntok_t *txid)
 {
 	const jsmntok_t *toks, *intxid, *onum, *type, *address;
-	unsigned long outnum;
+	unsigned int outnum;
 	const char *delve, *txstr;
 
 	/* eg:
@@ -424,12 +422,12 @@ static const char *get_first_input_addr(const tal_t *ctx,
 		err(1, "getrawtransaction of input tx %s", txstr);
 
 	/* make sure it's a pubkeyhash */
-	delve = tal_fmt(ctx, ".vout[%lu].scriptPubKey.type", outnum);
+	delve = tal_fmt(ctx, ".vout[%u].scriptPubKey.type", outnum);
 	type = json_delve(buffer, toks, delve);
 	if (!type || !json_tok_streq(buffer, type, "pubkeyhash"))
 		errx(1, "'%s' was not a pubkeyhash in '%s'", delve, buffer);
 
-	delve = tal_fmt(ctx, ".vout[%lu].scriptPubKey.addresses[0]", outnum);
+	delve = tal_fmt(ctx, ".vout[%u].scriptPubKey.addresses[0]", outnum);
 	address = json_delve(buffer, toks, delve);
 	if (!address)
 		errx(1, "Can't find %s in '%s'", delve, buffer);

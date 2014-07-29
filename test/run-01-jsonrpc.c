@@ -18,6 +18,8 @@
 struct json_command getinfo_command;
 /* Generated stub for listtodo_command */
 struct json_command listtodo_command;
+/* Generated stub for listtransactions_command */
+struct json_command listtransactions_command;
 /* Generated stub for pettycoin_to_base58 */
 char *pettycoin_to_base58(const tal_t *ctx, bool test_net,
 			  const struct protocol_address *addr,
