@@ -83,6 +83,7 @@ int main(void)
 	assert(key);
 	assert(test_net == true);
 	assert(structeq(&pubkey, &pubkey2));
+	EC_KEY_free(key);
 
 	/* FIXME: Test non-test network keys! */
 
