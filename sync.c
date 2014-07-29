@@ -33,46 +33,6 @@ static u32 num_children(const struct block *block,
 	return num;
 }
 
-/*
- * We step back more than one if we are better than target.  This
- * allows effective compression while being as difficult to generate
- * as the full chain (not my idea: from Gregory Maxwell, I just
- * adapted it for here).
- */
-static u32 num_steps(const struct block *b, BN_CTX *bn_ctx)
-{
-	BIGNUM target, ratio, *val;
-	unsigned long steps = 1;
-
-	if (!decode_difficulty(le32_to_cpu(b->tailer->difficulty), &target))
-		goto out; 
-
-	val = BN_bin2bn(b->sha.sha, sizeof(b->sha.sha), NULL);
-	if (!val)
-		goto free_target;
-
-	BN_init(&ratio);
-	if (!BN_div(&ratio, NULL, &target, val, bn_ctx))
-		goto free_ratio;
-
-	/* Returns 0xffffffffL if ratio is too big, which is fine. */
-	steps = BN_get_word(&ratio);
-	/* Block value must be <= target. */
-	assert(steps > 0);
-
-	/* This is possible on 64 bit systems */
-	if (steps > (u32)steps)
-		steps = 0xFFFFFFFF;
-
-free_ratio:
-	BN_free(&ratio);
-	BN_free(val);
-free_target:
-	BN_free(&target);
-out:
-	return steps;
-}
-
 static struct protocol_pkt_sync *sync_pkt(struct peer *peer,
 					  const struct block *horizon,
 					  const struct block *mutual)
