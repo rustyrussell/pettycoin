@@ -10,6 +10,7 @@ ADDR2=mopv7T2T7szaYdJNxm7jAF8x16dbMfGerN
 ADDR3=mu1LMYYHAWDvRRRdT4or3vqHYZyQ7YNpEu
 PRIVKEY2=cVxWbCJ11bcQCsz98fkUzozzhkrwd44QZ8ajLe8ZY6FwtsBfy92X
 PRIVKEY3=cPfA1cE78BtzTaNGEfQN5H89bgmyV1BzVz8ppMo3tcVjK21WsagM
+ADDR4=qZJLNHV1vQiM4n8oALQ3Mq2LceF48eSne7
 
 # Gateway injects 100 satoshi to ADDR2.
 TX=`../../pettycoin-tx from-gateway P-$GATEPRIVKEY P-$ADDR2 100`
@@ -23,3 +24,7 @@ TX2=`../../pettycoin-tx --no-fee tx P-$PRIVKEY2 P-$ADDR3 50 50 raw:$TX`
 # ADDR3 sends half back to gateway (minus fee)
 TX3=`../../pettycoin-tx to-gateway P-$PRIVKEY3 P-$GATEADDR 25 24 raw:$TX2`
 ../../pettycoin-query --pettycoin-dir=$DIR sendrawtransaction $TX3
+
+# ADDR3 sends change to ADDR4
+TX4=`../../pettycoin-tx tx P-$PRIVKEY3 $ADDR4 24 0 raw:$TX3/1`
+../../pettycoin-query --pettycoin-dir=$DIR sendrawtransaction $TX4

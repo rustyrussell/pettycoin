@@ -7,8 +7,9 @@ PETTYCOIN_TX_OBJS := pettycoin-tx.o base58.o create_tx.o marshal.o hash_tx.o min
 PETTYCOIN_QUERY_OBJS := pettycoin-query.o json.o base58.o pettycoin_dir.o hex.o
 PETTY_ADDR_OBJS := petty-addr.o base58.o
 PETTYCOIN_GATEWAY_OBJS := pettycoin-gateway.o hex.o json.o pettycoin_dir.o base58.o
+DUMBWALLET_OBJS := dumbwallet.o hex.o json.o pettycoin_dir.o base58.o create_tx.o marshal.o signature.o minimal_log.o shadouble.o
 
-BINS := pettycoin-generate mkgenesis pettycoin sizes mkpriv pettycoin-tx pettycoin-query petty-addr pettycoin-gateway
+BINS := pettycoin-generate mkgenesis pettycoin sizes mkpriv pettycoin-tx pettycoin-query petty-addr pettycoin-gateway dumbwallet
 CCAN_OBJS := ccan-asort.o ccan-breakpoint.o ccan-tal.o ccan-tal-path.o ccan-tal-str.o ccan-take.o ccan-list.o ccan-str.o ccan-opt-helpers.o ccan-opt.o ccan-opt-parse.o ccan-opt-usage.o ccan-read_write_all.o ccan-htable.o ccan-io-io.o ccan-io-poll.o ccan-timer.o ccan-time.o ccan-noerr.o ccan-hash.o ccan-isaac64.o ccan-net.o ccan-err.o ccan-tal-grab_file.o
 CCANDIR=ccan/
 VERSION:=$(shell git describe --dirty --always 2>/dev/null || echo Unknown)
@@ -25,7 +26,7 @@ TEST_GENESIS_NONCE=MarcusArabellAlex
 
 all: $(BINS)
 
-$(PETTYCOIN_OBJS) $(PETTYCOIN_GENERATE_OBJS) $(MKGENESIS_OBJS) $(SIZES_OBJS) $(MKPRIV_OBJS) $(PETTYCOIN_TX_OBJS) $(PETTYCOIN_QUERY_OBJS) $(PETTY_ADDR_OBJS) $(PETTYCOIN_GATEWAY_OBJS) $(CCAN_OBJS): ccan/config.h
+$(PETTYCOIN_OBJS) $(PETTYCOIN_GENERATE_OBJS) $(MKGENESIS_OBJS) $(SIZES_OBJS) $(MKPRIV_OBJS) $(PETTYCOIN_TX_OBJS) $(PETTYCOIN_QUERY_OBJS) $(PETTY_ADDR_OBJS) $(PETTYCOIN_GATEWAY_OBJS) $(DUMBWALLET_OBJS) $(CCAN_OBJS): ccan/config.h
 
 ccan/config.h: configure
 	./configure
@@ -47,6 +48,9 @@ pettycoin: $(PETTYCOIN_OBJS) $(CCAN_OBJS)
 
 pettycoin-query: $(PETTYCOIN_QUERY_OBJS) $(CCAN_OBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(PETTYCOIN_QUERY_OBJS) $(CCAN_OBJS) $(LDLIBS)
+
+dumbwallet: $(DUMBWALLET_OBJS) $(CCAN_OBJS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(DUMBWALLET_OBJS) $(CCAN_OBJS) $(LDLIBS)
 
 sizes: $(SIZES_OBJS) $(CCAN_OBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(SIZES_OBJS) $(CCAN_OBJS) $(LDLIBS)
