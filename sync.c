@@ -73,75 +73,6 @@ out:
 	return steps;
 }
 
-static const struct block *step_back(const struct block *b,
-				     const struct block *last,
-				     BN_CTX *bn_ctx)
-{
-	u32 i, steps = num_steps(b, bn_ctx);
-
-	for (i = 0; i < steps; i++) {
-		if (b == last)
-			break;
-		b = b->prev;
-	}
-	return b;
-}
-
-/* Go 1 day below horizon. */
-#define CLOSE_TO_HORIZON (24 * 60 * 60)
-
-/* FIXME: Slow! */
-static const struct block *find_horizon(const struct state *state)
-{
-	const struct block *b = state->preferred_chain, *horizon;
-	unsigned int num_over_horizon = 0;
-
-	/* 11 in a row beyond horizon makes this fairly certain. */
-	while (b != genesis_block(state)) {
-		if (le32_to_cpu(b->tailer->timestamp)
-		    + PROTOCOL_TX_HORIZON_SECS(state->test_net) + CLOSE_TO_HORIZON
-		    < current_time()) {
-			if (!horizon)
-				horizon = b;
-			num_over_horizon++;
-			if (num_over_horizon == 11)
-				return horizon;
-		} else {
-			num_over_horizon = 0;
-			horizon = NULL;
-		}
-		b = b->prev;
-	}
-	return genesis_block(state);
-}
-
-/* FIXME: Cache (most) of this... */
-static struct protocol_pkt_horizon *horizon_pkt(struct peer *peer,
-						const struct block *horizon,
-						const struct block *mutual)
-{
-	struct protocol_pkt_horizon *pkt;
-	const struct block *b;
-	BN_CTX *bn_ctx;
-
-	/* Speeds up BN operations. */
-	bn_ctx = BN_CTX_new();
-
-	pkt = tal_packet(peer, struct protocol_pkt_horizon,
-			 PROTOCOL_PKT_HORIZON);
-
-	for (b = horizon;
-	     !block_preceeds(b, mutual);
-	     b = step_back(b, mutual, bn_ctx))
-		tal_packet_append_block(&pkt, b);
-
-	/* Append final one, to make sure we reach what they know. */
-	tal_packet_append_block(&pkt, b);
-
-	BN_CTX_free(bn_ctx);
-	return pkt;
-}
-
 static struct protocol_pkt_sync *sync_pkt(struct peer *peer,
 					  const struct block *horizon,
 					  const struct block *mutual)
@@ -168,14 +99,8 @@ static struct protocol_pkt_sync *sync_pkt(struct peer *peer,
 
 void *sync_or_horizon_pkt(struct peer *peer, const struct block *mutual)
 {
-	const struct block *horizon = find_horizon(peer->state);
-
-	/* If they're below horizon, get them to horizon. */
-	if (le32_to_cpu(mutual->hdr->depth) < le32_to_cpu(horizon->hdr->depth))
-		return horizon_pkt(peer, horizon, mutual);
-
-	/* Otherwise tell them num children of blocks since horizon */
-	return sync_pkt(peer, horizon, mutual);
+	/* FIXME: Peers don't handle horizon packets yet. */
+	return sync_pkt(peer, genesis_block(peer->state), mutual);
 }
 
 enum protocol_ecode recv_sync_pkt(struct peer *peer,
