@@ -192,14 +192,6 @@ void save_block(struct state *state, struct block *new)
 {
 }
 
-struct log *new_log(const tal_t *ctx,
-		    const struct log *parent,
-		    const char *prefix,
-		    enum log_level printlevel, size_t max_mem)
-{
-	return NULL;
-}
-
 struct pending_block *new_pending_block(struct state *state)
 {
 	return talz(state, struct pending_block);

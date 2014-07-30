@@ -43,3 +43,14 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned int val)
 	log_add(log, "%s(%u) ", enumname, val);
 }
 	
+void log_io(struct log *log, bool in, const void *data, size_t len)
+{
+}
+
+struct log *new_log(const tal_t *ctx,
+		    const struct log *parent,
+		    const char *prefix,
+		    enum log_level printlevel, size_t max_mem)
+{
+	return NULL;
+}
