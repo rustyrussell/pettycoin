@@ -24,7 +24,7 @@ struct json_output {
 
 static void free_jcon(struct io_conn *conn, struct json_connection *jcon)
 {
-	log_info(jcon->state->log, "Closing json input (%s)", strerror(errno));
+	log_info(jcon->log, "Closing json input (%s)", strerror(errno));
 	tal_free(jcon);
 }
 
@@ -122,7 +122,7 @@ static char *parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	char *result, *error;
 
 	if (tok[0].type != JSMN_OBJECT) {
-		log_unusual(jcon->state->log, "Expected {} for json command");
+		log_unusual(jcon->log, "Expected {} for json command");
 		return NULL;
 	}
 
@@ -131,19 +131,18 @@ static char *parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	id = json_get_member(jcon->buffer, tok, "id");
 
 	if (!id || !method || !params) {
-		log_unusual(jcon->state->log, "json: No %s",
+		log_unusual(jcon->log, "json: No %s",
 			    !id ? "id" : (!method ? "method" : "params"));
 		return NULL;
 	}
 
 	if (id->type != JSMN_STRING && id->type != JSMN_PRIMITIVE) {
-		log_unusual(jcon->state->log,
-			    "Expected string/primitive for id");
+		log_unusual(jcon->log, "Expected string/primitive for id");
 		return NULL;
 	}
 
 	if (method->type != JSMN_STRING) {
-		log_unusual(jcon->state->log, "Expected string for method");
+		log_unusual(jcon->log, "Expected string for method");
 		return NULL;
 	}
 
@@ -160,8 +159,7 @@ static char *parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	}
 
 	if (params->type != JSMN_ARRAY && params->type != JSMN_OBJECT) {
-		log_unusual(jcon->state->log,
-			    "Expected array or object for params");
+		log_unusual(jcon->log, "Expected array or object for params");
 		return NULL;
 	}
 
@@ -199,7 +197,7 @@ static struct io_plan write_json(struct io_conn *conn,
 	out = list_pop(&jcon->output, struct json_output, list);
 	if (!out) {
 		if (jcon->stop) {
-			log_unusual(jcon->state->log, "JSON-RPC shutdown");
+			log_unusual(jcon->log, "JSON-RPC shutdown");
 			/* Return us to toplevel pettycoin.c */
 			return io_break(jcon->state, io_close());
 		}
@@ -208,7 +206,8 @@ static struct io_plan write_json(struct io_conn *conn,
 
 	jcon->outbuf = tal_steal(jcon, out->json);
 	tal_free(out);
-		
+
+	log_io(jcon->log, false, jcon->outbuf, strlen(jcon->outbuf));
 	return io_write(jcon->outbuf, strlen(jcon->outbuf), write_json, jcon);
 }
 
@@ -218,6 +217,8 @@ static struct io_plan read_json(struct io_conn *conn,
 	jsmntok_t *toks;
 	bool valid;
 	struct json_output *out;
+
+	log_io(jcon->log, true, jcon->buffer + jcon->used, jcon->len_read);
 
 	/* Resize larger if we're full. */
 	jcon->used += jcon->len_read;
@@ -267,6 +268,7 @@ static void init_rpc(int fd, struct state *state)
 {
 	struct json_connection *jcon;
 	struct io_conn *conn;
+	char prefix[sizeof("jcon fd ") + STR_MAX_CHARS(int)];
 
 	jcon = tal(state, struct json_connection);
 	jcon->state = state;
@@ -274,6 +276,9 @@ static void init_rpc(int fd, struct state *state)
 	jcon->len_read = 64;
 	jcon->buffer = tal_arr(jcon, char, jcon->len_read);
 	jcon->stop = false;
+	sprintf(prefix, "jcon fd %i", fd);
+	jcon->log = new_log(jcon, state->log, prefix, state->log_level,
+			    1000000);
 	list_head_init(&jcon->output);
 
 	conn = io_new_conn(fd,

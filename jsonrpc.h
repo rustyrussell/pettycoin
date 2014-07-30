@@ -8,6 +8,9 @@ struct json_connection {
 	/* The global state */
 	struct state *state;
 
+	/* Logging for this json connection. */
+	struct log *log;
+
 	/* The buffer (required to interpret tokens). */
 	char *buffer;
 
