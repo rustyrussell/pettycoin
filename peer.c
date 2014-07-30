@@ -65,10 +65,13 @@ static bool digest_peer_addrs(struct state *state, const void *data, u32 len)
 		return false;
 
 	for (i = 0; i < num; i++) {
+		log_add(state->log, " ");
 		log_add_struct(state->log,
 			       struct protocol_net_address, &addr[i]);
-		peer_cache_add(state, &addr[i]);
 	}
+
+	for (i = 0; i < num; i++)
+		peer_cache_add(state, &addr[i]);
 
 	/* We can now get more from cache. */
 	fill_peers(state);
