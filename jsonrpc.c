@@ -24,7 +24,13 @@ struct json_output {
 
 static void free_jcon(struct io_conn *conn, struct json_connection *jcon)
 {
-	log_info(jcon->log, "Closing json input (%s)", strerror(errno));
+	if (--jcon->num_conns != 0) {
+		/* Wake other side, in case it's a closed socket. */
+		io_wake(jcon);
+		return;
+	}
+
+	log_info(jcon->log, "Closing (%s)", strerror(errno));
 	tal_free(jcon);
 }
 
@@ -201,6 +207,13 @@ static struct io_plan write_json(struct io_conn *conn,
 			/* Return us to toplevel pettycoin.c */
 			return io_break(jcon->state, io_close());
 		}
+
+		/* Has reader closed? */
+		if (jcon->num_conns != 2)
+			return io_close();
+
+		/* Reader can go again now. */
+		io_wake(jcon);
 		return io_wait(jcon, write_json, jcon);
 	}
 
@@ -219,6 +232,10 @@ static struct io_plan read_json(struct io_conn *conn,
 	struct json_output *out;
 
 	log_io(jcon->log, true, jcon->buffer + jcon->used, jcon->len_read);
+
+	/* Has writer closed? */
+	if (jcon->num_conns != 2)
+		return io_close();
 
 	/* Resize larger if we're full. */
 	jcon->used += jcon->len_read;
@@ -248,14 +265,19 @@ static struct io_plan read_json(struct io_conn *conn,
 	if (!out->json)
 		return io_close();
 
-	/* Queue for writing, and wake writer. */
-	list_add_tail(&jcon->output, &out->list);
-	io_wake(jcon);
-
 	/* Remove first {}. */
 	memmove(jcon->buffer, jcon->buffer + toks[0].end,
 		tal_count(jcon->buffer) - toks[0].end);
 	jcon->used -= toks[0].end;
+	tal_free(toks);
+
+	/* Queue for writing, and wake writer. */
+	list_add_tail(&jcon->output, &out->list);
+	io_wake(jcon);
+
+	/* Wait for it to finish */
+	jcon->len_read = 0;
+	return io_wait(jcon, read_json, jcon);
 
 read_more:
 	tal_free(toks);
@@ -267,7 +289,7 @@ read_more:
 static void init_rpc(int fd, struct state *state)
 {
 	struct json_connection *jcon;
-	struct io_conn *conn;
+	struct io_conn *reader, *writer;
 	char prefix[sizeof("jcon fd ") + STR_MAX_CHARS(int)];
 
 	jcon = tal(state, struct json_connection);
@@ -276,18 +298,20 @@ static void init_rpc(int fd, struct state *state)
 	jcon->len_read = 64;
 	jcon->buffer = tal_arr(jcon, char, jcon->len_read);
 	jcon->stop = false;
+	jcon->num_conns = 2;
 	sprintf(prefix, "jcon fd %i", fd);
 	jcon->log = new_log(jcon, state->log, prefix, state->log_level,
 			    1000000);
 	list_head_init(&jcon->output);
 
-	conn = io_new_conn(fd,
-			   io_read_partial(jcon->buffer, &jcon->len_read,
-					   read_json, jcon));
+	reader = io_new_conn(fd,
+			     io_read_partial(jcon->buffer, &jcon->len_read,
+					     read_json, jcon));
 	/* Leave writer idle. */
-	io_duplex(conn, io_wait(jcon, write_json, jcon));
+	writer = io_duplex(reader, io_wait(jcon, write_json, jcon));
 
-	io_set_finish(conn, free_jcon, jcon);
+	io_set_finish(reader, free_jcon, jcon);
+	io_set_finish(writer, free_jcon, jcon);
 }
 
 static void rpc_connected(int fd, struct state *state)

@@ -20,6 +20,9 @@ struct json_connection {
 	/* How much has just been filled. */
 	size_t len_read;
 
+	/* I/O conns. */
+	unsigned int num_conns;
+
 	/* We've been told to stop. */
 	bool stop;
 
