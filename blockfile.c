@@ -1,5 +1,6 @@
 #include "block.h"
 #include "blockfile.h"
+#include "chain.h"
 #include "check_block.h"
 #include "marshal.h"
 #include "packet_io.h"
@@ -123,6 +124,10 @@ truncate:
 out:
 	/* Now we can save more. */
 	state->blockfd = fd;
+
+	log_info(state->log, "Checking chains...");
+	check_chains(state, true);
+	log_add(state->log, " ...completed");
 }
 
 void save_block(struct state *state, struct block *new)

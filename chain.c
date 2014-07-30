@@ -73,7 +73,7 @@ static bool find_connected_pair(const struct state *state,
 	return false;
 }
 
-void check_chains(struct state *state)
+void check_chains(struct state *state, bool all)
 {
 	const struct block *i;
 	size_t n, num_next_level = 1;
@@ -88,37 +88,6 @@ void check_chains(struct state *state)
 		assert(cmp_work(state->longest_knowns[n],
 				state->longest_knowns[0]) == 0);
 
-	for (n = 0; n < tal_count(state->block_depth); n++) {
-		size_t num_this_level = num_next_level;
-		list_check(state->block_depth[n], "bad block depth");
-		num_next_level = 0;
-		list_for_each(state->block_depth[n], i, list) {
-			const struct block *b;
-			assert(le32_to_cpu(i->hdr->depth) == n);
-			assert(num_this_level);
-			num_this_level--;
-			if (n == 0)
-				assert(i == genesis_block(state));
-			else {
-				assert(structeq(&i->hdr->prev_block,
-						&i->prev->sha));
-				if (i->prev->complaint)
-					assert(i->complaint);
-			}
-			assert(i->complaint ||
-			       cmp_work(i, state->longest_chains[0]) <= 0);
-			if (!i->complaint && i->all_known)
-				assert(cmp_work(i, state->longest_knowns[0]) <= 0);
-
-			list_for_each(&i->children, b, sibling) {
-				num_next_level++;
-				assert(b->prev == i);
-			}
-			check_block(state, i);
-		}
-		assert(num_this_level == 0);
-	}
-	assert(num_next_level == 0);
 
 	/* preferred_chain should be a descendent of longest_knowns[0] */
 	for (i = state->preferred_chain;
@@ -145,6 +114,42 @@ void check_chains(struct state *state)
 
 	for (n = 0; n < tal_count(state->longest_chains); n++)
 		assert(!state->longest_chains[n]->complaint);
+
+	/* Checking the actual blocks is expensive! */
+	if (!all)
+		return;
+
+	for (n = 0; n < tal_count(state->block_depth); n++) {
+		size_t num_this_level = num_next_level;
+		list_check(state->block_depth[n], "bad block depth");
+		num_next_level = 0;
+		list_for_each(state->block_depth[n], i, list) {
+			const struct block *b;
+			assert(le32_to_cpu(i->hdr->depth) == n);
+			assert(num_this_level);
+			num_this_level--;
+			if (n == 0)
+				assert(i == genesis_block(state));
+			else {
+				assert(structeq(&i->hdr->prev_block,
+						&i->prev->sha));
+				if (i->prev->complaint)
+					assert(i->complaint);
+			}
+			assert(i->complaint ||
+			       cmp_work(i, state->longest_chains[0]) <= 0);
+			if (!i->complaint && i->all_known)
+				assert(cmp_work(i, state->longest_knowns[0]) <= 0);
+			
+			list_for_each(&i->children, b, sibling) {
+				num_next_level++;
+				assert(b->prev == i);
+			}
+			check_block(state, i, all);
+		}
+			assert(num_this_level == 0);
+	}
+	assert(num_next_level == 0);
 }
 
 static void swap_blockptr(const struct block **a, const struct block **b)
@@ -301,7 +306,6 @@ static bool update_known(struct state *state, struct block *block)
 
 	order_block_pointers(state);
 	update_preferred_chain(state);
-	check_chains(state);
 
 	if (state->longest_knowns[0] != prev_known) {
 		/* Any transactions from old branch go into pending. */
@@ -409,8 +413,6 @@ void update_block_ptrs_new_block(struct state *state, struct block *block)
 
 	/* FIXME: Only needed if a descendent of known[0] */
 	update_preferred_chain(state);
-
-	check_chains(state);
 }
 
 /* Filled a new shard; update state->longest_chains, state->longest_knowns,
@@ -446,7 +448,7 @@ void update_block_ptrs_invalidated(struct state *state,
 	find_longest_descendents(g, &state->longest_chains);
 	update_known(state, cast_const(struct block *, g));
 
-	check_chains(state);
+	check_chains(state, false);
 
 	/* We don't need to know anything about this or any decendents. */
 	forget_about_all(state, block);

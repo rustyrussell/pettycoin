@@ -14,7 +14,7 @@
 void block_to_pending(struct state *state, const struct block *block)
 { fprintf(stderr, "block_to_pending called!\n"); abort(); }
 /* Generated stub for check_block */
-void check_block(struct state *state, const struct block *block)
+void check_block(struct state *state, const struct block *block, bool all)
 { fprintf(stderr, "check_block called!\n"); abort(); }
 /* Generated stub for check_prev_txhashes */
 bool check_prev_txhashes(struct state *state, const struct block *block,

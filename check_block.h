@@ -74,5 +74,5 @@ bool check_tx_inputs_and_refs(struct state *state,
 			      struct protocol_input_ref *refs);
 
 /* Various assertions about a block */
-void check_block(struct state *state, const struct block *block);
+void check_block(struct state *state, const struct block *block, bool all);
 #endif /* PETTYCOIN_CHECK_BLOCK_H */

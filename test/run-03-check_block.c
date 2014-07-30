@@ -224,7 +224,7 @@ int main(int argc, char *argv[])
 	/* We need enough of state to use the real init function here. */
 	pseudorand_init();
 	s = new_state(true);
-	check_chains(s);
+	check_chains(s, true);
 
 	fake_time = le32_to_cpu(genesis_tlr.timestamp) + 1;
 

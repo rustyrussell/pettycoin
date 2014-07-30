@@ -63,7 +63,7 @@ void block_to_pending(struct state *state, const struct block *block)
 {
 }
 
-void check_block(struct state *state, const struct block *block)
+void check_block(struct state *state, const struct block *block, bool all)
 {
 }
 

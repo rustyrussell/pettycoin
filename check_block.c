@@ -249,6 +249,9 @@ void put_tx_in_shard(struct state *state,
 
 	/* Tell peers about the new tx in block. */
 	send_tx_in_block_to_peers(state, source, block, shard->shardnum, txoff);
+
+	/* Debugging check */
+	check_block_shard(state, block, shard);
 }
 
 bool put_txhash_in_shard(struct state *state,
@@ -278,6 +281,10 @@ bool put_txhash_in_shard(struct state *state,
 
 	/* This could eliminate a pending tx. */
 	state->pending->needs_recheck = true;
+
+	/* Debugging check */
+	check_block_shard(state, block, shard);
+
 	return true;
 }
 
@@ -356,7 +363,7 @@ bool check_prev_txhashes(struct state *state, const struct block *block,
 	return true;
 }
 
-void check_block(struct state *state, const struct block *block)
+void check_block(struct state *state, const struct block *block, bool all)
 {
 	u32 diff = le32_to_cpu(block->tailer->difficulty);
 	struct protocol_double_sha sha;
@@ -381,8 +388,10 @@ void check_block(struct state *state, const struct block *block)
 
 	/* FIXME: check block->prev_txhashes! */
 
-	for (shard = 0; shard < num_shards(block->hdr); shard++) {
-		check_block_shard(state, block, block->shard[shard]);
+	if (all) {
+		for (shard = 0; shard < num_shards(block->hdr); shard++) {
+			check_block_shard(state, block, block->shard[shard]);
+		}
 	}
 }
 

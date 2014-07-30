@@ -83,7 +83,7 @@ size_t marshal_input_ref_len(const union protocol_tx *tx)
 	return 0;
 }
 
-void check_block(struct state *state, const struct block *block)
+void check_block(struct state *state, const struct block *block, bool all)
 {
 }
 

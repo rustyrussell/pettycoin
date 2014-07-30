@@ -51,5 +51,5 @@ void update_block_ptrs_new_shard(struct state *state, struct block *block,
 void update_block_ptrs_invalidated(struct state *state, const struct block *block);
 
 /* Debugging check */
-void check_chains(struct state *state);
+void check_chains(struct state *state, bool all);
 #endif /* PETTYCOIN_CHAIN_H */

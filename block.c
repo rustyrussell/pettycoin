@@ -1,6 +1,7 @@
 #include "block.h"
 #include "blockfile.h"
 #include "chain.h"
+#include "check_block.h"
 #include "difficulty.h"
 #include "features.h"
 #include "generating.h"
@@ -116,13 +117,14 @@ struct block *block_add(struct state *state,
 
 	block->complaint = prev->complaint;
 	if (block->complaint) {
-		check_chains(state);
+		check_chains(state, false);
 		/* It's not a candidate for real use. */
 		return block;
 	}
 
 	update_block_ptrs_new_block(state, block);
-	check_chains(state);
+	check_chains(state, false);
+	check_block(state, block, false);
 	return block;
 }
 
