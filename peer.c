@@ -120,14 +120,21 @@ static void seed_peers(struct state *state)
 		return;
 	}
 
+	/* This can happen in the early, sparse network. */
 	if (state->peer_seed_count++ > 2) {
+		if (state->num_peers != 0) {
+			log_info(state->log,
+				 "Can't find many peers, settling with %zu",
+				 state->num_peers);
+			return;
+		}
+
 		if (state->nopeers_ok) {
 			log_unusual(state->log,
 				    "Can't find peers, staying lonely");
 			return;
 		}
-
-		fatal(state, "Failed to connect to any peers, or peer server");
+		fatal(state, "Failed to connect to any peers");
 	}
 
 	if (state->developer_test) {
@@ -203,7 +210,6 @@ void fill_peers(struct state *state)
 
 
 		if (!a) {
-			log_debug(state->log, "Seeding peer cache");
 			seed_peers(state);
 			break;
 		}
