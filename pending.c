@@ -167,6 +167,10 @@ void recheck_pending_txs(struct state *state)
 	unknown = state->pending->num_unknown;
 	known = num_pending_known(state);
 
+	/* Avoid logging if nothing pending. */
+	if (unknown == 0 && known == 0)
+		return;
+	
 	txs = tal_arr(state, const union protocol_tx *, unknown + known);
 
 	log_info(state->log, "Rechecking pending (%u known, %u unknown)",

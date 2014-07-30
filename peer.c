@@ -55,7 +55,9 @@ struct peer_lookup {
 	struct protocol_pkt_peers *pkt;
 };
 
-static bool digest_peer_addrs(struct state *state, const void *data, u32 len)
+static bool digest_peer_addrs(struct state *state,
+			      struct log *log,
+			      const void *data, u32 len)
 {
 	u32 num, i;
 	const struct protocol_net_address *addr = data;
@@ -65,9 +67,8 @@ static bool digest_peer_addrs(struct state *state, const void *data, u32 len)
 		return false;
 
 	for (i = 0; i < num; i++) {
-		log_add(state->log, " ");
-		log_add_struct(state->log,
-			       struct protocol_net_address, &addr[i]);
+		log_add(log, " ");
+		log_add_struct(log, struct protocol_net_address, &addr[i]);
 	}
 
 	for (i = 0; i < num; i++)
@@ -86,7 +87,7 @@ static struct io_plan digest_peer_pkt(struct io_conn *conn,
 		  le32_to_cpu(lookup->pkt->len));
 
 	/* Addresses are after header. */
-	digest_peer_addrs(lookup->state, lookup->pkt + 1,
+	digest_peer_addrs(lookup->state, lookup->state->log, lookup->pkt + 1,
 			  le32_to_cpu(lookup->pkt->len) - sizeof(*lookup->pkt));
 	return io_close();
 }
@@ -123,9 +124,9 @@ static void seed_peers(struct state *state)
 	/* This can happen in the early, sparse network. */
 	if (state->peer_seed_count++ > 2) {
 		if (state->num_peers != 0) {
-			log_info(state->log,
-				 "Can't find many peers, settling with %zu",
-				 state->num_peers);
+			log_debug(state->log,
+				  "Can't find many peers, settling with %zu",
+				  state->num_peers);
 			return;
 		}
 
@@ -147,7 +148,8 @@ static void seed_peers(struct state *state)
 			  "seed file supplied %u bytes of peers",
 			  le32_to_cpu(tal_count(data) - 1));
 
-		if (!digest_peer_addrs(state, data, tal_count(data) - 1))
+		if (!digest_peer_addrs(state, state->log,
+				       data, tal_count(data) - 1))
 			errx(1, "Invalid contents of addresses file");
 		tal_free(data);
 		return;
@@ -531,7 +533,7 @@ recv_pkt_peers(struct peer *peer, const struct protocol_pkt_peers *pkt)
 
 	log_debug(peer->log, "Peer supplied %u peer bytes", len);
 
-	if (!digest_peer_addrs(peer->state, pkt + 1, len))
+	if (!digest_peer_addrs(peer->state, peer->log, pkt + 1, len))
 		return PROTOCOL_ECODE_INVALID_LEN;
 
 	return PROTOCOL_ECODE_NONE;
