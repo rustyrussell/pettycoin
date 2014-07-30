@@ -48,7 +48,7 @@ struct state *new_state(bool test_net)
 		s->uuid.bytes[i] = isaac64_next_uint(isaac64, 256);
 	bitmap_zero(s->peer_map, MAX_PEERS);
 	s->peer_seed_count = 0;
-	s->log_level = LOG_BROKEN;
+	s->log_level = LOG_INFORM;
 	s->log = new_log(s, NULL, "", s->log_level, STATE_LOG_MAX);
 	s->generator = "pettycoin-generate";
 	s->reward_addr = NULL;
