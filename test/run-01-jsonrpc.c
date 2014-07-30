@@ -36,6 +36,7 @@ void test(const char *input, const char *expect, bool needs_more, int extra)
 	jcon->len_read = strlen(input);
 	jcon->buffer = tal_dup(jcon, char, input, strlen(input), 0);
 	jcon->state = &state;
+	jcon->num_conns = 2;
 	list_head_init(&jcon->output);
 
 	plan = read_json(NULL, jcon);
