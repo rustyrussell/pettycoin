@@ -30,9 +30,9 @@ Things you can do:
 
 * Send test coins from the bitcoin network to the prototype gateway at `muQY1RFhzu2exJj4wihqfotzDDztS1ieZv` (only if you control the sending address!)
 
-* Run your own gateway (see [docs/RUNNING-A-GATEWAY.md](https://github.com/rustyrussell/pettycoin/blob/master/docs/RUNNING-A-GATEWAY.md).
+* Run your own gateway (see [doc/RUNNING-A-GATEWAY.md](https://github.com/rustyrussell/pettycoin/blob/master/doc/RUNNING-A-GATEWAY.md)).
 
-* **COMING SOON** Create and monitor a simple test wallet.
+* Create and monitor a simple test wallet (see [doc/DUMB-WALLET.md](https://github.com/rustyrussell/pettycoin/blob/master/doc/DUMB-WALLET.md)).
 
 You can see some examples by looking at [test/standalone/simple_inject.sh](https://github.com/rustyrussell/pettycoin/blob/master/test/standalone/simple_inject.sh).
 
