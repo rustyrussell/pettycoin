@@ -177,7 +177,9 @@ static char *add_connect(const char *arg, struct state *state)
 
 static char *arg_log_level(const char *arg, enum log_level *log_level)
 {
-	if (streq(arg, "debug"))
+	if (streq(arg, "io"))
+		*log_level = LOG_IO;
+	else if (streq(arg, "debug"))
 		*log_level = LOG_DBG;
 	else if (streq(arg, "info"))
 		*log_level = LOG_INFORM;

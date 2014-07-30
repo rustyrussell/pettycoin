@@ -14,6 +14,8 @@
 #define GEN_LOG_MAX 16777216
 
 enum log_level {
+	/* Logging all IO. */
+	LOG_IO,
 	/* Gory details which are mainly good for debugging. */
 	LOG_DBG,
 	/* Information about what's going in. */
@@ -32,6 +34,8 @@ struct log *new_log(const tal_t *ctx,
 #define log_info(log, ...) log_((log), LOG_INFORM, __VA_ARGS__)
 #define log_unusual(log, ...) log_((log), LOG_UNUSUAL, __VA_ARGS__)
 #define log_broken(log, ...) log_((log), LOG_BROKEN, __VA_ARGS__)
+
+void log_io(struct log *log, bool in, const void *data, size_t len);
 
 void log_(struct log *log, enum log_level level, const char *fmt, ...)
 	PRINTF_FMT(3,4);

@@ -1,3 +1,4 @@
+#include "hex.h"
 #include "log.h"
 #include "pseudorand.h"
 #include <ccan/list/list.h>
@@ -103,6 +104,25 @@ void logv(struct log *log, enum log_level level, const char *fmt, va_list ap)
 	add_entry(log, l);
 }
 
+void log_io(struct log *log, bool in, const void *data, size_t len)
+{
+	struct log_entry *l = tal(log, struct log_entry);
+
+	l->time = time_now();
+	l->level = LOG_IO;
+	l->skipped = 0;
+	l->log = tal_arr(l, char, 1 + len);
+	l->log[0] = in;
+	memcpy(l->log + 1, data, len);
+
+	if (LOG_IO >= log->print) {
+		char *hex = to_hex(l, data, len);
+		printf("%s[%s] %s\n", log->prefix, in ? "IN" : "OUT", hex);
+		tal_free(hex);
+	}
+	add_entry(log, l);
+}
+
 static void do_log_add(struct log *log, const char *fmt, va_list ap)
 {
 	struct log_entry *l = list_tail(&log->log, struct log_entry, list);
@@ -173,18 +193,33 @@ void log_to_file(int fd, const struct log *log)
 			prefix = "\n";
 		}
 		diff = time_between(i->time, prev);
+
 		sprintf(buf, "%s+%lu.%09u %s: ",
 			prefix,
 			(unsigned long)diff.ts.tv_sec,
 			(unsigned)diff.ts.tv_nsec,
-			i->level == LOG_DBG ? "DEBUG"
+			i->level == LOG_IO ? (i->log[0] ? "IO-IN" : "IO-OUT")
+			: i->level == LOG_DBG ? "DEBUG"
 			: i->level == LOG_INFORM ? "INFO"
 			: i->level == LOG_UNUSUAL ? "UNUSUAL"
 			: i->level == LOG_BROKEN ? "BROKEN"
 			: "**INVALID**");
+
 		write_all(fd, buf, strlen(buf));
-		write_all(fd, i->log, strlen(i->log));
+		if (i->level == LOG_IO) {
+			size_t off, used, len = tal_count(i->log)-1;
+
+			/* No allocations, may be in signal handler. */
+			for (off = 0; off < len; off += used) {
+				used = to_hex_direct(buf, sizeof(buf),
+						     i->log + 1 + off,
+						     len - off);
+				write_all(fd, buf, strlen(buf));
+			}
+		} else {
+			write_all(fd, i->log, strlen(i->log));
+		}
 		prefix = "\n";
 	}
 	write_all(fd, "\n\n", strlen("\n\n"));
-}			
+}

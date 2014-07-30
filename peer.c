@@ -449,6 +449,11 @@ static struct protocol_pkt_set_filter *set_filter_pkt(struct peer *peer)
 	return pkt;
 }
 
+static struct io_plan close_peer(struct io_conn *conn, struct peer *peer)
+{
+	return io_close();
+}
+
 static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 {
 	void *pkt;
@@ -458,13 +463,13 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 		log_info(peer->log, "sending error packet ");
 		log_add_enum(peer->log, enum protocol_ecode,
 			     peer->error_pkt->error);
-		return io_write_packet(peer, peer->error_pkt, io_close_cb);
+		return peer_write_packet(peer, peer->error_pkt, close_peer);
 	}
 
 	/* We're entirely TODO-driven at this point. */
 	pkt = get_todo_pkt(peer->state, peer);
 	if (pkt)
-		return io_write_packet(peer, pkt, plan_output);
+		return peer_write_packet(peer, pkt, plan_output);
 
 	/* FIXME: Timeout! */
 	if (peer->we_are_syncing && peer->requests_outstanding == 0) {
@@ -472,7 +477,8 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 		 * normal operation. */
 		log_info(peer->log, "We finished syncing with them");
 		peer->we_are_syncing = false;
-		return io_write_packet(peer, set_filter_pkt(peer), plan_output);
+		return peer_write_packet(peer, set_filter_pkt(peer),
+					 plan_output);
 	}
 
 	log_debug(peer->log, "Awaiting responses");
@@ -1532,7 +1538,7 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 	recheck_pending_txs(peer->state);
 
 	tal_free(ctx);
-	return io_read_packet(&peer->incoming, pkt_in, peer);
+	return peer_read_packet(&peer->incoming, pkt_in, peer);
 }
 
 static struct io_plan check_sync_or_horizon(struct io_conn *conn,
@@ -1550,12 +1556,12 @@ static struct io_plan check_sync_or_horizon(struct io_conn *conn,
 	}
 
 	if (err != PROTOCOL_ECODE_NONE)
-		return io_write_packet(peer, err_pkt(peer, err), io_close_cb);
+		return peer_write_packet(peer, err_pkt(peer, err), close_peer);
 
 	/* Time to go duplex on this connection. */
 	assert(conn == peer->w);
 	peer->r = io_duplex(peer->w,
-			    io_read_packet(&peer->incoming, pkt_in, peer));
+			    peer_read_packet(&peer->incoming, pkt_in, peer));
 
 	/* If one dies, kill both, and don't free peer when w freed! */
 	io_set_finish(peer->r, close_reader, peer);
@@ -1572,7 +1578,7 @@ static struct io_plan check_sync_or_horizon(struct io_conn *conn,
 static struct io_plan recv_sync_or_horizon(struct io_conn *conn,
 					   struct peer *peer)
 {
-	return io_read_packet(&peer->incoming, check_sync_or_horizon, peer);
+	return peer_read_packet(&peer->incoming, check_sync_or_horizon, peer);
 }
 
 static struct io_plan welcome_received(struct io_conn *conn, struct peer *peer)
@@ -1590,7 +1596,7 @@ static struct io_plan welcome_received(struct io_conn *conn, struct peer *peer)
 	if (e != PROTOCOL_ECODE_NONE) {
 		log_unusual(peer->log, "Peer welcome was invalid:");
 		log_add_enum(peer->log, enum protocol_ecode, e);
-		return io_write_packet(peer, err_pkt(peer, e), io_close_cb);
+		return peer_write_packet(peer, err_pkt(peer, e), close_peer);
 	}
 
 	log_info(peer->log, "Welcome received: listen port is %u",
@@ -1621,14 +1627,14 @@ static struct io_plan welcome_received(struct io_conn *conn, struct peer *peer)
 
 	mutual = mutual_block_search(peer, peer->welcome_blocks,
 				     le16_to_cpu(peer->welcome->num_blocks));
-	return io_write_packet(peer, sync_or_horizon_pkt(peer, mutual),
-			       recv_sync_or_horizon);
+	return peer_write_packet(peer, sync_or_horizon_pkt(peer, mutual),
+				 recv_sync_or_horizon);
 }
 
 static struct io_plan welcome_sent(struct io_conn *conn, struct peer *peer)
 {
 	log_debug(peer->log, "Our welcome sent, awaiting theirs");
-	return io_read_packet(&peer->welcome, welcome_received, peer);
+	return peer_read_packet(&peer->welcome, welcome_received, peer);
 }
 
 static void destroy_peer(struct peer *peer)
@@ -1659,9 +1665,9 @@ static void destroy_peer(struct peer *peer)
 
 static struct io_plan setup_welcome(struct io_conn *unused, struct peer *peer)
 {
-	return io_write_packet(peer,
-			       make_welcome(peer, peer->state, &peer->you),
-			       welcome_sent);
+	return peer_write_packet(peer,
+				 make_welcome(peer, peer->state, &peer->you),
+				 welcome_sent);
 }
 
 static unsigned int get_peernum(const bitmap bits[])
@@ -1718,6 +1724,16 @@ void new_peer(struct state *state, int fd, const struct protocol_net_address *a)
 		return;
 	}
 
+	/* We have to set up log now, in case io_connect is instant. */
+	if (inet_ntop(AF_INET6, a ? a->addr : peer->you.addr,
+		      name, sizeof(name)) == NULL)
+		strcpy(name, "UNCONVERTABLE-IPV6");
+	sprintf(name + strlen(name), ":%u:",
+		le16_to_cpu(a ? a->port : peer->you.port));
+
+	peer->log = new_log(peer, state->log,
+			    name, state->log_level, PEER_LOG_MAX);
+
 	/* If a, we need to connect to there. */
 	if (a) {
 		struct addrinfo *ai;
@@ -1748,12 +1764,6 @@ void new_peer(struct state *state, int fd, const struct protocol_net_address *a)
 		log_add_struct(state->log, struct protocol_net_address,
 			       &peer->you);
 	}
-
-	if (inet_ntop(AF_INET6, peer->you.addr, name, sizeof(name)) == NULL)
-		strcpy(name, "UNCONVERTABLE-IPV6");
-	sprintf(name + strlen(name), ":%u:", le16_to_cpu(peer->you.port));
-	peer->log = new_log(peer, state->log,
-			    name, state->log_level, PEER_LOG_MAX);
 
 	/* Conn owns us: we vanish when it does. */
 	tal_steal(peer->w, peer);
