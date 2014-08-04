@@ -115,7 +115,7 @@ static char *json_sendrawtransaction(struct json_connection *jcon,
 	return NULL;
 }
 
-struct json_command sendrawtransaction_command = {
+const struct json_command sendrawtransaction_command = {
 	"sendrawtransaction",
 	json_sendrawtransaction,
 	"Send a transaction to the network",

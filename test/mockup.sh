@@ -19,7 +19,7 @@ for SYMBOL; do
     if [ x"$WHERE" != x ]; then
 	STUB='\n{ fprintf(stderr, "'$SYMBOL' called!\\n"); abort(); }'
     else
-	WHERE=$(grep -nH "^extern struct [a-zA-Z0-9_]* $SYMBOL;$" ../*.h)
+	WHERE=$(grep -nH "^extern \(const \)\?struct [a-zA-Z0-9_]* $SYMBOL;$" ../*.h)
 	if [ x"$WHERE" != x ]; then
 	    STUB=';'
 	else

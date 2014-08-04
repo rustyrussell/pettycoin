@@ -287,7 +287,7 @@ static char *json_list_transactions(struct json_connection *jcon,
 	return NULL;
 }
 	
-struct json_command listtransactions_command = {
+const struct json_command listtransactions_command = {
 	"listtransactions", json_list_transactions,
 	"show transactions to/from a given address",
 	"<address> <minconf> - list all the transactions to/from a specific address as they appear in a block on the preferred chain, if they are >= <minconf> confirmations.  minconf defaults to 1; if 0, shows pending transactions."

@@ -400,7 +400,7 @@ static char *json_listtodo(struct json_connection *jcon,
 	return NULL;
 }
 
-struct json_command listtodo_command = {
+const struct json_command listtodo_command = {
 	"dev-listtodo",
 	json_listtodo,
 	"List all outstanding TODO requests",

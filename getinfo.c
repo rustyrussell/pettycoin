@@ -49,7 +49,7 @@ static char *json_getinfo(struct json_connection *jcon,
 	return NULL;
 }
 
-struct json_command getinfo_command = {
+const struct json_command getinfo_command = {
 	"getinfo",
 	json_getinfo,
 	"get miscellaneous information",
