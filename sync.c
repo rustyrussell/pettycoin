@@ -203,17 +203,30 @@ enum protocol_ecode recv_children(struct peer *peer,
 	if (len % sizeof(struct protocol_net_syncblock))
 		return PROTOCOL_ECODE_INVALID_LEN;
 
+	log_debug(peer->log, "Gave us %u children for ", num);
+	log_add_struct(peer->log, struct protocol_double_sha, &parent->sha);
+
 	s = (void *)(pkt + 1);
 	for (i = 0; i < num; i++) {
-		const struct block *b = block_find_any(peer->state, &s->block);
+		const struct block *b;
+
+		b = block_find_any(peer->state, &s[i].block);
 		if (!b) {
 			/* We'd better find out about this one... */
-			todo_add_get_block(peer->state, &s->block);
+			log_debug(peer->log, "Asking about unknown block ");
+			log_add_struct(peer->log, struct protocol_double_sha,
+				       &s[i].block);
+			todo_add_get_block(peer->state, &s[i].block);
 		} else {
 			/* If they have more children than us, ask deeper. */
 			if (num_children(b, NULL, 0)
-			    < le32_to_cpu(s[i].children))
-				todo_add_get_children(peer->state, &b->sha);
+			    < le32_to_cpu(s[i].children)) {
+				log_debug(peer->log, "Getting more kids for ");
+				log_add_struct(peer->log, struct protocol_double_sha,
+					       &s[i].block);
+				
+				todo_add_get_children(peer->state, &s[i].block);
+			}
 		}
 	}
 
