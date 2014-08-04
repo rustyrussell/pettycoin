@@ -108,7 +108,6 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 				todo_done_get_block(peer, &sha, true);
 			} else
 				todo_done_get_block(peer, &sha, false);
-			return PROTOCOL_ECODE_NONE;
 		}
 		return e;
 	}
@@ -392,6 +391,9 @@ enum protocol_ecode recv_block_from_peer(struct peer *peer,
 			 le32_to_cpu(b->hdr->depth));
 		log_add_struct(peer->log, struct protocol_double_sha, &b->sha);
 	}
+	/* If we didn't know prev, this block is still OK so don't hang up. */
+	if (e == PROTOCOL_ECODE_PRIV_UNKNOWN_PREV)
+		return PROTOCOL_ECODE_NONE;
 	return e;
 }
 
