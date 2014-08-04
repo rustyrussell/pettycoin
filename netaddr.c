@@ -1,5 +1,6 @@
 #include "netaddr.h"
 #include "protocol_net.h"
+#include <assert.h>
 #include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -110,7 +111,7 @@ bool get_fd_addr(int fd, struct protocol_net_address *addr)
 		struct sockaddr_in in;
 		struct sockaddr_in6 in6;
 	} u;
-	socklen_t len = sizeof(len);
+	socklen_t len = sizeof(u);
 
 	if (getsockname(fd, &u.sa, &len) != 0)
 		return false;
@@ -122,9 +123,11 @@ bool get_fd_addr(int fd, struct protocol_net_address *addr)
 	addr->unused = cpu_to_le16(0);
 	memset(&addr->uuid, 0, sizeof(addr->uuid));
 	if (u.sa.sa_family == AF_INET) {
+		assert(len == sizeof(u.in));
 		ipv4_netaddr(addr, &u.in);
 		return true;
 	} else if (u.sa.sa_family == AF_INET6) {
+		assert(len == sizeof(u.in6));
 		ipv6_netaddr(addr, &u.in6);
 		return true;
 	}
