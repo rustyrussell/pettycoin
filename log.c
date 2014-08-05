@@ -5,6 +5,7 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
+#include <errno.h>
 #include <stdio.h>
 
 struct log_entry {
@@ -106,6 +107,7 @@ void logv(struct log *log, enum log_level level, const char *fmt, va_list ap)
 
 void log_io(struct log *log, bool in, const void *data, size_t len)
 {
+	int save_errno = errno;
 	struct log_entry *l = tal(log, struct log_entry);
 
 	l->time = time_now();
@@ -121,6 +123,7 @@ void log_io(struct log *log, bool in, const void *data, size_t len)
 		tal_free(hex);
 	}
 	add_entry(log, l);
+	errno = save_errno;
 }
 
 static void do_log_add(struct log *log, const char *fmt, va_list ap)
