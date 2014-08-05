@@ -201,6 +201,7 @@ static char *ask_process(const tal_t *ctx,
 	if (pipe(fds) != 0)
 		return NULL;
 
+	fflush(stdout);
 	switch (fork()) {
 	case -1:
 		return NULL;

@@ -7,6 +7,7 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/tal.h>
 #include <netdb.h>
+#include <stdio.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 
@@ -139,6 +140,7 @@ tal_t *dns_resolve_and_connect(struct state *state,
 		return NULL;
 	}
 
+	fflush(stdout);
 	switch (fork()) {
 	case -1:
 		warn("Forking for dns lookup");

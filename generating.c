@@ -270,6 +270,7 @@ static void exec_generator(struct generator *gen)
 	if (pipe(outfd) != 0 || pipe(infd) != 0)
 		fatal(gen->state, "pipe: %s", strerror(errno));
 
+	fflush(stdout);
 	gen->pid = fork();
 	if (gen->pid == -1)
 		fatal(gen->state, "fork: %s", strerror(errno));
