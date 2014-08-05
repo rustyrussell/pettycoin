@@ -6,7 +6,9 @@
 #include <sys/wait.h>
 #include <stdio.h>
 
-#ifndef PORT
+#ifdef DEBUG_CONN
+#define PORT "64001"
+#else
 #define PORT "65001"
 #endif
 static int expected_fd;
@@ -16,15 +18,20 @@ static void finish_ok(struct io_conn *conn, int *state)
 	ok1(*state == 1);
 	ok1(io_conn_fd(conn) == expected_fd);
 	(*state)++;
-	io_break(state + 1, io_never());
+	io_break(state + 1);
 }
 
-static void init_conn(int fd, int *state)
+static struct io_plan *init_conn(struct io_conn *conn, int *state)
 {
+#ifdef DEBUG_CONN
+	io_set_debug(conn, true);
+#endif
 	ok1(*state == 0);
 	(*state)++;
-	expected_fd = fd;
-	io_set_finish(io_new_conn(fd, io_close()), finish_ok, state);
+	expected_fd = io_conn_fd(conn);
+	io_set_finish(conn, finish_ok, state);
+
+	return io_close(conn);
 }
 
 static int make_listen_fd(const char *port, struct addrinfo **info)
@@ -70,7 +77,7 @@ int main(void)
 	plan_tests(10);
 	fd = make_listen_fd(PORT, &addrinfo);
 	ok1(fd >= 0);
-	l = io_new_listener(fd, init_conn, &state);
+	l = io_new_listener(NULL, fd, init_conn, &state);
 	ok1(l);
 	fflush(stdout);
 	if (!fork()) {
@@ -86,7 +93,7 @@ int main(void)
 		exit(0);
 	}
 	freeaddrinfo(addrinfo);
-	ok1(io_loop() == &state + 1);
+	ok1(io_loop(NULL, NULL) == &state + 1);
 	ok1(state == 2);
 	io_close_listener(l);
 	ok1(wait(&state));

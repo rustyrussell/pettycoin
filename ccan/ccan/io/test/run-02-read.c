@@ -6,7 +6,9 @@
 #include <sys/wait.h>
 #include <stdio.h>
 
-#ifndef PORT
+#ifdef DEBUG_CONN
+#define PORT "64002"
+#else
 #define PORT "65002"
 #endif
 
@@ -19,17 +21,19 @@ static void finish_ok(struct io_conn *conn, struct data *d)
 {
 	ok1(d->state == 1);
 	d->state++;
-	io_break(d, io_never());
+	io_break(d);
 }
 
-static void init_conn(int fd, struct data *d)
+static struct io_plan *init_conn(struct io_conn *conn, struct data *d)
 {
+#ifdef DEBUG_CONN
+	io_set_debug(conn, true);
+#endif
 	ok1(d->state == 0);
 	d->state++;
 
-	io_set_finish(io_new_conn(fd,
-				  io_read(d->buf, sizeof(d->buf), io_close_cb, d)),
-		      finish_ok, d);
+	io_set_finish(conn, finish_ok, d);
+	return io_read(conn, d->buf, sizeof(d->buf), io_close_cb, d);
 }
 
 static int make_listen_fd(const char *port, struct addrinfo **info)
@@ -76,7 +80,7 @@ int main(void)
 	d->state = 0;
 	fd = make_listen_fd(PORT, &addrinfo);
 	ok1(fd >= 0);
-	l = io_new_listener(fd, init_conn, d);
+	l = io_new_listener(NULL, fd, init_conn, d);
 	ok1(l);
 	fflush(stdout);
 	if (!fork()) {
@@ -100,7 +104,7 @@ int main(void)
 		exit(0);
 	}
 	freeaddrinfo(addrinfo);
-	ok1(io_loop() == d);
+	ok1(io_loop(NULL, NULL) == d);
 	ok1(d->state == 2);
 	ok1(memcmp(d->buf, "hellothere", sizeof(d->buf)) == 0);
 	free(d);

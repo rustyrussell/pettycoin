@@ -6,7 +6,9 @@
 #include <sys/wait.h>
 #include <stdio.h>
 
-#ifndef PORT
+#ifdef DEBUG_CONN
+#define PORT "64005"
+#else
 #define PORT "65005"
 #endif
 
@@ -20,16 +22,18 @@ static void finish_ok(struct io_conn *conn, struct data *d)
 {
 	ok1(d->state == 1);
 	d->state++;
-	io_break(d, io_never());
+	io_break(d);
 }
 
-static void init_conn(int fd, struct data *d)
+static struct io_plan *init_conn(struct io_conn *conn, struct data *d)
 {
+#ifdef DEBUG_CONN
+	io_set_debug(conn, true);
+#endif
 	ok1(d->state == 0);
 	d->state++;
-	io_set_finish(io_new_conn(fd, io_write(d->buf, d->bytes,
-					       io_close_cb, d)),
-		      finish_ok, d);
+	io_set_finish(conn, finish_ok, d);
+	return io_write(conn, d->buf, d->bytes, io_close_cb, d);
 }
 
 static int make_listen_fd(const char *port, struct addrinfo **info)
@@ -100,7 +104,7 @@ int main(void)
 	memset(d->buf, 'a', d->bytes);
 	fd = make_listen_fd(PORT, &addrinfo);
 	ok1(fd >= 0);
-	l = io_new_listener(fd, init_conn, d);
+	l = io_new_listener(NULL, fd, init_conn, d);
 	ok1(l);
 	fflush(stdout);
 	if (!fork()) {
@@ -111,7 +115,7 @@ int main(void)
 		free(d);
 		exit(0);
 	}
-	ok1(io_loop() == d);
+	ok1(io_loop(NULL, NULL) == d);
 	ok1(d->state == 2);
 
 	ok1(wait(&status));

@@ -2,18 +2,8 @@
 #ifndef CCAN_IO_BACKEND_H
 #define CCAN_IO_BACKEND_H
 #include <stdbool.h>
-#include <ccan/timer/timer.h>
 #include <poll.h>
-
-/* A setting for actions to always run (eg. zero-length reads). */
-#define POLLALWAYS (((POLLIN|POLLOUT) + 1) & ~((POLLIN|POLLOUT)))
-
-struct io_alloc {
-	void *(*alloc)(size_t size);
-	void *(*realloc)(void *ptr, size_t size);
-	void (*free)(void *ptr);
-};
-extern struct io_alloc io_alloc;
+#include "io_plan.h"
 
 struct fd {
 	int fd;
@@ -25,77 +15,79 @@ struct fd {
 struct io_listener {
 	struct fd fd;
 
+	const tal_t *ctx;
+
 	/* These are for connections we create. */
-	void (*init)(int fd, void *arg);
+	struct io_plan *(*init)(struct io_conn *conn, void *arg);
 	void *arg;
 };
 
-struct io_timeout {
-	struct timer timer;
-	struct io_conn *conn;
+enum io_plan_status {
+	/* As before calling next function. */
+	IO_UNSET,
+	/* Normal. */
+	IO_POLLING,
+	/* Waiting for io_wake */
+	IO_WAITING,
+	/* Always do this. */
+	IO_ALWAYS,
+	/* Closing (both plans will be the same). */
+	IO_CLOSING
+};
 
-	struct io_plan (*next)(struct io_conn *, void *arg);
+/**
+ * struct io_plan - one half of I/O to do
+ * @status: the status of this plan.
+ * @io: function to call when fd becomes read/writable, returns 0 to be
+ *      called again, 1 if it's finished, and -1 on error (fd will be closed)
+ * @next: the next function which is called if io returns 1.
+ * @next_arg: the argument to @next
+ * @u1, @u2: scratch space for @io.
+ */
+struct io_plan {
+	enum io_plan_status status;
+
+	int (*io)(int fd, struct io_plan_arg *arg);
+
+	struct io_plan *(*next)(struct io_conn *, void *next_arg);
 	void *next_arg;
+
+	struct io_plan_arg arg;
 };
 
 /* One connection per client. */
 struct io_conn {
 	struct fd fd;
+	bool debug;
+	/* For duplex to save. */
+	bool debug_saved;
+
+	/* always or closing list. */
+	struct io_conn *list;
 
 	void (*finish)(struct io_conn *, void *arg);
 	void *finish_arg;
 
-	struct io_conn *duplex;
-	struct io_timeout *timeout;
-
-	struct io_plan plan;
+	struct io_plan plan[2];
 };
 
-static inline bool timeout_active(const struct io_conn *conn)
-{
-	return conn->timeout && conn->timeout->conn;
-}
-
 extern void *io_loop_return;
-
-#ifdef DEBUG
-extern struct io_conn *current;
-static inline void set_current(struct io_conn *conn)
-{
-	current = conn;
-}
-static inline bool doing_debug_on(struct io_conn *conn)
-{
-	return io_debug_conn && io_debug_conn(conn);
-}
-static inline bool doing_debug(void)
-{
-	return io_debug_conn;
-}
-#else
-static inline void set_current(struct io_conn *conn)
-{
-}
-static inline bool doing_debug_on(struct io_conn *conn)
-{
-	return false;
-}
-static inline bool doing_debug(void)
-{
-	return false;
-}
-#endif
 
 bool add_listener(struct io_listener *l);
 bool add_conn(struct io_conn *c);
 bool add_duplex(struct io_conn *c);
 void del_listener(struct io_listener *l);
-void backend_plan_changed(struct io_conn *conn);
-void backend_wait_changed(const void *wait);
-void backend_add_timeout(struct io_conn *conn, struct timerel duration);
-void backend_del_timeout(struct io_conn *conn);
+void backend_new_closing(struct io_conn *conn);
+void backend_new_always(struct io_conn *conn);
+void backend_new_plan(struct io_conn *conn);
+void remove_from_always(struct io_conn *conn);
+void backend_plan_done(struct io_conn *conn);
+
+void backend_wake(const void *wait);
 void backend_del_conn(struct io_conn *conn);
 
-void io_ready(struct io_conn *conn);
+void io_ready(struct io_conn *conn, int pollflags);
+void io_do_always(struct io_conn *conn);
+void io_do_wakeup(struct io_conn *conn, struct io_plan *plan);
 void *do_io_loop(struct io_conn **ready);
 #endif /* CCAN_IO_BACKEND_H */

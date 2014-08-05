@@ -6,7 +6,9 @@
 #include <sys/wait.h>
 #include <stdio.h>
 
-#ifndef PORT
+#ifdef DEBUG_CONN
+#define PORT "64017"
+#else
 #define PORT "65017"
 #endif
 
@@ -20,33 +22,33 @@ static void finish_ok(struct io_conn *conn, struct packet *pkt)
 {
 	ok1(pkt->state == 3);
 	pkt->state++;
-	io_break(pkt, io_never());
+	io_break(pkt);
 }
 
-static int do_read_packet(int fd, struct io_plan *plan)
+static int do_read_packet(int fd, struct io_plan_arg *arg)
 {
-	struct packet *pkt = plan->u1.vp;
+	struct packet *pkt = arg->u1.vp;
 	char *dest;
 	ssize_t ret;
 	size_t off, totlen;
 
 	/* Reading len? */
-	if (plan->u2.s < sizeof(size_t)) {
+	if (arg->u2.s < sizeof(size_t)) {
 		ok1(pkt->state == 1);
 		pkt->state++;
 		dest = (char *)&pkt->len;
-		off = plan->u2.s;
+		off = arg->u2.s;
 		totlen = sizeof(pkt->len);
 	} else {
 		ok1(pkt->state == 2);
 		pkt->state++;
 		if (pkt->len == 0)
-			return io_debug_io(1);
+			return 1;
 		if (!pkt->contents && !(pkt->contents = malloc(pkt->len)))
 			goto fail;
 		else {
 			dest = pkt->contents;
-			off = plan->u2.s - sizeof(pkt->len);
+			off = arg->u2.s - sizeof(pkt->len);
 			totlen = pkt->len;
 		}
 	}
@@ -55,42 +57,42 @@ static int do_read_packet(int fd, struct io_plan *plan)
 	if (ret <= 0)
 		goto fail;
 
-	plan->u2.s += ret;
+	arg->u2.s += ret;
 
 	/* Finished? */
-	return io_debug_io(plan->u2.s >= sizeof(pkt->len)
-			   && plan->u2.s == pkt->len + sizeof(pkt->len));
+	return arg->u2.s >= sizeof(pkt->len)
+		&& arg->u2.s == pkt->len + sizeof(pkt->len);
 
 fail:
 	free(pkt->contents);
-	return io_debug_io(-1);
+	return -1;
 }
 
-static struct io_plan io_read_packet(struct packet *pkt,
-				     struct io_plan (*cb)(struct io_conn *, void *),
-				     void *arg)
+static struct io_plan *io_read_packet(struct io_conn *conn,
+				      struct packet *pkt,
+				      struct io_plan *(*cb)(struct io_conn *,
+							    void *),
+				      void *cb_arg)
 {
-	struct io_plan plan;
+	struct io_plan_arg *arg = io_plan_arg(conn, IO_IN);
 
-	assert(cb);
 	pkt->contents = NULL;
-	plan.u1.vp = pkt;
-	plan.u2.s = 0;
-	plan.io = do_read_packet;
-	plan.next = cb;
-	plan.next_arg = arg;
-	plan.pollflag = POLLIN;
+	arg->u1.vp = pkt;
+	arg->u2.s = 0;
 
-	return plan;
+	return io_set_plan(conn, IO_IN, do_read_packet, cb, cb_arg);
 }
 
-static void init_conn(int fd, struct packet *pkt)
+static struct io_plan *init_conn(struct io_conn *conn, struct packet *pkt)
 {
+#ifdef DEBUG_CONN
+	io_set_debug(conn, true);
+#endif
 	ok1(pkt->state == 0);
 	pkt->state++;
 
-	io_set_finish(io_new_conn(fd, io_read_packet(pkt, io_close_cb, pkt)),
-		      finish_ok, pkt);
+	io_set_finish(conn, finish_ok, pkt);
+	return io_read_packet(conn, pkt, io_close_cb, pkt);
 }
 
 static int make_listen_fd(const char *port, struct addrinfo **info)
@@ -137,7 +139,7 @@ int main(void)
 	pkt->state = 0;
 	fd = make_listen_fd(PORT, &addrinfo);
 	ok1(fd >= 0);
-	l = io_new_listener(fd, init_conn, pkt);
+	l = io_new_listener(NULL, fd, init_conn, pkt);
 	ok1(l);
 	fflush(stdout);
 	if (!fork()) {
@@ -166,7 +168,7 @@ int main(void)
 		exit(0);
 	}
 	freeaddrinfo(addrinfo);
-	ok1(io_loop() == pkt);
+	ok1(io_loop(NULL, NULL) == pkt);
 	ok1(pkt->state == 4);
 	ok1(pkt->len == 8);
 	ok1(memcmp(pkt->contents, "hithere!", 8) == 0);
