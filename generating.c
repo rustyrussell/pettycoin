@@ -227,7 +227,7 @@ static void exec_generator(struct generator *gen)
 	int i;
 	const struct block *last;
 	char log_prefix[40];
-	const u8 *prev_txhashes = gen->state->pending->prev_txhashes;
+	const u8 *prev_txhashes;
 
 	/* FIXME: This is where we increment shard_order if voted! */
 	gen->shard_order = gen->state->longest_knowns[0]->hdr->shard_order;
