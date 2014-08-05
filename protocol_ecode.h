@@ -60,7 +60,7 @@ enum protocol_ecode {
 	PROTOCOL_ECODE_BAD_PREV_TXHASHES, /* Wrong number of prev_txhashes. */
 	PROTOCOL_ECODE_BAD_DIFFICULTY, /* Wrong difficulty calculation. */
 	PROTOCOL_ECODE_INSUFFICIENT_WORK, /* Didn't meet difficulty. */
-	PROTOCOL_ECODE_BAD_DEPTH, /* Wasn't prev + 1. */
+	PROTOCOL_ECODE_BAD_HEIGHT, /* Wasn't prev + 1. */
 
 	/* protocol_pkt_tx / protocol_pkt_tx_in_block */
 	PROTOCOL_ECODE_TX_HIGH_VERSION, /* transaction version unknown */

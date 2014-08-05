@@ -10,7 +10,7 @@ u8 pending_features(const struct block *block)
 	u8 result = 0;
 
 	/* We only update pending features every FEATURE_VOTE_BLOCKS blocks */
-	if (le32_to_cpu(block->hdr->depth) % PROTOCOL_FEATURE_VOTE_BLOCKS != 0)
+	if (le32_to_cpu(block->hdr->height) % PROTOCOL_FEATURE_VOTE_BLOCKS != 0)
 		return block->prev->pending_features;
 
 	for (b = block, i = 0;

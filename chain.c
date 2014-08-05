@@ -28,7 +28,7 @@ struct block *step_towards(const struct block *curr, const struct block *target)
 	const struct block *prev_target;
 
 	/* Move back towards target. */
-	while (le32_to_cpu(curr->hdr->depth) > le32_to_cpu(target->hdr->depth))
+	while (le32_to_cpu(curr->hdr->height) > le32_to_cpu(target->hdr->height))
 		curr = curr->prev;
 
 	/* Already past it, or equal to it */
@@ -36,7 +36,7 @@ struct block *step_towards(const struct block *curr, const struct block *target)
 		return NULL;
 
 	/* Move target back towards curr. */
-	while (le32_to_cpu(target->hdr->depth) > le32_to_cpu(curr->hdr->depth)) {
+	while (le32_to_cpu(target->hdr->height) > le32_to_cpu(curr->hdr->height)) {
 		prev_target = target;
 		target = target->prev;
 	}
@@ -123,13 +123,13 @@ void check_chains(struct state *state, bool all)
 	if (!all)
 		return;
 
-	for (n = 0; n < tal_count(state->block_depth); n++) {
+	for (n = 0; n < tal_count(state->block_height); n++) {
 		size_t num_this_level = num_next_level;
-		list_check(state->block_depth[n], "bad block depth");
+		list_check(state->block_height[n], "bad block height");
 		num_next_level = 0;
-		list_for_each(state->block_depth[n], i, list) {
+		list_for_each(state->block_height[n], i, list) {
 			const struct block *b;
-			assert(le32_to_cpu(i->hdr->depth) == n);
+			assert(le32_to_cpu(i->hdr->height) == n);
 			assert(num_this_level);
 			num_this_level--;
 			if (n == 0)
@@ -532,7 +532,7 @@ static char *json_getblock(struct json_connection *jcon,
 	json_add_num(response, "nonce1", le32_to_cpu(b->tailer->nonce1));
 	json_add_hex(response, "nonce2", b->hdr->nonce2,
 		     sizeof(b->hdr->nonce2));
-	json_add_num(response, "depth", le32_to_cpu(b->hdr->depth));
+	json_add_num(response, "height", le32_to_cpu(b->hdr->height));
 	json_add_address(response, "fees_to",
 			 jcon->state->test_net, &b->hdr->fees_to);
 	json_add_num(response, "timestamp",
@@ -571,5 +571,5 @@ const struct json_command getblock_command = {
 	"getblock",
 	json_getblock,
 	"Get a description of a given block",
-	"hash, version, features_vote, shard_order, nonce1, nonce2, depth, fees_to, timestamp, difficulty, prev, next[], merkles[], shards[ [{tx,refs[]}|{}|{txhash,refhash} ] ]"
+	"hash, version, features_vote, shard_order, nonce1, nonce2, height, fees_to, timestamp, difficulty, prev, next[], merkles[], shards[ [{tx,refs[]}|{}|{txhash,refhash} ] ]"
 };

@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
 	memset(hdr.nonce2, 7, sizeof(hdr.nonce2));
 	memset(&hdr.prev_block, 8, sizeof(hdr.prev_block));
 	hdr.num_prev_txhashes = cpu_to_le32(0);
-	hdr.depth = cpu_to_le32(0);
+	hdr.height = cpu_to_le32(0);
 	memset(&hdr.fees_to, 9, sizeof(hdr.fees_to));
 
 	memset(shard_nums, 0, sizeof(shard_nums[0]) << hdr.shard_order);

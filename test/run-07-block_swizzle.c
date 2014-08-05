@@ -262,7 +262,7 @@ int main(int argc, char *argv[])
 		prev_txhashes = make_prev_txhashes(s, prev, helper_addr(1));
 		w = new_working_block(s, 0x1ffffff0,
 				      prev_txhashes, tal_count(prev_txhashes),
-				      le32_to_cpu(prev->hdr->depth) + 1,
+				      le32_to_cpu(prev->hdr->height) + 1,
 				      next_shard_order(prev),
 				      &prev->sha, helper_addr(1));
 		for (j = 0; !solve_block(w); j++);
@@ -290,7 +290,7 @@ int main(int argc, char *argv[])
 		prev_txhashes = make_prev_txhashes(s, prev, helper_addr(2));
 		w = new_working_block(s, 0x1ffffff0,
 				      prev_txhashes, tal_count(prev_txhashes),
-				      le32_to_cpu(prev->hdr->depth) + 1,
+				      le32_to_cpu(prev->hdr->height) + 1,
 				      next_shard_order(prev),
 				      &prev->sha, helper_addr(2));
 		for (j = 0; !solve_block(w); j++);
@@ -323,7 +323,7 @@ int main(int argc, char *argv[])
 	prev_txhashes = make_prev_txhashes(s, prev, helper_addr(2));
 	w = new_working_block(s, 0x1ffffff0,
 			      prev_txhashes, tal_count(prev_txhashes),
-			      le32_to_cpu(prev->hdr->depth) + 1,
+			      le32_to_cpu(prev->hdr->height) + 1,
 			      next_shard_order(prev),
 			      &prev->sha, helper_addr(2));
 	for (j = 0; !solve_block(w); j++);
@@ -347,7 +347,7 @@ int main(int argc, char *argv[])
 	prev_txhashes = make_prev_txhashes(s, prev, helper_addr(1));
 	w = new_working_block(s, 0x1ffffff0,
 			      prev_txhashes, tal_count(prev_txhashes),
-			      le32_to_cpu(prev->hdr->depth) + 1,
+			      le32_to_cpu(prev->hdr->height) + 1,
 			      next_shard_order(prev),
 			      &prev->sha, helper_addr(1));
 	for (j = 0; !solve_block(w); j++);
@@ -374,7 +374,7 @@ int main(int argc, char *argv[])
 	prev_txhashes = make_prev_txhashes(s, prev, helper_addr(1));
 	w = new_working_block(s, 0x1ffffff0,
 			      prev_txhashes, tal_count(prev_txhashes),
-			      le32_to_cpu(prev->hdr->depth) + 1,
+			      le32_to_cpu(prev->hdr->height) + 1,
 			      next_shard_order(prev),
 			      &prev->sha, helper_addr(1));
 	for (j = 0; !solve_block(w); j++);

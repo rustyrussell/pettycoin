@@ -27,7 +27,7 @@ static struct block *add_fake_blocks(const tal_t *ctx,
 		struct protocol_block_tailer *tail;
 
 		b->hdr = head = tal(b, struct protocol_block_header);
-		head->depth = cpu_to_le32(le32_to_cpu(prev->hdr->depth) + 1);
+		head->height = cpu_to_le32(le32_to_cpu(prev->hdr->height) + 1);
 
 		b->tailer = tail = tal(b, struct protocol_block_tailer);
 		tail->timestamp
@@ -100,10 +100,10 @@ int main(int argc, char *argv[])
 
 	/* Set up state. */
 	state = tal(NULL, struct state);
-	state->block_depth = tal_arr(state, struct list_head *, 1);
-	state->block_depth[0] = tal(state->block_depth, struct list_head);
+	state->block_height = tal_arr(state, struct list_head *, 1);
+	state->block_height[0] = tal(state->block_height, struct list_head);
 	state->test_net = true;
-	list_head_init(state->block_depth[0]);
+	list_head_init(state->block_height[0]);
 
 	/* get_difficulty() can ask about genesis block. */
 	BN_init(&genesis.total_work);
@@ -111,7 +111,7 @@ int main(int argc, char *argv[])
 		errx(1, "Failed to initialize genesis block");
 	genesis.all_known = true;
 	list_head_init(&genesis.children);
-	list_add_tail(state->block_depth[0], &genesis.list);
+	list_add_tail(state->block_height[0], &genesis.list);
 
 	/* Difficulty immediately after genesis is the same */
 	diff1 = get_difficulty(state, &genesis);

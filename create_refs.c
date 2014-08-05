@@ -35,8 +35,8 @@ static bool resolve_input(struct state *state,
 
 	/* Add offset: it might be going to go into *next* block */
 	ref->blocks_ago = 
-		cpu_to_le32(le32_to_cpu(prev_block->hdr->depth) -
-			    le32_to_cpu(te->u.block->hdr->depth) + offset);
+		cpu_to_le32(le32_to_cpu(prev_block->hdr->height) -
+			    le32_to_cpu(te->u.block->hdr->height) + offset);
 	ref->shard = cpu_to_le16(te->shardnum);
 	ref->txoff = te->txoff;
 	ref->unused = 0;

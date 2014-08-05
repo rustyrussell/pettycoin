@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
 	memcpy(hdr.nonce2, argv[3] + sizeof(tailer.nonce1), sizeof(hdr.nonce2));
 	memset(&hdr.prev_block, 0, sizeof(hdr.prev_block));
 	hdr.num_prev_txhashes = cpu_to_le32(0);
-	hdr.depth = cpu_to_le32(0);
+	hdr.height = cpu_to_le32(0);
 	memset(&hdr.fees_to, 0, sizeof(hdr.fees_to));
 
 	for (i = 0; i < num_shards(&hdr); i++)

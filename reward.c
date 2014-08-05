@@ -50,17 +50,17 @@ bool reward_get_tx(struct state *state,
 		return false;
 
 	/* Which block decides the reward?  End of reward period. */
-	reward_end = (le32_to_cpu(reward_block->hdr->depth)
+	reward_end = (le32_to_cpu(reward_block->hdr->height)
 		      + PROTOCOL_REWARD_PERIOD - 1) / PROTOCOL_REWARD_PERIOD
 		* PROTOCOL_REWARD_PERIOD;
 
 	/* Not decided yet? */
-	if (le32_to_cpu(claim_block->hdr->depth) <= reward_end)
+	if (le32_to_cpu(claim_block->hdr->height) <= reward_end)
 		return false;
 
 	/* Decider is reward_end on way to claim block. */
 	decider = block_ancestor(claim_block,
-				 le32_to_cpu(reward_block->hdr->depth)
+				 le32_to_cpu(reward_block->hdr->height)
 				 - reward_end);
 
 	/* Hash the two shas together. */

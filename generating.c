@@ -219,7 +219,7 @@ static void exec_generator(struct generator *gen)
 	int outfd[2], infd[2];
 	char difficulty[STR_MAX_CHARS(u32)],
 		prev_merkle_str[STR_MAX_CHARS(u32)],
-		depth[STR_MAX_CHARS(u32)],
+		height[STR_MAX_CHARS(u32)],
 		shard_order[STR_MAX_CHARS(u8)];
 	char prevblock[sizeof(struct protocol_double_sha) * 2 + 1];
 	char fees_to[sizeof(struct protocol_address) * 2 + 1];
@@ -238,7 +238,7 @@ static void exec_generator(struct generator *gen)
 	last = gen->state->longest_knowns[0];
 	sprintf(difficulty, "%u", get_difficulty(gen->state, last));
 	sprintf(prev_merkle_str, "%zu", tal_count(prev_txhashes));
-	sprintf(depth, "%u", le32_to_cpu(last->hdr->depth) + 1);
+	sprintf(height, "%u", le32_to_cpu(last->hdr->height) + 1);
 	sprintf(shard_order, "%u", gen->shard_order);
 	for (i = 0; i < sizeof(struct protocol_double_sha); i++)
 		sprintf(prevblock + i*2, "%02X", last->sha.sha[i]);
@@ -270,7 +270,7 @@ static void exec_generator(struct generator *gen)
 		execlp(gen->state->generator,
 		       "pettycoin-generate",
 		       fees_to, difficulty, prevblock, prev_merkle_str,
-		       depth, shard_order, nonce, NULL);
+		       height, shard_order, nonce, NULL);
 		exit(127);
 	}
 
@@ -280,7 +280,7 @@ static void exec_generator(struct generator *gen)
 	log_debug(gen->log, "Running '%s' '%s' '%s' '%s' %s' '%s' '%s' '%s'",
 		  gen->state->generator,
 		  fees_to,
-		  difficulty, prevblock, prev_merkle_str, depth, shard_order,
+		  difficulty, prevblock, prev_merkle_str, height, shard_order,
 		  nonce);
 
 	close(outfd[1]);

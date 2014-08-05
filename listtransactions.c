@@ -158,10 +158,10 @@ static void add_existing_txs(struct json_connection *jcon,
 {
 	const struct block *b;
 	unsigned int shard, txoff;
-	int i, depth = 1;
+	int i, height = 1;
 	char **txs = tal_arr(jcon, char *, 0);
 
-	for (b = jcon->state->preferred_chain; b; b = b->prev, depth++) {
+	for (b = jcon->state->preferred_chain; b; b = b->prev, height++) {
 		/* Once block is past horizon, we can't spend it */
 		if (le32_to_cpu(b->tailer->timestamp) 
 		    + PROTOCOL_TX_HORIZON_SECS(jcon->state->test_net)
@@ -182,7 +182,7 @@ static void add_existing_txs(struct json_connection *jcon,
 
 				txstring = tal_arr(jcon, char, 0);
 				json_append_tx(&txstring, jcon->state,
-					       tx, b, depth);
+					       tx, b, height);
 				tal_arr_append(&txs, txstring);
 			}
 		}
@@ -197,7 +197,7 @@ static void add_existing_txs(struct json_connection *jcon,
 	tal_free(txs);
 }
 
-/* Pending txs have depth 0. */
+/* Pending txs have height 0. */
 static void add_pending_txs(struct json_connection *jcon,
 			    const struct protocol_address *address,
 			    char **response)

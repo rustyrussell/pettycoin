@@ -91,7 +91,7 @@ struct protocol_block_header {
 	u8 nonce2[13];
 	struct protocol_double_sha prev_block;
 	le32 num_prev_txhashes;
-	le32 depth;
+	le32 height;
 	struct protocol_address fees_to;
 };
 

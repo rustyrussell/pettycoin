@@ -112,7 +112,7 @@ new_working_block(const tal_t *ctx,
 		  u32 difficulty,
 		  u8 *prev_txhashes,
 		  unsigned long num_prev_txhashes,
-		  u32 depth,
+		  u32 height,
 		  u8 shard_order,
 		  const struct protocol_double_sha *prev_block,
 		  const struct protocol_address *fees_to)
@@ -149,7 +149,7 @@ new_working_block(const tal_t *ctx,
 	w->hdr.prev_block = *prev_block;
 	w->hdr.shard_order = shard_order;
 	w->hdr.num_prev_txhashes = cpu_to_le32(num_prev_txhashes);
-	w->hdr.depth = cpu_to_le32(depth);
+	w->hdr.height = cpu_to_le32(height);
 	w->hdr.fees_to = *fees_to;
 
 	w->tailer.timestamp = cpu_to_le32(current_time());
@@ -332,13 +332,13 @@ int main(int argc, char *argv[])
 	struct protocol_address reward_address;
 	struct protocol_double_sha prev_hash;
 	u8 *prev_txhashes;
-	u32 difficulty, num_prev_txhashes, depth, shard_order;
+	u32 difficulty, num_prev_txhashes, height, shard_order;
 
 	err_set_progname(argv[0]);
 
 	if (argc != 7 && argc != 8)
 		errx(1, "Usage: %s <reward_addr> <difficulty> <prevhash>"
-		     " <num-prev-txhashes> <depth> <shardorder> [<nonce>]",
+		     " <num-prev-txhashes> <height> <shardorder> [<nonce>]",
 			argv[0]);
 
 	if (!from_hex(argv[1], strlen(argv[1]),
@@ -353,7 +353,7 @@ int main(int argc, char *argv[])
 		      prev_hash.sha, sizeof(prev_hash)))
 		errx(1, "Invalid previous hash");
 
-	depth = strtoul(argv[5], NULL, 0);
+	height = strtoul(argv[5], NULL, 0);
 	shard_order = strtoul(argv[6], NULL, 0);
 	num_prev_txhashes = strtoul(argv[4], NULL, 0);
 	prev_txhashes = tal_arr(ctx, u8, num_prev_txhashes + 1);
@@ -364,7 +364,7 @@ int main(int argc, char *argv[])
 		exit(0);
 
 	w = new_working_block(ctx, difficulty, prev_txhashes, num_prev_txhashes,
-			      depth, shard_order, &prev_hash, &reward_address);
+			      height, shard_order, &prev_hash, &reward_address);
 
 	if (argv[7]) {
 		strncpy((char *)w->hdr.nonce2, argv[7],

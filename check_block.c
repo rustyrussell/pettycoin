@@ -68,8 +68,8 @@ check_block_header(struct state *state,
 	if (hdr->shard_order != next_shard_order(*prev))
 		return PROTOCOL_ECODE_BAD_SHARD_ORDER;
 
-	if (le32_to_cpu(hdr->depth) != le32_to_cpu((*prev)->hdr->depth)+1)
-		return PROTOCOL_ECODE_BAD_DEPTH;
+	if (le32_to_cpu(hdr->height) != le32_to_cpu((*prev)->hdr->height)+1)
+		return PROTOCOL_ECODE_BAD_HEIGHT;
 
 	/* Can't go backwards, can't be more than 2 hours in future. */
 	if (!check_timestamp(state, le32_to_cpu(tailer->timestamp), *prev))
@@ -345,8 +345,8 @@ bool check_prev_txhashes(struct state *state, const struct block *block,
 				log_unusual(state->log,
 					    "Incorrect prev_txhash block %u:"
 					    " block %u shard %u was %u not %u",
-					    le32_to_cpu(block->hdr->depth),
-					    le32_to_cpu(block->hdr->depth) - i,
+					    le32_to_cpu(block->hdr->height),
+					    le32_to_cpu(block->hdr->height) - i,
 					    j,
 					    prev_txh,
 					    block->prev_txhashes[off+j]);

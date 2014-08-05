@@ -133,7 +133,7 @@ recv_tx(struct state *state,
 		/* This is OK for now, will be spammy in real network! */
 		log_info(peer->log, "gave us TX in shard %u, off %u, block %u ",
 			 shard, proof->proof.pos.txoff,
-			 le32_to_cpu(b->hdr->depth));
+			 le32_to_cpu(b->hdr->height));
 		log_add_struct(peer->log, struct protocol_double_sha, &sha);
 	}
 

@@ -240,7 +240,7 @@ int main(int argc, char *argv[])
 	prev_txhashes = make_prev_txhashes(s, &genesis, helper_addr(1));
 	w = new_working_block(s, 0x1ffffff0,
 			      prev_txhashes, tal_count(prev_txhashes),
-			      le32_to_cpu(genesis.hdr->depth) + 1,
+			      le32_to_cpu(genesis.hdr->height) + 1,
 			      next_shard_order(&genesis),
 			      &genesis.sha, helper_addr(1));
 
@@ -286,7 +286,7 @@ int main(int argc, char *argv[])
 	fake_time++;
 	w2 = new_working_block(s, 0x1ffffff0,
 			       prev_txhashes, num_prev_txhashes(b),
-			       le32_to_cpu(b->hdr->depth) + 1,
+			       le32_to_cpu(b->hdr->height) + 1,
 			       next_shard_order(b),
 			       &b->sha, helper_addr(1));
 

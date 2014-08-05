@@ -163,7 +163,7 @@ static struct block *add_next_block(struct state *state,
 
 	hdr = tal(state, struct protocol_block_header);
 	hdr->shard_order = shard_order;
-	hdr->depth = cpu_to_le32(le32_to_cpu(prev->hdr->depth) + 1);
+	hdr->height = cpu_to_le32(le32_to_cpu(prev->hdr->height) + 1);
 	hdr->prev_block = prev->sha;
 	hdr->fees_to = *addr;
 

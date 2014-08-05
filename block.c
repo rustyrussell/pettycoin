@@ -85,10 +85,10 @@ struct block *block_add(struct state *state,
 			const u8 *prev_txhashes,
 			const struct protocol_block_tailer *tailer)
 {
-	u32 depth = le32_to_cpu(hdr->depth);
+	u32 height = le32_to_cpu(hdr->height);
 	struct block *block;
 
-	log_debug(state->log, "Adding block %u ", depth);
+	log_debug(state->log, "Adding block %u ", height);
 	log_add_struct(state->log, struct protocol_double_sha, sha);
 
 	block = new_block(state, &prev->total_work, sha, hdr, shard_nums,
@@ -96,16 +96,16 @@ struct block *block_add(struct state *state,
 	block->prev = prev;
 
 	/* Add to list for that generation. */
-	if (depth >= tal_count(state->block_depth)) {
-		/* We can only increment block depths. */
-		assert(depth == tal_count(state->block_depth));
-		tal_arr_append(&state->block_depth,
-			       tal(state->block_depth, struct list_head));
-		list_head_init(state->block_depth[depth]);
+	if (height >= tal_count(state->block_height)) {
+		/* We can only increment block heights. */
+		assert(height == tal_count(state->block_height));
+		tal_arr_append(&state->block_height,
+			       tal(state->block_height, struct list_head));
+		list_head_init(state->block_height[height]);
 	}
 
 	/* We give some priority to blocks hear about first. */
-	list_add_tail(state->block_depth[depth], &block->list);
+	list_add_tail(state->block_height[height], &block->list);
 
 	block->pending_features = pending_features(block);
 
@@ -132,12 +132,12 @@ struct block *block_add(struct state *state,
 struct block *block_find_any(struct state *state,
 			     const struct protocol_double_sha *sha)
 {
-	int i, n = tal_count(state->block_depth);
+	int i, n = tal_count(state->block_height);
 	struct block *b;
 
 	/* Search recent blocks first. */
 	for (i = n - 1; i >= 0; i--) {
-		list_for_each(state->block_depth[i], b, list) {
+		list_for_each(state->block_height[i], b, list) {
 			if (structeq(&b->sha, sha))
 				return b;
 		}

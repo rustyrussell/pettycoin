@@ -23,8 +23,8 @@ struct state {
 	/* Port number we're listening on. */
 	be16 listen_port;
 
-	/* Array of pointers to lists, one for each block depth. */
-	struct list_head **block_depth;
+	/* Array of pointers to lists, one for each block height. */
+	struct list_head **block_height;
 
 	/* Heads of overall longest chains (most work).
 	 * We'd like to know about entries in these chains. */

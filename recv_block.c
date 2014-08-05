@@ -122,11 +122,11 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 		return PROTOCOL_ECODE_BAD_PREV_TXHASHES;
 	}
 
-	log_debug(log, "New block %u is good!", le32_to_cpu(hdr->depth));
+	log_debug(log, "New block %u is good!", le32_to_cpu(hdr->height));
 
 	if ((b = block_find_any(state, &sha)) != NULL) {
 		log_debug(log, "already knew about block %u",
-			  le32_to_cpu(hdr->depth));
+			  le32_to_cpu(hdr->height));
 	} else {
 		const struct block *bad_prev;
 		u16 bad_shard;
@@ -388,7 +388,7 @@ enum protocol_ecode recv_block_from_peer(struct peer *peer,
 	e = recv_block(peer->state, peer->log, peer, pkt, &b);
 	if (e == PROTOCOL_ECODE_NONE) {
 		log_info(peer->log, "gave us block %u: ",
-			 le32_to_cpu(b->hdr->depth));
+			 le32_to_cpu(b->hdr->height));
 		log_add_struct(peer->log, struct protocol_double_sha, &b->sha);
 	}
 	/* If we didn't know prev, this block is still OK so don't hang up. */
@@ -440,7 +440,7 @@ bool recv_block_from_generator(struct state *state, struct log *log,
 	}
 
 	log_info(log, "found block %u (%zu shards, %u txs): ",
-		 le32_to_cpu(b->hdr->depth), tal_count(shards), num_txs);
+		 le32_to_cpu(b->hdr->height), tal_count(shards), num_txs);
 	log_add_struct(log, struct protocol_double_sha, &b->sha);
 
 	if (!block_all_known(b))

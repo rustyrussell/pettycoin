@@ -12,7 +12,7 @@
 #include <stdbool.h>
 
 struct block {
-	/* In state->block_depths[le32_to_cpu(hdr->depth)]. */
+	/* In state->block_height[le32_to_cpu(hdr->height)]. */
 	struct list_node list;
 
 	/* Links through sibling. */
@@ -65,7 +65,7 @@ bool block_empty(const struct block *block);
 
 static inline const struct block *genesis_block(const struct state *state)
 {
-	return list_top(state->block_depth[0], struct block, list);
+	return list_top(state->block_height[0], struct block, list);
 }
 
 /* Create a new block and add into the state structure. */

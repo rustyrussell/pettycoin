@@ -12,12 +12,12 @@
 /* Count children, ignoring except. */
 static u32 num_children(const struct block *block,
 			const struct block *except,
-			unsigned int depth)
+			unsigned int height)
 {
 	const struct block *c;
 	u32 num = 0;
 
-	if (depth == 100)
+	if (height == 100)
 		return PROTOCOL_PKT_CHILDREN_SOME;
 
 	list_for_each(&block->children, c, sibling) {
@@ -25,7 +25,7 @@ static u32 num_children(const struct block *block,
 		if (c == except)
 			continue;
 		num++;
-		children = num_children(c, except, depth + 1);
+		children = num_children(c, except, height + 1);
 		if (children == PROTOCOL_PKT_CHILDREN_SOME)
 			return PROTOCOL_PKT_CHILDREN_SOME;
 		num += children;

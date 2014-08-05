@@ -15,7 +15,7 @@ static inline bool block_preceeds(const struct block *a, const struct block *b)
 	if (a == b)
 		return true;
 
-	if (le32_to_cpu(a->hdr->depth) >= le32_to_cpu(b->hdr->depth))
+	if (le32_to_cpu(a->hdr->height) >= le32_to_cpu(b->hdr->height))
 		return false;
 
 	return block_preceeds(a, b->prev);

@@ -97,11 +97,11 @@ u32 get_difficulty(struct state *state, const struct block *prev)
 	prev_difficulty = le32_to_cpu(prev->tailer->difficulty);
 
 	/* Same as last block? */
-	if ((le32_to_cpu(prev->hdr->depth) + 1) % interval)
+	if ((le32_to_cpu(prev->hdr->height) + 1) % interval)
 		return prev_difficulty;
 
 	/* This creates an out-by-one error for genesis period: that's OK */
-	if (le32_to_cpu(prev->hdr->depth) == interval - 1)
+	if (le32_to_cpu(prev->hdr->height) == interval - 1)
 		start = genesis;
 	else
 	/* Bitcoin has this out-by-one error, but nice to test against it. */

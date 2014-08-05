@@ -25,9 +25,9 @@ struct state *new_state(bool test_net)
 
 	s->test_net = test_net;
 	s->developer_test = false;
-	s->block_depth = tal_arr(s, struct list_head *, 1);
-	s->block_depth[0] = tal(s->block_depth, struct list_head);
-	list_head_init(s->block_depth[0]);
+	s->block_height = tal_arr(s, struct list_head *, 1);
+	s->block_height[0] = tal(s->block_height, struct list_head);
+	list_head_init(s->block_height[0]);
 	s->longest_chains = tal_arr(s, const struct block *, 1);
 	s->longest_chains[0] = &genesis;
 	s->longest_knowns = tal_arr(s, const struct block *, 1);
@@ -63,7 +63,7 @@ struct state *new_state(bool test_net)
 	if (!BN_zero(&genesis.total_work))
 		errx(1, "Failed to initialize genesis block");
 
-	list_add_tail(s->block_depth[0], &genesis.list);
+	list_add_tail(s->block_height[0], &genesis.list);
 	s->pending = new_pending_block(s);
 	return s;
 }
