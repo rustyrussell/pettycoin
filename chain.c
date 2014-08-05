@@ -573,3 +573,34 @@ const struct json_command getblock_command = {
 	"Get a description of a given block",
 	"hash, version, features_vote, shard_order, nonce1, nonce2, height, fees_to, timestamp, difficulty, prev, next[], merkles[], shards[ [{tx,refs[]}|{}|{txhash,refhash} ] ]"
 };
+
+static char *json_getblockhash(struct json_connection *jcon,
+			       const jsmntok_t *params,
+			       char **response)
+{
+	jsmntok_t *height;
+	unsigned int h;
+
+	json_get_params(jcon->buffer, params, "height", &height, NULL);
+	if (!height)
+		return "Need height param";
+
+	if (!json_tok_number(jcon->buffer, height, &h))
+		return "height must be a number";
+
+	json_array_start(response, NULL);
+	if (h < tal_count(jcon->state->block_height)) {
+		struct block *b;
+		list_for_each(jcon->state->block_height[h], b, list)
+			json_add_double_sha(response, NULL, &b->sha);
+	}
+	json_array_end(response);
+	return NULL;
+}
+
+const struct json_command getblockhash_command = {
+	"getblockhash",
+	json_getblockhash,
+	"Get a hashes of blocks at a given height",
+	"Takes 'height', returns hash[]"
+};

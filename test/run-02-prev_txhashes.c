@@ -97,6 +97,10 @@ const char *json_tok_contents(const char *buffer, const jsmntok_t *t)
 /* Generated stub for json_tok_len */
 int json_tok_len(const jsmntok_t *t)
 { fprintf(stderr, "json_tok_len called!\n"); abort(); }
+/* Generated stub for json_tok_number */
+bool json_tok_number(const char *buffer, const jsmntok_t *tok,
+		     unsigned int *num)
+{ fprintf(stderr, "json_tok_number called!\n"); abort(); }
 /* Generated stub for log_to_file */
 void log_to_file(int fd, const struct log *log)
 { fprintf(stderr, "log_to_file called!\n"); abort(); }

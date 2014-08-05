@@ -168,6 +168,10 @@ const char *json_tok_contents(const char *buffer, const jsmntok_t *t)
 /* Generated stub for json_tok_len */
 int json_tok_len(const jsmntok_t *t)
 { fprintf(stderr, "json_tok_len called!\n"); abort(); }
+/* Generated stub for json_tok_number */
+bool json_tok_number(const char *buffer, const jsmntok_t *tok,
+		     unsigned int *num)
+{ fprintf(stderr, "json_tok_number called!\n"); abort(); }
 /* Generated stub for reward_amount */
 u32 reward_amount(const struct block *reward_block,
 		  const union protocol_tx *tx)
