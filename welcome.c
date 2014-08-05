@@ -77,7 +77,7 @@ struct protocol_pkt_welcome *make_welcome(const tal_t *ctx,
 	w->uuid = state->uuid;
 	w->you = *a;
 	w->listen_port = cpu_to_le16(state->listen_port);
-	w->unused = 0;
+	memset(w->unused, 0, sizeof(w->unused));
 	add_interests(state, &w, state->preferred_chain->hdr->shard_order);
 	add_welcome_blocks(state, &w);
 

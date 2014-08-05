@@ -117,7 +117,7 @@ struct protocol_pkt_welcome {
 	/* Our shard_order. */
 	u8 shard_order;
 	/* Pad to 32 bits */
-	u8 unused;
+	u8 unused[3];
 	/* Followed by:
 	   What addresses we're interested in (based on lower bits)
 	     u8 interests[(num_shards + 31) / 32 * 4];
