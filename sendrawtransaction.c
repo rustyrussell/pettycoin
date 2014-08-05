@@ -54,7 +54,7 @@ static char *json_sendrawtransaction(struct json_connection *jcon,
 	struct protocol_double_sha sha;
 	enum protocol_ecode e;
 	unsigned int bad_input_num;
-	bool old;
+	bool old, already_known;
 
 	json_get_params(jcon->buffer, params, "tx", &tok, NULL);
 	if (!tok)
@@ -78,8 +78,11 @@ static char *json_sendrawtransaction(struct json_connection *jcon,
 	json_object_start(response, NULL);
 	json_add_double_sha(response, "tx", &sha);
 
-	switch (add_pending_tx(jcon->state, tx, &sha, &bad_input_num, &old)) {
+	switch (add_pending_tx(jcon->state, tx, &sha, &bad_input_num, &old,
+			       &already_known)) {
 	case ECODE_INPUT_OK:
+		if (already_known)
+			return tal_fmt(jcon, "Transaction already known");
 		break;
 	case ECODE_INPUT_UNKNOWN:
 		/* Ask about this input. */

@@ -207,7 +207,7 @@ void recheck_pending_txs(struct state *state)
 		struct protocol_double_sha sha;
 
 		hash_tx(txs[i], &sha);
-		add_pending_tx(state, txs[i], &sha, &bad_input_num, NULL);
+		add_pending_tx(state, txs[i], &sha, &bad_input_num, NULL, NULL);
 	}
 
 	/* Just to print the debug! */		
@@ -249,18 +249,28 @@ enum input_ecode add_pending_tx(struct state *state,
 				const union protocol_tx *tx,
 				const struct protocol_double_sha *sha,
 				unsigned int *bad_input_num,
-				bool *too_old)
+				bool *too_old,
+				bool *already_known)
 {
 	enum input_ecode ierr;
 
 	/* If it's already in longest known chain, would look like
 	 * doublespend so sort that out now. */
-	if (txhash_gettx_ancestor(state, sha, state->longest_knowns[0]))
+	if (txhash_gettx_ancestor(state, sha, state->longest_knowns[0])) {
+		if (already_known)
+			*already_known = true;
 		return ECODE_INPUT_OK;
+	}
 
 	/* If we already have it in pending, don't re-add. */
-	if (txhash_get_pending_tx(state, sha))
+	if (txhash_get_pending_tx(state, sha)) {
+		if (already_known)
+			*already_known = true;
 		return ECODE_INPUT_OK;
+	}
+
+	if (already_known)
+		*already_known = false;
 
 	/* We check inputs for where *we* would mine it.
 	 * We currently don't allow two dependent txs in the same block,

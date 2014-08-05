@@ -49,7 +49,7 @@ enum input_ecode add_pending_tx(struct state *state,
 				const union protocol_tx *tx,
 				const struct protocol_double_sha *sha,
 				unsigned int *bad_input_num,
-				bool *too_old);
+				bool *too_old, bool *already_known);
 
 /* Get a new working block. */
 struct pending_block *new_pending_block(struct state *state);

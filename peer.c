@@ -668,7 +668,7 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 	unsigned int bad_input_num;
 	struct txhash_iter it;
 	struct txhash_elem *te;
-	bool old;
+	bool old, already_known;
 
 	log_debug(peer->log, "Received PKT_TX");
 
@@ -701,8 +701,15 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 	todo_done_get_tx(peer, &sha, true);
 
 	/* If inputs are malformed, it might not have known so don't hang up. */
-	switch (add_pending_tx(peer->state, tx, &sha, &bad_input_num, &old)) {
+	switch (add_pending_tx(peer->state, tx, &sha, &bad_input_num, &old,
+			       &already_known)) {
 	case ECODE_INPUT_OK:
+		if (already_known) {
+			log_info(peer->log, "gave us duplicate TX ");
+			log_add_struct(peer->log, struct protocol_double_sha,
+				       &sha);
+			return PROTOCOL_ECODE_NONE;
+		}
 		break;
 	case ECODE_INPUT_UNKNOWN:
 		/* We don't resolve inputs which are still pending, so
