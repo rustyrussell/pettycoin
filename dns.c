@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 
 /* Async dns helper. */
 struct dns_info {
@@ -18,6 +19,7 @@ struct dns_info {
 				struct protocol_net_address *);
 	void *pkt;
 	size_t num_addresses;
+	int pid;
 	struct protocol_net_address *addresses;
 };
 
@@ -121,6 +123,11 @@ static struct io_plan *init_dns_conn(struct io_conn *conn, struct dns_info *d)
 	return io_read_packet(conn, &d->pkt, start_connecting, d);
 }
 
+static void reap_child(struct io_conn *conn, struct dns_info *d)
+{
+	waitpid(d->pid, NULL, 0);
+}
+
 tal_t *dns_resolve_and_connect(struct state *state,
 			       const char *name, const char *port,
 			       struct io_plan *(*init)(struct io_conn *,
@@ -141,7 +148,8 @@ tal_t *dns_resolve_and_connect(struct state *state,
 	}
 
 	fflush(stdout);
-	switch (fork()) {
+	d->pid = fork();
+	switch (d->pid) {
 	case -1:
 		warn("Forking for dns lookup");
 		return NULL;
@@ -153,6 +161,7 @@ tal_t *dns_resolve_and_connect(struct state *state,
 
 	close(pfds[1]);
 	conn = io_new_conn(state, pfds[0], init_dns_conn, d);
+	io_set_finish(conn, reap_child, d);
 	tal_steal(conn, d);
 	return d;
 }
