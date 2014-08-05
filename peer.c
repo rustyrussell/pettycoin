@@ -1571,10 +1571,6 @@ static struct io_plan *check_sync_or_horizon(struct io_conn *conn,
 	if (err != PROTOCOL_ECODE_NONE)
 		return peer_write_packet(peer, err_pkt(peer, err), close_peer);
 
-	/* peer->conn no longer owns peer. */
-	assert(peer->conn == conn);
-	tal_steal(peer->state, peer);
-
 	/* Ask them for more peers. */
 	todo_for_peer(peer, pkt_get_peers(peer));
 
