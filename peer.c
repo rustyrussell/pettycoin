@@ -1704,7 +1704,8 @@ struct io_plan *peer_connected(struct io_conn *conn, struct state *state,
 {
 	/* Conn owns peer; peer vanishes if conn does. */
 	struct peer *peer = tal(conn, struct peer);
-	char prefix[INET6_ADDRSTRLEN + strlen(":65000:")];
+	char prefix[strlen("Peer ") + STR_MAX_CHARS(unsigned int) + strlen(" @")
+		    + INET6_ADDRSTRLEN + strlen(":65000:")];
 
 	peer->peer_num = get_peernum(state->peer_map);
 	if (peer->peer_num == MAX_PEERS) {
@@ -1727,8 +1728,10 @@ struct io_plan *peer_connected(struct io_conn *conn, struct state *state,
 	peer->fd = io_conn_fd(conn);
 
 	/* Use address as log prefix. */
-	if (inet_ntop(AF_INET6, addr->addr, prefix, sizeof(prefix)) == NULL)
-		strcpy(prefix, "UNCONVERTABLE-IPV6");
+	sprintf(prefix, "Peer %u @", peer->peer_num);
+	if (inet_ntop(AF_INET6, addr->addr, prefix + strlen(prefix),
+		      INET6_ADDRSTRLEN) == NULL)
+		strcat(prefix, "UNCONVERTABLE-IPV6");
 	sprintf(prefix + strlen(prefix), ":%u:", le16_to_cpu(addr->port));
 	peer->log = new_log(peer, state->log,
 			    prefix, state->log_level, PEER_LOG_MAX);
