@@ -93,7 +93,8 @@ static struct io_plan digest_peer_pkt(struct io_conn *conn,
 }
 
 static struct io_plan read_seed_peers(struct io_conn *conn,
-				      struct state *state)
+				      struct state *state,
+				      struct protocol_net_address *addr)
 {
 	struct peer_lookup *lookup = tal(conn, struct peer_lookup);
 
@@ -1786,19 +1787,13 @@ void new_peer(struct state *state, int fd, const struct protocol_net_address *a)
 	tal_steal(peer->w, peer);
 }
 
-static struct io_plan setup_peer(struct io_conn *conn, struct state *state)
+static struct io_plan setup_peer(struct io_conn *conn, struct state *state,
+				 struct protocol_net_address *addr)
 {
 	struct peer *peer;
-	struct protocol_net_address addr;
 
 	/* FIXME: Disable nagle if we can use TCP_CORK */
-	if (!get_fd_addr(io_conn_fd(conn), &addr)) {
-		log_unusual(state->log, "Could not get address for peer: %s",
-			    strerror(errno));
-		return io_close();
-	}
-
-	peer = alloc_peer(conn, state, io_conn_fd(conn), &addr);
+	peer = alloc_peer(conn, state, io_conn_fd(conn), addr);
 	if (!peer)
 		return io_close();
 

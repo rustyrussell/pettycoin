@@ -13,7 +13,8 @@
 /* Async dns helper. */
 struct dns_info {
 	struct state *state;
-	struct io_plan (*init)(struct io_conn *, struct state *);
+	struct io_plan (*init)(struct io_conn *, struct state *,
+			       struct protocol_net_address *);
 	void *pkt;
 	size_t num_addresses;
 	struct protocol_net_address *addresses;
@@ -58,7 +59,7 @@ static struct io_plan connected(struct io_conn *conn, struct dns_info *d)
 {
 	/* No longer need to try more connections. */
 	io_set_finish(conn, NULL, NULL);
-	return d->init(conn, d->state);
+	return d->init(conn, d->state, &d->addresses[0]);
 }
 
 static void try_connect_one(struct dns_info *d);
@@ -110,7 +111,8 @@ static struct io_plan start_connecting(struct io_conn *conn, struct dns_info *d)
 tal_t *dns_resolve_and_connect(struct state *state,
 			       const char *name, const char *port,
 			       struct io_plan (*init)(struct io_conn *,
-						      struct state *))
+						      struct state *,
+						      struct protocol_net_address *))
 {
 	int pfds[2];
 	struct dns_info *d = tal(NULL, struct dns_info);
