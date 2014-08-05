@@ -10,6 +10,7 @@
 #include "pending.h"
 #include "proof.h"
 #include "protocol.h"
+#include "recv_block.h"
 #include "shard.h"
 #include "state.h"
 #include "tal_arr.h"
@@ -116,6 +117,10 @@ struct block *block_add(struct state *state,
 	save_block(state, block);
 
 	block->complaint = prev->complaint;
+
+	/* This may be the prev for some detached blocks. */
+	seek_detached_blocks(state, block);
+
 	if (block->complaint) {
 		check_chains(state, false);
 		/* It's not a candidate for real use. */

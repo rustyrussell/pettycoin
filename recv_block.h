@@ -27,4 +27,7 @@ bool try_resolve_hash(struct state *state,
 		      const struct peer *source,
 		      struct block *block, u16 shardnum, u8 txoff);
 
+/* A new block: see if it resolved any prev_block */
+void seek_detached_blocks(struct state *state, 
+			  const struct block *block);
 #endif /* PETTYCOIN_RECV_BLOCK_H */

@@ -246,6 +246,11 @@ void log_to_file(int fd, const struct log *log)
 {
 }
 
+void seek_detached_blocks(struct state *state, 
+			  const struct block *block)
+{
+}
+
 int main(int argc, char *argv[])
 {
 	struct state *s;

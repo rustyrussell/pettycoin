@@ -154,6 +154,11 @@ void todo_add_get_shard(struct state *state,
 {
 }
 
+void seek_detached_blocks(struct state *state, 
+			  const struct block *block)
+{
+}
+
 struct strmap_block {
 	STRMAP_MEMBERS(struct block *);
 };

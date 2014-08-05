@@ -34,6 +34,7 @@ struct state *new_state(bool test_net)
 	s->longest_knowns[0] = &genesis;
 	s->preferred_chain = &genesis;
 	list_head_init(&s->todo);
+	list_head_init(&s->detached_blocks);
 	txhash_init(&s->txhash);
 	inputhash_init(&s->inputhash);
 	s->nopeers_ok = false;

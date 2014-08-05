@@ -17,12 +17,35 @@
 #include "tx_in_hashes.h"
 #include <ccan/structeq/structeq.h>
 
+struct block_detached {
+	/* Off state->detached_blocks */
+	struct list_node list;
+	struct protocol_double_sha sha;
+
+	const struct protocol_block_header *hdr;
+	const struct protocol_pkt_block *pkt;	
+};
+
+static bool have_detached_block(const struct state *state, 
+				const struct protocol_double_sha *sha)
+{
+	struct block_detached *bd;
+
+	list_for_each(&state->detached_blocks, bd, list) {
+		if (structeq(&bd->sha, sha))
+			return true;
+	}
+	return false;
+}
+
 /* Don't let them flood us with cheap, random blocks. */
 static void seek_predecessor(struct state *state, 
 			     const struct protocol_double_sha *sha,
-			     const struct protocol_double_sha *prev)
+			     const struct protocol_block_header *hdr,
+			     const struct protocol_pkt_block *pkt)
 {
 	u32 diff;
+	struct block_detached *bd;
 
 	/* Make sure they did at least 1/16 current work. */
 	diff = le32_to_cpu(state->preferred_chain->tailer->difficulty);
@@ -33,9 +56,24 @@ static void seek_predecessor(struct state *state,
 		return;
 	}
 
+	if (have_detached_block(state, sha)) {
+		log_debug(state->log, "Already have detached block ");
+		log_add_struct(state->log, struct protocol_double_sha,
+			       &hdr->prev_block);
+		return;
+	}
+
+	/* Add it to list of detached blocks. */
+	bd = tal(state, struct block_detached);
+	bd->sha = *sha;
+	bd->hdr = hdr;
+	bd->pkt = tal_steal(bd, pkt);
+	list_add(&state->detached_blocks, &bd->list);
+
 	log_debug(state->log, "Seeking block prev ");
-	log_add_struct(state->log, struct protocol_double_sha, prev);
-	todo_add_get_block(state, prev);
+	log_add_struct(state->log, struct protocol_double_sha,
+		       &hdr->prev_block);
+	todo_add_get_block(state, &hdr->prev_block);
 }
 
 /* When syncing, we ask for txmaps. */
@@ -66,7 +104,7 @@ static void ask_block_contents(struct state *state, const struct block *b)
 	}
 }
 
-/* peer is NULL if from generator. */
+/* peer is NULL if from generator (or re-trying detached block) */
 static enum protocol_ecode
 recv_block(struct state *state, struct log *log, struct peer *peer,
 	   const struct protocol_pkt_block *pkt, struct block **block)
@@ -101,8 +139,7 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 		/* If it was due to unknown prev, ask about that. */
 		if (peer) {
 			if (e == PROTOCOL_ECODE_PRIV_UNKNOWN_PREV) {
-				/* FIXME: Keep it around! */
-				seek_predecessor(state, &sha, &hdr->prev_block);
+				seek_predecessor(state, &sha, hdr, pkt);
 				/* In case we were asking for this,
 				 * we're not any more. */
 				todo_done_get_block(peer, &sha, true);
@@ -449,4 +486,28 @@ bool recv_block_from_generator(struct state *state, struct log *log,
 	/* We call it manually here, since we're not in peer loop. */
 	recheck_pending_txs(state);
 	return true;
+}
+
+/* We got a new block: seek detached blocks which need it (may recurse!) */
+void seek_detached_blocks(struct state *state, 
+			  const struct block *block)
+{
+	struct block_detached *bd;
+
+again:
+	list_for_each(&state->detached_blocks, bd, list) {
+		if (structeq(&bd->hdr->prev_block, &block->sha)) {
+			struct block *b;
+
+			list_del_from(&state->detached_blocks, &bd->list);
+
+			log_debug(state->log, "Reinjecting detatched block");
+			/* Inject it through normal path. */
+			recv_block(state, state->log, NULL, bd->pkt, &b);
+			tal_free(bd);
+
+			/* Since that may recurse, we can't trust list. */
+			goto again;
+		}
+	}
 }

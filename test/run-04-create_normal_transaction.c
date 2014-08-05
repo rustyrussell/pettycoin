@@ -207,6 +207,11 @@ void save_tx(struct state *state, struct block *block, u16 shard, u8 txoff)
 {
 }
 
+void seek_detached_blocks(struct state *state, 
+			  const struct block *block)
+{
+}
+
 void todo_add_get_shard(struct state *state,
 			const struct protocol_double_sha *block,
 			u16 shardnum)
