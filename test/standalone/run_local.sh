@@ -30,7 +30,7 @@ rm -rf pettycoin-* addresses
 
 for i in `seq 2 $1`; do
     setup_dir pettycoin-$i
-    ../../pettycoin --pettycoin-dir=pettycoin-$i &
+    (sleep 15; ../../pettycoin --pettycoin-dir=pettycoin-$i) &
 done
 trap "" EXIT
 

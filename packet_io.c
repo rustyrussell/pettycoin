@@ -8,13 +8,42 @@
 #include <poll.h>
 #include <string.h>
 
-static int read_packet_part(int fd, struct io_plan *plan,
-			    void (*log)(const void *buf, int len, void *arg))
+static struct log **fd_to_log;
+
+void add_log_for_fd(int fd, struct log *log)
+{
+	if (!fd_to_log)
+		fd_to_log = tal_arrz(NULL, struct log *, fd + 1);
+	else if (tal_count(fd_to_log) <= fd)
+		tal_resizez(&fd_to_log, fd + 1);
+
+	assert(log);
+	assert(fd_to_log[fd] == NULL);
+	fd_to_log[fd] = log;
+}
+
+void del_log_for_fd(int fd, struct log *log)
+{
+	assert(fd_to_log[fd] == log);
+	fd_to_log[fd] = NULL;
+}
+
+static struct log *get_log_for_fd(int fd)
+{
+	if (!fd_to_log)
+		return NULL;
+	if (fd >= tal_count(fd_to_log))
+		return NULL;
+	return fd_to_log[fd];
+}
+
+static int do_read_packet(int fd, struct io_plan *plan)
 {
 	char *len_start, *len_end;
 	char **pkt = plan->u1.vp;
 	int ret;
 	u32 max;
+	struct log *log = get_log_for_fd(fd);
 
 	/* We store len in the second union */
 	len_start = plan->u2.c;
@@ -27,7 +56,8 @@ static int read_packet_part(int fd, struct io_plan *plan,
 	/* Still reading len? */
 	if (*pkt >= len_start && *pkt < len_end) {
 		ret = read(fd, *pkt, len_end - *pkt);
-		log(*pkt, ret, plan->next_arg);
+		if (log)
+			log_io(log, true, *pkt, ret < 0 ? 0 : ret);
 		if (ret <= 0)
 			return -1;
 		*pkt += ret;
@@ -61,7 +91,8 @@ static int read_packet_part(int fd, struct io_plan *plan,
 	max = le32_to_cpu(*(le32 *)*pkt);
 
 	ret = read(fd, *pkt + plan->u2.s, max - plan->u2.s);
-	log(*pkt + plan->u2.s, ret, plan->next_arg);
+	if (log)
+		log_io(log, true, *pkt + plan->u2.s, ret < 0 ? 0 : ret);
 	if (ret <= 0)
 		return -1;
 
@@ -69,42 +100,22 @@ static int read_packet_part(int fd, struct io_plan *plan,
 	return (plan->u2.s == max);
 }
 
-static void nolog(const void *buf, int len, void *arg)
-{
-}
-
-static int do_read_packet(int fd, struct io_plan *plan)
-{
-	return read_packet_part(fd, plan, nolog);
-}
-
 struct io_plan io_read_packet_(void *ppkt,
 			       struct io_plan (*cb)(struct io_conn *, void *),
-			       void *arg)
+			       void *cb_arg)
 {
 	struct io_plan plan;
 
-	assert(cb);
 	/* We'll start pointing into a scratch buffer, until we have len. */
 	plan.u1.vp = ppkt;
 	*(void **)ppkt = NULL;
+
 	plan.io = do_read_packet;
 	plan.next = cb;
-	plan.next_arg = arg;
+	plan.next_arg = cb_arg;
 	plan.pollflag = POLLIN;
 
 	return plan;
-}
-
-static void log_one_read(const void *buf, int len, void *arg)
-{
-	struct peer *peer = arg;
-	log_io(peer->log, true, buf, len < 0 ? 0 : len);
-}
-
-static int do_read_peer_packet(int fd, struct io_plan *plan)
-{
-	return read_packet_part(fd, plan, log_one_read);
 }
 
 struct io_plan peer_read_packet_(void *ppkt,
@@ -112,24 +123,15 @@ struct io_plan peer_read_packet_(void *ppkt,
 						      struct peer *),
 				 struct peer *peer)
 {
-	struct io_plan plan;
+	assert(get_log_for_fd(io_conn_fd(peer->w)));
 
-	assert(cb);
-	/* We'll start pointing into a scratch buffer, until we have len. */
-	plan.u1.vp = ppkt;
-	*(void **)ppkt = NULL;
-	plan.io = do_read_peer_packet;
-	plan.next = (void *)cb;
-	plan.next_arg = peer;
-	plan.pollflag = POLLIN;
-
-	return plan;
+	return io_read_packet_(ppkt, (void *)cb, peer);
 }
 
 /* Frees pkt on next write! */
 struct io_plan peer_write_packet(struct peer *peer, const void *pkt,
 				 struct io_plan (*next)(struct io_conn *,
-							struct peer *))
+							 struct peer *))
 {
 	le32 len;
 

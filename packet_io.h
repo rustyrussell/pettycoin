@@ -33,4 +33,9 @@ struct io_plan peer_read_packet_(void *ppkt,
 struct io_plan peer_write_packet(struct peer *peer, const void *pkt,
 				 struct io_plan (*next)(struct io_conn *,
 							struct peer *));
+
+struct log;
+void add_log_for_fd(int fd, struct log *log);
+void del_log_for_fd(int fd, struct log *log);
+
 #endif

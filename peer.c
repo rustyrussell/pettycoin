@@ -1676,6 +1676,7 @@ static void destroy_peer(struct peer *peer)
 	peer->state->num_peers--;
 	bitmap_clear_bit(peer->state->peer_map, peer->peer_num);
 	remove_peer_from_todo(peer->state, peer);
+	del_log_for_fd(peer->fd, peer->log);
 	fill_peers(peer->state);
 }
 
@@ -1725,6 +1726,7 @@ static struct peer *alloc_peer(const tal_t *ctx, struct state *state, int fd,
 	list_head_init(&peer->todo);
 	peer->peer_num = peernum;
 	peer->you = *addr;
+	peer->fd = fd;
 
 	/* Use address as log prefix. */
 	if (inet_ntop(AF_INET6, addr->addr, prefix, sizeof(prefix)) == NULL)
@@ -1734,6 +1736,7 @@ static struct peer *alloc_peer(const tal_t *ctx, struct state *state, int fd,
 			    prefix, state->log_level, PEER_LOG_MAX);
 
 	state->num_peers++;
+	add_log_for_fd(fd, peer->log);
 	tal_add_destructor(peer, destroy_peer);
 
 	return peer;

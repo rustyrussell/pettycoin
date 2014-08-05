@@ -27,6 +27,7 @@ struct peer {
 
 	/* Connection to the peer. */
 	struct io_conn *w, *r;
+	int fd;
 
 	/* The error message to send (then close) */
 	const struct protocol_pkt_err *error_pkt;
