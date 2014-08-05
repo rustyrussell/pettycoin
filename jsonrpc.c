@@ -243,6 +243,7 @@ static struct io_plan read_json(struct io_conn *conn,
 	if (jcon->used == tal_count(jcon->buffer))
 		tal_resize(&jcon->buffer, jcon->used * 2);
 
+again:
 	toks = json_parse_input(jcon->buffer, jcon->used, &valid);
 	if (!toks) {
 		if (!valid) {
@@ -276,9 +277,8 @@ static struct io_plan read_json(struct io_conn *conn,
 	list_add_tail(&jcon->output, &out->list);
 	io_wake(jcon);
 
-	/* Wait for it to finish */
-	jcon->len_read = 0;
-	return io_wait(jcon, read_json, jcon);
+	/* See if we can parse the rest. */
+	goto again;
 
 read_more:
 	tal_free(toks);
