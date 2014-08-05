@@ -3,6 +3,7 @@
 #include "peer.h"
 #include "protocol_net.h"
 #include <assert.h>
+#include <ccan/io/io_plan.h>
 #include <ccan/tal/tal.h>
 #include <errno.h>
 #include <poll.h>
@@ -37,19 +38,19 @@ static struct log *get_log_for_fd(int fd)
 	return fd_to_log[fd];
 }
 
-static int do_read_packet(int fd, struct io_plan *plan)
+static int do_read_packet(int fd, struct io_plan_arg *arg)
 {
 	char *len_start, *len_end;
-	char **pkt = plan->u1.vp;
+	char **pkt = arg->u1.vp;
 	int ret;
 	u32 max;
 	struct log *log = get_log_for_fd(fd);
 
 	/* We store len in the second union */
-	len_start = plan->u2.c;
+	len_start = arg->u2.c;
 	len_end = len_start + sizeof(le32);
 
-	/* Now we have the actual plan, we can point into it to store len. */
+	/* Now we have the actual arg, we can point into it to store len. */
 	if (*pkt == NULL)
 		*pkt = len_start;
 
@@ -83,55 +84,50 @@ static int do_read_packet(int fd, struct io_plan *plan)
 		*pkt = tal_arr(NULL, char, le32_to_cpu(len));
 		*(le32 *)*pkt = len;
 
-		/* Store offset in plan.u2.s */
-		plan->u2.s = sizeof(le32);
+		/* Store offset in arg.u2.s */
+		arg->u2.s = sizeof(le32);
 	}
 
 	/* Read length from packet header. */
 	max = le32_to_cpu(*(le32 *)*pkt);
 
-	ret = read(fd, *pkt + plan->u2.s, max - plan->u2.s);
+	ret = read(fd, *pkt + arg->u2.s, max - arg->u2.s);
 	if (log)
-		log_io(log, true, *pkt + plan->u2.s, ret < 0 ? 0 : ret);
+		log_io(log, true, *pkt + arg->u2.s, ret < 0 ? 0 : ret);
 	if (ret <= 0)
 		return -1;
 
-	plan->u2.s += ret;
-	return (plan->u2.s == max);
+	arg->u2.s += ret;
+	return (arg->u2.s == max);
 }
 
-struct io_plan io_read_packet_(void *ppkt,
-			       struct io_plan (*cb)(struct io_conn *, void *),
-			       void *cb_arg)
+struct io_plan *io_read_packet_(struct io_conn *conn,
+				void *ppkt,
+				struct io_plan *(*cb)(struct io_conn *, void *),
+				void *cb_arg)
 {
-	struct io_plan plan;
+	struct io_plan_arg *arg = io_plan_arg(conn, IO_IN);
 
 	/* We'll start pointing into a scratch buffer, until we have len. */
-	plan.u1.vp = ppkt;
+	arg->u1.vp = ppkt;
 	*(void **)ppkt = NULL;
 
-	plan.io = do_read_packet;
-	plan.next = cb;
-	plan.next_arg = cb_arg;
-	plan.pollflag = POLLIN;
-
-	return plan;
+	return io_set_plan(conn, IO_IN, do_read_packet, cb, cb_arg);
 }
 
-struct io_plan peer_read_packet_(void *ppkt,
-				 struct io_plan (*cb)(struct io_conn *,
-						      struct peer *),
-				 struct peer *peer)
+struct io_plan *peer_read_packet(struct peer *peer,
+				  struct io_plan *(*cb)(struct io_conn *,
+							struct peer *))
 {
-	assert(get_log_for_fd(io_conn_fd(peer->w)));
+	assert(get_log_for_fd(io_conn_fd(peer->conn)));
 
-	return io_read_packet_(ppkt, (void *)cb, peer);
+	return io_read_packet(peer->conn, &peer->incoming, cb, peer);
 }
 
 /* Frees pkt on next write! */
-struct io_plan peer_write_packet(struct peer *peer, const void *pkt,
-				 struct io_plan (*next)(struct io_conn *,
-							 struct peer *))
+struct io_plan *peer_write_packet(struct peer *peer, const void *pkt,
+				  struct io_plan *(*next)(struct io_conn *,
+							  struct peer *))
 {
 	le32 len;
 
@@ -144,6 +140,6 @@ struct io_plan peer_write_packet(struct peer *peer, const void *pkt,
 	assert(le32_to_cpu(len) <= PROTOCOL_MAX_PACKET_LEN);
 
 	log_io(peer->log, false, pkt, le32_to_cpu(len));
-	return io_write(pkt, le32_to_cpu(len), next, peer);
+	return io_write(peer->conn, pkt, le32_to_cpu(len), next, peer);
 }
 

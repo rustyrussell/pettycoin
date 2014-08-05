@@ -34,11 +34,6 @@ static void *opt_allocfn(size_t size)
 	return tal_alloc_(NULL, size, false, TAL_LABEL("opt_allocfn", ""));
 }
 
-static void *io_allocfn(size_t size)
-{
-	return tal_alloc_(NULL, size, false, TAL_LABEL("io_allocfn", ""));
-}
-
 static void *tal_reallocfn(void *ptr, size_t size)
 {
 	if (!ptr)
@@ -74,7 +69,8 @@ static int make_listen_fd(struct state *state, int domain, void *addr, socklen_t
 	return -1;
 }
 
-static struct io_plan peer_connected_in2(struct io_conn *conn, struct state *state)
+static struct io_plan *peer_connected_in(struct io_conn *conn,
+					 struct state *state)
 {
 	struct protocol_net_address addr;
 
@@ -82,15 +78,10 @@ static struct io_plan peer_connected_in2(struct io_conn *conn, struct state *sta
 		log_unusual(state->log,
 			    "Could not get address for peer: %s",
 			    strerror(errno));
-		return io_close();
+		return io_close(conn);
 	}
 
 	return peer_connected(conn, state, &addr);
-}
-
-static void peer_connected_in(int fd, struct state *state)
-{
-	io_new_conn(fd, io_always(peer_connected_in2, state));
 }
 
 static void make_listeners(struct state *state, unsigned int portnum)
@@ -124,7 +115,7 @@ static void make_listeners(struct state *state, unsigned int portnum)
 			state->listen_port = ntohs(addr.sin_port);
 			log_info(state->log, "Creating IPv6 listener on port %u",
 				 state->listen_port);
-			io_new_listener(fd1, peer_connected_in, state);
+			io_new_listener(state, fd1, peer_connected_in, state);
 		}
 	}
 
@@ -141,7 +132,7 @@ static void make_listeners(struct state *state, unsigned int portnum)
 			state->listen_port = ntohs(addr.sin_port);
 			log_info(state->log, "Creating IPv4 listener on port %u",
 				 state->listen_port);
-			io_new_listener(fd2, peer_connected_in, state);
+			io_new_listener(state, fd2, peer_connected_in, state);
 		}
 	}
 
@@ -301,7 +292,6 @@ int main(int argc, char *argv[])
 
 	err_set_progname(argv[0]);
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
-	io_set_alloc(io_allocfn, tal_reallocfn, tal_freefn);
 
 	pettycoin_dir_register_opts(state, &pettycoin_dir, &rpc_filename);
 
@@ -381,7 +371,7 @@ int main(int argc, char *argv[])
 	/* We handle write errors, don't kill us! */
 	signal(SIGPIPE, SIG_IGN);
 
-	io_loop();
+	io_loop(NULL, NULL);
 
 	tal_free(state);
 	return 0;

@@ -40,6 +40,7 @@ struct generator {
 	struct state *state;
 	struct log *log;
 	struct io_conn *update, *answer;
+	const u8 *prev_txhashes;
 	void *pkt_in;
 	pid_t pid;
 	u8 shard_order;
@@ -99,7 +100,7 @@ static void finish_update(struct io_conn *conn, struct generator *gen)
 	assert(gen->update);
 	gen->update = NULL;
 	if (gen->answer)
-		io_close_other(gen->answer);
+		io_close(gen->answer);
 	else
 		reap_generator(conn, gen);
 }
@@ -109,14 +110,14 @@ static void finish_answer(struct io_conn *conn, struct generator *gen)
 	assert(gen->answer);
 	gen->answer = NULL;
 	if (gen->update)
-		io_close_other(gen->update);
+		io_close(gen->update);
 	else
 		reap_generator(conn, gen);
 }		       
 
-static struct io_plan do_send_tx(struct io_conn *conn,struct generator *gen);
+static struct io_plan *do_send_tx(struct io_conn *conn,struct generator *gen);
 
-static struct io_plan tx_sent(struct io_conn *conn, struct generator *gen)
+static struct io_plan *tx_sent(struct io_conn *conn, struct generator *gen)
 {
 	assert(conn == gen->update);
 
@@ -126,7 +127,7 @@ static struct io_plan tx_sent(struct io_conn *conn, struct generator *gen)
 	return do_send_tx(conn, gen);
 }
 
-static struct io_plan do_send_tx(struct io_conn *conn, struct generator *gen)
+static struct io_plan *do_send_tx(struct io_conn *conn, struct generator *gen)
 {
 	struct pending_update *u;
 
@@ -138,37 +139,38 @@ static struct io_plan do_send_tx(struct io_conn *conn, struct generator *gen)
 			  "Sending transaction update shard %u off %u",
 			  u->update.shard, u->update.txoff);
 
-		return io_write(&u->update, sizeof(u->update), tx_sent, gen);
+		return io_write(conn,
+				&u->update, sizeof(u->update), tx_sent, gen);
 	}
 
 	log_debug(gen->log, "Sending transactions going idle %p", gen);
-	return io_wait(gen, do_send_tx, gen);
+	return io_wait(conn, gen, do_send_tx, gen);
 }
 
-static struct io_plan send_go_byte(struct io_conn *conn, struct generator *gen)
+static struct io_plan *send_go_byte(struct io_conn *conn, struct generator *gen)
 {
 	assert(conn == gen->update);
 
 	log_debug(gen->log, "Sending go byte");
-	return io_write("", 1, do_send_tx, gen);
+	return io_write(conn, "", 1, do_send_tx, gen);
 }
 
-static struct io_plan got_shard(struct io_conn *conn, struct generator *gen)
+static struct io_plan *got_shard(struct io_conn *conn, struct generator *gen)
 {
 	gen->solution->shard[gen->solution->shards_read++]
 		= tal_steal(gen->solution, gen->pkt_in);
 
 	if (gen->solution->shards_read != tal_count(gen->solution->shard))
-		return io_read_packet(&gen->pkt_in, got_shard, gen);
+		return io_read_packet(conn, &gen->pkt_in, got_shard, gen);
 
 	/* We've got all the shards! */
 	recv_block_from_generator(gen->state, gen->log, gen->solution->block,
 				  gen->solution->shard);
 
-	return io_close();
+	return io_close(conn);
 }
 
-static struct io_plan got_solution(struct io_conn *conn, struct generator *gen)
+static struct io_plan *got_solution(struct io_conn *conn, struct generator *gen)
 {
 	gen->solution = tal(gen, struct solution);
 	gen->solution->block = tal_steal(gen->solution, gen->pkt_in);
@@ -177,7 +179,7 @@ static struct io_plan got_solution(struct io_conn *conn, struct generator *gen)
 				       struct protocol_pkt_shard *,
 				       1 << gen->shard_order);
 	gen->solution->shards_read = 0;
-	return io_read_packet(&gen->pkt_in, got_shard, gen);
+	return io_read_packet(conn, &gen->pkt_in, got_shard, gen);
 }
 
 /* FIXME: If transaction may go over horizon, time out generation */
@@ -214,6 +216,22 @@ static void init_updates(struct generator *gen)
 	}
 }
 
+static struct io_plan *setup_update_conn(struct io_conn *conn,
+					 struct generator *gen)
+{
+	io_set_finish(conn, finish_update, gen);
+	return io_write(conn, gen->prev_txhashes,
+			tal_count(gen->prev_txhashes)*sizeof(u8),
+			send_go_byte, gen);
+}
+
+static struct io_plan *setup_answer_conn(struct io_conn *conn,
+					 struct generator *gen)
+{
+	io_set_finish(conn, finish_answer, gen);
+	return io_read_packet(conn, &gen->pkt_in, got_solution, gen);
+}
+
 static void exec_generator(struct generator *gen)
 {
 	int outfd[2], infd[2];
@@ -227,17 +245,16 @@ static void exec_generator(struct generator *gen)
 	int i;
 	const struct block *last;
 	char log_prefix[40];
-	const u8 *prev_txhashes;
 
 	/* FIXME: This is where we increment shard_order if voted! */
 	gen->shard_order = gen->state->longest_knowns[0]->hdr->shard_order;
 
-	prev_txhashes = make_prev_txhashes(gen,
-					   gen->state->longest_knowns[0],
-					   gen->state->reward_addr);
+	gen->prev_txhashes = make_prev_txhashes(gen,
+						gen->state->longest_knowns[0],
+						gen->state->reward_addr);
 	last = gen->state->longest_knowns[0];
 	sprintf(difficulty, "%u", get_difficulty(gen->state, last));
-	sprintf(prev_merkle_str, "%zu", tal_count(prev_txhashes));
+	sprintf(prev_merkle_str, "%zu", tal_count(gen->prev_txhashes));
 	sprintf(height, "%u", le32_to_cpu(last->hdr->height) + 1);
 	sprintf(shard_order, "%u", gen->shard_order);
 	for (i = 0; i < sizeof(struct protocol_double_sha); i++)
@@ -287,15 +304,8 @@ static void exec_generator(struct generator *gen)
 	close(infd[0]);
 
 	init_updates(gen);
-	gen->update = io_new_conn(infd[1],
-				  io_write(prev_txhashes,
-					   tal_count(prev_txhashes)*sizeof(u8),
-					   send_go_byte, gen));
-	io_set_finish(gen->update, finish_update, gen);
-	gen->answer = io_new_conn(outfd[0],
-				  io_read_packet(&gen->pkt_in, got_solution,
-						 gen));
-	io_set_finish(gen->answer, finish_answer, gen);
+	gen->update = io_new_conn(gen->state, infd[1], setup_update_conn, gen);
+	gen->answer = io_new_conn(gen->state, outfd[0], setup_answer_conn, gen);
 }
 
 /* state->pending->t[shard][txoff] has been added. */

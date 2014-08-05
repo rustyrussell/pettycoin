@@ -3,6 +3,11 @@
 #include <ccan/io/io.h>
 #include <ccan/tal/tal.h>
 
+#undef io_close
+#define io_close(conn) NULL
+#undef io_read_partial
+#define io_read_partial(conn, buf, size, lenp, next, jcon) ((void *)jcon)
+
 #include "../jsonrpc.c"
 #include "../json.c"
 #include "../minimal_log.c"
@@ -34,28 +39,26 @@ void test(const char *input, const char *expect, bool needs_more, bool extra)
 {
 	struct state state;
 	struct json_connection *jcon = tal(NULL, struct json_connection);
-	struct io_plan plan;
+	void *plan;
 
 	jcon->used = 0;
 	jcon->len_read = strlen(input);
 	jcon->buffer = tal_dup(jcon, char, input, strlen(input), 0);
 	jcon->state = &state;
-	jcon->num_conns = 2;
 	list_head_init(&jcon->output);
 
 	plan = read_json(NULL, jcon);
 	if (needs_more) {
 		/* Should have done partial read for rest. */
+		assert(plan == (void *)jcon);
 		assert(jcon->used == strlen(input));
-		assert(plan.next == (void *)read_json);
-		assert(plan.u1.cp == jcon->buffer + strlen(input));
 		assert(list_empty(&jcon->output));
 	} else if (!expect) {
 		/* Should have returned io_close. */
-		assert(plan.next == NULL);
+		assert(plan == NULL);
 	} else {
 		/* Should have finished. */
-		assert(plan.next == (void *)read_json);
+		assert(plan == (void *)jcon);
 		assert(!list_empty(&jcon->output));
 		assert(streq(list_pop(&jcon->output, struct json_output, list)
 			     ->json, expect));

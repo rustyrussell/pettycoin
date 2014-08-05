@@ -26,7 +26,9 @@ struct peer {
 	bool they_are_syncing;
 
 	/* Connection to the peer. */
-	struct io_conn *w, *r;
+	struct io_conn *conn;
+
+	/* The fd itself */
 	int fd;
 
 	/* The error message to send (then close) */
@@ -59,8 +61,8 @@ struct peer {
 void connect_to_peer(struct state *state,
 		     int fd, const struct protocol_net_address *a);
 
-struct io_plan peer_connected(struct io_conn *conn, struct state *state,
-			      struct protocol_net_address *addr);
+struct io_plan *peer_connected(struct io_conn *conn, struct state *state,
+			       struct protocol_net_address *addr);
 
 bool new_peer_by_addr(struct state *state, const char *node, const char *port);
 

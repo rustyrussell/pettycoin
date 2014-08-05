@@ -13,8 +13,8 @@
 /* Async dns helper. */
 struct dns_info {
 	struct state *state;
-	struct io_plan (*init)(struct io_conn *, struct state *,
-			       struct protocol_net_address *);
+	struct io_plan *(*init)(struct io_conn *, struct state *,
+				struct protocol_net_address *);
 	void *pkt;
 	size_t num_addresses;
 	struct protocol_net_address *addresses;
@@ -55,7 +55,7 @@ static void lookup_and_write(int fd, const char *name, const char *port)
 	tal_free(addresses);
 }
 
-static struct io_plan connected(struct io_conn *conn, struct dns_info *d)
+static struct io_plan *connected(struct io_conn *conn, struct dns_info *d)
 {
 	/* No longer need to try more connections. */
 	io_set_finish(conn, NULL, NULL);
@@ -70,6 +70,17 @@ static void connect_failed(struct io_conn *conn, struct dns_info *d)
 	try_connect_one(d);
 }
 
+static struct io_plan *init_conn(struct io_conn *conn, struct dns_info *d)
+{
+	struct addrinfo *a = mk_addrinfo(d, &d->addresses[0]);
+
+	io_set_finish(conn, connect_failed, d);
+
+	/* That new connection owns d */
+	tal_steal(conn, d);
+	return io_connect(conn, a, connected, d);
+}
+
 static void try_connect_one(struct dns_info *d)
 {
 	int fd;
@@ -77,23 +88,19 @@ static void try_connect_one(struct dns_info *d)
 	while (d->num_addresses) {
 		struct addrinfo *a = mk_addrinfo(d, &d->addresses[0]);
 
+		fd = socket(a->ai_family, a->ai_socktype, a->ai_protocol);
+		if (fd >= 0) {
+			io_new_conn(d->state, fd, init_conn, d);
+			break;
+		}
 		/* Consume that address. */
 		d->addresses++;
 		d->num_addresses--;
-
-		fd = socket(a->ai_family, a->ai_socktype, a->ai_protocol);
-		if (fd >= 0) {
-			struct io_conn *c;
-			c = io_new_conn(fd, io_connect(fd, a, connected, d));
-			io_set_finish(c, connect_failed, d);
-			/* That new connection owns d */
-			tal_steal(c, d);
-			break;
-		}
 	}
 }
 
-static struct io_plan start_connecting(struct io_conn *conn, struct dns_info *d)
+static struct io_plan *start_connecting(struct io_conn *conn,
+					struct dns_info *d)
 {
 	le32 *len = d->pkt;
 
@@ -105,14 +112,19 @@ static struct io_plan start_connecting(struct io_conn *conn, struct dns_info *d)
 
 	assert(d->num_addresses);
 	try_connect_one(d);
-	return io_close();
+	return io_close(conn);
+}
+
+static struct io_plan *init_dns_conn(struct io_conn *conn, struct dns_info *d)
+{
+	return io_read_packet(conn, &d->pkt, start_connecting, d);
 }
 
 tal_t *dns_resolve_and_connect(struct state *state,
 			       const char *name, const char *port,
-			       struct io_plan (*init)(struct io_conn *,
-						      struct state *,
-						      struct protocol_net_address *))
+			       struct io_plan *(*init)(struct io_conn *,
+						       struct state *,
+						       struct protocol_net_address *))
 {
 	int pfds[2];
 	struct dns_info *d = tal(NULL, struct dns_info);
@@ -138,8 +150,7 @@ tal_t *dns_resolve_and_connect(struct state *state,
 	}
 
 	close(pfds[1]);
-	conn = io_new_conn(pfds[0],
-			   io_read_packet(&d->pkt, start_connecting, d));
+	conn = io_new_conn(state, pfds[0], init_dns_conn, d);
 	tal_steal(conn, d);
 	return d;
 }

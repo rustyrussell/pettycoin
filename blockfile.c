@@ -66,36 +66,37 @@ struct load_state {
 	struct protocol_net_hdr *pkt;
 };
 
-static struct io_plan load_packet(struct io_conn *conn, struct load_state *ls)
+static struct io_plan *load_packet(struct io_conn *conn, struct load_state *ls)
 {
 	switch (le32_to_cpu(ls->pkt->type)) {
 	case PROTOCOL_PKT_BLOCK:
 		if (!load_block(ls->state, ls->pkt)) {
 			log_unusual(ls->state->log,
 				    "blockfile partial block");
-			return io_close();
+			return io_close(conn);
 		}
 		break;
 	case PROTOCOL_PKT_TX_IN_BLOCK:
 		if (!load_tx_in_block(ls->state, (const void *)ls->pkt)) {
 			log_unusual(ls->state->log,
 				    "blockfile partial transaction");
-			return io_close();
+			return io_close(conn);
 		}
 		break;
 	default:
 		log_unusual(ls->state->log, "blockfile unknown type %u",
 			    le32_to_cpu(ls->pkt->type));
-		return io_close();
+		return io_close(conn);
 	}
 
 	ls->processed = lseek(io_conn_fd(conn), 0, SEEK_CUR);
-	return io_read_packet(&ls->pkt, load_packet, ls);
+	return io_read_packet(conn, &ls->pkt, load_packet, ls);
 }
 
-static struct io_plan setup_load_conn(struct load_state *ls)
+static struct io_plan *setup_load_conn(struct io_conn *conn,
+				       struct load_state *ls)
 {
-	return io_read_packet(&ls->pkt, load_packet, ls);
+	return io_read_packet(conn, &ls->pkt, load_packet, ls);
 }
 
 void load_blocks(struct state *state)
@@ -113,13 +114,13 @@ void load_blocks(struct state *state)
 
 	ls.state = state;
 	ls.processed = 0;
-	io_new_conn(fd, setup_load_conn(&ls));
+	io_new_conn(state, fd, setup_load_conn, &ls);
 
 	/* When it reads 0 bytes, it will close, so dup fd. */
 	fd = dup(fd);
 
 	/* Process them all. */
-	io_loop();
+	io_loop(NULL, NULL);
 
 	len = lseek(fd, 0, SEEK_END);
 	/* If we didn't process the entire file, truncate it. */

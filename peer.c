@@ -60,6 +60,7 @@ struct peer_connecting {
 	struct list_node list;
 	struct state *state;
 	struct protocol_net_address address;
+	struct addrinfo *addrinfo;
 };
 
 static bool digest_peer_addrs(struct state *state,
@@ -86,8 +87,8 @@ static bool digest_peer_addrs(struct state *state,
 	return true;
 }
 
-static struct io_plan digest_peer_pkt(struct io_conn *conn,
-				      struct peer_lookup *lookup)
+static struct io_plan *digest_peer_pkt(struct io_conn *conn,
+				       struct peer_lookup *lookup)
 {
 	log_debug(lookup->state->log,
 		  "seed server supplied %u bytes of peers",
@@ -96,18 +97,18 @@ static struct io_plan digest_peer_pkt(struct io_conn *conn,
 	/* Addresses are after header. */
 	digest_peer_addrs(lookup->state, lookup->state->log, lookup->pkt + 1,
 			  le32_to_cpu(lookup->pkt->len) - sizeof(*lookup->pkt));
-	return io_close();
+	return io_close(conn);
 }
 
-static struct io_plan read_seed_peers(struct io_conn *conn,
-				      struct state *state,
-				      struct protocol_net_address *addr)
+static struct io_plan *read_seed_peers(struct io_conn *conn,
+				       struct state *state,
+				       struct protocol_net_address *addr)
 {
 	struct peer_lookup *lookup = tal(conn, struct peer_lookup);
 
 	log_debug(state->log, "Connected to seed server, reading peers");
 	lookup->state = state;
-	return io_read_packet(&lookup->pkt, digest_peer_pkt, lookup);
+	return io_read_packet(conn, &lookup->pkt, digest_peer_pkt, lookup);
 }
 
 /* This gets called when the connection closes, fail or success. */
@@ -439,22 +440,6 @@ void wake_peers(struct state *state)
 		io_wake(p);
 }
 
-static void close_writer(struct io_conn *conn, struct peer *peer)
-{
-	assert(peer->w == conn);
-	peer->w = NULL;
-	if (peer->r)
-		io_close_other(peer->r);
-}
-
-static void close_reader(struct io_conn *conn, struct peer *peer)
-{
-	assert(peer->r == conn);
-	peer->r = NULL;
-	if (peer->w)
-		io_close_other(peer->w);
-}
-
 static struct protocol_pkt_set_filter *set_filter_pkt(struct peer *peer)
 {
 	struct protocol_pkt_set_filter *pkt;
@@ -468,12 +453,12 @@ static struct protocol_pkt_set_filter *set_filter_pkt(struct peer *peer)
 	return pkt;
 }
 
-static struct io_plan close_peer(struct io_conn *conn, struct peer *peer)
+static struct io_plan *close_peer(struct io_conn *conn, struct peer *peer)
 {
-	return io_close();
+	return io_close(conn);
 }
 
-static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
+static struct io_plan *plan_output(struct io_conn *conn, struct peer *peer)
 {
 	void *pkt;
 
@@ -501,7 +486,7 @@ static struct io_plan plan_output(struct io_conn *conn, struct peer *peer)
 	}
 
 	log_debug(peer->log, "Awaiting responses");
-	return io_wait(peer, plan_output, peer);
+	return io_out_wait(conn, peer, plan_output, peer);
 }
 
 static enum protocol_ecode
@@ -1419,7 +1404,7 @@ again:
 	return PROTOCOL_ECODE_BAD_INPUT;
 }
 
-static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
+static struct io_plan *pkt_in(struct io_conn *conn, struct peer *peer)
 {
 	const struct protocol_net_hdr *hdr = peer->incoming;
 	tal_t *ctx = tal_arr(peer, char, 0);
@@ -1449,7 +1434,7 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 			log_unusual(peer->log,
 				    "Received PROTOCOL_PKT_ERR len %u", len);
 		}
-		return io_close();
+		return io_close(conn);
 
 	case PROTOCOL_PKT_GET_CHILDREN:
 		err = recv_get_children(peer, peer->incoming, &reply);
@@ -1552,7 +1537,9 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 
 		/* Wait for writer to send error. */
 		tal_free(ctx);
-		return io_wait(peer, io_close_cb, NULL);
+
+		/* Writer will close. */
+		return io_halfclose(conn);
 	}
 
 	/* If we want to send something, queue it for plan_output */
@@ -1564,11 +1551,11 @@ static struct io_plan pkt_in(struct io_conn *conn, struct peer *peer)
 	recheck_pending_txs(peer->state);
 
 	tal_free(ctx);
-	return peer_read_packet(&peer->incoming, pkt_in, peer);
+	return peer_read_packet(peer, pkt_in);
 }
 
-static struct io_plan check_sync_or_horizon(struct io_conn *conn,
-					    struct peer *peer)
+static struct io_plan *check_sync_or_horizon(struct io_conn *conn,
+					     struct peer *peer)
 {
 	const struct protocol_net_hdr *hdr = peer->incoming;
 	enum protocol_ecode err;
@@ -1584,30 +1571,26 @@ static struct io_plan check_sync_or_horizon(struct io_conn *conn,
 	if (err != PROTOCOL_ECODE_NONE)
 		return peer_write_packet(peer, err_pkt(peer, err), close_peer);
 
-	/* Time to go duplex on this connection. */
-	assert(conn == peer->w);
-	peer->r = io_duplex(peer->w,
-			    peer_read_packet(&peer->incoming, pkt_in, peer));
-
-	/* If one dies, kill both, and don't free peer when w freed! */
-	io_set_finish(peer->r, close_reader, peer);
-	io_set_finish(peer->w, close_writer, peer);
+	/* peer->conn no longer owns peer. */
+	assert(peer->conn == conn);
 	tal_steal(peer->state, peer);
 
 	/* Ask them for more peers. */
 	todo_for_peer(peer, pkt_get_peers(peer));
 
-	/* Now we sync any children. */
-	return plan_output(conn, peer);
+	/* Time to go duplex on this connection: input reads packet,
+	 * output asks about TODOs */
+	return io_duplex(conn, peer_read_packet(peer, pkt_in),
+			 plan_output(conn, peer));
 }
 
-static struct io_plan recv_sync_or_horizon(struct io_conn *conn,
-					   struct peer *peer)
+static struct io_plan *recv_sync_or_horizon(struct io_conn *conn,
+					    struct peer *peer)
 {
-	return peer_read_packet(&peer->incoming, check_sync_or_horizon, peer);
+	return peer_read_packet(peer, check_sync_or_horizon);
 }
 
-static struct io_plan welcome_received(struct io_conn *conn, struct peer *peer)
+static struct io_plan *welcome_received(struct io_conn *conn, struct peer *peer)
 {
 	struct state *state = peer->state;
 	enum protocol_ecode e;
@@ -1631,7 +1614,7 @@ static struct io_plan welcome_received(struct io_conn *conn, struct peer *peer)
 	if (structeq(&peer->welcome->uuid, &state->uuid)) {
 		log_debug(peer->log, "The peer is ourselves: closing");
 		peer_cache_del(state, &peer->you, true);
-		return io_close();
+		return io_close(conn);
 	}
 
 	/* Update UUID (it might have changed from what was in cache). */
@@ -1641,7 +1624,7 @@ static struct io_plan welcome_received(struct io_conn *conn, struct peer *peer)
 	/* This can happen if using both IPv4 and IPv6. */
 	if (peer_already(state, &peer->you.uuid, peer)) {
 		log_debug(peer->log, "Duplicate peer: closing");
-		return io_close();
+		return io_close(conn);
 	}
 
 	/* Replace port we see with port they want us to connect to. */
@@ -1665,10 +1648,10 @@ static struct io_plan welcome_received(struct io_conn *conn, struct peer *peer)
 				 recv_sync_or_horizon);
 }
 
-static struct io_plan welcome_sent(struct io_conn *conn, struct peer *peer)
+static struct io_plan *welcome_sent(struct io_conn *conn, struct peer *peer)
 {
 	log_debug(peer->log, "Our welcome sent, awaiting theirs");
-	return peer_read_packet(&peer->welcome, welcome_received, peer);
+	return io_read_packet(conn, &peer->welcome, welcome_received, peer);
 }
 
 static void destroy_peer(struct peer *peer)
@@ -1697,7 +1680,7 @@ static void destroy_peer(struct peer *peer)
 	fill_peers(peer->state);
 }
 
-static struct io_plan setup_welcome(struct io_conn *unused, struct peer *peer)
+static struct io_plan *setup_welcome(struct io_conn *conn, struct peer *peer)
 {
 	return peer_write_packet(peer,
 				 make_welcome(peer, peer->state, &peer->you),
@@ -1716,8 +1699,8 @@ static unsigned int get_peernum(const bitmap bits[])
 	return i;
 }
 
-struct io_plan peer_connected(struct io_conn *conn, struct state *state,
-			      struct protocol_net_address *addr)
+struct io_plan *peer_connected(struct io_conn *conn, struct state *state,
+			       struct protocol_net_address *addr)
 {
 	/* Conn owns peer; peer vanishes if conn does. */
 	struct peer *peer = tal(conn, struct peer);
@@ -1726,7 +1709,7 @@ struct io_plan peer_connected(struct io_conn *conn, struct state *state,
 	peer->peer_num = get_peernum(state->peer_map);
 	if (peer->peer_num == MAX_PEERS) {
 		log_info(state->log, "Too many peers, closing incoming");
-		return io_close();
+		return io_close(conn);
 	}
 	bitmap_set_bit(state->peer_map, peer->peer_num);
 	list_add(&state->peers, &peer->list);
@@ -1740,7 +1723,7 @@ struct io_plan peer_connected(struct io_conn *conn, struct state *state,
 	peer->requests_outstanding = 0;
 	list_head_init(&peer->todo);
 	peer->you = *addr;
-	peer->w = conn;
+	peer->conn = conn;
 	peer->fd = io_conn_fd(conn);
 
 	/* Use address as log prefix. */
@@ -1777,8 +1760,8 @@ static void connect_failed(struct io_conn *conn,
 	fill_peers(state);
 }
 
-static struct io_plan peer_connected_out(struct io_conn *conn,
-					 struct peer_connecting *connecting)
+static struct io_plan *peer_connected_out(struct io_conn *conn,
+					  struct peer_connecting *connecting)
 {
 	struct state *state = connecting->state;
 	struct protocol_net_address addr = connecting->address;
@@ -1790,6 +1773,13 @@ static struct io_plan peer_connected_out(struct io_conn *conn,
 	return peer_connected(conn, state, &addr);
 }
 
+static struct io_plan *start_connecting(struct io_conn *conn,
+					struct peer_connecting *connecting)
+{
+	return io_connect(conn, connecting->addrinfo,
+			  peer_connected_out, connecting);
+}
+
 static void destroy_connecting(struct peer_connecting *connecting)
 {
 	connecting->state->num_peers_connecting--;
@@ -1799,7 +1789,6 @@ static void destroy_connecting(struct peer_connecting *connecting)
 void connect_to_peer(struct state *state,
 		     int fd, const struct protocol_net_address *a)
 {
-	struct addrinfo *ai;
 	struct io_conn *conn;
 	struct peer_connecting *connecting;
 
@@ -1810,12 +1799,13 @@ void connect_to_peer(struct state *state,
 	connecting = tal(state, struct peer_connecting);
 	connecting->address = *a;
 	connecting->state = state;
+	connecting->addrinfo = mk_addrinfo(connecting, a);
+
 	state->num_peers_connecting++;
 	list_add_tail(&state->connecting, &connecting->list);
 	tal_add_destructor(connecting, destroy_connecting);
-	ai = mk_addrinfo(connecting, a);
 
-	conn = io_new_conn(fd, io_connect(fd, ai, peer_connected_out, connecting));
+	conn = io_new_conn(state, fd, start_connecting, connecting);
 	io_set_finish(conn, connect_failed, connecting);
 }
 
