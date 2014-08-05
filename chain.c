@@ -3,13 +3,17 @@
 #include "check_block.h"
 #include "complain.h"
 #include "generating.h"
+#include "hex.h"
+#include "jsonrpc.h"
 #include "peer.h"
 #include "pending.h"
 #include "shard.h"
 #include "tal_arr.h"
 #include "todo.h"
+#include "tx.h"
 #include <ccan/cast/cast.h>
 #include <ccan/structeq/structeq.h>
+#include <ccan/tal/str/str.h>
 #include <time.h>
 
 /* Simply block array helpers */
@@ -456,3 +460,116 @@ void update_block_ptrs_invalidated(struct state *state,
 	/* Tell peers everything changed. */
 	wake_peers(state);
 }
+
+static void json_add_tx(char **response,
+			const struct block_shard *s,
+			unsigned int txoff)
+{
+	if (shard_is_tx(s, txoff)) {
+		const union protocol_tx *tx = s->u[txoff].txp.tx;
+		struct protocol_double_sha sha;
+		const struct protocol_input_ref *refs;
+		unsigned int i;
+
+		/* Unknown?  We leave object empty. */
+		if (!tx)
+			return;
+
+		hash_tx(s->u[txoff].txp.tx, &sha);
+		/* "tx" indicates that we know this tx. */
+		json_add_double_sha(response, "tx", &sha);
+		json_array_start(response, "refs");
+		refs = refs_for(s->u[txoff].txp);
+		for (i = 0; i < num_inputs(tx); i++) {
+			json_object_start(response, NULL);
+			json_add_num(response, "blocks_ago",
+				     le32_to_cpu(refs[i].blocks_ago));
+			json_add_num(response, "shard",
+				     le16_to_cpu(refs[i].shard));
+			json_add_num(response, "txoff", refs[i].txoff);
+			json_object_end(response);
+		}
+		json_array_end(response);
+	} else {
+		/* We know hash, but not actual tx. */
+		const struct protocol_txrefhash *hash = s->u[txoff].hash;
+
+		json_add_double_sha(response, "txhash", &hash->txhash);
+		json_add_double_sha(response, "refhash", &hash->refhash);
+	}
+}
+
+static char *json_getblock(struct json_connection *jcon,
+			   const jsmntok_t *params,
+			   char **response)
+{
+	struct protocol_double_sha sha;
+	const struct block *b, *b2;
+	jsmntok_t *block;
+	unsigned int shardnum, i;
+
+	json_get_params(jcon->buffer, params, "block", &block, NULL);
+	if (!block)
+		return "Need block param";
+
+	if (!from_hex(jcon->buffer + block->start,
+		      block->end - block->start, &sha, sizeof(sha)))
+		return tal_fmt(jcon, "Invalid block hex %.*s",
+			       json_tok_len(block),
+			       json_tok_contents(jcon->buffer, block));
+
+	b = block_find_any(jcon->state, &sha);
+	if (!b)
+		return tal_fmt(jcon, "Unknown block %.*s",
+			       json_tok_len(block),
+			       json_tok_contents(jcon->buffer, block));
+
+	json_object_start(response, NULL);
+	json_add_double_sha(response, "hash", &b->sha);
+	json_add_num(response, "version", b->hdr->version);
+	json_add_num(response, "features_vote", b->hdr->features_vote);
+	json_add_num(response, "shard_order", b->hdr->shard_order);
+	json_add_num(response, "nonce1", le32_to_cpu(b->tailer->nonce1));
+	json_add_hex(response, "nonce2", b->hdr->nonce2,
+		     sizeof(b->hdr->nonce2));
+	json_add_num(response, "depth", le32_to_cpu(b->hdr->depth));
+	json_add_address(response, "fees_to",
+			 jcon->state->test_net, &b->hdr->fees_to);
+	json_add_num(response, "timestamp",
+		     le32_to_cpu(b->tailer->timestamp));
+	json_add_num(response, "difficulty",
+		     le32_to_cpu(b->tailer->difficulty));
+	json_add_double_sha(response, "prev", &b->hdr->prev_block);
+	json_array_start(response, "next");
+	list_for_each(&b->children, b2, sibling)
+		json_add_double_sha(response, NULL, &b2->sha);
+	json_array_end(response);
+
+	json_array_start(response, "merkles");
+	for (shardnum = 0; shardnum < num_shards(b->hdr); shardnum++)
+		json_add_double_sha(response, NULL, &b->merkles[shardnum]);
+	json_array_end(response);
+	
+	json_array_start(response, "shards");
+	for (shardnum = 0; shardnum < num_shards(b->hdr); shardnum++) {
+		struct block_shard *s = b->shard[shardnum];
+
+		json_array_start(response, NULL);
+		for (i = 0; i < s->size; i++) {
+			json_object_start(response, NULL);
+			json_add_tx(response, s, i);
+			json_object_end(response);
+		}
+		json_array_end(response);
+	}
+	json_array_end(response);
+	json_object_end(response);
+	return NULL;
+}
+
+const struct json_command getblock_command = {
+	"getblock",
+	json_getblock,
+	"Get a description of a given block",
+	"hash, version, features_vote, shard_order, nonce1, nonce2, depth, fees_to, timestamp, difficulty, prev, next[], merkles[], shards[ [{tx,refs[]}|{}|{txhash,refhash} ] ]"
+};

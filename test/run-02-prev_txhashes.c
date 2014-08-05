@@ -43,6 +43,13 @@ void complain_bad_prev_txhashes(struct state *state,
 				const struct block *bad_prev,
 				u16 bad_prev_shard)
 { fprintf(stderr, "complain_bad_prev_txhashes called!\n"); abort(); }
+/* Generated stub for from_hex */
+bool from_hex(const char *str, size_t slen, void *buf, size_t bufsize)
+{ fprintf(stderr, "from_hex called!\n"); abort(); }
+/* Generated stub for hash_tx */
+void hash_tx(const union protocol_tx *tx,
+	     struct protocol_double_sha *sha)
+{ fprintf(stderr, "hash_tx called!\n"); abort(); }
 /* Generated stub for hash_tx_and_refs */
 void hash_tx_and_refs(const union protocol_tx *tx,
 		      const struct protocol_input_ref *refs,
@@ -54,6 +61,42 @@ size_t inputhash_hashfn(const struct inputhash_key *key)
 /* Generated stub for inputhash_keyof */
 const struct inputhash_key *inputhash_keyof(const struct inputhash_elem *ie)
 { fprintf(stderr, "inputhash_keyof called!\n"); abort(); }
+/* Generated stub for json_add_address */
+void json_add_address(char **result, const char *fieldname, bool test_net,
+		      const struct protocol_address *addr)
+{ fprintf(stderr, "json_add_address called!\n"); abort(); }
+/* Generated stub for json_add_double_sha */
+void json_add_double_sha(char **result, const char *fieldname,
+			 const struct protocol_double_sha *sha)
+{ fprintf(stderr, "json_add_double_sha called!\n"); abort(); }
+/* Generated stub for json_add_hex */
+void json_add_hex(char **result, const char *fieldname, const void *data,
+		  size_t len)
+{ fprintf(stderr, "json_add_hex called!\n"); abort(); }
+/* Generated stub for json_add_num */
+void json_add_num(char **result, const char *fieldname, unsigned int value)
+{ fprintf(stderr, "json_add_num called!\n"); abort(); }
+/* Generated stub for json_array_end */
+void json_array_end(char **ptr)
+{ fprintf(stderr, "json_array_end called!\n"); abort(); }
+/* Generated stub for json_array_start */
+void json_array_start(char **ptr, const char *fieldname)
+{ fprintf(stderr, "json_array_start called!\n"); abort(); }
+/* Generated stub for json_get_params */
+void json_get_params(const char *buffer, const jsmntok_t param[], ...)
+{ fprintf(stderr, "json_get_params called!\n"); abort(); }
+/* Generated stub for json_object_end */
+void json_object_end(char **ptr)
+{ fprintf(stderr, "json_object_end called!\n"); abort(); }
+/* Generated stub for json_object_start */
+void json_object_start(char **ptr, const char *fieldname)
+{ fprintf(stderr, "json_object_start called!\n"); abort(); }
+/* Generated stub for json_tok_contents */
+const char *json_tok_contents(const char *buffer, const jsmntok_t *t)
+{ fprintf(stderr, "json_tok_contents called!\n"); abort(); }
+/* Generated stub for json_tok_len */
+int json_tok_len(const jsmntok_t *t)
+{ fprintf(stderr, "json_tok_len called!\n"); abort(); }
 /* Generated stub for log_to_file */
 void log_to_file(int fd, const struct log *log)
 { fprintf(stderr, "log_to_file called!\n"); abort(); }

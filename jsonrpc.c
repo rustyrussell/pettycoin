@@ -83,7 +83,7 @@ static const struct json_command stop_command = {
 
 static const struct json_command *cmdlist[] = {
 	&help_command, &getinfo_command, &sendrawtransaction_command,
-	&stop_command, &listtransactions_command,
+	&stop_command, &listtransactions_command, &getblock_command,
 	/* Developer/debugging options. */
 	&echo_command, &listtodo_command
 };
