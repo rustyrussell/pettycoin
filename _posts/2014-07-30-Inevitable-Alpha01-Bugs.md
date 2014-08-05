@@ -1,6 +1,6 @@
 ---
 layout: post
-commentIssueId: 16
+commentIssueId: 19
 ---
 
 Joel ran up pettycoin, and indeed, there were bugs.  Most importantly,
@@ -8,6 +8,7 @@ it got very upset with not being able to find 16 peers (`--seeding`
 fixes that).
 
 Other fixes since then:
+
 * check_chain debug calls drastically reduced: after 1700 blocks I
   noticed pettycoin chew up CPU and become unresponsive for ten
   seconds at a time.

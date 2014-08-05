@@ -1,6 +1,6 @@
 ---
 layout: post
-commentIssueId: 15
+commentIssueId: 18
 ---
 
 The gateway (bitcoin -> pettycoin only!) is finished, and dumbwallet
