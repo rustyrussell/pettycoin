@@ -1698,10 +1698,12 @@ static unsigned int get_peernum(const bitmap bits[])
 	return i;
 }
 
-static struct peer *alloc_peer(const tal_t *ctx, struct state *state)
+static struct peer *alloc_peer(const tal_t *ctx, struct state *state, int fd,
+			       const struct protocol_net_address *addr)
 {
 	struct peer *peer;
 	unsigned int peernum;
+	char prefix[INET6_ADDRSTRLEN + strlen(":65000:")];
 
 	peernum = get_peernum(state->peer_map);
 	if (peernum == MAX_PEERS) {
@@ -1722,6 +1724,14 @@ static struct peer *alloc_peer(const tal_t *ctx, struct state *state)
 	peer->requests_outstanding = 0;
 	list_head_init(&peer->todo);
 	peer->peer_num = peernum;
+	peer->you = *addr;
+
+	/* Use address as log prefix. */
+	if (inet_ntop(AF_INET6, addr->addr, prefix, sizeof(prefix)) == NULL)
+		strcpy(prefix, "UNCONVERTABLE-IPV6");
+	sprintf(prefix + strlen(prefix), ":%u:", le16_to_cpu(addr->port));
+	peer->log = new_log(peer, state->log,
+			    prefix, state->log_level, PEER_LOG_MAX);
 
 	state->num_peers++;
 	tal_add_destructor(peer, destroy_peer);
@@ -1732,29 +1742,25 @@ static struct peer *alloc_peer(const tal_t *ctx, struct state *state)
 void new_peer(struct state *state, int fd, const struct protocol_net_address *a)
 {
 	struct peer *peer;
-	char name[INET6_ADDRSTRLEN + strlen(":65000:")];
+	struct protocol_net_address fdaddr;
 
-	peer = alloc_peer(NULL, state);
+	if (!a && !get_fd_addr(fd, &fdaddr)) {
+		log_unusual(state->log,
+			    "Could not get address for peer: %s",
+			    strerror(errno));
+		close(fd);
+		return;
+	}
+
+	peer = alloc_peer(NULL, state, fd, a ? a : &fdaddr);
 	if (!peer) {
 		close(fd);
 		return;
 	}
 
-	/* We have to set up log now, in case io_connect is instant. */
-	if (inet_ntop(AF_INET6, a ? a->addr : peer->you.addr,
-		      name, sizeof(name)) == NULL)
-		strcpy(name, "UNCONVERTABLE-IPV6");
-	sprintf(name + strlen(name), ":%u:",
-		le16_to_cpu(a ? a->port : peer->you.port));
-
-	peer->log = new_log(peer, state->log,
-			    name, state->log_level, PEER_LOG_MAX);
-
 	/* If a, we need to connect to there. */
 	if (a) {
 		struct addrinfo *ai;
-
-		peer->you = *a;
 
 		log_debug(state->log, "Connecting to peer %p (%zu) at ",
 			  peer, state->num_peers);
@@ -1766,14 +1772,6 @@ void new_peer(struct state *state, int fd, const struct protocol_net_address *a)
 				      io_connect(fd, ai, setup_welcome, peer));
 		tal_free(ai);
 	} else {
-		if (!get_fd_addr(fd, &peer->you)) {
-			log_unusual(state->log,
-				    "Could not get address for peer: %s",
-				    strerror(errno));
-			tal_free(peer);
-			close(fd);
-			return;
-		}
 		peer->w = io_new_conn(fd, setup_welcome(NULL, peer));
 		log_debug(state->log, "Peer %p (%zu) connected from ",
 			  peer, state->num_peers);
@@ -1787,17 +1785,19 @@ void new_peer(struct state *state, int fd, const struct protocol_net_address *a)
 
 static struct io_plan setup_peer(struct io_conn *conn, struct state *state)
 {
-	struct peer *peer = alloc_peer(conn, state);
-
-	if (!peer)
-		return io_close();
+	struct peer *peer;
+	struct protocol_net_address addr;
 
 	/* FIXME: Disable nagle if we can use TCP_CORK */
-	if (!get_fd_addr(io_conn_fd(conn), &peer->you)) {
+	if (!get_fd_addr(io_conn_fd(conn), &addr)) {
 		log_unusual(state->log, "Could not get address for peer: %s",
 			    strerror(errno));
 		return io_close();
 	}
+
+	peer = alloc_peer(conn, state, io_conn_fd(conn), &addr);
+	if (!peer)
+		return io_close();
 
 	log_info(state->log, "Set up --connect peer %u at ", peer->peer_num);
 	log_add_struct(state->log, struct protocol_net_address, &peer->you);
