@@ -52,11 +52,6 @@ static void tal_freefn(void *ptr)
 	tal_free(ptr);
 }
 
-static void incoming(int fd, struct state *state)
-{
-	new_peer(state, fd, NULL);
-}
-
 static int make_listen_fd(struct state *state, int domain, void *addr, socklen_t len)
 {
 	int fd = socket(domain, SOCK_STREAM, 0);
@@ -77,6 +72,25 @@ static int make_listen_fd(struct state *state, int domain, void *addr, socklen_t
 
 	close_noerr(fd);
 	return -1;
+}
+
+static struct io_plan peer_connected_in2(struct io_conn *conn, struct state *state)
+{
+	struct protocol_net_address addr;
+
+	if (!get_fd_addr(io_conn_fd(conn), &addr)) {
+		log_unusual(state->log,
+			    "Could not get address for peer: %s",
+			    strerror(errno));
+		return io_close();
+	}
+
+	return peer_connected(conn, state, &addr);
+}
+
+static void peer_connected_in(int fd, struct state *state)
+{
+	io_new_conn(fd, io_always(peer_connected_in2, state));
 }
 
 static void make_listeners(struct state *state, unsigned int portnum)
@@ -110,7 +124,7 @@ static void make_listeners(struct state *state, unsigned int portnum)
 			state->listen_port = ntohs(addr.sin_port);
 			log_info(state->log, "Creating IPv6 listener on port %u",
 				 state->listen_port);
-			io_new_listener(fd1, incoming, state);
+			io_new_listener(fd1, peer_connected_in, state);
 		}
 	}
 
@@ -127,7 +141,7 @@ static void make_listeners(struct state *state, unsigned int portnum)
 			state->listen_port = ntohs(addr.sin_port);
 			log_info(state->log, "Creating IPv4 listener on port %u",
 				 state->listen_port);
-			io_new_listener(fd2, incoming, state);
+			io_new_listener(fd2, peer_connected_in, state);
 		}
 	}
 

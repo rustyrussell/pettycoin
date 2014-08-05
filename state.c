@@ -38,8 +38,9 @@ struct state *new_state(bool test_net)
 	inputhash_init(&s->inputhash);
 	s->nopeers_ok = false;
 	s->num_peers = 0;
-	s->num_peers_connected = 0;
 	list_head_init(&s->peers);
+	s->num_peers_connecting = 0;
+	list_head_init(&s->connecting);
 	s->upcoming_features = 0;
 	s->refill_peers = true;
 	s->peer_seeding = false;

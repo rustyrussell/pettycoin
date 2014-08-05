@@ -55,12 +55,16 @@ struct state {
 	/* Are we a bootstrap node? */
 	bool nopeers_ok;
 
-	/* Number of current peers (some may be connecting) */
+	/* Number of current peers */
 	size_t num_peers;
-	size_t num_peers_connected;
 	struct list_head peers;
 	struct protocol_net_uuid uuid;
 	BITMAP_DECLARE(peer_map, MAX_PEERS);
+
+	/* Number we are trying to connect to now. */
+	size_t num_peers_connecting;
+	/* List of connections we're trying to make. */
+	struct list_head connecting;
 
 	/* Features we've warned about. */
 	u8 upcoming_features;

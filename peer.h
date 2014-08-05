@@ -56,7 +56,12 @@ struct peer {
 	struct log *log;
 };
 
-void new_peer(struct state *state, int fd, const struct protocol_net_address *a);
+void connect_to_peer(struct state *state,
+		     int fd, const struct protocol_net_address *a);
+
+struct io_plan peer_connected(struct io_conn *conn, struct state *state,
+			      struct protocol_net_address *addr);
+
 bool new_peer_by_addr(struct state *state, const char *node, const char *port);
 
 void send_tx_in_block_to_peers(struct state *state, const struct peer *exclude,

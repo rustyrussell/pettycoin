@@ -55,6 +55,13 @@ struct peer_lookup {
 	struct protocol_pkt_peers *pkt;
 };
 
+/* Off state->connecting */
+struct peer_connecting {
+	struct list_node list;
+	struct state *state;
+	struct protocol_net_address address;
+};
+
 static bool digest_peer_addrs(struct state *state,
 			      struct log *log,
 			      const void *data, u32 len)
@@ -124,7 +131,7 @@ static void seed_peers(struct state *state)
 
 	/* This can happen in the early, sparse network. */
 	if (state->peer_seed_count++ > 2) {
-		if (state->num_peers != 0) {
+		if (state->num_peers || state->num_peers_connecting) {
 			log_debug(state->log,
 				  "Can't find many peers, settling with %zu",
 				  state->num_peers);
@@ -193,12 +200,23 @@ static bool peer_already(struct state *state,
 	return false;
 }
 
+static bool connecting_already(struct state *state,
+			       const struct protocol_net_uuid *uuid)
+{
+	struct peer_connecting *p;
+
+	list_for_each(&state->connecting, p, list)
+		if (structeq(&p->address.uuid, uuid))
+			return true;
+	return false;
+}
+
 void fill_peers(struct state *state)
 {
 	if (!state->refill_peers)
 		return;
 
-	while (state->num_peers < MIN_PEERS) {
+	while (state->num_peers + state->num_peers_connecting < MIN_PEERS) {
 		struct protocol_net_address *a;
 		int i, fd;
 
@@ -207,10 +225,10 @@ void fill_peers(struct state *state)
 		     a = peer_cache_next(state, &i)) {
 			if (empty_uuid(&a->uuid))
 				break;
-			if (!peer_already(state, &a->uuid, NULL))
+			if (!connecting_already(state, &a->uuid)
+			    && !peer_already(state, &a->uuid, NULL))
 				break;
 		}
-
 
 		if (!a) {
 			seed_peers(state);
@@ -226,7 +244,7 @@ void fill_peers(struct state *state)
 			log_add(state->log, ": %s", strerror(errno));
 			peer_cache_del(state, a, true);
 		} else {
-			new_peer(state, fd, a);
+			connect_to_peer(state, fd, a);
 		}
 	}
 }
@@ -1598,7 +1616,6 @@ static struct io_plan welcome_received(struct io_conn *conn, struct peer *peer)
 	log_debug(peer->log, "Their welcome received");
 
 	tal_steal(peer, peer->welcome);
-	peer->state->num_peers_connected++;
 
 	e = check_welcome(state, peer->welcome, &peer->welcome_blocks);
 	if (e != PROTOCOL_ECODE_NONE) {
@@ -1658,9 +1675,8 @@ static void destroy_peer(struct peer *peer)
 {
 	list_del_from(&peer->state->peers, &peer->list);
 	if (peer->welcome) {
-		peer->state->num_peers_connected--;
 		log_debug(peer->log, "Closing connected peer (%zu left)",
-			  peer->state->num_peers_connected);
+			  peer->state->num_peers);
 
 		if (peer->we_are_syncing) {
 			log_add(peer->log, " (didn't finish syncing)");
@@ -1671,7 +1687,7 @@ static void destroy_peer(struct peer *peer)
 		log_debug(peer->log, "Failed connect to peer %p", peer);
 		/* Only delete from disk cache if we have *some* networking. */
 		peer_cache_del(peer->state, &peer->you,
-			       peer->state->num_peers_connected != 0);
+			       peer->state->num_peers != 0);
 	}
 
 	peer->state->num_peers--;
@@ -1700,21 +1716,19 @@ static unsigned int get_peernum(const bitmap bits[])
 	return i;
 }
 
-static struct peer *alloc_peer(const tal_t *ctx, struct state *state, int fd,
-			       const struct protocol_net_address *addr)
+struct io_plan peer_connected(struct io_conn *conn, struct state *state,
+			      struct protocol_net_address *addr)
 {
-	struct peer *peer;
-	unsigned int peernum;
+	/* Conn owns peer; peer vanishes if conn does. */
+	struct peer *peer = tal(conn, struct peer);
 	char prefix[INET6_ADDRSTRLEN + strlen(":65000:")];
 
-	peernum = get_peernum(state->peer_map);
-	if (peernum == MAX_PEERS) {
+	peer->peer_num = get_peernum(state->peer_map);
+	if (peer->peer_num == MAX_PEERS) {
 		log_info(state->log, "Too many peers, closing incoming");
-		return NULL;
+		return io_close();
 	}
-
-	peer = tal(ctx, struct peer);
-	bitmap_set_bit(state->peer_map, peernum);
+	bitmap_set_bit(state->peer_map, peer->peer_num);
 	list_add(&state->peers, &peer->list);
 	peer->state = state;
 	peer->we_are_syncing = true;
@@ -1725,9 +1739,9 @@ static struct peer *alloc_peer(const tal_t *ctx, struct state *state, int fd,
 	peer->incoming = NULL;
 	peer->requests_outstanding = 0;
 	list_head_init(&peer->todo);
-	peer->peer_num = peernum;
 	peer->you = *addr;
-	peer->fd = fd;
+	peer->w = conn;
+	peer->fd = io_conn_fd(conn);
 
 	/* Use address as log prefix. */
 	if (inet_ntop(AF_INET6, addr->addr, prefix, sizeof(prefix)) == NULL)
@@ -1737,74 +1751,76 @@ static struct peer *alloc_peer(const tal_t *ctx, struct state *state, int fd,
 			    prefix, state->log_level, PEER_LOG_MAX);
 
 	state->num_peers++;
-	add_log_for_fd(fd, peer->log);
+	add_log_for_fd(peer->fd, peer->log);
 	tal_add_destructor(peer, destroy_peer);
 
-	return peer;
-}
-
-void new_peer(struct state *state, int fd, const struct protocol_net_address *a)
-{
-	struct peer *peer;
-	struct protocol_net_address fdaddr;
-
-	if (!a && !get_fd_addr(fd, &fdaddr)) {
-		log_unusual(state->log,
-			    "Could not get address for peer: %s",
-			    strerror(errno));
-		close(fd);
-		return;
-	}
-
-	peer = alloc_peer(NULL, state, fd, a ? a : &fdaddr);
-	if (!peer) {
-		close(fd);
-		return;
-	}
-
-	/* If a, we need to connect to there. */
-	if (a) {
-		struct addrinfo *ai;
-
-		log_debug(state->log, "Connecting to peer %p (%zu) at ",
-			  peer, state->num_peers);
-		log_add_struct(state->log, struct protocol_net_address,
-			       &peer->you);
-
-		ai = mk_addrinfo(peer, a);
-		peer->w = io_new_conn(fd,
-				      io_connect(fd, ai, setup_welcome, peer));
-		tal_free(ai);
-	} else {
-		peer->w = io_new_conn(fd, setup_welcome(NULL, peer));
-		log_debug(state->log, "Peer %p (%zu) connected from ",
-			  peer, state->num_peers);
-		log_add_struct(state->log, struct protocol_net_address,
-			       &peer->you);
-	}
-
-	/* Conn owns us: we vanish when it does. */
-	tal_steal(peer->w, peer);
-}
-
-static struct io_plan setup_peer(struct io_conn *conn, struct state *state,
-				 struct protocol_net_address *addr)
-{
-	struct peer *peer;
-
-	/* FIXME: Disable nagle if we can use TCP_CORK */
-	peer = alloc_peer(conn, state, io_conn_fd(conn), addr);
-	if (!peer)
-		return io_close();
-
-	log_info(state->log, "Set up --connect peer %u at ", peer->peer_num);
+	log_debug(state->log, "Peer %p (%zu) connected from ",
+		  peer, state->num_peers);
 	log_add_struct(state->log, struct protocol_net_address, &peer->you);
 
 	return setup_welcome(conn, peer);
 }
 
+static void connect_failed(struct io_conn *conn,
+			   struct peer_connecting *connecting)
+{
+	struct state *state = connecting->state;
+
+	log_debug(state->log, "Failed connect conn %p", conn);
+
+	/* Only delete from disk cache if we have *some* networking. */
+	peer_cache_del(state, &connecting->address, state->num_peers != 0);
+
+	/* Free first, so it decrements connecting count before we call
+	 * fill_peers. */
+	tal_free(connecting);
+	fill_peers(state);
+}
+
+static struct io_plan peer_connected_out(struct io_conn *conn,
+					 struct peer_connecting *connecting)
+{
+	struct state *state = connecting->state;
+	struct protocol_net_address addr = connecting->address;
+
+	/* Don't run connect_failed on finish any more. */
+	io_set_finish(conn, NULL, NULL);
+	tal_free(connecting);
+
+	return peer_connected(conn, state, &addr);
+}
+
+static void destroy_connecting(struct peer_connecting *connecting)
+{
+	connecting->state->num_peers_connecting--;
+	list_del_from(&connecting->state->connecting, &connecting->list);
+}	
+
+void connect_to_peer(struct state *state,
+		     int fd, const struct protocol_net_address *a)
+{
+	struct addrinfo *ai;
+	struct io_conn *conn;
+	struct peer_connecting *connecting;
+
+	log_debug(state->log, "Connecting to peer (%zu) at ",
+		  state->num_peers);
+	log_add_struct(state->log, struct protocol_net_address, a);
+
+	connecting = tal(state, struct peer_connecting);
+	connecting->address = *a;
+	connecting->state = state;
+	state->num_peers_connecting++;
+	list_add_tail(&state->connecting, &connecting->list);
+	tal_add_destructor(connecting, destroy_connecting);
+	ai = mk_addrinfo(connecting, a);
+
+	conn = io_new_conn(fd, io_connect(fd, ai, peer_connected_out, connecting));
+	io_set_finish(conn, connect_failed, connecting);
+}
+
 /* We use this for command line --connect. */
 bool new_peer_by_addr(struct state *state, const char *node, const char *port)
 {
-	return dns_resolve_and_connect(state, node, port, setup_peer);
+	return dns_resolve_and_connect(state, node, port, peer_connected);
 }
