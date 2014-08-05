@@ -60,11 +60,49 @@ static bool load_tx_in_block(struct state *state,
 	return e == PROTOCOL_ECODE_NONE;
 }
 
+struct load_state {
+	struct state *state;
+	off_t processed;
+	struct protocol_net_hdr *pkt;
+};
+
+static struct io_plan load_packet(struct io_conn *conn, struct load_state *ls)
+{
+	switch (le32_to_cpu(ls->pkt->type)) {
+	case PROTOCOL_PKT_BLOCK:
+		if (!load_block(ls->state, ls->pkt)) {
+			log_unusual(ls->state->log,
+				    "blockfile partial block");
+			return io_close();
+		}
+		break;
+	case PROTOCOL_PKT_TX_IN_BLOCK:
+		if (!load_tx_in_block(ls->state, (const void *)ls->pkt)) {
+			log_unusual(ls->state->log,
+				    "blockfile partial transaction");
+			return io_close();
+		}
+		break;
+	default:
+		log_unusual(ls->state->log, "blockfile unknown type %u",
+			    le32_to_cpu(ls->pkt->type));
+		return io_close();
+	}
+
+	ls->processed = lseek(io_conn_fd(conn), 0, SEEK_CUR);
+	return io_read_packet(&ls->pkt, load_packet, ls);
+}
+
+static struct io_plan setup_load_conn(struct load_state *ls)
+{
+	return io_read_packet(&ls->pkt, load_packet, ls);
+}
+
 void load_blocks(struct state *state)
 {
-	off_t off = 0;
-	struct stat st;
 	int fd;
+	struct load_state ls;
+	off_t len;
 
 	fd = open("blockfile", O_RDWR|O_CREAT, 0600);
 	if (fd < 0)
@@ -73,55 +111,26 @@ void load_blocks(struct state *state)
 	/* Prevent us saving blocks as we're reading them. */
 	state->blockfd = -1;
 
-	for (;;) {
-		struct protocol_net_hdr *pkt;
-		struct io_plan plan;
-		int ret;
+	ls.state = state;
+	ls.processed = 0;
+	io_new_conn(fd, setup_load_conn(&ls));
 
-		plan = io_read_packet_(&pkt, (void *)1, NULL);
-		while ((ret = plan.io(fd, &plan)) != 1) {
-			if (ret == -1) {
-				/* Did we do a partial read? */
-				if (lseek(fd, 0, SEEK_CUR) != off) {
-					log_unusual(state->log,
-						    "blockfile partial read");
-					goto truncate;
-				}
-				goto out;
-			}
-		}
+	/* When it reads 0 bytes, it will close, so dup fd. */
+	fd = dup(fd);
 
-		switch (le32_to_cpu(pkt->type)) {
-		case PROTOCOL_PKT_BLOCK:
-			if (!load_block(state, pkt)) {
-				log_unusual(state->log,
-					    "blockfile partial block");
-				goto truncate;
-			}
-			break;
-		case PROTOCOL_PKT_TX_IN_BLOCK:
-			if (!load_tx_in_block(state, (const void *)pkt)) {
-				log_unusual(state->log,
-					    "blockfile partial transaction");
-				goto truncate;
-			}
-			break;
-		default:
-			log_unusual(state->log, "blockfile unknown type %u",
-				    le32_to_cpu(pkt->type));
-			goto truncate;
-		}
-		off += le32_to_cpu(pkt->len);
+	/* Process them all. */
+	io_loop();
+
+	len = lseek(fd, 0, SEEK_END);
+	/* If we didn't process the entire file, truncate it. */
+	if (len != ls.processed) {
+		log_unusual(state->log,
+			    "Truncating blockfile from %llu to %llu",
+			    (long long)len, (long long)ls.processed);
+		ftruncate(fd, ls.processed);
+		lseek(fd, SEEK_SET, ls.processed);
 	}
 
-truncate:
-	fstat(fd, &st);
-	log_unusual(state->log, "Truncating blockfile from %llu to %llu",
-		    (long long)st.st_size, (long long)off);
-	ftruncate(fd, off);
-	lseek(fd, SEEK_SET, off);
-
-out:
 	/* Now we can save more. */
 	state->blockfd = fd;
 
