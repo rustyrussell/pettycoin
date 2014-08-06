@@ -52,21 +52,29 @@ Before Alpha02:
 
 Before Alpha02:
 
+* Include power of 2 previous blocks in prev
+    * Would allow SPV-style block skips which would enable foldover reward on ancient blocks.
 * Complaint for tx in wrong shard.
     * If someone managed to sneak this into the network presently, there'd
 	  be no way for nodes to report it.
-* Include power of 2 previous blocks in prev
-    * Would allow SPV-style block skips which would enable foldover reward on ancient blocks.
+* Fix fee calculation
+    * It's currently 3/1024 of the total, it should be 0.3% of the non-change
+	  amount.
 * Multiple gateways
+    * Requires a mechanism to create new gateways.
+* Simplify welcome message to have 64k bits always.
+    * 8k simply isn't that much, and it's simpler.
 * Merge mining
+    * Means larger blocks, but we'll want this eventually.
 * Network time consensus
-* Foldback of future rewards.
+    * This is what bitcoin does, we should too.
 
 Maybe:
 
 * Piggyback packets
 * Respect filtering of peers.
 * voting mechanism to bump shard order.
+* Foldback of future rewards.
 
 ### Testing: ###
 
