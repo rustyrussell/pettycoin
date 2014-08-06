@@ -148,6 +148,11 @@ u8 pending_features(const struct block *block)
 	return 0;
 }
 
+void seek_detached_blocks(struct state *state, 
+			  const struct block *block)
+{
+}
+
 struct strmap_block {
 	STRMAP_MEMBERS(struct block *);
 };

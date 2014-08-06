@@ -43,6 +43,9 @@ struct state {
 	/* These are our known unknowns. */
 	struct list_head todo;
 
+	/* Blocks we don't know the prev for. */
+	struct list_head detached_blocks;
+
 	/* Block we're working on now. */
 	struct pending_block *pending;
 

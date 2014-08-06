@@ -238,6 +238,11 @@ void save_block(struct state *state, struct block *new)
 {
 }
 
+void seek_detached_blocks(struct state *state, 
+			  const struct block *block)
+{
+}
+
 int main(int argc, char *argv[])
 {
 	struct state *s;

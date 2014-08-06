@@ -213,6 +213,11 @@ void todo_add_get_shard(struct state *state,
 {
 }
 
+void seek_detached_blocks(struct state *state, 
+			  const struct block *block)
+{
+}
+
 struct pending_block *new_pending_block(struct state *state)
 {
 	return talz(state, struct pending_block);
