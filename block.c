@@ -118,18 +118,26 @@ struct block *block_add(struct state *state,
 
 	block->complaint = prev->complaint;
 
-	/* This may be the prev for some detached blocks. */
-	seek_detached_blocks(state, block);
-
 	if (block->complaint) {
 		check_chains(state, false);
+
+		/* This may be the prev for some detached blocks. */
+		seek_detached_blocks(state, block);
+
 		/* It's not a candidate for real use. */
 		return block;
 	}
 
+	/* update pointers *before* we seek detached blocks.  Otherwise, if
+	 * there's a huge chain of them, recheck_merkles() will walk them all
+	 * multiple times, O(n^2). */
 	update_block_ptrs_new_block(state, block);
 	check_chains(state, false);
 	check_block(state, block, false);
+
+	/* This may be the prev for some detached blocks. */
+	seek_detached_blocks(state, block);
+
 	return block;
 }
 
