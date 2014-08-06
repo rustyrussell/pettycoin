@@ -10,8 +10,13 @@ HELPER_OBJS := $(HELPERS:.c=.o)
 
 VALGRIND=valgrind -q --error-exitcode=99 --track-origins=yes --leak-check=full --show-reachable=yes --suppressions=vg-suppressions
 
-check: $(BINS)
+check: unit-check blackbox-check
+
+unit-check: $(BINS)
 	set -e; for b in $(BINS); do printf "[TEST] %-48s" $$b ; $(VALGRIND) ./$$b; echo OK ; done
+
+blackbox-check:
+	make -C blackbox check
 
 bins: $(BINS)
 
