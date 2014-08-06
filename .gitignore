@@ -7,6 +7,8 @@ mkgenesis
 pettycoin
 pettycoin-query
 pettycoin-tx
+dumbwallet
+pettycoin-gateway
 TAGS
 inject
 mkpriv
@@ -16,3 +18,4 @@ genesis.c
 pkt_names.c
 TODO
 petty-addr
+ccan/tools/configurator/configurator
