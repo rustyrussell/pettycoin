@@ -5,6 +5,9 @@
 #include "complain.h"
 #include "create_refs.h"
 #include "difficulty.h"
+#include "ecode_names.h"
+#include "hex.h"
+#include "jsonrpc.h"
 #include "log.h"
 #include "merkle_hashes.h"
 #include "pending.h"
@@ -104,7 +107,7 @@ static void ask_block_contents(struct state *state, const struct block *b)
 	}
 }
 
-/* peer is NULL if from generator (or re-trying detached block) */
+/* peer is NULL if from generator, re-trying detached block or jsonrpc. */
 static enum protocol_ecode
 recv_block(struct state *state, struct log *log, struct peer *peer,
 	   const struct protocol_pkt_block *pkt, struct block **block)
@@ -511,3 +514,44 @@ again:
 		}
 	}
 }
+
+static char *json_submitblock(struct json_connection *jcon,
+			      const jsmntok_t *params,
+			      char **response)
+{
+	jsmntok_t *tok;
+	struct protocol_pkt_block *pkt;
+	struct block *block;
+	size_t len;
+	enum protocol_ecode e;
+
+	json_get_params(jcon->buffer, params, "block", &tok, NULL);
+	if (!tok)
+		return "Need block param";
+
+	len = (tok->end - tok->start) / 2;
+
+	pkt = (void *)tal_arr(jcon, char, len);
+	if (!from_hex(jcon->buffer + tok->start, tok->end - tok->start,
+		      pkt, len))
+		return "Invalid block hex";
+
+	if (len < sizeof(*pkt) || le32_to_cpu(pkt->len) != len)
+		e = PROTOCOL_ECODE_INVALID_LEN;
+	else
+		e = recv_block(jcon->state, jcon->log, NULL, pkt, &block);
+
+	if (e != PROTOCOL_ECODE_NONE)
+		return (char *)ecode_name(e);
+
+	json_add_double_sha(response, NULL, &block->sha);
+	return NULL;
+}
+
+const struct json_command submitblock_command = {
+	"submitblock",
+	json_submitblock,
+	"Inject a block",
+	"Takes blockhex (struct protocol_pkt_block in hex), returns block"
+};
+

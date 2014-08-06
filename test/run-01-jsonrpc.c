@@ -30,6 +30,8 @@ char *pettycoin_to_base58(const tal_t *ctx, bool test_net,
 { fprintf(stderr, "pettycoin_to_base58 called!\n"); abort(); }
 /* Generated stub for sendrawtransaction_command */
 const struct json_command sendrawtransaction_command;
+/* Generated stub for submitblock_command */
+const struct json_command submitblock_command;
 /* Generated stub for to_hex */
 char *to_hex(const tal_t *ctx, const void *buf, size_t bufsize)
 { fprintf(stderr, "to_hex called!\n"); abort(); }
