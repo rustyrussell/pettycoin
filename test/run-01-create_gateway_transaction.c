@@ -23,6 +23,12 @@
 union protocol_tx *block_get_tx(const struct block *block, u16 shardnum,
 				u8 txoff)
 { fprintf(stderr, "block_get_tx called!\n"); abort(); }
+/* Could not find declaration for helper_addr */
+/* Could not find declaration for helper_gateway_addr */
+/* Could not find declaration for helper_gateway_key */
+/* Could not find declaration for helper_gateway_public_key */
+/* Could not find declaration for helper_private_key */
+/* Could not find declaration for helper_public_key */
 /* Generated stub for reward_amount */
 u32 reward_amount(const struct block *reward_block,
 		  const union protocol_tx *tx)

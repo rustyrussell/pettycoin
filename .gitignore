@@ -10,12 +10,11 @@ pettycoin-tx
 dumbwallet
 pettycoin-gateway
 TAGS
-inject
 mkpriv
 sizes
 ecode_names.c
 genesis.c
 pkt_names.c
-TODO
 petty-addr
 ccan/tools/configurator/configurator
+Makefile

@@ -121,6 +121,9 @@ void complain_doublespend(struct state *state,
 /* Generated stub for from_hex */
 bool from_hex(const char *str, size_t slen, void *buf, size_t bufsize)
 { fprintf(stderr, "from_hex called!\n"); abort(); }
+/* Could not find declaration for helper_addr */
+/* Could not find declaration for helper_gateway_key */
+/* Could not find declaration for helper_gateway_public_key */
 /* Generated stub for json_add_address */
 void json_add_address(char **result, const char *fieldname, bool test_net,
 		      const struct protocol_address *addr)

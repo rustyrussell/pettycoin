@@ -10,7 +10,7 @@ find_command()
     # Return if already set.
     if [ -n "$(eval echo \$$WHAT)" ]; then
 	eval echo "\$$WHAT"
-	return 0;
+	return 0
     fi
     for arg; do
 	if type "$arg" > /dev/null; then
@@ -19,8 +19,8 @@ find_command()
 	fi
     done
     echo "Could not find \$WHAT, tried $@" >&2
-    exit 1
-}    
+    return 1
+}   
 
 # Set defaults
 for arg; do
@@ -38,15 +38,29 @@ for arg; do
     esac
 done
 
-CC=$(find_command CC gcc cc)
-if [ -z "$CFLAGS" ]; then
-    CFLAGS="-g3 -ggdb -Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition"
+CC=$(find_command CC gcc cc) || exit 1
+CFLAGS=${CFLAGS:-"-g3 -ggdb -Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition -fstack-protector"}
+if VALGRIND="$(find_command VALGRIND valgrind) -q --error-exitcode=99"; then
+    VALGRIND_TEST_ARGS="--track-origins=yes --leak-check=full --show-reachable=yes --suppressions=vg-suppressions"
+else
+    VALGRIND=""
+    VALGRIND_TEST_ARGS=""
 fi
+
 echo CC is "$CC"
 echo CFLAGS is "$CFLAGS"
+echo VALGRIND is "$VALGRIND"
+echo VALGRIND_TEST_ARGS is "$VALGRIND_TEST_ARGS"
 
 echo Building ccan/configurator...
 $CC $CFLAGS -o ccan/tools/configurator/configurator ccan/tools/configurator/configurator.c
 echo Generating config.h...
 ccan/tools/configurator/configurator "$CC" $CFLAGS > ccan/config.h
+
+for f in $(find * -name Makefile.in); do
+    MAKEFILE=$(echo "$f" | sed 's/.in$//')
+    echo Generating $MAKEFILE
+    sed -e "s,@CC@,$CC,g" -e "s,@CFLAGS@,$CFLAGS,g" -e "s,@VALGRIND@,$VALGRIND,g" -e "s,@VALGRIND_TEST_ARGS@,$VALGRIND_TEST_ARGS,g" < $f > $MAKEFILE
+done
+
 echo Configuration complete.

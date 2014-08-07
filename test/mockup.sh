@@ -15,11 +15,11 @@ if [ $# -eq 0 ]; then
 fi
 
 for SYMBOL; do
-    WHERE=$(grep -nH "^[a-z0-9_ ]* [*]*$SYMBOL(" ../*.h)
+    WHERE=$(grep -nH "^[a-z0-9_ ]* [*]*$SYMBOL(" *.h)
     if [ x"$WHERE" != x ]; then
 	STUB='\n{ fprintf(stderr, "'$SYMBOL' called!\\n"); abort(); }'
     else
-	WHERE=$(grep -nH "^extern \(const \)\?struct [a-zA-Z0-9_]* $SYMBOL;$" ../*.h)
+	WHERE=$(grep -nH "^extern \(const \)\?struct [a-zA-Z0-9_]* $SYMBOL;$" *.h)
 	if [ x"$WHERE" != x ]; then
 	    STUB=';'
 	else

@@ -30,6 +30,10 @@ enum input_ecode check_tx_inputs(struct state *state,
 				 const union protocol_tx *tx,
 				 unsigned int *bad_input_num)
 { fprintf(stderr, "check_tx_inputs called!\n"); abort(); }
+/* Could not find declaration for helper_addr */
+/* Could not find declaration for helper_gateway_key */
+/* Could not find declaration for helper_gateway_public_key */
+/* Could not find declaration for helper_private_key */
 /* Generated stub for merkle_some_txs */
 void merkle_some_txs(const struct block_shard *shard,
 		     size_t off, size_t max,
