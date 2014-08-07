@@ -291,7 +291,7 @@ static void setup_gateway(const tal_t *ctx)
 	if (fd < 0)
 		err(1, "Creating gateway-privkey");
 	/* Skip \n at the end. */
-	if (!write_all(fd, value, strlen(value) - 1))
+	if (!write_all(fd, "P-", 2) || !write_all(fd, value, strlen(value) - 1))
 		err(1, "Writing gateway-privkey");
 	fsync(fd);
 	close(fd);
