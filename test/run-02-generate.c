@@ -13,6 +13,7 @@ static time_t my_time(time_t *p)
 #define time my_time
 
 /* Override main in generate.c */
+int generate_main(int argc, char *argv[]);
 #define main generate_main
 #include "../timestamp.c"
 #include "../pettycoin-generate.c"

@@ -10,6 +10,7 @@ static time_t my_time(time_t *p)
 	return fake_time;
 }
 
+int generate_main(int argc, char *argv[]);
 #define main generate_main
 #define time my_time
 
