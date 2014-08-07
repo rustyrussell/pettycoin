@@ -63,21 +63,20 @@ static void create_wallet(const char *privkey)
 			     privkey);
 		if (!test_net)
 			errx(1, "Key '%s' is not for test net", privkey);
+
+		/* We *always* used compressed form keys. */
+		EC_KEY_set_conv_form(priv, POINT_CONVERSION_COMPRESSED);
 	} else {
 		priv = EC_KEY_new_by_curve_name(NID_secp256k1);
 		if (EC_KEY_generate_key(priv) != 1)
 			errx(1, "Coud not generate key");
-
-		/* We *always* used compressed form keys. */
-		EC_KEY_set_conv_form(priv, POINT_CONVERSION_COMPRESSED);
-
-		p = pubkey.key;
-		len = i2o_ECPublicKey(priv, &p);
-		assert(len == sizeof(pubkey));
-		pubkey_to_addr(&pubkey, &addr);
-
-		keystr = key_to_base58(NULL, true, priv, false);
 	}
+	keystr = key_to_base58(NULL, true, priv, false);
+
+	p = pubkey.key;
+	len = i2o_ECPublicKey(priv, &p);
+	assert(len == sizeof(pubkey));
+	pubkey_to_addr(&pubkey, &addr);
 
 	fd = open("dumbwallet.key", O_WRONLY|O_CREAT|O_EXCL, 0400);
 	if (fd < 0)
