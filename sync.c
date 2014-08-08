@@ -196,6 +196,7 @@ enum protocol_ecode recv_children(struct peer *peer,
 			return PROTOCOL_ECODE_UNKNOWN_COMMAND;
 		/* They don't know the block.  OK. */
 		todo_done_get_children(peer, &pkt->block, false);
+		return PROTOCOL_ECODE_NONE;
 	}
 
 	len = le32_to_cpu(pkt->len) - sizeof(*pkt);
