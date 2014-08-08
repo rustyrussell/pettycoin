@@ -3,8 +3,8 @@
 #include "hex.h"
 #include "json_add_tx.h"
 #include "jsonrpc.h"
-#include "txhash.h"
 #include "state.h"
+#include "txhash.h"
 #include <ccan/tal/str/str.h>
 
 static char *json_gettransaction(struct json_connection *jcon,
