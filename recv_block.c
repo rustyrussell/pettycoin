@@ -80,7 +80,7 @@ static void seek_predecessor(struct state *state,
 }
 
 /* When syncing, we ask for txmaps. */
-static void sync_block_contents(struct state *state, const struct block *b)
+void get_block_contents(struct state *state, const struct block *b)
 {
 	unsigned int shard;
 
@@ -185,7 +185,7 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 			/* If we're syncing, ask about children, contents */
 			if (peer && peer->we_are_syncing) {
 				todo_add_get_children(state, &b->sha);
-				sync_block_contents(state, b);
+				get_block_contents(state, b);
 			} else {
 				/* Otherwise, tell peers about new block. */
 				send_block_to_peers(state, peer, b);

@@ -30,4 +30,7 @@ bool try_resolve_hash(struct state *state,
 /* A new block: see if it resolved any prev_block */
 void seek_detached_blocks(struct state *state, 
 			  const struct block *block);
+
+/* Ask about block contents (on startup and syncing) */
+void get_block_contents(struct state *state, const struct block *b);
 #endif /* PETTYCOIN_RECV_BLOCK_H */

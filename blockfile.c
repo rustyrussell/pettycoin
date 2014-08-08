@@ -6,6 +6,7 @@
 #include "packet_io.h"
 #include "proof.h"
 #include "protocol_net.h"
+#include "recv_block.h"
 #include "recv_tx.h"
 #include "shard.h"
 #include "state.h"
@@ -99,6 +100,23 @@ static struct io_plan *setup_load_conn(struct io_conn *conn,
 	return io_read_packet(conn, &ls->pkt, load_packet, ls);
 }
 
+/* This can happen if we didn't know some TXs when we exited. */
+static void get_unknown_contents(struct state *state)
+{
+	unsigned int i;
+	const struct block *b;
+
+	for (i = 0; i < tal_count(state->longest_chains); i++) {
+		for (b = state->longest_chains[i]; b; b = b->prev) {
+			/* Stop if we know from here down. */
+			if (b->all_known)
+				break;
+
+			get_block_contents(state, b);
+		}
+	}
+}
+
 void load_blocks(struct state *state)
 {
 	int fd;
@@ -138,6 +156,9 @@ void load_blocks(struct state *state)
 	log_info(state->log, "Checking chains...");
 	check_chains(state, true);
 	log_add(state->log, " ...completed");
+
+	/* If there are any txs we want to know and don't, ask. */
+	get_unknown_contents(state);
 }
 
 void save_block(struct state *state, struct block *new)
