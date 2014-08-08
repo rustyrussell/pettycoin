@@ -29,7 +29,7 @@
 
 /* How long (seconds) until transactions are obsolete (30 days / 12 hours) */
 #define PROTOCOL_TX_HORIZON_SECS(testnet)	\
-	(PROTOCOL_BLOCK_TARGET_TIME(testnet) * 60 * 24 * 30)
+	(PROTOCOL_BLOCK_TARGET_TIME(testnet) * 6 * 24 * 30)
 
 /* How many blocks form a difficulty set (1 fortnight, a-la bitcoin) */
 #define PROTOCOL_DIFFICULTY_UPDATE_BLOCKS	2016
