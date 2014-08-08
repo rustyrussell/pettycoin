@@ -364,8 +364,10 @@ static char *json_listtodo(struct json_connection *jcon,
 			   char **response)
 {
 	struct todo_request *todo;
+	struct peer *peer;
 
-	json_array_start(response, NULL);
+	json_object_start(response, NULL);
+	json_array_start(response, "todo");
 	list_for_each(&jcon->state->todo, todo, list) {
 		unsigned int i;
 		struct protocol_double_sha *sha;
@@ -397,6 +399,26 @@ static char *json_listtodo(struct json_connection *jcon,
 		json_object_end(response);
 	}
 	json_array_end(response);
+
+	json_array_start(response, "for_peers");
+	list_for_each(&jcon->state->peers, peer, list) {
+		struct todo_pkt *todo_pkt;
+
+		list_for_each(&peer->todo, todo_pkt, list) {
+			struct protocol_net_hdr *hdr;
+
+			hdr = (struct protocol_net_hdr *)todo_pkt->pkt;
+			json_object_start(response, NULL);
+			json_add_num(response, "peer_num", peer->peer_num);
+			json_array_start(response, "pkts");
+		
+			json_add_string(response, "type",
+					pkt_name(cpu_to_le32(hdr->type)));
+			json_object_end(response);
+		}
+	}
+	json_array_end(response);
+	json_object_end(response);
 	return NULL;
 }
 

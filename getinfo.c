@@ -17,8 +17,9 @@ static char *json_getinfo(struct json_connection *jcon,
 			  const jsmntok_t *params,
 			  char **response)
 {
-	size_t i;
+	size_t i, num_todo, num_peer_todo, num_peers;
 	struct todo_request *todo;
+	struct peer *peer;
 
 	json_object_start(response, NULL);
 	if (jcon->state->test_net)
@@ -36,10 +37,20 @@ static char *json_getinfo(struct json_connection *jcon,
 	json_add_block(response, "preferred_chain",
 		       jcon->state->preferred_chain);
 
-	i = 0;
+	num_todo = 0;
 	list_for_each(&jcon->state->todo, todo, list)
-		i++;
-	json_add_num(response, "num_todos", i);
+		num_todo++;
+	json_add_num(response, "num_todos", num_todo);
+
+	num_peers = num_peer_todo = 0;
+	list_for_each(&jcon->state->peers, peer, list) {
+		struct todo_pkt *todo_pkt;
+		num_peers++;
+		list_for_each(&peer->todo, todo_pkt, list)
+			num_peer_todo++;
+	}
+	json_add_num(response, "connections", num_peers);
+	json_add_num(response, "num_peer_todos", num_peer_todo);
 
 	json_add_num(response, "num_pending",
 		     num_pending_known(jcon->state)
