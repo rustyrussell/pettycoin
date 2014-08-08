@@ -1640,6 +1640,11 @@ static struct io_plan *welcome_received(struct io_conn *conn, struct peer *peer)
 
 	mutual = mutual_block_search(peer, peer->welcome_blocks,
 				     le16_to_cpu(peer->welcome->num_blocks));
+
+	/* If we didn't know their best packet, start querying now. */
+	if (!block_find_any(peer->state, &peer->welcome_blocks[0]))
+		todo_add_get_block(peer->state, &peer->welcome_blocks[0]);
+
 	return peer_write_packet(peer, sync_or_horizon_pkt(peer, mutual),
 				 recv_sync_or_horizon);
 }

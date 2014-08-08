@@ -29,8 +29,9 @@ while [ $(date +%s) -lt $END ]; do
     sleep 5
 done
 
-# Give P1 new block, will trigger P2 to ask.
-$RUNPREFIX/pettycoin-query --pettycoin-dir=$SCRATCHDIR/p1 submitblock $NEWBLOCK
+# FIXME: This doesn't go to P2, which is still syncing!
+## Give P1 new block, will trigger P2 to ask.
+#$RUNPREFIX/pettycoin-query --pettycoin-dir=$SCRATCHDIR/p1 submitblock $NEWBLOCK
 
 while [ $(date +%s) -lt $END ]; do
     DEPTH1=`$RUNPREFIX/pettycoin-query --pettycoin-dir=$SCRATCHDIR/p1 getinfo | sed -n 's/.*"height" : \([0-9]\+\) .*num_todos.*/\1/p'`
