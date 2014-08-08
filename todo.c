@@ -208,6 +208,16 @@ void remove_peer_from_todo(struct state *state, struct peer *peer)
 	}
 }
 
+static void request_done(struct peer *peer)
+{
+	assert(peer->requests_outstanding);
+	peer->requests_outstanding--;
+
+	/* They wait for no more requests when syncing. */
+	if (peer->requests_outstanding == 0)
+		io_wake(peer);
+}		
+
 static void delete_todo(struct state *state, struct todo_request *todo)
 {
 	unsigned int i;
@@ -217,7 +227,7 @@ static void delete_todo(struct state *state, struct todo_request *todo)
 	for (i = 0; i < MAX_PEERS; i++) {
 		if (bitmap_test_bit(todo->peers_asked, i)
 		    && !bitmap_test_bit(todo->peers_failed, i))
-			find_peer(state, i)->requests_outstanding--;
+			request_done(find_peer(state, i));
 	}
 
 	tal_free(todo);
@@ -262,8 +272,7 @@ static void finish_todo(struct peer *peer,
 		delete_todo(peer->state, todo);
 	else if (!status) {
 		bitmap_set_bit(todo->peers_failed, peer->peer_num);
-		assert(peer->requests_outstanding);
-		peer->requests_outstanding--;
+		request_done(peer);
 	}
 }
 
