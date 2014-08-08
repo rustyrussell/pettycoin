@@ -50,5 +50,6 @@ extern const struct json_command listtransactions_command;
 extern const struct json_command getblock_command;
 extern const struct json_command getblockhash_command;
 extern const struct json_command submitblock_command;
+extern const struct json_command gettransaction_command;
 
 #endif /* PETTYCOIN_JSONRPC_H */
