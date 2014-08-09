@@ -71,7 +71,8 @@ bool check_tx_inputs_and_refs(struct state *state,
 			      struct block *block,
 			      const struct protocol_proof *proof,
 			      union protocol_tx *tx,
-			      struct protocol_input_ref *refs);
+			      struct protocol_input_ref *refs,
+			      const struct txhash_elem *me);
 
 /* Various assertions about a block */
 void check_block(struct state *state, const struct block *block, bool all);

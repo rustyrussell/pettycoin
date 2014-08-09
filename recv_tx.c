@@ -58,7 +58,6 @@ recv_tx(struct state *state,
 	len -= sizeof(*proof);
 
 	proof = (void *)(pkt + 1);
-	shard = le16_to_cpu(proof->proof.pos.shard);
 
 	b = block_find_any(state, &proof->proof.pos.block);
 	if (!b) {
@@ -98,6 +97,9 @@ recv_tx(struct state *state,
 	if (!check_proof(&proof->proof, b, tx, refs))
 		return PROTOCOL_ECODE_BAD_PROOF;
 
+	/* Now we know shard (and txoff) is valid. */
+	shard = le16_to_cpu(proof->proof.pos.shard);
+
 	/* Whatever happens from here, no point asking others for tx. */
 	if (peer)
 		todo_done_get_tx_in_block(peer, &proof->proof.pos.block,
@@ -108,9 +110,13 @@ recv_tx(struct state *state,
 	if (peer)
 		todo_done_get_tx(peer, &sha, true);
 
+	/* If we already have it, we're done. */
+	if (block_get_tx(b, shard, proof->proof.pos.txoff))
+		return PROTOCOL_ECODE_NONE;
+
 	/* Now it's proven that it's in the block, handle bad inputs/refs.
 	 * We don't hang up on them, since they may not have known. */
-	if (!check_tx_inputs_and_refs(state, b, &proof->proof, tx, refs))
+	if (!check_tx_inputs_and_refs(state, b, &proof->proof, tx, refs, NULL))
 		return PROTOCOL_ECODE_NONE;
 
 	/* Simularly, they might not know if it was misordered. */

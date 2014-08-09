@@ -164,7 +164,8 @@ static bool recheck_tx(struct state *state,
 							   te->txoff),
 					      block_get_refs(te->u.block,
 							     te->shardnum,
-							     te->txoff))) {
+							     te->txoff),
+					      te)) {
 			/* Caller will retry... */
 			return false;
 		}
@@ -400,7 +401,8 @@ bool check_tx_inputs_and_refs(struct state *state,
 			      struct block *b,
 			      const struct protocol_proof *proof,
 			      union protocol_tx *tx,
-			      struct protocol_input_ref *refs)
+			      struct protocol_input_ref *refs,
+			      const struct txhash_elem *me)
 {
 	enum input_ecode ierr;
 	enum ref_ecode rerr;
@@ -408,7 +410,7 @@ bool check_tx_inputs_and_refs(struct state *state,
 	struct block *block_referred_to;
 
 	/* Check bad inputs, and generate complaints. */
-	ierr = check_tx_inputs(state, b, NULL, tx, &bad_input_num);
+	ierr = check_tx_inputs(state, b, me, tx, &bad_input_num);
 	switch (ierr) {
 	case ECODE_INPUT_OK:
 		break;
