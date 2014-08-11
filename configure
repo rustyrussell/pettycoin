@@ -41,7 +41,7 @@ done
 CC=$(find_command CC gcc cc) || exit 1
 CFLAGS=${CFLAGS:-"-g3 -ggdb -Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition -fstack-protector"}
 if VALGRIND="$(find_command VALGRIND valgrind) -q --error-exitcode=99"; then
-    VALGRIND_TEST_ARGS="--track-origins=yes --leak-check=full --show-reachable=yes --suppressions=vg-suppressions"
+    VALGRIND_TEST_ARGS="--track-origins=yes --leak-check=full --show-reachable=yes --suppressions=test/vg-suppressions"
 else
     VALGRIND=""
     VALGRIND_TEST_ARGS=""

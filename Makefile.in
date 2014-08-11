@@ -25,6 +25,7 @@ VERSION:=$(shell git describe --dirty --always 2>/dev/null || echo Unknown)
 CFLAGS = @CFLAGS@ -I$(CCANDIR) -DVERSION=\"$(VERSION)\"
 CC = @CC@
 VALGRIND= @VALGRIND@
+VALGRIND_TEST_ARGS = @VALGRIND_TEST_ARGS@
 LDFLAGS = -O3 -flto
 LDLIBS := -lcrypto -lrt
 GENERATE_CFLAGS=-O3
