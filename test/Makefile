@@ -14,7 +14,7 @@ check: unit-check
 unit-check: $(UNIT_TESTS)
 
 $(UNIT_TESTS): check-test/%: test/%
-	@trap "rm -f unit.$*.out" EXIT; if $(VALGRIND) $(VALGRIND_TEST_ARGS) $< > unit.$*.out 2>&1; then printf "[UNIT] %-48s OK\n" $*; exit 0; else printf "[UNIT] %-48s FAIL\n" $*; cat unit.$*.out; exit 1; fi
+	@trap "rm -f unit.$*.out" EXIT; if $(VALGRIND) $(VALGRIND_TEST_ARGS) $< > unit.$*.out 2>&1; then if grep -q 'loss record' unit.$*.out; then printf "[UNIT] %-48s LEAK\n" $*; cat unit.$*.out; exit 1; else printf "[UNIT] %-48s OK\n" $*; exit 0; fi; else printf "[UNIT] %-48s FAIL\n" $*; cat unit.$*.out; exit 1; fi
 
 test-bins: $(TEST_BINS)
 
