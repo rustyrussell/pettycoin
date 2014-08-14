@@ -18,7 +18,7 @@ int main(void)
 	assert(tal_parent(p) == ctx);
 	assert(p[0] == 'P');
 	assert(strlen(p) < BASE58_ADDR_MAX_LEN);
-	assert(strspn(p, enc) == strlen(p));
+	assert(strspn(p, enc_58) == strlen(p));
 	memset(&addr2, 0, sizeof(addr2));
 	assert(pettycoin_from_base58(&test_net, &addr2, p, strlen(p)));
 	assert(test_net == false);
@@ -29,7 +29,7 @@ int main(void)
 	assert(tal_parent(p) == ctx);
 	assert(p[0] == 'q');
 	assert(strlen(p) < BASE58_ADDR_MAX_LEN);
-	assert(strspn(p, enc) == strlen(p));
+	assert(strspn(p, enc_58) == strlen(p));
 	memset(&addr2, 0, sizeof(addr2));
 	assert(pettycoin_from_base58(&test_net, &addr2, p, strlen(p)));
 	assert(test_net == true);
@@ -40,7 +40,7 @@ int main(void)
 	assert(tal_parent(p) == ctx);
 	assert(strstarts(p, "P-1"));
 	assert(strlen(p) < BASE58_ADDR_MAX_LEN + 2);
-	assert(strspn(p+2, enc) == strlen(p+2));
+	assert(strspn(p+2, enc_58) == strlen(p+2));
 	memset(&addr2, 0, sizeof(addr2));
 	assert(pettycoin_from_base58(&test_net, &addr2, p, strlen(p)));
 	assert(test_net == false);
@@ -51,7 +51,7 @@ int main(void)
 	assert(tal_parent(p) == ctx);
 	assert(strstarts(p, "P-m") || strstarts(p, "P-n"));
 	assert(strlen(p) < BASE58_ADDR_MAX_LEN + 2);
-	assert(strspn(p+2, enc) == strlen(p+2));
+	assert(strspn(p+2, enc_58) == strlen(p+2));
 	memset(&addr2, 0, sizeof(addr2));
 	assert(pettycoin_from_base58(&test_net, &addr2, p, strlen(p)));
 	assert(test_net == true);
@@ -75,7 +75,7 @@ int main(void)
 
 	/* Now, turn it into pettcoin-style key. */
 	p = key_to_base58(ctx, true, key, false);
-	assert(strspn(p, enc) == strlen(p));
+	assert(strspn(p, enc_58) == strlen(p));
 
 	/* Convert back, check it is OK. */
 	EC_KEY_free(key);

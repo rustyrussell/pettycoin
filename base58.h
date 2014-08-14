@@ -42,6 +42,7 @@ char *key_to_base58(const tal_t *ctx, bool test_net, EC_KEY *key,
 EC_KEY *key_from_base58(const char *base58, size_t base58_len,
 			bool *test_net, struct protocol_pubkey *key);
 
+bool raw_decode_base_n(BIGNUM *bn, const char *src, size_t len, int base);
 bool raw_decode_base58(BIGNUM *bn, const char *src, size_t len);
 void base58_get_checksum(u8 csum[4], const u8 buf[], size_t buflen);
 

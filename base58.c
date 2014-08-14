@@ -12,16 +12,17 @@
 #include <openssl/sha.h>
 #include <string.h>
 
-static const char enc[] =
+static const char enc_16[] = "0123456789abcdef";
+static const char enc_58[] =
 	"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
-static char encode_char(unsigned long val)
+static char encode_char(unsigned long val, const char *enc)
 {
 	assert(val < strlen(enc));
 	return enc[val];
 }
 
-static int decode_char(char c)
+static int decode_char(char c, const char *enc)
 {
 	const char *pos = strchr(enc, c);
 	if (!pos)
@@ -58,7 +59,7 @@ static char *encode_base58(char *buf, size_t buflen,
 			p = NULL;
 			goto out;
 		}
-		*p = encode_char(rem);
+		*p = encode_char(rem, enc_58);
 	}
 
 	/* Now, this is really weird.  We pad with zeroes, but not at
@@ -69,7 +70,7 @@ static char *encode_base58(char *buf, size_t buflen,
 			p = NULL;
 			goto out;
 		}
-		*p = encode_char(0);
+		*p = encode_char(0, enc_58);
 		data_len--;
 		data++;
 	}
@@ -80,25 +81,49 @@ out:
 }
 
 /*
- * Decode a base58-encoded string into a byte sequence.
+ * Decode a base_n-encoded string into a byte sequence.
  */
-bool raw_decode_base58(BIGNUM *bn, const char *src, size_t len)
+bool raw_decode_base_n(BIGNUM *bn, const char *src, size_t len, int base)
 {
+	const char *enc;
+
 	BN_zero(bn);
 
+	assert(base == 16 || base == 58);
+	switch (base) {
+	case 16:
+		enc = enc_16;
+		break;
+	case 58:
+		enc = enc_58;
+		break;
+	}
+
 	while (len) {
-		int val = decode_char(*src);
+		char current = *src;
+
+		if (base == 16)
+			current = tolower(current);	/* TODO: Not in ccan. */
+		int val = decode_char(current, enc);
 		if (val < 0) {
 			BN_free(bn);
 			return false;
 		}
-		BN_mul_word(bn, 58);
+		BN_mul_word(bn, base);
 		BN_add_word(bn, val);
 		src++;
 		len--;
 	}
 
 	return true;
+}
+
+/*
+ * Decode a base58-encoded string into a byte sequence.
+ */
+bool raw_decode_base58(BIGNUM *bn, const char *src, size_t len)
+{
+	return raw_decode_base_n(bn, src, len, 58);
 }
 
 void base58_get_checksum(u8 csum[4], const u8 buf[], size_t buflen)
