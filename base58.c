@@ -84,7 +84,6 @@ out:
  */
 bool raw_decode_base58(BIGNUM *bn, const char *src, size_t len)
 {
-	BN_init(bn);
 	BN_zero(bn);
 
 	while (len) {
@@ -163,6 +162,7 @@ bool pettycoin_from_base58(bool *test_net,
 		base58_len -= 2;
 	}
 
+	BN_init(&bn);
 	if (!raw_decode_base58(&bn, base58, base58_len))
 		return false;
 
@@ -224,6 +224,7 @@ bool ripemd_from_base58(u8 *version, u8 ripemd160[RIPEMD160_DIGEST_LENGTH],
 	if (strlen(base58) > BASE58_ADDR_MAX_LEN - 1)
 		return false;
 
+	BN_init(&bn);
 	/* Fails if it contains invalid characters. */
 	if (!raw_decode_base58(&bn, base58, strlen(base58)))
 		return false;
@@ -329,6 +330,7 @@ EC_KEY *key_from_base58(const char *base58, size_t base58_len,
 	} else
 		is_bitcoin = false;
 
+	BN_init(&bn);
 	if (!raw_decode_base58(&bn, base58, base58_len))
 		return NULL;
 
