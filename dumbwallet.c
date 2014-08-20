@@ -68,8 +68,10 @@ static void create_wallet(const char *privkey)
 		EC_KEY_set_conv_form(priv, POINT_CONVERSION_COMPRESSED);
 	} else {
 		priv = EC_KEY_new_by_curve_name(NID_secp256k1);
+		if (!priv)
+			errx(1, "OpenSSL in use misses support for secp256k1");
 		if (EC_KEY_generate_key(priv) != 1)
-			errx(1, "Coud not generate key");
+			errx(1, "Could not generate key");
 	}
 	keystr = key_to_base58(NULL, true, priv, false);
 
