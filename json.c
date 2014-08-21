@@ -331,7 +331,7 @@ void json_add_address(char **result, const char *fieldname, bool test_net,
 void json_add_signature(char **result, const char *fieldname,
 			 const struct protocol_signature *sig)
 {
-	json_add_hex(result, fieldname, sig, sizeof(sig));
+	json_add_hex(result, fieldname, sig, sizeof(*sig));
 }
 
 void json_add_object(char **result, ...)
