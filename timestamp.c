@@ -10,7 +10,7 @@ static int cmp_times(const u32 *a, const u32 *b, void *unused)
 {
 	if (*a > *b)
 		return 1;
-	else if (*a > *b)
+	else if (*a < *b)
 		return -1;
 	return 0;
 }
