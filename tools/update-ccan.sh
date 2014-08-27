@@ -18,7 +18,7 @@ if [ -n "$UNCLEAN" ]; then
     exit 1
 fi
 
-MODULES=$(cd ccan; echo ccan/*)
+MODULES=$(cd ccan; ls -d ccan/* | grep -v ccan/Makefile)
 (cd $CCANDIR && git diff $OLD_VERSION $NEW_VERSION $MODULES licenses/ tools/configurator) > ccan/diff
 (cd ccan && patch -p1 < diff)
 diffstat ccan/diff
