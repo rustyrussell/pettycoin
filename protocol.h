@@ -77,6 +77,16 @@ struct protocol_signature {
 	u8 s[32];
 };
 
+/* Double SHA of a block */
+struct protocol_block_id {
+	struct protocol_double_sha sha;
+};
+
+/* Double SHA of a transaction. */
+struct protocol_tx_id {
+	struct protocol_double_sha sha;
+};
+
 /*
  * Chain is an series of blocks.
  *
