@@ -56,6 +56,7 @@ enum protocol_ecode {
 	/* protocol_pkt_block */
 	PROTOCOL_ECODE_BLOCK_HIGH_VERSION, /* block version unknown. */
 	PROTOCOL_ECODE_BLOCK_LOW_VERSION, /* block version is old. */
+	PROTOCOL_ECODE_MALFORMED_DIFFICULTY, /* Malformed encoded difficulty. */
 	PROTOCOL_ECODE_BAD_TIMESTAMP, /* Too far in future or past. */
 	PROTOCOL_ECODE_BAD_PREV_TXHASHES, /* Wrong number of prev_txhashes. */
 	PROTOCOL_ECODE_BAD_DIFFICULTY, /* Wrong difficulty calculation. */

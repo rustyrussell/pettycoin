@@ -50,6 +50,9 @@ check_block_header(struct state *state,
 	if (!version_ok(hdr->version))
 		return PROTOCOL_ECODE_BLOCK_HIGH_VERSION;
 
+	if (!valid_difficulty(le32_to_cpu(tailer->difficulty)))
+		return PROTOCOL_ECODE_MALFORMED_DIFFICULTY;
+
 	/* We check work *first*: if it meets its target we can spend
 	 * resources on it, since it's not cheap to produce (eg. we could
 	 * keep it around, or ask others about its predecessors, etc) */

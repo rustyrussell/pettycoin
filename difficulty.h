@@ -42,4 +42,23 @@ static inline bool beats_target(const struct protocol_double_sha *sha,
 
 	return base < (difficulty & 0x00FFFFFF);
 }
+
+static inline bool valid_difficulty(u32 difficulty)
+{
+	u32 exp = (difficulty >> 24);
+	u32 mantissa = difficulty & 0x00FFFFFF;
+
+	if (exp >= SHA256_DIGEST_LENGTH)
+		return false;
+
+	/* We don't handle extreme difficulties: implies SHA was broken */
+	if (exp < 3)
+		return false;
+
+	/* Must be normalized. */
+	if (mantissa < 0x00010000)
+		return false;
+
+	return true;
+}
 #endif /* PETTYCOIN_DIFFICULTY_H */

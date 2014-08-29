@@ -40,20 +40,6 @@ static void input_ready(int signum)
 	input = true;
 }
 
-static bool valid_difficulty(u32 difficulty)
-{
-	u32 mantissa, exp;
-
-	exp = difficulty >> 24;
-	mantissa = difficulty & 0x00FFFFFF;
-
-	if (exp < 3 || exp > SHA256_DIGEST_LENGTH)
-		return false;
-	if (!mantissa)
-		return false;
-	return true;
-}
-
 struct working_block {
 	u32 feature_counts[8];
 	u32 num_shards;
