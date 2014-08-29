@@ -64,19 +64,6 @@ static struct block *new_block(const tal_t *ctx,
 	return block;
 }
 
-struct block *block_find(struct block *start, const u8 lower_sha[4])
-{
-	struct block *b = start;
-
-	while (b) {
-		if (memcmp(b->sha.sha, lower_sha, 4) == 0)
-			break;
-
-		b = b->prev;
-	}
-	return b;
-}
-
 struct block *block_add(struct state *state,
 			struct block *prev,
 			const struct protocol_double_sha *sha,

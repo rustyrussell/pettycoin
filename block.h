@@ -49,9 +49,7 @@ struct block {
 	struct block_shard **shard;
 };
 
-/* Find on this chain. */
 struct state;
-struct block *block_find(struct block *start, const u8 lower_sha[4]);
 
 /* Find anywhere. */
 struct block *block_find_any(struct state *state,
