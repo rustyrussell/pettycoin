@@ -25,6 +25,14 @@ struct log {
 	struct list_head log;
 };
 
+static size_t log_bufsize(const struct log_entry *e)
+{
+	if (e->level == LOG_IO)
+		return tal_count(e->log);
+	else
+		return strlen(e->log) + 1;
+}
+
 static void prune_log(struct log *log)
 {
 	struct log_entry *i, *next, *tail;
@@ -42,7 +50,7 @@ static void prune_log(struct log *log)
 		}
 
 		list_del_from(&log->log, &i->list);
-		log->mem_used -= sizeof(*i) + strlen(i->log) + 1;
+		log->mem_used -= sizeof(*i) + log_bufsize(i);
 		tal_free(i);
 		skipped++;
 		deleted++;
@@ -83,7 +91,7 @@ void set_log_prefix(struct log *log, const char *prefix)
 
 static void add_entry(struct log *log, struct log_entry *l)
 {
-	log->mem_used += sizeof(*l) + strlen(l->log) + 1;
+	log->mem_used += sizeof(*l) + log_bufsize(l);
 	list_add_tail(&log->log, &l->list);
 
 	if (log->mem_used > log->max_mem)
