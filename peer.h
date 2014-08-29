@@ -45,9 +45,6 @@ struct peer {
 	/* We keep this. */
 	struct protocol_pkt_welcome *welcome;
 
-	/* This points inside welcome. */
-	const struct protocol_double_sha *welcome_blocks;
-
 	/* Number of requests we have outstanding (see todo.c) */
 	unsigned int requests_outstanding;
 

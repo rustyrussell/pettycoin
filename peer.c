@@ -1474,12 +1474,13 @@ static struct io_plan *welcome_received(struct io_conn *conn, struct peer *peer)
 	struct state *state = peer->state;
 	enum protocol_ecode e;
 	const struct block *mutual;
+	const struct protocol_double_sha *welcome_blocks;
 
 	log_debug(peer->log, "Their welcome received");
 
 	tal_steal(peer, peer->welcome);
 
-	e = check_welcome(state, peer->welcome, &peer->welcome_blocks);
+	e = check_welcome(state, peer->welcome, &welcome_blocks);
 	if (e != PROTOCOL_ECODE_NONE) {
 		log_unusual(peer->log, "Peer welcome was invalid:");
 		log_add_enum(peer->log, enum protocol_ecode, e);
@@ -1521,12 +1522,12 @@ static struct io_plan *welcome_received(struct io_conn *conn, struct peer *peer)
 	/* Create/update time for this peer. */
 	peer_cache_refresh(state, &peer->you);
 
-	mutual = mutual_block_search(peer, peer->welcome_blocks,
+	mutual = mutual_block_search(peer, welcome_blocks,
 				     le16_to_cpu(peer->welcome->num_blocks));
 
 	/* If we didn't know their best packet, start querying now. */
-	if (!block_find_any(peer->state, &peer->welcome_blocks[0]))
-		todo_add_get_block(peer->state, &peer->welcome_blocks[0]);
+	if (!block_find_any(peer->state, &welcome_blocks[0]))
+		todo_add_get_block(peer->state, &welcome_blocks[0]);
 
 	return peer_write_packet(peer, sync_or_horizon_pkt(peer, mutual),
 				 recv_sync_or_horizon);
