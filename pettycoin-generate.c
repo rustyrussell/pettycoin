@@ -240,7 +240,7 @@ static bool solve_block(struct working_block *w)
 }
 
 /* ''And don't try to d-dig what we all s-s-say'' */
-static bool read_all_or_none(int fd, void *buf, size_t len)
+static bool read_all_if_any(int fd, void *buf, size_t len)
 {
 	size_t off = 0;
 
@@ -249,7 +249,7 @@ static bool read_all_or_none(int fd, void *buf, size_t len)
 		if (r == 0) {
 			/* Terminated cleanly? */
 			if (off == 0)
-				return false;
+				exit(0);
 			errx(1, "''Things they do look awful c-c-cold''");
 		}
 		if (r == -1) {
@@ -272,7 +272,7 @@ static void read_txs(struct working_block *w)
 	struct gen_update *update = tal(w, struct gen_update);
 
 	/* Gratuitous initial read handles race */
-	while (read_all_or_none(STDIN_FILENO, update, sizeof(*update))) {
+	while (read_all_if_any(STDIN_FILENO, update, sizeof(*update))) {
 		if (!add_tx(w, update))
 			err(1, "Adding transaction");
 		update = tal(w, struct gen_update);
@@ -345,7 +345,7 @@ int main(int argc, char *argv[])
 
 	/* Read in prev txhashes, plus "go" byte.  If we are to
 	 * terminate immediately, this might be 0 bytes. */
-	if (!read_all_or_none(STDIN_FILENO, prev_txhashes, num_prev_txhashes+1))
+	if (!read_all(STDIN_FILENO, prev_txhashes, num_prev_txhashes+1))
 		exit(0);
 
 	w = new_working_block(ctx, difficulty, prev_txhashes, num_prev_txhashes,
