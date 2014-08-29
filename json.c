@@ -334,6 +334,18 @@ void json_add_signature(char **result, const char *fieldname,
 	json_add_hex(result, fieldname, sig, sizeof(*sig));
 }
 
+void json_add_block_id(char **result, const char *fieldname,
+		       const struct protocol_block_id *id)
+{
+	json_add_double_sha(result, fieldname, &id->sha);
+}
+
+void json_add_tx_id(char **result, const char *fieldname,
+		    const struct protocol_tx_id *id)
+{
+	json_add_double_sha(result, fieldname, &id->sha);
+}
+
 void json_add_object(char **result, ...)
 {
 	va_list ap;

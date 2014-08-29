@@ -34,6 +34,12 @@ void log_add_struct_(struct log *log, const char *structname, const void *ptr)
 			s->sha[20], s->sha[21], s->sha[22], s->sha[23],
 			s->sha[24], s->sha[25], s->sha[26], s->sha[27],
 			s->sha[28], s->sha[29], s->sha[30], s->sha[31]);
+	} else if (streq(structname, "struct protocol_block_id")) {
+		const struct protocol_block_id *b = ptr;
+		log_add_struct(log, struct protocol_double_sha, &b->sha);
+	} else if (streq(structname, "struct protocol_tx_id")) {
+		const struct protocol_tx_id *t = ptr;
+		log_add_struct(log, struct protocol_double_sha, &t->sha);
 	} else if (streq(structname, "struct protocol_net_address")) {
 		const struct protocol_net_address *addr = ptr;
 		char str[INET6_ADDRSTRLEN];

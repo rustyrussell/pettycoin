@@ -63,6 +63,8 @@ struct protocol_address;
 struct protocol_pubkey;
 struct protocol_double_sha;
 struct protocol_signature;
+struct protocol_block_id;
+struct protocol_tx_id;
 
 /* '"fieldname" : "value"' or '"value"' if fieldname is NULL*/
 void json_add_string(char **result, const char *fieldname, const char *value);
@@ -91,6 +93,12 @@ void json_add_double_sha(char **result, const char *fieldname,
 /* '"fieldname" : "sig-hex..."' or 'sig-hex...' if fieldname is NULL */
 void json_add_signature(char **result, const char *fieldname,
 			 const struct protocol_signature *sig);
+/* '"fieldname" : "id-hex..."' or 'id-hex...' if fieldname is NULL */
+void json_add_block_id(char **result, const char *fieldname,
+		       const struct protocol_block_id *id);
+/* '"fieldname" : "id-hex..."' or 'id-hex...' if fieldname is NULL */
+void json_add_tx_id(char **result, const char *fieldname,
+		    const struct protocol_tx_id *id);
 
 void json_add_object(char **result, ...);
 

@@ -65,6 +65,18 @@ void tal_packet_append_sha_(void *ppkt, const struct protocol_double_sha *sha)
 	tal_packet_append_(ppkt, sha, sizeof(*sha));
 }
 
+void tal_packet_append_block_id_(void *ppkt,
+				 const struct protocol_block_id *id)
+{
+	tal_packet_append_sha_(ppkt, &id->sha);
+}
+
+void tal_packet_append_tx_id_(void *ppkt,
+			      const struct protocol_tx_id *id)
+{
+	tal_packet_append_sha_(ppkt, &id->sha);
+}
+
 void tal_packet_append_txrefhash_(void *ppkt,
 				  const struct protocol_txrefhash *hashes)
 {

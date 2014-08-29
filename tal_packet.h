@@ -29,6 +29,10 @@ void *tal_packet_dup(const tal_t *ctx, const void *pkt);
 	tal_packet_append_proven_tx_(ptr_to_ptr(ppkt), (proof), (tx), (refs))
 #define tal_packet_append_net_address(ppkt, addr)		\
 	tal_packet_append_net_address_(ptr_to_ptr(ppkt), (addr))
+#define tal_packet_append_block_id(ppkt, id)		\
+	tal_packet_append_block_id_(ptr_to_ptr(ppkt), (id))
+#define tal_packet_append_tx_id(ppkt, id)		\
+	tal_packet_append_tx_id_(ptr_to_ptr(ppkt), (id))
 
 union protocol_tx;
 void tal_packet_append_tx_(void *ppkt, const union protocol_tx *tx);
@@ -41,6 +45,14 @@ void tal_packet_append_block_(void *ppkt, const struct block *block);
 
 struct protocol_double_sha;
 void tal_packet_append_sha_(void *ppkt, const struct protocol_double_sha *sha);
+
+struct protocol_block_id;
+void tal_packet_append_block_id_(void *ppkt,
+				 const struct protocol_block_id *id);
+
+struct protocol_tx_id;
+void tal_packet_append_tx_id_(void *ppkt,
+			      const struct protocol_tx_id *id);
 
 struct protocol_txrefhash;
 void tal_packet_append_txrefhash_(void *ppkt,
