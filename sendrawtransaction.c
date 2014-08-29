@@ -51,7 +51,7 @@ static char *json_sendrawtransaction(struct json_connection *jcon,
 {
 	union protocol_tx *tx;
 	const jsmntok_t *tok;
-	struct protocol_double_sha sha;
+	struct protocol_tx_id sha;
 	enum protocol_ecode e;
 	unsigned int bad_input_num;
 	bool old, already_known;
@@ -76,7 +76,7 @@ static char *json_sendrawtransaction(struct json_connection *jcon,
 	hash_tx(tx, &sha);
 
 	json_object_start(response, NULL);
-	json_add_double_sha(response, "tx", &sha);
+	json_add_tx_id(response, "tx", &sha);
 
 	switch (add_pending_tx(jcon->state, tx, &sha, &bad_input_num, &old,
 			       &already_known)) {
@@ -91,8 +91,8 @@ static char *json_sendrawtransaction(struct json_connection *jcon,
 		/* FIXME: we only report one unknown input! */
 		json_object_start(response, "unknown_input");
 		json_add_num(response, "input_num", bad_input_num);
-		json_add_double_sha(response, "tx",
-				    &tx_input(tx, bad_input_num)->input);
+		json_add_tx_id(response, "tx",
+			       &tx_input(tx, bad_input_num)->input);
 		json_object_end(response);
 		/* It's still a success though. */
 		break;
@@ -111,7 +111,7 @@ static char *json_sendrawtransaction(struct json_connection *jcon,
 	json_object_end(response);
 
 	log_info(jcon->state->log, "JSON gave us TX ");
-	log_add_struct(jcon->state->log, struct protocol_double_sha, &sha);
+	log_add_struct(jcon->state->log, struct protocol_tx_id, &sha);
 
 	/* Tell everyone. */
 	send_tx_to_peers(jcon->state, NULL, tx);

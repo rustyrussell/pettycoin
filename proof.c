@@ -47,7 +47,7 @@ static void proof_merkles_to(const struct protocol_txrefhash *txrefhash,
 	unsigned int i;
 
 	/* Combine them together. */
-	merkle_two_hashes(&txrefhash->txhash, &txrefhash->refhash, sha);
+	merkle_two_hashes(&txrefhash->txhash.sha, &txrefhash->refhash, sha);
 
 	for (i = 0; i < 8; i++) {
 		if (proof->pos.txoff & (1 << i)) {

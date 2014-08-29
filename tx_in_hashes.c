@@ -6,7 +6,7 @@
 void add_txhash_to_hashes(struct state *state,
 			  const tal_t *ctx,
 			  struct block *block, u16 shard, u8 txoff,
-			  const struct protocol_double_sha *txhash)
+			  const struct protocol_tx_id *txhash)
 {
 	union txhash_block_or_tx u;
 
@@ -20,7 +20,7 @@ void add_tx_to_hashes(struct state *state,
 		      struct block *block, u16 shard, u8 txoff,
 		      const union protocol_tx *tx)
 {
-	struct protocol_double_sha txhash;
+	struct protocol_tx_id txhash;
 
 	hash_tx(tx, &txhash);
 
@@ -34,8 +34,8 @@ void add_tx_to_hashes(struct state *state,
 void remove_tx_from_hashes(struct state *state,
 			   struct block *block, u16 shard, u8 txoff)
 {
-	struct protocol_double_sha scratch;
-	const struct protocol_double_sha *txhash;
+	struct protocol_tx_id scratch;
+	const struct protocol_tx_id *txhash;
 	const union protocol_tx *tx;
 	union txhash_block_or_tx u;
 
@@ -62,7 +62,7 @@ void remove_tx_from_hashes(struct state *state,
  * txhash_gettx won't return this entry. */
 void upgrade_tx_in_hashes(struct state *state,
 			  const tal_t *ctx,
-			  const struct protocol_double_sha *sha,
+			  const struct protocol_tx_id *sha,
 			  const union protocol_tx *tx)
 {
 	/* If we didn't know about full tx before, add inputs to hash. */
@@ -74,7 +74,7 @@ void add_pending_tx_to_hashes(struct state *state,
 			      const tal_t *ctx,
 			      const union protocol_tx *tx)
 {
-	struct protocol_double_sha txhash;
+	struct protocol_tx_id txhash;
 	union txhash_block_or_tx u;
 
 	hash_tx(tx, &txhash);
@@ -92,7 +92,7 @@ void add_pending_tx_to_hashes(struct state *state,
 void remove_pending_tx_from_hashes(struct state *state,
 				   const union protocol_tx *tx)
 {
-	struct protocol_double_sha txhash;
+	struct protocol_tx_id txhash;
 	union txhash_block_or_tx u;
 
 	hash_tx(tx, &txhash);
@@ -106,7 +106,7 @@ void remove_pending_tx_from_hashes(struct state *state,
 }
 
 struct txhash_elem *txhash_gettx_ancestor(struct state *state,
-					  const struct protocol_double_sha *sha,
+					  const struct protocol_tx_id *sha,
 					  const struct block *block)
 
 {
@@ -127,7 +127,7 @@ struct txhash_elem *txhash_gettx_ancestor(struct state *state,
 
 const union protocol_tx *
 txhash_get_pending_tx(struct state *state,
-		      const struct protocol_double_sha *sha)
+		      const struct protocol_tx_id *sha)
 {
 	struct txhash_iter iter;
 	struct txhash_elem *te;

@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
 	struct protocol_block_header hdr;
 	struct protocol_block_tailer tailer;
 	struct protocol_double_sha merkles[1 << PROTOCOL_INITIAL_SHARD_ORDER];
-	struct protocol_double_sha sha;
+	struct protocol_block_id sha;
 	u8 shard_nums[1 << PROTOCOL_INITIAL_SHARD_ORDER];
 	unsigned int i;
 
@@ -119,7 +119,7 @@ int main(int argc, char *argv[])
 		       i == 0 ? "\t" : ", ", i);
 	printf("\n};\n");
 
-	hash_block(&hdr, shard_nums, merkles, NULL, &tailer, &sha);
+	hash_block(&hdr, shard_nums, merkles, NULL, &tailer, &sha.sha);
 
 	printf("struct block genesis = {\n"
 	       "	.hdr = &genesis_hdr,\n"
@@ -129,10 +129,10 @@ int main(int argc, char *argv[])
 	       "	.shard = genesis_shards,\n"
 	       "	.children = LIST_HEAD_INIT(genesis.children),\n"
 	       "	.all_known = true,\n"
-	       "	.sha = { ");
+	       "	.sha = { { ");
 
-	dump_array(sha.sha, ARRAY_SIZE(sha.sha));
-	printf("}\n};\n");
+	dump_array(sha.sha.sha, ARRAY_SIZE(sha.sha.sha));
+	printf("} }\n};\n");
 
 	return 0;
 };

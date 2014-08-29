@@ -29,7 +29,7 @@ static bool load_block(struct state *state, struct protocol_net_hdr *pkt)
 	const u8 *prev_txhashes;
 	const struct protocol_block_tailer *tailer;
 	const struct protocol_block_header *hdr;
-	struct protocol_double_sha sha;
+	struct protocol_block_id sha;
 
 	e = unmarshal_block(state->log, (void *)pkt,
 			    &hdr, &shard_nums, &merkles, &prev_txhashes,
@@ -38,7 +38,7 @@ static bool load_block(struct state *state, struct protocol_net_hdr *pkt)
 		return false;
 
 	e = check_block_header(state, hdr, shard_nums, merkles, prev_txhashes,
-			       tailer, &prev, &sha);
+			       tailer, &prev, &sha.sha);
 	if (e != PROTOCOL_ECODE_NONE)
 		return false;
 

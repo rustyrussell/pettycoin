@@ -71,7 +71,7 @@ void complain_bad_input(struct state *state,
 
 	assert(tx_input(tx, bad_input));
 	log_unusual(state->log, "Block %u ", le32_to_cpu(block->hdr->height));
-	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
+	log_add_struct(state->log, struct protocol_block_id, &block->sha);
 	log_add(state->log, " invalid due to tx %u in shard %u ",
 		proof->pos.txoff, le16_to_cpu(proof->pos.shard));
 	log_add_struct(state->log, union protocol_tx, tx);
@@ -100,7 +100,7 @@ void complain_bad_amount(struct state *state,
 
 	assert(num_inputs(tx));
 	log_unusual(state->log, "Block %u ", le32_to_cpu(block->hdr->height));
-	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
+	log_add_struct(state->log, struct protocol_block_id, &block->sha);
 	log_add(state->log, " invalid amounts in tx %u of shard %u ",
 		proof->pos.txoff, le16_to_cpu(proof->pos.shard));
 	log_add_struct(state->log, union protocol_tx, tx);
@@ -140,7 +140,7 @@ void complain_misorder(struct state *state,
 	conflict_refs = block_get_refs(block, shardnum, conflict_txoff);
 
 	log_unusual(state->log, "Block %u ", le32_to_cpu(block->hdr->height));
-	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
+	log_add_struct(state->log, struct protocol_block_id, &block->sha);
 	log_add(state->log, " invalid due to misorder shard %u tx %u vs %u ",
 		shardnum, conflict_txoff, proof->pos.txoff);
 	log_add_struct(state->log, union protocol_tx, conflict_tx);
@@ -181,7 +181,7 @@ void complain_bad_input_ref(struct state *state,
 				       bad_ref->txoff);
 
 	log_unusual(state->log, "Block %u ", le32_to_cpu(block->hdr->height));
-	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
+	log_add_struct(state->log, struct protocol_block_id, &block->sha);
 	log_unusual(state->log, " tx %u of shard %u ",
 		    proof->pos.txoff, le16_to_cpu(proof->pos.shard));
 	log_add_struct(state->log, union protocol_tx, tx);
@@ -276,7 +276,7 @@ void complain_bad_tx(struct state *state,
 	}
 
 	log_unusual(state->log, "Block %u ", le32_to_cpu(block->hdr->height));
-	log_add_struct(state->log, struct protocol_double_sha, &block->sha);
+	log_add_struct(state->log, struct protocol_block_id, &block->sha);
 	log_add(state->log, " invalid due to tx %u of shard %u ",
 		proof->pos.txoff, le16_to_cpu(proof->pos.shard));
 	log_add(state->log, " error ");

@@ -58,7 +58,7 @@ struct protocol_txrefhash;
 void tal_packet_append_txrefhash_(void *ppkt,
 				  const struct protocol_txrefhash *hashes);
 
-void tal_packet_append_pos_(void *ppkt, const struct protocol_double_sha *block,
+void tal_packet_append_pos_(void *ppkt, const struct protocol_block_id *block,
 			    u16 shardnum, u8 txoff);
 
 void tal_packet_append_proven_tx_(void *ppkt,

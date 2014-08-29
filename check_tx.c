@@ -195,7 +195,7 @@ bool check_claim_input(struct state *state,
 	/* Check it was to this address. */
 	if (!structeq(my_addr, &reward_block->hdr->fees_to)) {
 		log_debug(state->log, "Claim mismatch against block ");
-		log_add_struct(state->log, struct protocol_double_sha,
+		log_add_struct(state->log, struct protocol_block_id,
 			       &reward_block->sha);
 		return false;
 	}

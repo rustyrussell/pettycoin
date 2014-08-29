@@ -117,7 +117,7 @@ recv_get_children(struct peer *peer,
 	b = block_find_any(peer->state, &pkt->block);
 	if (!b) {
 		log_debug(peer->log, "unknown get_children block ");
-		log_add_struct(peer->log, struct protocol_double_sha,
+		log_add_struct(peer->log, struct protocol_block_id,
 			       &pkt->block);
 		r->err = cpu_to_le32(PROTOCOL_ECODE_UNKNOWN_BLOCK);
 		return PROTOCOL_ECODE_NONE;
@@ -125,8 +125,7 @@ recv_get_children(struct peer *peer,
 	r->err = cpu_to_le32(PROTOCOL_ECODE_NONE);
 
 	log_debug(peer->log, "Creating children block for ");
-	log_add_struct(peer->log, struct protocol_double_sha,
-			       &pkt->block);
+	log_add_struct(peer->log, struct protocol_block_id, &pkt->block);
 	list_for_each(&b->children, i, sibling) {
 		struct protocol_net_syncblock s;
 
@@ -137,8 +136,7 @@ recv_get_children(struct peer *peer,
 
 		log_debug(peer->log, "Adding %u children ",
 			  le32_to_cpu(s.children));
-		log_add_struct(peer->log, struct protocol_double_sha,
-			       &s.block);
+		log_add_struct(peer->log, struct protocol_block_id, &s.block);
 		assert(block_find_any(peer->state, &s.block));
 	}
 
@@ -165,10 +163,10 @@ recv_get_block(struct peer *peer,
 	} else {
 		/* If we don't know it, that's OK. */
 		log_debug(peer->log, "unknown get_block block ");
-		log_add_struct(peer->log, struct protocol_double_sha,
+		log_add_struct(peer->log, struct protocol_block_id,
 			       &pkt->block);
 		r->err = le32_to_cpu(PROTOCOL_ECODE_UNKNOWN_BLOCK);
-		tal_packet_append_sha(&r, &pkt->block);
+		tal_packet_append_block_id(&r, &pkt->block);
 	}
 
 	*reply = r;
@@ -205,7 +203,7 @@ enum protocol_ecode recv_children(struct peer *peer,
 		return PROTOCOL_ECODE_INVALID_LEN;
 
 	log_debug(peer->log, "Gave us %u children for ", num);
-	log_add_struct(peer->log, struct protocol_double_sha, &parent->sha);
+	log_add_struct(peer->log, struct protocol_block_id, &parent->sha);
 
 	s = (void *)(pkt + 1);
 	for (i = 0; i < num; i++) {
@@ -215,7 +213,7 @@ enum protocol_ecode recv_children(struct peer *peer,
 		if (!b) {
 			/* We'd better find out about this one... */
 			log_debug(peer->log, "Asking about unknown block ");
-			log_add_struct(peer->log, struct protocol_double_sha,
+			log_add_struct(peer->log, struct protocol_block_id,
 				       &s[i].block);
 			todo_add_get_block(peer->state, &s[i].block);
 		} else {
@@ -223,7 +221,8 @@ enum protocol_ecode recv_children(struct peer *peer,
 			if (num_children(b, NULL, 0)
 			    < le32_to_cpu(s[i].children)) {
 				log_debug(peer->log, "Getting more kids for ");
-				log_add_struct(peer->log, struct protocol_double_sha,
+				log_add_struct(peer->log,
+					       struct protocol_block_id,
 					       &s[i].block);
 				
 				todo_add_get_children(peer->state, &s[i].block);

@@ -6,7 +6,7 @@
 #include <ccan/tal/tal.h>
 
 struct inputhash_key {
-	struct protocol_double_sha tx;
+	struct protocol_tx_id tx;
 	u16 output_num;
 };
 
@@ -15,7 +15,7 @@ struct inputhash_elem {
 	struct inputhash_key output;
 
 	/* ...was used by this transaction as an input. */
-	struct protocol_double_sha used_by;
+	struct protocol_tx_id used_by;
 };
 
 const struct inputhash_key *inputhash_keyof(const struct inputhash_elem *ie);
@@ -28,11 +28,11 @@ HTABLE_DEFINE_TYPE(struct inputhash_elem,
 
 /* Since an input can be used by multiple transactions (different chains)... */
 struct inputhash_elem *inputhash_firstval(struct inputhash *inputhash,
-					  const struct protocol_double_sha *tx,
+					  const struct protocol_tx_id *tx,
 					  u16 output_num,
 					  struct inputhash_iter *i);
 struct inputhash_elem *inputhash_nextval(struct inputhash *inputhash,
-					 const struct protocol_double_sha *tx,
+					 const struct protocol_tx_id *tx,
 					 u16 output_num,
 					 struct inputhash_iter *i);
 

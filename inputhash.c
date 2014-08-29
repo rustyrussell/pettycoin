@@ -36,7 +36,7 @@ static struct inputhash_elem *inputhash_i(struct htable *ht,
 }
 
 struct inputhash_elem *inputhash_firstval(struct inputhash *inputhash,
-					  const struct protocol_double_sha *tx,
+					  const struct protocol_tx_id *tx,
 					  u16 output_num,
 					  struct inputhash_iter *i)
 {
@@ -53,7 +53,7 @@ struct inputhash_elem *inputhash_firstval(struct inputhash *inputhash,
 }
 
 struct inputhash_elem *inputhash_nextval(struct inputhash *inputhash,
-					 const struct protocol_double_sha *tx,
+					 const struct protocol_tx_id *tx,
 					 u16 output_num,
 					 struct inputhash_iter *i)
 {
@@ -93,7 +93,7 @@ void inputhash_del_tx(struct inputhash *inputhash, const union protocol_tx *tx)
 	unsigned int i;
 	struct inputhash_elem *ie;
 	struct inputhash_iter it;
-	struct protocol_double_sha sha;
+	struct protocol_tx_id sha;
 
 	hash_tx(tx, &sha);
 

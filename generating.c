@@ -258,7 +258,7 @@ static void exec_generator(struct generator *gen)
 	sprintf(height, "%u", le32_to_cpu(last->hdr->height) + 1);
 	sprintf(shard_order, "%u", gen->shard_order);
 	for (i = 0; i < sizeof(struct protocol_double_sha); i++)
-		sprintf(prevblock + i*2, "%02X", last->sha.sha[i]);
+		sprintf(prevblock + i*2, "%02X", last->sha.sha.sha[i]);
 	for (i = 0; i < sizeof(struct protocol_address); i++)
 		sprintf(fees_to + i*2, "%02X",
 			gen->state->reward_addr->addr[i]);

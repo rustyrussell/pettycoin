@@ -41,9 +41,9 @@ int main(int argc, char *argv[])
 {
 	struct state *s = tal(NULL, struct state);
 	struct working_block *w, *w2;
-	struct protocol_double_sha prev = { .sha = { 0 } };
+	struct protocol_block_id prev = { { .sha = { 0 } } };
 	unsigned int i;
-	struct protocol_double_sha hash, hash2;
+	struct protocol_block_id hash, hash2;
 	union protocol_tx *t;
 	struct protocol_gateway_payment payment;
 	struct gen_update update;
@@ -58,8 +58,8 @@ int main(int argc, char *argv[])
 	assert(i == 87);
 
 	hash_block(&w->hdr, w->shard_nums, w->merkles, w->prev_txhashes,
-		   &w->tailer, &hash);
-	assert(beats_target(&hash, 0x1ffffff0));
+		   &w->tailer, &hash.sha);
+	assert(beats_target(&hash.sha, 0x1ffffff0));
 
 	assert(w->hdr.version == current_version());
 	assert(w->hdr.features_vote == 0);
@@ -98,8 +98,8 @@ int main(int argc, char *argv[])
 	for (i = 0; !solve_block(w2); i++);
 
 	hash_block(&w2->hdr, w2->shard_nums, w2->merkles, w2->prev_txhashes,
-		   &w2->tailer, &hash2);
-	assert(beats_target(&hash2, 0x1ffffff0));
+		   &w2->tailer, &hash2.sha);
+	assert(beats_target(&hash2.sha, 0x1ffffff0));
 
 	assert(w2->hdr.version == current_version());
 	assert(w2->hdr.features_vote == 0);

@@ -11,6 +11,6 @@ struct protocol_pkt_welcome *make_welcome(const tal_t *ctx,
 
 enum protocol_ecode check_welcome(const struct state *state,
 				  const struct protocol_pkt_welcome *w,
-				  const struct protocol_double_sha **blocks);
+				  const struct protocol_block_id **blocks);
 
 #endif /* PETTYCOIN_WELCOME_H */

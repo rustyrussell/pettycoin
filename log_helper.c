@@ -64,7 +64,7 @@ void log_add_struct_(struct log *log, const char *structname, const void *ptr)
 		log_add_struct(log, struct protocol_address, &gp->output_addr);
 	} else if (streq(structname, "union protocol_tx")) {
 		const union protocol_tx *tx = ptr;
-		struct protocol_double_sha sha;
+		struct protocol_tx_id sha;
 		struct protocol_address input_addr;
 		const char *feestr = tx_pays_fee(tx) ? "fee" : "no fee";
 		u32 i;
@@ -117,7 +117,7 @@ void log_add_struct_(struct log *log, const char *structname, const void *ptr)
 
 			log_add(log, "CLAIM (%s) for %u on tx ",
 				feestr, le32_to_cpu(tx->claim.amount));
-			log_add_struct(log, struct protocol_double_sha,
+			log_add_struct(log, struct protocol_tx_id,
 				       &tx->claim.input.input);
 			log_add(log, " to ");
 			pubkey_to_addr(&tx->claim.input_key, &addr);
@@ -129,7 +129,7 @@ void log_add_struct_(struct log *log, const char *structname, const void *ptr)
 		log_add(log, "UNKNOWN(%u) (%s) ", tx_type(tx), feestr);
 
 	known:
-		log_add_struct(log, struct protocol_double_sha, &sha);
+		log_add_struct(log, struct protocol_tx_id, &sha);
 	} else if (streq(structname, "BIGNUM")) {
 		char *str = BN_bn2hex(ptr);
 		log_add(log, "%s", str);

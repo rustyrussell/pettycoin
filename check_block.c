@@ -136,8 +136,7 @@ bool check_tx_ordering(struct state *state,
 }
 
 /* An input for this has been resolved; check it again. */
-static bool recheck_tx(struct state *state,
-		       const struct protocol_double_sha *tx)
+static bool recheck_tx(struct state *state, const struct protocol_tx_id *tx)
 {
 	struct txhash_iter iter;
 	struct txhash_elem *te;
@@ -178,7 +177,7 @@ static void check_resolved_txs(struct state *state,
 			       const union protocol_tx *tx)
 {
 	unsigned int i;
-	struct protocol_double_sha sha;
+	struct protocol_tx_id sha;
 
 	hash_tx(tx, &sha);
 
@@ -367,15 +366,15 @@ bool check_prev_txhashes(struct state *state, const struct block *block,
 void check_block(struct state *state, const struct block *block, bool all)
 {
 	u32 diff = le32_to_cpu(block->tailer->difficulty);
-	struct protocol_double_sha sha;
+	struct protocol_block_id sha;
 	unsigned int shard;
 
 	if (block != genesis_block(state)) {
-		assert(beats_target(&block->sha, diff));
+		assert(beats_target(&block->sha.sha, diff));
 		assert(tal_count(block->shard) == num_shards(block->hdr));
 	}
 	hash_block(block->hdr, block->shard_nums, block->merkles,
-		   block->prev_txhashes, block->tailer, &sha);
+		   block->prev_txhashes, block->tailer, &sha.sha);
 	assert(structeq(&sha, &block->sha));
 
 	if (block->prev) {

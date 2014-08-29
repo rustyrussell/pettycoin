@@ -31,7 +31,7 @@ static void destroy_block(struct block *b)
 /* This allocates the block but doesn't sew it into data structures. */
 static struct block *new_block(const tal_t *ctx,
 			       BIGNUM *prev_work,
-			       const struct protocol_double_sha *sha,
+			       const struct protocol_block_id *sha,
 			       const struct protocol_block_header *hdr,
 			       const u8 *shard_nums,
 			       const struct protocol_double_sha *merkles,
@@ -66,7 +66,7 @@ static struct block *new_block(const tal_t *ctx,
 
 struct block *block_add(struct state *state,
 			struct block *prev,
-			const struct protocol_double_sha *sha,
+			const struct protocol_block_id *sha,
 			const struct protocol_block_header *hdr,
 			const u8 *shard_nums,
 			const struct protocol_double_sha *merkles,
@@ -77,7 +77,7 @@ struct block *block_add(struct state *state,
 	struct block *block;
 
 	log_debug(state->log, "Adding block %u ", height);
-	log_add_struct(state->log, struct protocol_double_sha, sha);
+	log_add_struct(state->log, struct protocol_block_id, sha);
 
 	block = new_block(state, &prev->total_work, sha, hdr, shard_nums,
 			  merkles, prev_txhashes, tailer);
@@ -130,7 +130,7 @@ struct block *block_add(struct state *state,
 
 /* FIXME: use hash table. */
 struct block *block_find_any(struct state *state,
-			     const struct protocol_double_sha *sha)
+			     const struct protocol_block_id *sha)
 {
 	int i, n = tal_count(state->block_height);
 	struct block *b;

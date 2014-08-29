@@ -204,7 +204,7 @@ void recheck_pending_txs(struct state *state)
 	/* Now re-add them */
 	for (i = 0; i < tal_count(txs); i++) {
 		unsigned int bad_input_num;
-		struct protocol_double_sha sha;
+		struct protocol_tx_id sha;
 
 		hash_tx(txs[i], &sha);
 		add_pending_tx(state, txs[i], &sha, &bad_input_num, NULL, NULL);
@@ -247,7 +247,7 @@ static bool find_pending_doublespend(struct state *state,
 
 enum input_ecode add_pending_tx(struct state *state,
 				const union protocol_tx *tx,
-				const struct protocol_double_sha *sha,
+				const struct protocol_tx_id *sha,
 				unsigned int *bad_input_num,
 				bool *too_old,
 				bool *already_known)
@@ -358,7 +358,7 @@ void drop_pending_tx(struct state *state, const union protocol_tx *tx)
 	struct pending_tx **pend;
 	u16 shard;
 	size_t pos;
-	struct protocol_double_sha sha;
+	struct protocol_tx_id sha;
 
 	hash_tx(tx, &sha);
 	if (!txhash_get_pending_tx(state, &sha))

@@ -8,7 +8,7 @@ static void merkle_hash(size_t n, void *data,
 {
 	const struct protocol_txrefhash *hashes = data;
 
-	merkle_two_hashes(&hashes[n].txhash, &hashes[n].refhash, merkle);
+	merkle_two_hashes(&hashes[n].txhash.sha, &hashes[n].refhash, merkle);
 }
 
 void merkle_hashes(const struct protocol_txrefhash *hashes,

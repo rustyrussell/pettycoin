@@ -23,14 +23,14 @@
 struct block_detached {
 	/* Off state->detached_blocks */
 	struct list_node list;
-	struct protocol_double_sha sha;
+	struct protocol_block_id sha;
 
 	const struct protocol_block_header *hdr;
 	const struct protocol_pkt_block *pkt;	
 };
 
 static bool have_detached_block(const struct state *state, 
-				const struct protocol_double_sha *sha)
+				const struct protocol_block_id *sha)
 {
 	struct block_detached *bd;
 
@@ -43,7 +43,7 @@ static bool have_detached_block(const struct state *state,
 
 /* Don't let them flood us with cheap, random blocks. */
 static void seek_predecessor(struct state *state, 
-			     const struct protocol_double_sha *sha,
+			     const struct protocol_block_id *sha,
 			     const struct protocol_block_header *hdr,
 			     const struct protocol_pkt_block *pkt)
 {
@@ -54,14 +54,14 @@ static void seek_predecessor(struct state *state,
 	diff = le32_to_cpu(state->preferred_chain->tailer->difficulty);
 	diff = difficulty_one_sixteenth(diff);
 
-	if (!beats_target(sha, diff)) {
+	if (!beats_target(&sha->sha, diff)) {
 		log_debug(state->log, "Ignoring unknown prev in easy block");
 		return;
 	}
 
 	if (have_detached_block(state, sha)) {
 		log_debug(state->log, "Already have detached block ");
-		log_add_struct(state->log, struct protocol_double_sha,
+		log_add_struct(state->log, struct protocol_block_id,
 			       &hdr->prev_block);
 		return;
 	}
@@ -74,8 +74,7 @@ static void seek_predecessor(struct state *state,
 	list_add(&state->detached_blocks, &bd->list);
 
 	log_debug(state->log, "Seeking block prev ");
-	log_add_struct(state->log, struct protocol_double_sha,
-		       &hdr->prev_block);
+	log_add_struct(state->log, struct protocol_block_id, &hdr->prev_block);
 	todo_add_get_block(state, &hdr->prev_block);
 }
 
@@ -119,7 +118,7 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 	const u8 *prev_txhashes;
 	const struct protocol_block_tailer *tailer;
 	const struct protocol_block_header *hdr;
-	struct protocol_double_sha sha;
+	struct protocol_block_id sha;
 
 	e = unmarshal_block(log, pkt,
 			    &hdr, &shard_nums, &merkles, &prev_txhashes,
@@ -133,7 +132,7 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 		  hdr->version, hdr->features_vote, hdr->shard_order);
 
 	e = check_block_header(state, hdr, shard_nums, merkles,
-			       prev_txhashes, tailer, &prev, &sha);
+			       prev_txhashes, tailer, &prev, &sha.sha);
 
 	if (e != PROTOCOL_ECODE_NONE) {
 		log_unusual(log, "checking new block gave ");
@@ -331,7 +330,7 @@ recv_shard(struct state *state, struct log *log, struct peer *peer,
 
 	if (b->complaint) {
 		log_debug(log, "shard on invalid block ");
-		log_add_struct(log, struct protocol_double_sha, &pkt->block);
+		log_add_struct(log, struct protocol_block_id, &pkt->block);
 		/* Complain, but don't otherwise process. */
 		if (peer)
 			todo_for_peer(peer, tal_packet_dup(peer, b->complaint));
@@ -340,7 +339,7 @@ recv_shard(struct state *state, struct log *log, struct peer *peer,
 
 	if (shard >= num_shards(b->hdr)) {
 		log_unusual(log, "Invalid shard for shard %u of ", shard);
-		log_add_struct(log, struct protocol_double_sha, &pkt->block);
+		log_add_struct(log, struct protocol_block_id, &pkt->block);
 		return PROTOCOL_ECODE_BAD_SHARDNUM;
 	}
 
@@ -352,7 +351,7 @@ recv_shard(struct state *state, struct log *log, struct peer *peer,
 		log_debug(log, "Packet contains ecode ");
 		log_add_enum(log, enum protocol_ecode, le16_to_cpu(pkt->err));
 		log_add(log, " for shard %u of ", shard);
-		log_add_struct(log, struct protocol_double_sha, &pkt->block);
+		log_add_struct(log, struct protocol_block_id, &pkt->block);
 
 		/* We failed to get shard. */
 		if (peer)
@@ -379,13 +378,13 @@ recv_shard(struct state *state, struct log *log, struct peer *peer,
 		return PROTOCOL_ECODE_INVALID_LEN;
 
 	log_debug(log, "Got shard %u of ", shard);
-	log_add_struct(log, struct protocol_double_sha, &pkt->block);
+	log_add_struct(log, struct protocol_block_id, &pkt->block);
 
 	/* Check it's right. */
 	merkle_hashes(hashes, 0, b->shard_nums[shard], &merkle);
 	if (!structeq(&b->merkles[shard], &merkle)) {
 		log_unusual(log, "Bad hash for shard %u of ", shard);
-		log_add_struct(log, struct protocol_double_sha, &pkt->block);
+		log_add_struct(log, struct protocol_block_id, &pkt->block);
 		return PROTOCOL_ECODE_BAD_MERKLE;
 	}
 
@@ -429,7 +428,7 @@ enum protocol_ecode recv_block_from_peer(struct peer *peer,
 	if (e == PROTOCOL_ECODE_NONE) {
 		log_info(peer->log, "gave us block %u: ",
 			 le32_to_cpu(b->hdr->height));
-		log_add_struct(peer->log, struct protocol_double_sha, &b->sha);
+		log_add_struct(peer->log, struct protocol_block_id, &b->sha);
 	}
 	/* If we didn't know prev, this block is still OK so don't hang up. */
 	if (e == PROTOCOL_ECODE_PRIV_UNKNOWN_PREV)
@@ -481,7 +480,7 @@ bool recv_block_from_generator(struct state *state, struct log *log,
 
 	log_info(log, "found block %u (%zu shards, %u txs): ",
 		 le32_to_cpu(b->hdr->height), tal_count(shards), num_txs);
-	log_add_struct(log, struct protocol_double_sha, &b->sha);
+	log_add_struct(log, struct protocol_block_id, &b->sha);
 
 	if (!block_all_known(b))
 		log_unusual(log, "created block but we don't know contents!");
@@ -544,7 +543,7 @@ static char *json_submitblock(struct json_connection *jcon,
 	if (e != PROTOCOL_ECODE_NONE)
 		return (char *)ecode_name(e);
 
-	json_add_double_sha(response, NULL, &block->sha);
+	json_add_block_id(response, NULL, &block->sha);
 	return NULL;
 }
 

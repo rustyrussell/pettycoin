@@ -22,7 +22,7 @@ recv_tx(struct state *state,
 	struct protocol_input_ref *refs;
 	struct protocol_tx_with_proof *proof;
 	struct block *b;
-	struct protocol_double_sha sha;
+	struct protocol_tx_id sha;
 	u16 shard;
 	u8 conflict_txoff;
 	size_t len = le32_to_cpu(pkt->len), used;
@@ -140,7 +140,7 @@ recv_tx(struct state *state,
 		log_info(peer->log, "gave us TX in shard %u, off %u, block %u ",
 			 shard, proof->proof.pos.txoff,
 			 le32_to_cpu(b->hdr->height));
-		log_add_struct(peer->log, struct protocol_double_sha, &sha);
+		log_add_struct(peer->log, struct protocol_tx_id, &sha);
 	}
 
 	return PROTOCOL_ECODE_NONE;

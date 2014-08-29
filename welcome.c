@@ -17,7 +17,7 @@ static void add_welcome_blocks(const struct state *state,
 	 * because we can't get the transactions from that. */
 	last = b = state->preferred_chain;
 
-	tal_packet_append_sha(w, &b->sha);
+	tal_packet_append_block_id(w, &b->sha);
 
 	for (n = 1; b; n++) {
 		unsigned int i;
@@ -33,7 +33,7 @@ static void add_welcome_blocks(const struct state *state,
 				goto out;
 		}
 
-		tal_packet_append_sha(w, &b->sha);
+		tal_packet_append_block_id(w, &b->sha);
 		last = b;
 	}
 
@@ -41,7 +41,7 @@ out:
 	/* Always include the genesis block. */
 	b = genesis_block(state);
 	if (last != b) {
-		tal_packet_append_sha(w, &b->sha);
+		tal_packet_append_block_id(w, &b->sha);
 		n++;
 	}
 
@@ -96,7 +96,7 @@ static size_t popcount(const u8 *bits, size_t num_bits)
 
 enum protocol_ecode check_welcome(const struct state *state,
 				  const struct protocol_pkt_welcome *w,
-				  const struct protocol_double_sha **blocks)
+				  const struct protocol_block_id **blocks)
 {
 	size_t len = le32_to_cpu(w->len), interest_len;
 	const u8 *interest;
@@ -129,7 +129,7 @@ enum protocol_ecode check_welcome(const struct state *state,
 	len -= interest_len;
 
 	/* Blocks follow interest map. */
-	(*blocks) = (struct protocol_double_sha *)(interest + interest_len);
+	(*blocks) = (struct protocol_block_id *)(interest + interest_len);
 
 	/* At least one block. */
 	if (le16_to_cpu(w->num_blocks) < 1)

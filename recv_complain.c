@@ -110,7 +110,7 @@ verify_problem_input(struct state *state,
 		     enum input_ecode *ierr,
 		     u32 *total)
 {
-	struct protocol_double_sha sha;
+	struct protocol_tx_id sha;
 	struct protocol_address tx_addr;
 	const struct protocol_input *input;
 	u32 amount;
@@ -260,7 +260,7 @@ recv_complain_tx_invalid(struct peer *peer,
 	/* Treat tx and refs as blobs for hashing. */
 	SHA256_Init(&shactx);
 	SHA256_Update(&shactx, tx, txlen);
-	SHA256_Double_Final(&shactx, &txrefhash.txhash);
+	SHA256_Double_Final(&shactx, &txrefhash.txhash.sha);
 
 	SHA256_Init(&shactx);
 	SHA256_Update(&shactx, refs, reflen);
@@ -443,7 +443,7 @@ recv_complain_bad_input_ref(struct peer *peer,
 	const char *p;
 	size_t len = le32_to_cpu(pkt->len);
 	const struct protocol_input_ref *ref;
-	struct protocol_double_sha sha;
+	struct protocol_tx_id sha;
 
 	if (len < sizeof(*pkt))
 		return PROTOCOL_ECODE_INVALID_LEN;
@@ -511,7 +511,7 @@ recv_complain_claim_input_invalid(struct peer *peer,
 	enum protocol_ecode e;
 	struct block *claim_b, *reward_b;
 	const char *p;
-	struct protocol_double_sha sha;
+	struct protocol_tx_id sha;
 	struct protocol_address claim_addr;
 	size_t len = le32_to_cpu(pkt->len);
 	u32 amount;

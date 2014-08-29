@@ -18,7 +18,7 @@ static bool resolve_input(struct state *state,
 			  int offset,
 			  struct protocol_input_ref *ref)
 {
-	const struct protocol_double_sha *sha;
+	const struct protocol_tx_id *sha;
 	struct txhash_elem *te;
 
 	sha = &tx_input(tx, num)->input;

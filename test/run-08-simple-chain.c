@@ -48,8 +48,7 @@ void complain_bad_prev_txhashes(struct state *state,
 bool from_hex(const char *str, size_t slen, void *buf, size_t bufsize)
 { fprintf(stderr, "from_hex called!\n"); abort(); }
 /* Generated stub for hash_tx */
-void hash_tx(const union protocol_tx *tx,
-	     struct protocol_double_sha *sha)
+void hash_tx(const union protocol_tx *tx, struct protocol_tx_id *txid)
 { fprintf(stderr, "hash_tx called!\n"); abort(); }
 /* Generated stub for hash_tx_and_refs */
 void hash_tx_and_refs(const union protocol_tx *tx,
@@ -66,6 +65,10 @@ const struct inputhash_key *inputhash_keyof(const struct inputhash_elem *ie)
 void json_add_address(char **result, const char *fieldname, bool test_net,
 		      const struct protocol_address *addr)
 { fprintf(stderr, "json_add_address called!\n"); abort(); }
+/* Generated stub for json_add_block_id */
+void json_add_block_id(char **result, const char *fieldname,
+		       const struct protocol_block_id *id)
+{ fprintf(stderr, "json_add_block_id called!\n"); abort(); }
 /* Generated stub for json_add_double_sha */
 void json_add_double_sha(char **result, const char *fieldname,
 			 const struct protocol_double_sha *sha)
@@ -77,6 +80,10 @@ void json_add_hex(char **result, const char *fieldname, const void *data,
 /* Generated stub for json_add_num */
 void json_add_num(char **result, const char *fieldname, unsigned int value)
 { fprintf(stderr, "json_add_num called!\n"); abort(); }
+/* Generated stub for json_add_tx_id */
+void json_add_tx_id(char **result, const char *fieldname,
+		    const struct protocol_tx_id *id)
+{ fprintf(stderr, "json_add_tx_id called!\n"); abort(); }
 /* Generated stub for json_array_end */
 void json_array_end(char **ptr)
 { fprintf(stderr, "json_array_end called!\n"); abort(); }
@@ -127,7 +134,7 @@ void seek_detached_blocks(struct state *state,
 { fprintf(stderr, "seek_detached_blocks called!\n"); abort(); }
 /* Generated stub for todo_forget_about_block */
 void todo_forget_about_block(struct state *state,
-			     const struct protocol_double_sha *block)
+			     const struct protocol_block_id *block)
 { fprintf(stderr, "todo_forget_about_block called!\n"); abort(); }
 /* Generated stub for wake_peers */
 void wake_peers(struct state *state)
@@ -152,7 +159,7 @@ static struct block *add_next_block(struct state *state,
 	struct protocol_block_header *hdr;
 	struct protocol_block_tailer *tailer;
 	u8 *shard_nums;
-	struct protocol_double_sha dummy = { { 0 } };
+	struct protocol_block_id dummy = { { { 0 } } };
 
 	hdr = tal(state, struct protocol_block_header);
 	hdr->shard_order = PROTOCOL_INITIAL_SHARD_ORDER;

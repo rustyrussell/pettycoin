@@ -46,7 +46,7 @@ void recheck_pending_txs(struct state *state);
  * is too close to horizon, or beyond. */
 enum input_ecode add_pending_tx(struct state *state,
 				const union protocol_tx *tx,
-				const struct protocol_double_sha *sha,
+				const struct protocol_tx_id *sha,
 				unsigned int *bad_input_num,
 				bool *too_old, bool *already_known);
 

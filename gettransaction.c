@@ -11,7 +11,7 @@ static char *json_gettransaction(struct json_connection *jcon,
 				 const jsmntok_t *params,
 				 char **response)
 {
-	struct protocol_double_sha txhash;
+	struct protocol_tx_id txhash;
 	const jsmntok_t *txid;
 	unsigned int confirms;
 	struct txhash_elem *te;

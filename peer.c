@@ -311,7 +311,7 @@ static struct protocol_pkt_tx_in_block *pkt_tx_in_block(tal_t *ctx,
 /* We don't know this tx, create packet to reply to pkt_get_tx_in_block. */
 static struct protocol_pkt_tx_in_block *
 pkt_tx_in_block_err(tal_t *ctx, enum protocol_ecode e,
-		    const struct protocol_double_sha *block,
+		    const struct protocol_block_id *block,
 		    u16 shard, u8 txoff)
 {
 	struct protocol_pkt_tx_in_block *pkt;
@@ -413,7 +413,7 @@ static struct protocol_pkt_err *err_pkt(struct peer *peer,
 }
 
 static struct block *mutual_block_search(struct peer *peer,
-					 const struct protocol_double_sha *block,
+					 const struct protocol_block_id *block,
 					 u16 num_blocks)
 {
 	int i;
@@ -422,7 +422,7 @@ static struct block *mutual_block_search(struct peer *peer,
 		struct block *b = block_find_any(peer->state, &block[i]);
 
 		log_debug(peer->log, "Seeking mutual block ");
-		log_add_struct(peer->log, struct protocol_double_sha, &block[i]);
+		log_add_struct(peer->log, struct protocol_block_id, &block[i]);
 		if (b) {
 			log_add(peer->log, " found.");
 			return b;
@@ -553,7 +553,7 @@ recv_pkt_peers(struct peer *peer, const struct protocol_pkt_peers *pkt)
 static enum protocol_ecode recv_pkt_block(struct peer *peer,
 					  const struct protocol_pkt_block *pkt)
 {
-	const struct protocol_double_sha *sha;
+	const struct protocol_block_id *sha;
 	u32 len = le32_to_cpu(pkt->len) - sizeof(*pkt);
 	
 	if (le32_to_cpu(pkt->len) < sizeof(*pkt))
@@ -569,7 +569,7 @@ static enum protocol_ecode recv_pkt_block(struct peer *peer,
 	if (len != sizeof(*sha))
 		return PROTOCOL_ECODE_INVALID_LEN;
 
-	sha = (const struct protocol_double_sha *)(pkt + 1);
+	sha = (const struct protocol_block_id *)(pkt + 1);
 	todo_done_get_block(peer, sha, false);
 	return PROTOCOL_ECODE_NONE;
 }
@@ -650,7 +650,7 @@ tell_peer_about_bad_amount(struct state *state,
 }
 
 static void send_claim_input(struct peer *peer,
-			     const struct protocol_double_sha *sha)
+			     const struct protocol_tx_id *sha)
 {
 	struct txhash_elem *te;
 
@@ -668,7 +668,7 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 {
 	enum protocol_ecode e;
 	union protocol_tx *tx;
-	struct protocol_double_sha sha;
+	struct protocol_tx_id sha;
 	u32 txlen = le32_to_cpu(pkt->len) - sizeof(*pkt);
 	unsigned int bad_input_num;
 	struct txhash_iter it;
@@ -683,7 +683,7 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 	/* If we asked for a tx and it didn't know, this is what it says. */
 	e = le32_to_cpu(pkt->err);
 	if (e != PROTOCOL_ECODE_NONE) {
-		struct protocol_double_sha *txhash = (void *)(pkt + 1);
+		struct protocol_tx_id *txhash = (void *)(pkt + 1);
 
 		if (e != PROTOCOL_ECODE_UNKNOWN_TX)
 			return PROTOCOL_ECODE_UNKNOWN_ERRCODE;
@@ -711,8 +711,7 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 	case ECODE_INPUT_OK:
 		if (already_known) {
 			log_info(peer->log, "gave us duplicate TX ");
-			log_add_struct(peer->log, struct protocol_double_sha,
-				       &sha);
+			log_add_struct(peer->log, struct protocol_tx_id, &sha);
 			return PROTOCOL_ECODE_NONE;
 		}
 		break;
@@ -767,7 +766,7 @@ recv_tx(struct peer *peer, const struct protocol_pkt_tx *pkt)
 
 	/* This is OK for now, will be spammy in real network! */
 	log_info(peer->log, "gave us TX ");
-	log_add_struct(peer->log, struct protocol_double_sha, &sha);
+	log_add_struct(peer->log, struct protocol_tx_id, &sha);
 
 	/* Tell everyone. */
 	send_tx_to_peers(peer->state, peer, tx);
@@ -845,19 +844,19 @@ recv_get_shard(struct peer *peer,
 	} else if (shard >= num_shards(b->hdr)) {
 		log_unusual(peer->log, "Invalid get_shard for shard %u of ",
 			    shard);
-		log_add_struct(peer->log, struct protocol_double_sha,
+		log_add_struct(peer->log, struct protocol_block_id,
 			       &pkt->block);
 		tal_free(r);
 		return PROTOCOL_ECODE_BAD_SHARDNUM;
 	} else if (!shard_all_hashes(b->shard[shard])) {
 		log_debug(peer->log, "Don't know all of shard %u of ",
 			    le16_to_cpu(pkt->shard));
-		log_add_struct(peer->log, struct protocol_double_sha,
+		log_add_struct(peer->log, struct protocol_block_id,
 			       &pkt->block);
 		r->err = cpu_to_le16(PROTOCOL_ECODE_UNKNOWN_SHARD);
 	} else if (b->complaint) {
 		log_debug(peer->log, "get_shard on invalid block ");
-		log_add_struct(peer->log, struct protocol_double_sha,
+		log_add_struct(peer->log, struct protocol_block_id,
 			       &pkt->block);
 		/* Send complaint, but don't otherwise reply. */
 		todo_for_peer(peer, tal_packet_dup(peer, b->complaint));
@@ -907,13 +906,13 @@ recv_get_tx_in_block(struct peer *peer,
 	} else if (shard >= num_shards(b->hdr)) {
 		log_unusual(peer->log, "Invalid get_tx for shard %u of ",
 			    shard);
-		log_add_struct(peer->log, struct protocol_double_sha,
+		log_add_struct(peer->log, struct protocol_block_id,
 			       &pkt->pos.block);
 		return PROTOCOL_ECODE_BAD_SHARDNUM;
 	} else if (txoff >= b->shard_nums[shard]) {
 		log_unusual(peer->log, "Invalid get_tx for txoff %u of shard %u of ",
 			    txoff, shard);
-		log_add_struct(peer->log, struct protocol_double_sha,
+		log_add_struct(peer->log, struct protocol_block_id,
 			       &pkt->pos.block);
 		return PROTOCOL_ECODE_BAD_TXOFF;
 	}
@@ -958,7 +957,7 @@ recv_get_tx(struct peer *peer,
 		tal_packet_append_tx(&r, tx);
 	} else {
 		r->err = cpu_to_le32(PROTOCOL_ECODE_UNKNOWN_TX);
-		tal_packet_append_sha(&r, &pkt->tx);
+		tal_packet_append_tx_id(&r, &pkt->tx);
 	}
 	*reply = r;
 	return PROTOCOL_ECODE_NONE;
@@ -1071,7 +1070,7 @@ recv_tx_bad_input(struct peer *peer,
 		  const struct protocol_pkt_tx_bad_input *pkt)
 {
 	const union protocol_tx *tx, *in;
-	struct protocol_double_sha sha;
+	struct protocol_tx_id sha;
 	enum protocol_ecode e;
 	enum input_ecode ierr;
 	struct txhash_elem *te;
@@ -1134,7 +1133,7 @@ recv_tx_bad_amount(struct peer *peer,
 		   const struct protocol_pkt_tx_bad_amount *pkt)
 {
 	const union protocol_tx *tx, *in[PROTOCOL_TX_MAX_INPUTS];
-	struct protocol_double_sha sha;
+	struct protocol_tx_id sha;
 	enum protocol_ecode e;
 	struct txhash_elem *te;
 	struct txhash_iter ti;
@@ -1187,7 +1186,7 @@ recv_tx_doublespend(struct peer *peer,
 	enum protocol_ecode e;
 	struct txhash_elem *te_a, *te_b;
 	struct txhash_iter ti_a, ti_b;
-	struct protocol_double_sha sha_a, sha_b;
+	struct protocol_tx_id sha_a, sha_b;
 
 	if (len < sizeof(*pkt))
 		return PROTOCOL_ECODE_INVALID_LEN;
@@ -1474,7 +1473,7 @@ static struct io_plan *welcome_received(struct io_conn *conn, struct peer *peer)
 	struct state *state = peer->state;
 	enum protocol_ecode e;
 	const struct block *mutual;
-	const struct protocol_double_sha *welcome_blocks;
+	const struct protocol_block_id *welcome_blocks;
 
 	log_debug(peer->log, "Their welcome received");
 

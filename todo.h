@@ -42,44 +42,43 @@ struct todo_pkt {
 };
 
 void todo_add_get_children(struct state *state,
-			   const struct protocol_double_sha *block);
+			   const struct protocol_block_id *block);
 void todo_add_get_block(struct state *state,
-			const struct protocol_double_sha *block);
+			const struct protocol_block_id *block);
 void todo_add_get_shard(struct state *state,
-			const struct protocol_double_sha *block,
+			const struct protocol_block_id *block,
 			u16 shardnum);
 void todo_add_get_txmap(struct state *state,
-			const struct protocol_double_sha *block,
+			const struct protocol_block_id *block,
 			u16 shardnum);
 void todo_add_get_tx_in_block(struct state *state,
-			      const struct protocol_double_sha *block,
+			      const struct protocol_block_id *block,
 			      u16 shardnum, u8 txoff);
-void todo_add_get_tx(struct state *state,
-		     const struct protocol_double_sha *tx);
+void todo_add_get_tx(struct state *state, const struct protocol_tx_id *tx);
 void todo_for_peer(struct peer *peer, void *pkt);
 
 /* These decrement peer->requests_outstanding if it was outstanding. */
 void todo_done_get_children(struct peer *peer,
-			    const struct protocol_double_sha *block,
+			    const struct protocol_block_id *block,
 			    bool success);
 void todo_done_get_block(struct peer *peer,
-			 const struct protocol_double_sha *block,
+			 const struct protocol_block_id *block,
 			 bool success);
 void todo_done_get_shard(struct peer *peer,
-			 const struct protocol_double_sha *block,
+			 const struct protocol_block_id *block,
 			 u16 shardnum, bool success);
 void todo_done_get_txmap(struct peer *peer,
-			 const struct protocol_double_sha *block,
+			 const struct protocol_block_id *block,
 			 u16 shardnum, bool success);
 void todo_done_get_tx_in_block(struct peer *peer,
-			       const struct protocol_double_sha *block,
+			       const struct protocol_block_id *block,
 			       u16 shardnum, u8 txoff, bool success);
 void todo_done_get_tx(struct peer *peer,
-		      const struct protocol_double_sha *tx, bool success);
+		      const struct protocol_tx_id *tx, bool success);
 
 /* Completely forget about related requests (ie. block is invalid) */
 void todo_forget_about_block(struct state *state,
-			     const struct protocol_double_sha *block);
+			     const struct protocol_block_id *block);
 
 /* Peer has closed, remove it from todo bitmaps */
 void remove_peer_from_todo(struct state *state, struct peer *peer);

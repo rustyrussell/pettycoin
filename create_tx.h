@@ -35,7 +35,7 @@ create_to_gateway_tx(const tal_t *ctx,
 
 union protocol_tx *
 create_claim_tx(const tal_t *ctx,
-		const struct protocol_double_sha *reward_tx,
+		const struct protocol_tx_id *reward_tx,
 		u32 amount,
 		bool pay_fee,
 		EC_KEY *private_key);

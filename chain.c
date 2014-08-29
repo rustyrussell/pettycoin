@@ -467,7 +467,7 @@ static void json_add_tx(char **response,
 {
 	if (shard_is_tx(s, txoff)) {
 		const union protocol_tx *tx = s->u[txoff].txp.tx;
-		struct protocol_double_sha sha;
+		struct protocol_tx_id sha;
 		const struct protocol_input_ref *refs;
 		unsigned int i;
 
@@ -477,7 +477,7 @@ static void json_add_tx(char **response,
 
 		hash_tx(s->u[txoff].txp.tx, &sha);
 		/* "tx" indicates that we know this tx. */
-		json_add_double_sha(response, "tx", &sha);
+		json_add_tx_id(response, "tx", &sha);
 		json_array_start(response, "refs");
 		refs = refs_for(s->u[txoff].txp);
 		for (i = 0; i < num_inputs(tx); i++) {
@@ -494,7 +494,7 @@ static void json_add_tx(char **response,
 		/* We know hash, but not actual tx. */
 		const struct protocol_txrefhash *hash = s->u[txoff].hash;
 
-		json_add_double_sha(response, "txhash", &hash->txhash);
+		json_add_tx_id(response, "txhash", &hash->txhash);
 		json_add_double_sha(response, "refhash", &hash->refhash);
 	}
 }
@@ -503,7 +503,7 @@ static char *json_getblock(struct json_connection *jcon,
 			   const jsmntok_t *params,
 			   char **response)
 {
-	struct protocol_double_sha sha;
+	struct protocol_block_id sha;
 	const struct block *b, *b2;
 	jsmntok_t *block;
 	unsigned int shardnum, i;
@@ -525,7 +525,7 @@ static char *json_getblock(struct json_connection *jcon,
 			       json_tok_contents(jcon->buffer, block));
 
 	json_object_start(response, NULL);
-	json_add_double_sha(response, "hash", &b->sha);
+	json_add_block_id(response, "hash", &b->sha);
 	json_add_num(response, "version", b->hdr->version);
 	json_add_num(response, "features_vote", b->hdr->features_vote);
 	json_add_num(response, "shard_order", b->hdr->shard_order);
@@ -539,10 +539,10 @@ static char *json_getblock(struct json_connection *jcon,
 		     le32_to_cpu(b->tailer->timestamp));
 	json_add_num(response, "difficulty",
 		     le32_to_cpu(b->tailer->difficulty));
-	json_add_double_sha(response, "prev", &b->hdr->prev_block);
+	json_add_block_id(response, "prev", &b->hdr->prev_block);
 	json_array_start(response, "next");
 	list_for_each(&b->children, b2, sibling)
-		json_add_double_sha(response, NULL, &b2->sha);
+		json_add_block_id(response, NULL, &b2->sha);
 	json_array_end(response);
 
 	json_array_start(response, "merkles");
@@ -592,7 +592,7 @@ static char *json_getblockhash(struct json_connection *jcon,
 	if (h < tal_count(jcon->state->block_height)) {
 		struct block *b;
 		list_for_each(jcon->state->block_height[h], b, list)
-			json_add_double_sha(response, NULL, &b->sha);
+			json_add_block_id(response, NULL, &b->sha);
 	}
 	json_array_end(response);
 	return NULL;

@@ -114,7 +114,7 @@ new_working_block(const tal_t *ctx,
 		  unsigned long num_prev_txhashes,
 		  u32 height,
 		  u8 shard_order,
-		  const struct protocol_double_sha *prev_block,
+		  const struct protocol_block_id *prev_block,
 		  const struct protocol_address *fees_to)
 {
 	struct working_block *w;
@@ -311,7 +311,7 @@ static void write_block(int fd, const struct working_block *w)
 	for (shard = 0; shard < w->num_shards; shard++) {
 		s = tal_packet(w, struct protocol_pkt_shard,
 			       PROTOCOL_PKT_SHARD);
-		s->block = w->sha;
+		s->block.sha = w->sha;
 		s->shard = cpu_to_le16(shard);
 		s->err = cpu_to_le16(PROTOCOL_ECODE_NONE);
 
@@ -330,7 +330,7 @@ int main(int argc, char *argv[])
 	tal_t *ctx = tal(NULL, char);
 	struct working_block *w;
 	struct protocol_address reward_address;
-	struct protocol_double_sha prev_hash;
+	struct protocol_block_id prev_hash;
 	u8 *prev_txhashes;
 	u32 difficulty, num_prev_txhashes, height, shard_order;
 
@@ -349,8 +349,7 @@ int main(int argc, char *argv[])
 	if (!valid_difficulty(difficulty))
 		errx(1, "Invalid difficulty");
 
-	if (!from_hex(argv[3], strlen(argv[3]),
-		      prev_hash.sha, sizeof(prev_hash)))
+	if (!from_hex(argv[3], strlen(argv[3]), &prev_hash, sizeof(prev_hash)))
 		errx(1, "Invalid previous hash");
 
 	height = strtoul(argv[5], NULL, 0);

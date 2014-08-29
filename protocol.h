@@ -104,7 +104,7 @@ struct protocol_block_header {
 	/* nonce miner frobs to make SHA work. */
 	u8 nonce2[13];
 	/* SHA of previous block. */
-	struct protocol_double_sha prev_block;
+	struct protocol_block_id prev_block;
 	/* How many prev_txhashes (makes block parsable without knowing prev) */
 	le32 num_prev_txhashes;
 	/* How many blocks away from genesis block. */
@@ -166,7 +166,7 @@ struct protocol_tx_hdr {
 /* Which input are we spending? */
 struct protocol_input {
 	/* This identifies the transaction. */
-	struct protocol_double_sha input;
+	struct protocol_tx_id input;
 	/* This identifies the output.
 	 * For normal transactions, 0 == send_amount, 1 = change */
 	le16 output;
@@ -280,7 +280,7 @@ union protocol_tx {
 
 struct protocol_position {
 	/* The block it's in. */
-	struct protocol_double_sha block;
+	struct protocol_block_id block;
 	/* Shard it's in. */
 	le16 shard;
 	/* Transaction number within the shard. */
@@ -309,7 +309,7 @@ struct protocol_tx_with_proof {
 };
 
 struct protocol_txrefhash {
-	struct protocol_double_sha txhash;
+	struct protocol_tx_id txhash;
 	struct protocol_double_sha refhash;
 };
 

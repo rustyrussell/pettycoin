@@ -99,7 +99,7 @@ static void create_wallet(const char *privkey)
 }
 
 struct utxo {
-	struct protocol_double_sha txid;
+	struct protocol_tx_id txid;
 	unsigned int confirms;
 	unsigned int outnum;
 	unsigned int amount;

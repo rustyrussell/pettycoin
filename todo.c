@@ -16,32 +16,32 @@ static void get_todo_ptrs(struct state *state,
 {
 	switch (cpu_to_le32(todo->pkt.hdr.type)) {
 	case PROTOCOL_PKT_GET_BLOCK:
-		*sha = &todo->pkt.get_block.block;
+		*sha = &todo->pkt.get_block.block.sha;
 		*shardnum = NULL;
 		*txoff = NULL;
 		break;
 	case PROTOCOL_PKT_GET_SHARD:
-		*sha = &todo->pkt.get_shard.block;
+		*sha = &todo->pkt.get_shard.block.sha;
 		*shardnum = &todo->pkt.get_shard.shard;
 		*txoff = NULL;
 		break;
 	case PROTOCOL_PKT_GET_TXMAP:
-		*sha = &todo->pkt.get_txmap.block;
+		*sha = &todo->pkt.get_txmap.block.sha;
 		*shardnum = &todo->pkt.get_txmap.shard;
 		*txoff = NULL;
 		break;
 	case PROTOCOL_PKT_GET_CHILDREN:
-		*sha = &todo->pkt.get_children.block;
+		*sha = &todo->pkt.get_children.block.sha;
 		*shardnum = NULL;
 		*txoff = NULL;
 		break;
 	case PROTOCOL_PKT_GET_TX_IN_BLOCK:
-		*sha = &todo->pkt.get_tx_in_block.pos.block;
+		*sha = &todo->pkt.get_tx_in_block.pos.block.sha;
 		*shardnum = &todo->pkt.get_tx_in_block.pos.shard;
 		*txoff = &todo->pkt.get_tx_in_block.pos.txoff;
 		break;
 	case PROTOCOL_PKT_GET_TX:
-		*sha = &todo->pkt.get_tx.tx;
+		*sha = &todo->pkt.get_tx.tx.sha;
 		*shardnum = NULL;
 		*txoff = NULL;
 		break;
@@ -125,54 +125,54 @@ static void new_todo_request_(struct state *state,
 }
 
 void todo_add_get_children(struct state *state,
-			   const struct protocol_double_sha *block)
+			   const struct protocol_block_id *block)
 {
 	new_todo_request(state, PROTOCOL_PKT_GET_CHILDREN,
 			 struct protocol_pkt_get_children,
-			 block, 0, 0);
+			 &block->sha, 0, 0);
 }
 
 void todo_add_get_block(struct state *state,
-			const struct protocol_double_sha *block)
+			const struct protocol_block_id *block)
 {
 	new_todo_request(state, PROTOCOL_PKT_GET_BLOCK,
 			 struct protocol_pkt_get_block,
-			 block, 0, 0);
+			 &block->sha, 0, 0);
 }
 
 void todo_add_get_shard(struct state *state,
-			const struct protocol_double_sha *block,
+			const struct protocol_block_id *block,
 			u16 shardnum)
 {
 	new_todo_request(state, PROTOCOL_PKT_GET_SHARD,
 			 struct protocol_pkt_get_shard,
-			 block, shardnum, 0);
+			 &block->sha, shardnum, 0);
 }
 
 void todo_add_get_txmap(struct state *state,
-			const struct protocol_double_sha *block,
+			const struct protocol_block_id *block,
 			u16 shardnum)
 {
 	new_todo_request(state, PROTOCOL_PKT_GET_TXMAP,
 			 struct protocol_pkt_get_txmap,
-			 block, shardnum, 0);
+			 &block->sha, shardnum, 0);
 }
 
 void todo_add_get_tx_in_block(struct state *state,
-			      const struct protocol_double_sha *block,
+			      const struct protocol_block_id *block,
 			      u16 shardnum, u8 txoff)
 {
 	new_todo_request(state, PROTOCOL_PKT_GET_TX_IN_BLOCK,
 			 struct protocol_pkt_get_tx_in_block,
-			 block, shardnum, txoff);
+			 &block->sha, shardnum, txoff);
 }
 
 void todo_add_get_tx(struct state *state,
-		     const struct protocol_double_sha *tx)
+		     const struct protocol_tx_id *tx)
 {
 	new_todo_request(state, PROTOCOL_PKT_GET_TX,
 			 struct protocol_pkt_get_tx,
-			 tx, 0, 0);
+			 &tx->sha, 0, 0);
 }
 
 void todo_for_peer(struct peer *peer, void *pkt)
@@ -277,49 +277,52 @@ static void finish_todo(struct peer *peer,
 }
 
 void todo_done_get_children(struct peer *peer,
-			    const struct protocol_double_sha *block,
+			    const struct protocol_block_id *block,
 			    bool success)
 {
-	finish_todo(peer, PROTOCOL_PKT_GET_CHILDREN, block, 0, 0, success);
+	finish_todo(peer, PROTOCOL_PKT_GET_CHILDREN, &block->sha, 0, 0,
+		    success);
 }
 
 void todo_done_get_block(struct peer *peer, 
-			 const struct protocol_double_sha *block,
+			 const struct protocol_block_id *block,
 			 bool success)
 {
-	finish_todo(peer, PROTOCOL_PKT_GET_BLOCK, block, 0, 0, success);
+	finish_todo(peer, PROTOCOL_PKT_GET_BLOCK, &block->sha, 0, 0, success);
 }
 
 void todo_done_get_shard(struct peer *peer,
-			 const struct protocol_double_sha *block,
+			 const struct protocol_block_id *block,
 			 u16 shardnum, bool success)
 {
-	finish_todo(peer, PROTOCOL_PKT_GET_SHARD, block, shardnum, 0, success);
+	finish_todo(peer, PROTOCOL_PKT_GET_SHARD, &block->sha, shardnum, 0,
+		    success);
 }
 
 void todo_done_get_txmap(struct peer *peer,
-			 const struct protocol_double_sha *block,
+			 const struct protocol_block_id *block,
 			 u16 shardnum, bool success)
 {
-	finish_todo(peer, PROTOCOL_PKT_GET_TXMAP, block, shardnum, 0, success);
+	finish_todo(peer, PROTOCOL_PKT_GET_TXMAP, &block->sha, shardnum, 0,
+		    success);
 }
 
 void todo_done_get_tx_in_block(struct peer *peer,
-			       const struct protocol_double_sha *block,
+			       const struct protocol_block_id *block,
 			       u16 shardnum, u8 txoff, bool success)
 {
 	finish_todo(peer, PROTOCOL_PKT_GET_TX_IN_BLOCK,
-		    block, shardnum, txoff, success);
+		    &block->sha, shardnum, txoff, success);
 }
 
 void todo_done_get_tx(struct peer *peer,
-		      const struct protocol_double_sha *tx, bool success)
+		      const struct protocol_tx_id *tx, bool success)
 {
-	finish_todo(peer, PROTOCOL_PKT_GET_TX, tx, 0, 0, success);
+	finish_todo(peer, PROTOCOL_PKT_GET_TX, &tx->sha, 0, 0, success);
 }
 
 void todo_forget_about_block(struct state *state,
-			     const struct protocol_double_sha *block)
+			     const struct protocol_block_id *block)
 {
 	struct todo_request *i, *next;
 
@@ -329,7 +332,7 @@ void todo_forget_about_block(struct state *state,
 		u8 *i_txoff;
 
 		get_todo_ptrs(state, i, &i_sha, &i_shardnum, &i_txoff);
-		if (!structeq(i_sha, block))
+		if (!structeq(i_sha, &block->sha))
 			continue;
 
 		list_del_from(&state->todo, &i->list);

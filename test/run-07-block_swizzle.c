@@ -57,7 +57,7 @@ int generate_main(int argc, char *argv[]);
 void add_txhash_to_hashes(struct state *state,
 			  const tal_t *ctx,
 			  struct block *block, u16 shard, u8 txoff,
-			  const struct protocol_double_sha *txhash)
+			  const struct protocol_tx_id *txhash)
 { fprintf(stderr, "add_txhash_to_hashes called!\n"); abort(); }
 /* Generated stub for add_tx_to_hashes */
 void add_tx_to_hashes(struct state *state,
@@ -138,6 +138,10 @@ bool from_hex(const char *str, size_t slen, void *buf, size_t bufsize)
 void json_add_address(char **result, const char *fieldname, bool test_net,
 		      const struct protocol_address *addr)
 { fprintf(stderr, "json_add_address called!\n"); abort(); }
+/* Generated stub for json_add_block_id */
+void json_add_block_id(char **result, const char *fieldname,
+		       const struct protocol_block_id *id)
+{ fprintf(stderr, "json_add_block_id called!\n"); abort(); }
 /* Generated stub for json_add_double_sha */
 void json_add_double_sha(char **result, const char *fieldname,
 			 const struct protocol_double_sha *sha)
@@ -149,6 +153,10 @@ void json_add_hex(char **result, const char *fieldname, const void *data,
 /* Generated stub for json_add_num */
 void json_add_num(char **result, const char *fieldname, unsigned int value)
 { fprintf(stderr, "json_add_num called!\n"); abort(); }
+/* Generated stub for json_add_tx_id */
+void json_add_tx_id(char **result, const char *fieldname,
+		    const struct protocol_tx_id *id)
+{ fprintf(stderr, "json_add_tx_id called!\n"); abort(); }
 /* Generated stub for json_array_end */
 void json_array_end(char **ptr)
 { fprintf(stderr, "json_array_end called!\n"); abort(); }
@@ -192,27 +200,26 @@ void send_tx_in_block_to_peers(struct state *state, const struct peer *exclude,
 			       struct block *block, u16 shard, u8 txoff)
 { fprintf(stderr, "send_tx_in_block_to_peers called!\n"); abort(); }
 /* Generated stub for todo_add_get_tx */
-void todo_add_get_tx(struct state *state,
-		     const struct protocol_double_sha *tx)
+void todo_add_get_tx(struct state *state, const struct protocol_tx_id *tx)
 { fprintf(stderr, "todo_add_get_tx called!\n"); abort(); }
 /* Generated stub for todo_add_get_tx_in_block */
 void todo_add_get_tx_in_block(struct state *state,
-			      const struct protocol_double_sha *block,
+			      const struct protocol_block_id *block,
 			      u16 shardnum, u8 txoff)
 { fprintf(stderr, "todo_add_get_tx_in_block called!\n"); abort(); }
 /* Generated stub for todo_forget_about_block */
 void todo_forget_about_block(struct state *state,
-			     const struct protocol_double_sha *block)
+			     const struct protocol_block_id *block)
 { fprintf(stderr, "todo_forget_about_block called!\n"); abort(); }
 /* Generated stub for txhash_gettx_ancestor */
 struct txhash_elem *txhash_gettx_ancestor(struct state *state,
-					  const struct protocol_double_sha *sha,
+					  const struct protocol_tx_id *sha,
 					  const struct block *block)
 { fprintf(stderr, "txhash_gettx_ancestor called!\n"); abort(); }
 /* Generated stub for upgrade_tx_in_hashes */
 void upgrade_tx_in_hashes(struct state *state,
 			  const tal_t *ctx,
-			  const struct protocol_double_sha *sha,
+			  const struct protocol_tx_id *sha,
 			  const union protocol_tx *tx)
 { fprintf(stderr, "upgrade_tx_in_hashes called!\n"); abort(); }
 /* Generated stub for wake_peers */
@@ -225,7 +232,7 @@ void restart_generating(struct state *state)
 }
 
 void todo_add_get_shard(struct state *state,
-			const struct protocol_double_sha *block,
+			const struct protocol_block_id *block,
 			u16 shardnum)
 {
 }
@@ -261,7 +268,7 @@ int main(int argc, char *argv[])
 	unsigned int i, j;
 	struct block *b[5], *b_alt[3], *prev, *prev2;
 	enum protocol_ecode e;
-	struct protocol_double_sha sha;
+	struct protocol_block_id sha;
 
 	pseudorand_init();
 	s = new_state(true);
@@ -280,7 +287,7 @@ int main(int argc, char *argv[])
 		fake_time++;
 		e = check_block_header(s, &w->hdr, w->shard_nums,
 				       w->merkles, w->prev_txhashes,
-				       &w->tailer, &prev2, &sha);
+				       &w->tailer, &prev2, &sha.sha);
 		assert(e == PROTOCOL_ECODE_NONE);
 		assert(prev2 == prev);
 
@@ -308,7 +315,7 @@ int main(int argc, char *argv[])
 		fake_time++;
 		e = check_block_header(s, &w->hdr, w->shard_nums,
 				       w->merkles, w->prev_txhashes,
-				       &w->tailer, &prev2, &sha);
+				       &w->tailer, &prev2, &sha.sha);
 		assert(e == PROTOCOL_ECODE_NONE);
 		assert(prev2 == prev);
 		b_alt[i] = block_add(s, prev, &sha,
@@ -340,7 +347,7 @@ int main(int argc, char *argv[])
 	for (j = 0; !solve_block(w); j++);
 	fake_time++;
 	e = check_block_header(s, &w->hdr, w->shard_nums, w->merkles,
-			       w->prev_txhashes, &w->tailer, &prev2, &sha);
+			       w->prev_txhashes, &w->tailer, &prev2, &sha.sha);
 	assert(e == PROTOCOL_ECODE_NONE);
 	assert(prev2 == prev);
 
@@ -364,7 +371,7 @@ int main(int argc, char *argv[])
 	for (j = 0; !solve_block(w); j++);
 	fake_time++;
 	e = check_block_header(s, &w->hdr, w->shard_nums, w->merkles,
-			       w->prev_txhashes, &w->tailer, &prev2, &sha);
+			       w->prev_txhashes, &w->tailer, &prev2, &sha.sha);
 	assert(e == PROTOCOL_ECODE_NONE);
 	assert(prev2 == prev);
 
@@ -391,7 +398,7 @@ int main(int argc, char *argv[])
 	for (j = 0; !solve_block(w); j++);
 	fake_time++;
 	e = check_block_header(s, &w->hdr, w->shard_nums, w->merkles,
-			       w->prev_txhashes, &w->tailer, &prev2, &sha);
+			       w->prev_txhashes, &w->tailer, &prev2, &sha.sha);
 	assert(e == PROTOCOL_ECODE_NONE);
 	assert(prev2 == prev);
 	b[4] = block_add(s, prev, &sha, &w->hdr, w->shard_nums, w->merkles,

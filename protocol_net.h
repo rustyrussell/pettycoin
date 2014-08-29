@@ -122,7 +122,7 @@ struct protocol_pkt_welcome {
 	   What addresses we're interested in (based on lower bits)
 	     u8 interests[(num_shards + 31) / 32 * 4];
 	   Blocks we know about: 10, then power of 2 back.
-	     struct protocol_double_sha block[num_blocks];
+	     struct protocol_block_id block[num_blocks];
 	*/
 };
 
@@ -136,7 +136,7 @@ struct protocol_pkt_horizon {
 
 struct protocol_net_syncblock {
 	/* Hash of block. */
-	struct protocol_double_sha block;
+	struct protocol_block_id block;
 	/* How many children up to the next block */
 	le32 children;
 };
@@ -154,7 +154,7 @@ struct protocol_pkt_get_children {
 	le32 len; /* sizeof(struct protocol_pkt_get_children) */
 	le32 type; /* PROTOCOL_PKT_GET_CHILDREN */
 
-	struct protocol_double_sha block;
+	struct protocol_block_id block;
 };
 
 /* I'm too lazy to count children, but it's more than 0 */
@@ -165,7 +165,7 @@ struct protocol_pkt_children {
 	le32 len; /* sizeof(struct protocol_pkt_children) ... */
 	le32 type; /* PROTOCOL_PKT_CHILDREN */
 
-	struct protocol_double_sha block;
+	struct protocol_block_id block;
 	le32 err; /* PROTOCOL_ECODE_NONE or PROTOCOL_ECODE_UNKNOWN_BLOCK */
 	/* struct protocol_net_syncblock [] */
 };
@@ -195,7 +195,7 @@ struct protocol_pkt_shard {
 	le32 len; /* sizeof(struct protocol_pkt_shard) */
 	le32 type; /* PROTOCOL_PKT_SHARD */
 
-	struct protocol_double_sha block;
+	struct protocol_block_id block;
 	le16 shard;
 	le16 err; /* May be PROTOCOL_ECODE_UNKNOWN_BLOCK or
 		     PROTOCOL_ECODE_UNKNOWN_SHARD */
@@ -282,7 +282,7 @@ struct protocol_pkt_get_block {
 	le32 len; /* sizeof(struct protocol_pkt_get_block) */
 	le32 type; /* PROTOCOL_PKT_GET_BLOCK */
 
-	struct protocol_double_sha block;
+	struct protocol_block_id block;
 };
 
 /* Ask for a specific transaction (reply will be PROTOCOL_PKT_TX
@@ -291,7 +291,7 @@ struct protocol_pkt_get_tx {
 	le32 len; /* sizeof(struct protocol_pkt_tx) */
 	le32 type; /* PROTOCOL_PKT_GET_TX */
 
-	struct protocol_double_sha tx;
+	struct protocol_tx_id tx;
 };
 
 /* Ask for a specific block pos (reply will be PROTOCOL_PKT_TX_IN_BLOCK). */
@@ -307,7 +307,7 @@ struct protocol_pkt_get_shard {
 	le32 len; /* sizeof(struct protocol_pkt_get_shard) */
 	le32 type; /* PROTOCOL_PKT_GET_SHARD */
 
-	struct protocol_double_sha block;
+	struct protocol_block_id block;
 	le16 shard;
 	le16 unused;
 };
@@ -317,7 +317,7 @@ struct protocol_pkt_get_txmap {
 	le32 len; /* sizeof(struct protocol_pkt_get_txmap) */
 	le32 type; /* PROTOCOL_PKT_GET_TXMAP */
 
-	struct protocol_double_sha block;
+	struct protocol_block_id block;
 	le16 shard;
 	le16 unused;
 };
@@ -327,7 +327,7 @@ struct protocol_pkt_txmap {
 	le32 len; /* sizeof(struct protocol_pkt_get_txmap) */
 	le32 type; /* PROTOCOL_PKT_GET_TXMAP */
 
-	struct protocol_double_sha block;
+	struct protocol_block_id block;
 	le16 shard;
 
 	le16 err; /* PROTOCOL_ECODE_NONE, or PROTOCOL_ECODE_UNKNOWN_BLOCK */
@@ -350,14 +350,14 @@ struct protocol_pkt_peers {
 	/* struct protocol_net_address[] */
 };
 
-/* Followed by struct protocol_double_sha of block. */
+/* Followed by struct protocol_block_id of block. */
 #define PROTOCOL_PKT_PIGGYBACK_NEWBLOCK 1
-/* Followed by struct protocol_double_sha of block then le16 shard number. */
+/* Followed by struct protocol_block_id of block then le16 shard number. */
 #define PROTOCOL_PKT_PIGGYBACK_NEWSHARD 2
-/* Followed by struct protocol_double_sha of tx, block then le16 shard
+/* Followed by struct protocol_tx_id of tx, block then le16 shard
  * and u8 txoff. */
 #define PROTOCOL_PKT_PIGGYBACK_TX_IN_BLOCK 3
-/* Followed by struct protocol_double_sha of tx. */
+/* Followed by struct protocol_tx_id of tx. */
 #define PROTOCOL_PKT_PIGGYBACK_TX 4
 
 /* This is used to pad packet: information we don't get due to filter. */

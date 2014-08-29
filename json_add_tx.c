@@ -9,7 +9,7 @@ static void json_add_input(char **response, const char *fieldname,
 			   const struct protocol_input *inp)
 {
 	json_object_start(response, fieldname);
-	json_add_double_sha(response, "input", &inp->input);
+	json_add_tx_id(response, "input", &inp->input);
 	json_add_num(response, "output", le16_to_cpu(inp->output));
 	json_object_end(response);
 }
@@ -50,13 +50,13 @@ void json_add_tx(char **response, const char *fieldname,
 		 const struct block *block,
 		 unsigned int confirms)
 {
-	struct protocol_double_sha sha;
+	struct protocol_tx_id sha;
 
 	json_object_start(response, fieldname);
 	hash_tx(tx, &sha);
-	json_add_double_sha(response, "txid", &sha);
+	json_add_tx_id(response, "txid", &sha);
 	if (block)
-		json_add_double_sha(response, "block", &block->sha);
+		json_add_block_id(response, "block", &block->sha);
 	json_add_num(response, "confirmations", confirms);
 	json_add_num(response, "version", tx->hdr.version);
 	json_add_num(response, "features", tx->hdr.features);

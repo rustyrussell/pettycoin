@@ -44,7 +44,7 @@ struct block {
 	const void *complaint;
 
 	/* Cache double SHA of block */
-	struct protocol_double_sha sha;
+	struct protocol_block_id sha;
 	/* Transactions: may not be fully populated. */
 	struct block_shard **shard;
 };
@@ -53,7 +53,7 @@ struct state;
 
 /* Find anywhere. */
 struct block *block_find_any(struct state *state,
-			     const struct protocol_double_sha *sha);
+			     const struct protocol_block_id *sha);
 
 /* Do we have every tx in this block? */
 bool block_all_known(const struct block *block);
@@ -69,7 +69,7 @@ static inline const struct block *genesis_block(const struct state *state)
 /* Create a new block and add into the state structure. */
 struct block *block_add(struct state *state,
 			struct block *prev,
-			const struct protocol_double_sha *sha,
+			const struct protocol_block_id *sha,
 			const struct protocol_block_header *hdr,
 			const u8 *shard_nums,
 			const struct protocol_double_sha *merkles,

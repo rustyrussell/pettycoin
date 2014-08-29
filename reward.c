@@ -64,7 +64,7 @@ bool reward_get_tx(struct state *state,
 				 - reward_end);
 
 	/* Hash the two shas together. */
-	merkle_two_hashes(&reward_block->sha, &decider->sha, &sha);
+	merkle_two_hashes(&reward_block->sha.sha, &decider->sha.sha, &sha);
 
 	val = BN_bin2bn(sha.sha, sizeof(sha.sha), NULL);
 	assert(val);

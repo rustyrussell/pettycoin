@@ -2,7 +2,7 @@
 #include "txhash.h"
 
 static struct txhash_elem *txhash_i(struct htable *ht,
-				    const struct protocol_double_sha *sha,
+				    const struct protocol_tx_id *sha,
 				    struct txhash_elem *te,
 				    struct txhash_iter *i,
 				    size_t h)
@@ -16,7 +16,7 @@ static struct txhash_elem *txhash_i(struct htable *ht,
 }
 
 struct txhash_elem *txhash_firstval(struct txhash *txhash,
-				    const struct protocol_double_sha *sha,
+				    const struct protocol_tx_id *sha,
 				    struct txhash_iter *i)
 {
 	size_t h = txhash_hashfn(sha);
@@ -27,7 +27,7 @@ struct txhash_elem *txhash_firstval(struct txhash *txhash,
 }
 
 struct txhash_elem *txhash_nextval(struct txhash *txhash,
-				   const struct protocol_double_sha *sha,
+				   const struct protocol_tx_id *sha,
 				   struct txhash_iter *i)
 {
 	size_t h = txhash_hashfn(sha);
@@ -39,7 +39,7 @@ struct txhash_elem *txhash_nextval(struct txhash *txhash,
 
 /* Get the actual transaction, we don't care about which block it's in */
 const union protocol_tx *txhash_gettx(struct txhash *txhash,
-				      const struct protocol_double_sha *sha,
+				      const struct protocol_tx_id *sha,
 				      enum tx_status in_block)
 {
 	struct txhash_iter i;
@@ -76,7 +76,7 @@ void txhash_del_tx(struct txhash *txhash,
 		   u16 shard,
 		   u8 txoff,
 		   enum tx_status status,
-		   const struct protocol_double_sha *sha)
+		   const struct protocol_tx_id *sha)
 {
 	struct txhash_iter i;
 	struct txhash_elem *te;
@@ -116,7 +116,7 @@ void txhash_add_tx(struct txhash *txhash,
 		   u16 shard,
 		   u8 txoff,
 		   enum tx_status status,
-		   const struct protocol_double_sha *sha)
+		   const struct protocol_tx_id *sha)
 {
 	struct txhash_elem *te;
 

@@ -37,11 +37,11 @@ static void usage(void)
 );
 }
 
-static struct protocol_double_sha parse_txhash(const char *txraw, size_t slen)
+static struct protocol_tx_id parse_txhex(const char *txraw, size_t slen)
 {
 	size_t len = slen / 2;
 	union protocol_tx *tx = malloc(len);
-	struct protocol_double_sha sha;
+	struct protocol_tx_id sha;
 
 	if (len < sizeof(struct protocol_tx_hdr))
 		errx(1, "Short raw tx '%s'", txraw);
@@ -57,9 +57,9 @@ static struct protocol_double_sha parse_txhash(const char *txraw, size_t slen)
 	return sha;
 }
 
-static struct protocol_double_sha parse_tx(const char *txstr, le16 *outnum)
+static struct protocol_tx_id parse_tx(const char *txstr, le16 *outnum)
 {
-	struct protocol_double_sha sha;
+	struct protocol_tx_id sha;
 	const char *slash;
 	size_t slen;
 
@@ -73,7 +73,7 @@ static struct protocol_double_sha parse_tx(const char *txstr, le16 *outnum)
 	}
 
 	if (strstarts(txstr, "raw:"))
-		return parse_txhash(txstr + 4, slen - 4);
+		return parse_txhex(txstr + 4, slen - 4);
 
 	if (!from_hex(txstr, slen, &sha.sha, sizeof(sha.sha)))
 		errx(1, "Bad sha '%s'", txstr);

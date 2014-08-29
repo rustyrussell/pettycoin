@@ -5,12 +5,12 @@
 
 union protocol_tx;
 struct protocol_double_sha;
+struct protocol_tx_id;
 struct protocol_input_ref;
 struct protocol_txrefhash;
 
-/* Get txhash, by which we refer to transaction. */
-void hash_tx(const union protocol_tx *tx,
-	     struct protocol_double_sha *sha);
+/* Get hash, by which we refer to transaction. */
+void hash_tx(const union protocol_tx *tx, struct protocol_tx_id *txid);
 
 /* Get refhash, which we merkle with txhash inside a block. */
 void hash_refs(const struct protocol_input_ref *refs,
