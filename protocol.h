@@ -18,7 +18,7 @@
 /* How many shards for initial blocks == 1 << PROTOCOL_INITIAL_SHARD_ORDER */
 #define PROTOCOL_INITIAL_SHARD_ORDER 2
 
-/* Sanity checking, assume < 1 million shards. */
+/* Shard numbers are 16 bit. */
 #define PROTOCOL_MAX_SHARD_ORDER 16
 
 /* Maximum inputs in a single transaction. */
@@ -85,13 +85,21 @@ struct protocol_signature {
  * of the bitcoin block header (timestamp, difficulty, nonce).
  */
 struct protocol_block_header {
+	/* If you don't understand this version, stop now! */
 	u8 version;
+	/* features we're voting for. */
 	u8 features_vote;
+	/* how many shards in this block. */
 	u8 shard_order;
+	/* nonce miner frobs to make SHA work. */
 	u8 nonce2[13];
+	/* SHA of previous block. */
 	struct protocol_double_sha prev_block;
+	/* How many prev_txhashes (makes block parsable without knowing prev) */
 	le32 num_prev_txhashes;
+	/* How many blocks away from genesis block. */
 	le32 height;
+	/* Who can claim a TX_REWARD against this block? */
 	struct protocol_address fees_to;
 };
 
