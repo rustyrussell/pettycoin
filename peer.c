@@ -1486,9 +1486,6 @@ static struct io_plan *welcome_received(struct io_conn *conn, struct peer *peer)
 		return peer_write_packet(peer, err_pkt(peer, e), close_peer);
 	}
 
-	log_info(peer->log, "Welcome received: listen port is %u",
-		 le16_to_cpu(peer->welcome->listen_port));
-
 	/* Are we talking to ourselves? */
 	if (structeq(&peer->welcome->uuid, &state->uuid)) {
 		log_debug(peer->log, "The peer is ourselves: closing");
@@ -1505,6 +1502,9 @@ static struct io_plan *welcome_received(struct io_conn *conn, struct peer *peer)
 		log_debug(peer->log, "Duplicate peer: closing");
 		return io_close(conn);
 	}
+
+	log_info(peer->log, "Welcome received: listen port is %u",
+		 le16_to_cpu(peer->welcome->listen_port));
 
 	/* Replace port we see with port they want us to connect to. */
 	if (peer->welcome->listen_port != peer->you.port) {
