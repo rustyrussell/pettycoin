@@ -33,12 +33,18 @@ update-mocks-test/%: test/%
 	  tail -n +$$END $< >> mocktmp.$*.new; mv mocktmp.$*.new $<; \
 	fi
 
+test/easy_genesis.c: mkgenesis protocol.h block.h
+	echo '/* A deliberately easy genesis block for testing. */' > $@
+	./mkgenesis 0x1ffffff0 1404886369 'MarcusArabellAlex' | sed 's,#include ",#include "../,' >> $@
+
 $(TEST_SOURCES:%=update-mocks-%): $(CCAN_OBJS) $(TEST_HELPER_OBJS)
 
 update-mocks: $(TEST_SOURCES:%=update-mocks-%)
 
 $(TEST_BINS:=.o) : %.o : %.c
 	@$(CC) $(CFLAGS) -Itest/ -c -o $@ $<
+
+$(TEST_BINS:=.o): test/easy_genesis.c
 
 $(TEST_BINS) : $(TEST_HELPER_OBJS) $(CCAN_OBJS)
 
@@ -49,6 +55,8 @@ test-clean:
 	rm -f $(TEST_BINS) test/*.o
 
 test-distclean:
+	$(RM) test/easy_genesis.c
+
 
 include test/standalone/Makefile
 include test/blackbox/Makefile
