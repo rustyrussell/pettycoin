@@ -480,7 +480,6 @@ int main(int argc, char *argv[])
 	bool setup = false;
 	struct thash thash;
 	int fd;
-	unsigned int known_txs = 0;
 
 	err_set_progname(argv[0]);
 
@@ -520,11 +519,11 @@ int main(int argc, char *argv[])
 		const jsmntok_t *t, *end;
 		const char *buffer;
 		const tal_t *this_ctx = tal(ctx, char);
-		char *fromstr = tal_fmt(this_ctx, "%u", known_txs);
 
+		/* FIXME: We should just get the latest, not all. */
 		toks = json_bitcoind(this_ctx, &buffer,
 				     "listtransactions", "gateway",
-				     "999999", fromstr);
+				     "999999", NULL);
 
 		if (!toks)
 			err(1, "Asking bitcoind for transactions");
@@ -558,13 +557,15 @@ int main(int argc, char *argv[])
 				errx(1, "Unexpected type in"
 				     " listtransactions array");
 
+			/* Ignore transactions we sent. */
+			val = json_get_member(buffer, t, "category");
+			if (!json_tok_streq(buffer, val, "receive"))
+				continue;
+
 			/* Not enough confirmations?  Stop here. */
 			val = json_get_member(buffer, t, "confirmations");
 			if (num_of(buffer, val) < REQUIRED_CONFIRMATIONS)
 				break;
-
-			/* Next time, don't need this tx. */
-			known_txs++;
 
 			val = json_get_member(buffer, t, "txid");
 			if (!val)
