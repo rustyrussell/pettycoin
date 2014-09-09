@@ -135,6 +135,7 @@ decoderawtransaction 0100000001362ba4199d822ed6bc5a44885f85f0053a1ebd2582da59b1e
 }
 */
 
+#ifndef TESTING
 static bool get_lock(int fd)
 {
 	struct flock fl;
@@ -227,6 +228,7 @@ static char *ask_process(const tal_t *ctx,
 
 	return output;
 }
+#endif /* !TESTING */
 
 static char *ask_bitcoind(const tal_t *ctx,
 			  const char *req,

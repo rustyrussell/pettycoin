@@ -1,3 +1,4 @@
+run-01-base16
 run-01-base58
 run-01-create_gateway_transaction
 run-01-difficulty
@@ -17,4 +18,5 @@ run-07-block_swizzle
 run-08-simple-chain
 run-08-tx_shard
 run-09-chain
+run-20-gateway
 easy_genesis.c
