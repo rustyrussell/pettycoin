@@ -472,13 +472,18 @@ static bool pettycoin_tx(const tal_t *ctx, const char *privkey,
 	return true;
 }
 
+static void destroy_thash(struct thash *thash)
+{
+	thash_clear(thash);
+}
+
 int main(int argc, char *argv[])
 {
 	tal_t *ctx = tal(NULL, char);
 	const char *privkey;
 	char *pettycoin_dir, *rpc_filename;
 	bool setup = false;
-	struct thash thash;
+	struct thash *thash;
 	int fd;
 
 	err_set_progname(argv[0]);
@@ -508,8 +513,10 @@ int main(int argc, char *argv[])
 		exit(0);
 	}
 
-	thash_init(&thash);
-	fd = read_gateway_txs(&thash);
+	thash = tal(ctx, struct thash);
+	tal_add_destructor(thash, destroy_thash);
+	thash_init(thash);
+	fd = read_gateway_txs(thash);
 	privkey = grab_file(ctx, "gateway-privkey");
 	if (!privkey)
 		err(1, "Reading gateway-privkey");
@@ -579,7 +586,7 @@ int main(int argc, char *argv[])
 				     json_tok_contents(buffer, val));
 
 			/* Do we already know it? */
-			if (thash_get(&thash, &txid))
+			if (thash_get(thash, &txid))
 				continue;
 
 			amount = json_get_member(buffer, t, "amount");
@@ -607,7 +614,7 @@ int main(int argc, char *argv[])
 				err(1, "Writing out txid");
 
 			/* Add to hash so we don't get it again next time. */
-			thash_add(&thash,
+			thash_add(thash,
 				  tal_dup(ctx, struct protocol_double_sha, &txid,
 					  1, 0));
 		}
