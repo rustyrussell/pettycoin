@@ -606,6 +606,10 @@ int main(int argc, char *argv[])
 			if (!write_all(fd, &txid, sizeof(txid)))
 				err(1, "Writing out txid");
 
+			/* Add to hash so we don't get it again next time. */
+			thash_add(&thash,
+				  tal_dup(ctx, struct protocol_double_sha, &txid,
+					  1, 0));
 		}
 		/* Clean up. */
 		tal_free(this_ctx);
