@@ -574,10 +574,25 @@ struct expected_payment {
 static struct expected_payment payments[] = {
 	{ "P-muzsCLFmS1A2ppe8V4Gxro89a4UvZZzgMn",   12340000, false },
 	{ "P-mvASkCxYqjMh3JK5VV52CrTWTwhe2T875G",    1000000, false },
-	{ "P-mzDLJTAWGVuZwwofZLXBxa676gHNU8QtHs", 2000000000, false },
+	/* Refund payment to bitcoin */
+	{ "mzDLJTAWGVuZwwofZLXBxa676gHNU8QtHs", 2000000000 - 1000, false },
 	{ "P-mhe17cf9VGsZH6G6DhsGTQre9LM53qMXDs",    1200000, false }
 };
 	
+static bool mark_off_payment(const char *addr, u64 satoshis)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(payments); i++) {
+		if (streq(addr, payments[i].address)) {
+			assert(!payments[i].complete);
+			assert(satoshis == payments[i].satoshis);
+			payments[i].complete = true;
+			return true;
+		}
+	}
+	return false;
+}
 
 static void fake_sleep(int seconds)
 {
@@ -597,6 +612,25 @@ static void fake_sleep(int seconds)
 	opt_free_table();
 	exit(0);
 }
+
+static const char getinfo_response[] =
+	"{\n"
+	"    \"version\" : 90201,\n"
+	"    \"protocolversion\" : 70002,\n"
+	"    \"walletversion\" : 60000,\n"
+	"    \"balance\" : 0.25440000,\n"
+	"    \"blocks\" : 279418,\n"
+	"    \"timeoffset\" : 0,\n"
+	"    \"connections\" : 0,\n"
+	"    \"proxy\" : \"\",\n"
+	"    \"difficulty\" : 1.00000000,\n"
+	"    \"testnet\" : true,\n"
+	"    \"keypoololdest\" : 1386823067,\n"
+	"    \"keypoolsize\" : 101,\n"
+	"    \"paytxfee\" : 0.00001000,\n"
+	"    \"relayfee\" : 0.00001000,\n"
+	"    \"errors\" : \"\"\n"
+	"}\n";
 
 static char *ask_process(const tal_t *ctx,
 			 const char *name,
@@ -655,22 +689,21 @@ static char *ask_process(const tal_t *ctx,
 					return tal_strdup(ctx,
 							  getrawtxs_response[i]);
 			}
+		} else if (streq(arg2, "getinfo")) {
+			return tal_strdup(ctx, getinfo_response);
+		} else if (streq(arg2, "sendtoaddress")) {
+			if (mark_off_payment(arg3,
+					     amount_in_satoshis(arg4,
+								strlen(arg4))))
+				return tal_strdup(ctx, "some-new-bitcoin-txid");
 		}
 	} else if (streq(name, "pettycoin-tx")) {
-		unsigned int i;
-
 		assert(streq(arg1, "--no-fee"));
 		assert(streq(arg2, "from-gateway"));
 		assert(streq(arg3, "FAKE-gateway-privkey"));
-		
-		for (i = 0; i < ARRAY_SIZE(payments); i++) {
-			if (streq(arg4, payments[i].address)) {
-				assert(!payments[i].complete);
-				assert(atoi(arg5) == payments[i].satoshis);
-				payments[i].complete = true;
-				return tal_fmt(ctx, "raw-transaction-%s", arg4);
-			}
-		}
+
+		if (mark_off_payment(arg4, atol(arg5)))
+			return tal_fmt(ctx, "raw-transaction-%s", arg4);
 	} else if (streq(name, "pettycoin-query")) {
 		assert(streq(arg1, "sendrawtransaction"));
 		assert(strstarts(arg2, "raw-transaction-"));

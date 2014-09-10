@@ -24,10 +24,21 @@
 #include <openssl/ec.h>
 #include <openssl/err.h>
 #include <openssl/obj_mac.h>
+#include <stdarg.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+static inline u64 max_satoshi_accepted(bool testnet)
+{
+	/* Accept any valid amount on testnet */
+	if (testnet)
+		return PROTOCOL_MAX_SATOSHI;
+
+	/* $1 limit ~= 0.002 BTC */
+	return 200000;
+}
 
 /* Whee, we're on testnet, who cares? */
 #define REQUIRED_CONFIRMATIONS 1
@@ -440,11 +451,9 @@ static const char *get_first_input_addr(const tal_t *ctx,
 }
 
 /* See "https://en.bitcoin.it/wiki/Proper_Money_Handling_(JSON-RPC)" */
-static bool pettycoin_tx(const tal_t *ctx, const char *privkey,
-			 const char *destaddr, const char *amount,
-			 size_t amount_len)
+static u64 amount_in_satoshis(const char *amount, size_t amount_len)
 {
-	char *out, *end, *amountstr, *pettyaddr;
+	char *end;
 	u64 amt;
 
 	/* We expect <number>.<number>. */
@@ -455,6 +464,14 @@ static bool pettycoin_tx(const tal_t *ctx, const char *privkey,
 	amt += strtoul(end + 1, &end, 10);
 	if (end != amount + amount_len)
 		errx(1, "Bad amount '%.*s'", (int)amount_len, amount);
+
+	return amt;
+}
+
+static bool pettycoin_tx(const tal_t *ctx, const char *privkey,
+			 const char *destaddr, u64 amt)
+{
+	char *out, *amountstr, *pettyaddr;
 
 	amountstr = tal_fmt(ctx, "%llu", (unsigned long long)amt);
 	pettyaddr = tal_fmt(ctx, "P-%s", destaddr);
@@ -474,6 +491,55 @@ static bool pettycoin_tx(const tal_t *ctx, const char *privkey,
 	return true;
 }
 
+static u64 get_txfee(const tal_t *ctx)
+{
+	jsmntok_t *toks;
+	const jsmntok_t *fee;
+	const char *buffer;
+	unsigned int fee_amount;
+
+	toks = json_bitcoind(ctx, &buffer, "getinfo", NULL, NULL, NULL);
+	if (!toks)
+		err(1, "getinfo failed");
+
+	fee = json_get_member(buffer, toks, "paytxfee");
+	if (!fee)
+		errx(1, "getinfo failed to give paytxfee: '%s'", buffer);
+	fee_amount = amount_in_satoshis(buffer + fee->start,
+					fee->end - fee->start);
+	tal_free(toks);
+	return fee_amount;
+}
+
+static bool PRINTF_FMT(5, 6)
+bitcoin_tx(const tal_t *ctx,
+	   const char *destaddr, u64 txfee, u64 amt,
+	   const char *fmt, ...)
+{
+	va_list ap;
+	char *comment, *amountstr, *ret;
+
+	va_start(ap, fmt);
+	comment = tal_vfmt(ctx, fmt, ap);
+	va_end(ap);
+	if (amt <= txfee) {
+		printf("Not refunding tiny amount.  Thanks for donation!\n");
+		return false;
+	}
+
+	amt -= txfee;
+	amountstr = tal_fmt(comment, "%.8Lf", amt / (long double)100000000);
+
+	ret = ask_bitcoind(comment, "sendtoaddress",
+			   destaddr, amountstr, comment);
+	if (!ret)
+		err(1, "Doing sendtoaddress '%s' '%s' '%s'",
+		    destaddr, amountstr, comment);
+
+	tal_free(comment);
+	return true;
+}
+
 static void destroy_thash(struct thash *thash)
 {
 	thash_clear(thash);
@@ -486,6 +552,7 @@ int main(int argc, char *argv[])
 	char *pettycoin_dir, *rpc_filename;
 	bool setup = false;
 	struct thash *thash;
+	u64 txfee;
 	int fd;
 
 	err_set_progname(argv[0]);
@@ -522,6 +589,8 @@ int main(int argc, char *argv[])
 	privkey = grab_file(ctx, "gateway-privkey");
 	if (!privkey)
 		err(1, "Reading gateway-privkey");
+
+	txfee = get_txfee(ctx);
 
 	for (;;) {
 		jsmntok_t *toks;
@@ -561,6 +630,7 @@ int main(int argc, char *argv[])
 			const jsmntok_t *val, *amount;
 			const char *destaddr;
 			struct protocol_double_sha txid;
+			u64 amt;
 
 			if (t->type != JSMN_OBJECT)
 				errx(1, "Unexpected type in"
@@ -591,17 +661,26 @@ int main(int argc, char *argv[])
 			if (thash_get(thash, &txid))
 				continue;
 
-			amount = json_get_member(buffer, t, "amount");
-			if (!amount)
-				errx(1, "No amount in '%s'", buffer);
-
 			/* Get address of first input. */
 			destaddr = get_first_input_addr(this_ctx, buffer, val);
 
-			/* OK, inject new from_gateway tx. */
-			if (!pettycoin_tx(ctx, privkey, destaddr,
-					  buffer + amount->start,
-					  amount->end - amount->start)) {
+			/* Get amount */
+			amount = json_get_member(buffer, t, "amount");
+			if (!amount)
+				errx(1, "No amount in '%s'", buffer);
+			amt = amount_in_satoshis(buffer + amount->start,
+						 amount->end - amount->start);
+
+			if (amt > max_satoshi_accepted(true)) {
+				printf("Returning giant tx %.*s (%llu)\n",
+				       json_tok_len(val),
+				       json_tok_contents(buffer, val),
+				       (unsigned long long)amt);
+				bitcoin_tx(ctx, destaddr, txfee, amt,
+					   "Refund for giant tx %.*s",
+					   json_tok_len(val),
+					   json_tok_contents(buffer, val));
+			} else if (!pettycoin_tx(ctx, privkey, destaddr, amt)) {
 				err(1, "Pettcoin injection failed for"
 				     " from-gateway %s P-%s %.*s",
 				     privkey, destaddr, 
