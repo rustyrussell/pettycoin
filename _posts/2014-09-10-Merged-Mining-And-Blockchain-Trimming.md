@@ -1,6 +1,6 @@
 ---
 layout: post
-commentIssueId: 9
+commentIssueId: 31
 ---
 Bitcoin has a very simple structure: the header is merely 80 bytes:
 
