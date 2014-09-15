@@ -454,8 +454,10 @@ static struct protocol_pkt_set_filter *set_filter_pkt(struct peer *peer)
 	return pkt;
 }
 
-static struct io_plan *close_peer(struct io_conn *conn, struct peer *peer)
+static struct io_plan *close_bad_peer(struct io_conn *conn, struct peer *peer)
 {
+	/* We didn't like this peer, so delete it. */
+	peer_cache_del(peer->state, &peer->you, true);
 	return io_close(conn);
 }
 
@@ -468,7 +470,7 @@ static struct io_plan *plan_output(struct io_conn *conn, struct peer *peer)
 		log_info(peer->log, "sending error packet ");
 		log_add_enum(peer->log, enum protocol_ecode,
 			     peer->error_pkt->error);
-		return peer_write_packet(peer, peer->error_pkt, close_peer);
+		return peer_write_packet(peer, peer->error_pkt, close_bad_peer);
 	}
 
 	/* We're entirely TODO-driven at this point. */
@@ -1451,7 +1453,7 @@ static struct io_plan *check_sync_or_horizon(struct io_conn *conn,
 	}
 
 	if (err != PROTOCOL_ECODE_NONE)
-		return peer_write_packet(peer, err_pkt(peer, err), close_peer);
+		return peer_write_packet(peer, err_pkt(peer, err), close_bad_peer);
 
 	/* Ask them for more peers. */
 	todo_for_peer(peer, pkt_get_peers(peer));
@@ -1483,7 +1485,7 @@ static struct io_plan *welcome_received(struct io_conn *conn, struct peer *peer)
 	if (e != PROTOCOL_ECODE_NONE) {
 		log_unusual(peer->log, "Peer welcome was invalid:");
 		log_add_enum(peer->log, enum protocol_ecode, e);
-		return peer_write_packet(peer, err_pkt(peer, e), close_peer);
+		return peer_write_packet(peer, err_pkt(peer, e), close_bad_peer);
 	}
 
 	/* Are we talking to ourselves? */
