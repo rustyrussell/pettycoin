@@ -52,7 +52,7 @@
 /* An amount, not a psuedonym! */
 #define PROTOCOL_MAX_SATOSHI (0x80000000 / PROTOCOL_TX_MAX_INPUTS)
 
-/* Fees are set at just under 0.3% of total amount + 1 satoshi. */
+/* Fees are set at just under 0.3% of sent amount + 1 satoshi. */
 #define PROTOCOL_FEE(x) ((x) * 3 / 1024 + 1)
 
 /* If we know total, what was fee?  Multiply by number of txs in block. */

@@ -324,9 +324,9 @@ int main(int argc, char *argv[])
 	inputs[0].unused = 0;
 
 	t = create_normal_tx(s, helper_addr(1),
-			     500, 497, 1, true, inputs,
+			     500, 500 - PROTOCOL_FEE(500), 1, true, inputs,
 			     helper_private_key(s, 0));
-	assert(t->normal.change_amount == 497);
+	assert(t->normal.change_amount == 500 - PROTOCOL_FEE(500));
 	assert(num_inputs(t) == 1);
 
 	/* This should create a reference back to the gateway tx */

@@ -54,16 +54,16 @@ Before Alpha02:
 
 * Include power of 2 previous blocks in prev
     * Would allow SPV-style block skips which would enable foldover reward on ancient blocks.
+* Multiple gateways
+    * Requires a mechanism to create new gateways.
+* Simplify welcome message to have 64k bits always.
+    * 8k simply isn't that much, and it's simpler.
 * Complaint for tx in wrong shard.
     * If someone managed to sneak this into the network presently, there'd
 	  be no way for nodes to report it.
 * Fix fee calculation
     * It's currently 3/1024 of the total, it should be 0.3% of the non-change
 	  amount.
-* Multiple gateways
-    * Requires a mechanism to create new gateways.
-* Simplify welcome message to have 64k bits always.
-    * 8k simply isn't that much, and it's simpler.
 * Merge mining
     * Means larger blocks, but we'll want this eventually.
 * Network time consensus

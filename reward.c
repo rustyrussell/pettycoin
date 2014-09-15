@@ -83,5 +83,5 @@ u32 reward_amount(const struct block *block, const union protocol_tx *tx)
 	if (!tx_pays_fee(tx))
 		return 0;
 
-	return PROTOCOL_REWARD(tx_amount_sent(tx), num_txs(block));
+	return PROTOCOL_REWARD(tx_amount_for_fee(tx), num_txs(block));
 }

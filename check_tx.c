@@ -250,7 +250,7 @@ bool correct_amount(struct state *state, const union protocol_tx *tx, u32 total)
 	u32 fee;
 
 	if (tx_pays_fee(tx))
-		fee = PROTOCOL_FEE(tx_amount_sent(tx));
+		fee = PROTOCOL_FEE(tx_amount_for_fee(tx));
 	else
 		fee = 0;
 

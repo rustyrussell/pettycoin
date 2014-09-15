@@ -325,9 +325,9 @@ int main(int argc, char *argv[])
 
 	assert(PROTOCOL_FEE(1000) == 3);
 	t = create_normal_tx(s, helper_addr(1),
-			     600, 397, 1, true, inputs,
+			     600, 400 - PROTOCOL_FEE(600), 1, true, inputs,
 			     helper_private_key(s, 0));
-	assert(t->normal.change_amount == 397);
+	assert(t->normal.change_amount == 400 - PROTOCOL_FEE(600));
 	assert(num_inputs(t) == 1);
 
 	/* This should create a reference back to the gateway tx */
@@ -385,11 +385,11 @@ int main(int argc, char *argv[])
 	inputs[0].output = 1;
 	inputs[0].unused = 0;
 
-	assert(PROTOCOL_FEE(397) == 2);
 	t = create_to_gateway_tx(s, helper_addr(1),
-				 300, 95, 1, true, inputs,
+				 300, 100-PROTOCOL_FEE(600)-PROTOCOL_FEE(300),
+				 1, true, inputs,
 				 helper_private_key(s, 0));
-	assert(t->to_gateway.change_amount == 95);
+	assert(t->to_gateway.change_amount == 100-PROTOCOL_FEE(600)-PROTOCOL_FEE(300));
 	assert(num_inputs(t) == 1);
 
 	/* This should create a reference back to the normal tx */

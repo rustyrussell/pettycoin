@@ -76,7 +76,10 @@ input_key:
 	pubkey_to_addr(input_key, addr);
 }
 
-/* Good for fee calculation. */
+/* Used for fee calculation: amount transferred. */
+u32 tx_amount_for_fee(const union protocol_tx *tx);
+
+/* Total of outputs; when combined with fee, should equal total of inputs. */
 u32 tx_amount_sent(const union protocol_tx *tx);
 
 /* Find the output_num'th output in trans */
