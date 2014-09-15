@@ -111,7 +111,7 @@ struct protocol_pkt_welcome {
 	/* Address we see you at. */
 	struct protocol_net_address you;
 	/* Port you can connect to us at (if != 0) */
-	be16 listen_port;
+	le16 listen_port;
 	/* How many block hashes at end. */
 	le16 num_blocks;
 	/* Our shard_order. */
