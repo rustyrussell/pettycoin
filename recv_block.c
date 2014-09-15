@@ -135,7 +135,8 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 			       prev_txhashes, tailer, &prev, &sha.sha);
 
 	if (e != PROTOCOL_ECODE_NONE) {
-		log_unusual(log, "checking new block gave ");
+		log_unusual(log, "checking new block %u gave ",
+			    le32_to_cpu(hdr->height));
 		log_add_enum(log, enum protocol_ecode, e);
 
 		/* If it was due to unknown prev, ask about that. */
