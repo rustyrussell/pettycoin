@@ -40,7 +40,7 @@
 enum protocol_ecode
 check_block_header(struct state *state,
 		   const struct protocol_block_header *hdr,
-		   const u8 *shard_nums,
+		   const u8 *num_txs,
 		   const struct protocol_double_sha *merkles,
 		   const u8 *prev_txhashes,
 		   const struct protocol_block_tailer *tailer,
@@ -61,7 +61,7 @@ check_block_header(struct state *state,
 	 * keep it around, or ask others about its predecessors, etc) */
 
 	/* Get SHA: should have enough leading zeroes to beat target. */
-	hash_block(hdr, shard_nums, merkles, prev_txhashes, tailer, sha);
+	hash_block(hdr, num_txs, merkles, prev_txhashes, tailer, sha);
 
 	if (!beats_target(sha, le32_to_cpu(tailer->difficulty)))
 		return PROTOCOL_ECODE_INSUFFICIENT_WORK;
@@ -99,7 +99,7 @@ bool shard_belongs_in_block(const struct block *block,
 
 	/* merkle_txs is happy with just the hashes. */
 	assert(shard->txcount + shard->hashcount
-	       == block->shard_nums[shard->shardnum]);
+	       == block->num_txs[shard->shardnum]);
 	merkle_txs(shard, &merkle);
 	return structeq(&block->merkles[shard->shardnum], &merkle);
 }
@@ -310,7 +310,7 @@ void put_proof_in_shard(struct state *state,
 
 	if (!shard->proof)
 		shard->proof = tal_arrz(shard, struct protocol_proof *,
-					block->shard_nums[shard->shardnum]);
+					block->num_txs[shard->shardnum]);
 
 	if (shard->proof[proof->pos.txoff])
 		return;
@@ -383,7 +383,7 @@ void check_block(struct state *state, const struct block *block, bool all)
 		assert(beats_target(&block->sha.sha, diff));
 		assert(tal_count(block->shard) == num_shards(block->hdr));
 	}
-	hash_block(block->hdr, block->shard_nums, block->merkles,
+	hash_block(block->hdr, block->num_txs, block->merkles,
 		   block->prev_txhashes, block->tailer, &sha.sha);
 	assert(structeq(&sha, &block->sha));
 

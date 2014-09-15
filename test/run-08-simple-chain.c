@@ -157,12 +157,12 @@ static struct strmap_block blockmap;
 
 static struct block *add_next_block(struct state *state,
 				    struct block *prev, const char *name,
-				    unsigned int num_txs)
+				    unsigned int tx_count)
 {
 	struct block *b;
 	struct protocol_block_header *hdr;
 	struct protocol_block_tailer *tailer;
-	u8 *shard_nums;
+	u8 *num_txs;
 	struct protocol_block_id dummy = { { { 0 } } };
 
 	hdr = tal(state, struct protocol_block_header);
@@ -172,10 +172,10 @@ static struct block *add_next_block(struct state *state,
 	tailer = tal(state, struct protocol_block_tailer);
 	tailer->difficulty = prev->tailer->difficulty;
 
-	shard_nums = tal_arrz(state, u8, 1 << hdr->shard_order);
-	shard_nums[0] = num_txs;
+	num_txs = tal_arrz(state, u8, 1 << hdr->shard_order);
+	num_txs[0] = tx_count;
 
-	b = new_block(state, &prev->total_work, &dummy, hdr, shard_nums, NULL,
+	b = new_block(state, &prev->total_work, &dummy, hdr, num_txs, NULL,
 		      NULL, tailer);
 	b->prev = prev;
 	b->complaint = NULL;

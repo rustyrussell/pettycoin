@@ -24,7 +24,7 @@ static bool load_block(struct state *state, struct protocol_net_hdr *pkt)
 {
 	struct block *prev, *block;
 	enum protocol_ecode e;
-	const u8 *shard_nums;
+	const u8 *num_txs;
 	const struct protocol_double_sha *merkles;
 	const u8 *prev_txhashes;
 	const struct protocol_block_tailer *tailer;
@@ -32,18 +32,18 @@ static bool load_block(struct state *state, struct protocol_net_hdr *pkt)
 	struct protocol_block_id sha;
 
 	e = unmarshal_block(state->log, (void *)pkt,
-			    &hdr, &shard_nums, &merkles, &prev_txhashes,
+			    &hdr, &num_txs, &merkles, &prev_txhashes,
 			    &tailer);
 	if (e != PROTOCOL_ECODE_NONE)
 		return false;
 
-	e = check_block_header(state, hdr, shard_nums, merkles, prev_txhashes,
+	e = check_block_header(state, hdr, num_txs, merkles, prev_txhashes,
 			       tailer, &prev, &sha.sha);
 	if (e != PROTOCOL_ECODE_NONE)
 		return false;
 
 	block = block_add(state, prev, &sha,
-			  hdr, shard_nums, merkles, prev_txhashes, tailer);
+			  hdr, num_txs, merkles, prev_txhashes, tailer);
 
 	/* Now new block owns the packet. */
 	tal_steal(block, pkt);
@@ -171,7 +171,7 @@ void save_block(struct state *state, struct block *new)
 		return;
 
 	blk = marshal_block(state,
-			    new->hdr, new->shard_nums, new->merkles,
+			    new->hdr, new->num_txs, new->merkles,
 			    new->prev_txhashes, new->tailer);
 	len = le32_to_cpu(blk->len);
 

@@ -22,7 +22,7 @@ static enum protocol_ecode check_ref(struct state *state,
 	if (le16_to_cpu(ref->shard) >= num_shards(b->hdr))
 		return PROTOCOL_ECODE_REF_BAD_SHARD;
 
-	if (ref->txoff >= b->shard_nums[le16_to_cpu(ref->shard)])
+	if (ref->txoff >= b->num_txs[le16_to_cpu(ref->shard)])
 		return PROTOCOL_ECODE_REF_BAD_TXOFF;
 
 	return PROTOCOL_ECODE_NONE;

@@ -136,20 +136,20 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 	struct block *b, *prev;
 	enum protocol_ecode e;
 	const struct protocol_double_sha *merkles;
-	const u8 *shard_nums;
+	const u8 *num_txs;
 	const u8 *prev_txhashes;
 	const struct protocol_block_tailer *tailer;
 	struct protocol_block_id sha;
 
 	e = unmarshal_block_into(log, len, hdr,
-				 &shard_nums, &merkles, &prev_txhashes,
+				 &num_txs, &merkles, &prev_txhashes,
 				 &tailer);
 	if (e != PROTOCOL_ECODE_NONE) {
 		log_unusual(log, "unmarshaling new block gave %u", e);
 		return e;
 	}
 
-	e = check_block_header(state, hdr, shard_nums, merkles,
+	e = check_block_header(state, hdr, num_txs, merkles,
 			       prev_txhashes, tailer, &prev, &sha.sha);
 
 	if (e != PROTOCOL_ECODE_NONE) {
@@ -190,7 +190,7 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 		const struct block *bad_prev;
 		u16 bad_shard;
 
-		b = block_add(state, prev, &sha, hdr, shard_nums, merkles,
+		b = block_add(state, prev, &sha, hdr, num_txs, merkles,
 			      prev_txhashes, tailer);
 
 		/* Now new block owns the packet. */
@@ -333,7 +333,7 @@ static void try_resolve_hashes(struct state *state,
 	unsigned int i;
 
 	/* If we know any of these transactions, resolve them now! */
-	for (i = 0; i < block->shard_nums[shard] && !block->complaint; i++) {
+	for (i = 0; i < block->num_txs[shard] && !block->complaint; i++) {
 		if (shard_is_tx(block->shard[shard], i))
 			continue;
 
@@ -410,18 +410,18 @@ recv_shard(struct state *state, struct log *log, struct peer *peer,
 
 	/* Should have appended all txrefhashes. */
 	if (le32_to_cpu(pkt->len)
-	    != sizeof(*pkt) + b->shard_nums[shard] * sizeof(hashes[0]))
+	    != sizeof(*pkt) + b->num_txs[shard] * sizeof(hashes[0]))
 		return PROTOCOL_ECODE_INVALID_LEN;
 
 	/* Don't send us empty packets! */
-	if (b->shard_nums[shard] == 0)
+	if (b->num_txs[shard] == 0)
 		return PROTOCOL_ECODE_INVALID_LEN;
 
 	log_debug(log, "Got shard %u of ", shard);
 	log_add_struct(log, struct protocol_block_id, &pkt->block);
 
 	/* Check it's right. */
-	merkle_hashes(hashes, 0, b->shard_nums[shard], &merkle);
+	merkle_hashes(hashes, 0, b->num_txs[shard], &merkle);
 	if (!structeq(&b->merkles[shard], &merkle)) {
 		log_unusual(log, "Bad hash for shard %u of ", shard);
 		log_add_struct(log, struct protocol_block_id, &pkt->block);
@@ -438,7 +438,7 @@ recv_shard(struct state *state, struct log *log, struct peer *peer,
 		todo_done_get_shard(peer, &pkt->block, shard, true);
 
 	/* This may resolve some of the txs if we know them already. */
-	for (i = 0; i < b->shard_nums[shard]; i++)
+	for (i = 0; i < b->num_txs[shard]; i++)
 		put_txhash_in_shard(state, b, shard, i, &hashes[i]);
 
 	log_debug(log, "Hashes now in shar. txs %u, hashes %u (of %u)",
@@ -507,8 +507,8 @@ bool recv_block_from_generator(struct state *state, struct log *log,
 
 	num_txs = 0;
 	for (i = 0; i < tal_count(shards); i++) {
-		num_txs += b->shard_nums[i];
-		if (b->shard_nums[i] == 0)
+		num_txs += b->num_txs[i];
+		if (b->num_txs[i] == 0)
 			continue;
 		e = recv_shard(state, log, NULL, shards[i]);
 		if (e != PROTOCOL_ECODE_NONE) {

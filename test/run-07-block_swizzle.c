@@ -293,13 +293,13 @@ int main(int argc, char *argv[])
 				      prev_block_ids, helper_addr(1));
 		for (j = 0; !solve_block(w); j++);
 		fake_time++;
-		e = check_block_header(s, &w->hdr, w->shard_nums,
+		e = check_block_header(s, &w->hdr, w->num_txs,
 				       w->merkles, w->prev_txhashes,
 				       &w->tailer, &prev2, &sha.sha);
 		assert(e == PROTOCOL_ECODE_NONE);
 		assert(prev2 == prev);
 
-		b[i] = block_add(s, prev, &sha, &w->hdr, w->shard_nums,
+		b[i] = block_add(s, prev, &sha, &w->hdr, w->num_txs,
 				 w->merkles, w->prev_txhashes, &w->tailer);
 
 		assert(tal_count(s->longest_chains) == 1);
@@ -322,13 +322,13 @@ int main(int argc, char *argv[])
 				      prev_block_ids, helper_addr(2));
 		for (j = 0; !solve_block(w); j++);
 		fake_time++;
-		e = check_block_header(s, &w->hdr, w->shard_nums,
+		e = check_block_header(s, &w->hdr, w->num_txs,
 				       w->merkles, w->prev_txhashes,
 				       &w->tailer, &prev2, &sha.sha);
 		assert(e == PROTOCOL_ECODE_NONE);
 		assert(prev2 == prev);
 		b_alt[i] = block_add(s, prev, &sha,
-				     &w->hdr, w->shard_nums, w->merkles,
+				     &w->hdr, w->num_txs, w->merkles,
 				     w->prev_txhashes, &w->tailer);
 		if (i == 0) {
 			assert(tal_count(s->longest_chains) == 1);
@@ -356,12 +356,12 @@ int main(int argc, char *argv[])
 			      prev_block_ids, helper_addr(2));
 	for (j = 0; !solve_block(w); j++);
 	fake_time++;
-	e = check_block_header(s, &w->hdr, w->shard_nums, w->merkles,
+	e = check_block_header(s, &w->hdr, w->num_txs, w->merkles,
 			       w->prev_txhashes, &w->tailer, &prev2, &sha.sha);
 	assert(e == PROTOCOL_ECODE_NONE);
 	assert(prev2 == prev);
 
-	b_alt[2] = block_add(s, prev, &sha, &w->hdr, w->shard_nums, w->merkles,
+	b_alt[2] = block_add(s, prev, &sha, &w->hdr, w->num_txs, w->merkles,
 			     w->prev_txhashes, &w->tailer);
 
 	assert(tal_count(s->longest_chains) == 1);
@@ -381,13 +381,13 @@ int main(int argc, char *argv[])
 			      prev_block_ids, helper_addr(1));
 	for (j = 0; !solve_block(w); j++);
 	fake_time++;
-	e = check_block_header(s, &w->hdr, w->shard_nums, w->merkles,
+	e = check_block_header(s, &w->hdr, w->num_txs, w->merkles,
 			       w->prev_txhashes, &w->tailer, &prev2, &sha.sha);
 	assert(e == PROTOCOL_ECODE_NONE);
 	assert(prev2 == prev);
 
 	b[3] = block_add(s, prev, &sha,
-			 &w->hdr, w->shard_nums, w->merkles,
+			 &w->hdr, w->num_txs, w->merkles,
 			 w->prev_txhashes, &w->tailer);
 
 	assert(tal_count(s->longest_chains) == 2);
@@ -409,11 +409,11 @@ int main(int argc, char *argv[])
 			      prev_block_ids, helper_addr(1));
 	for (j = 0; !solve_block(w); j++);
 	fake_time++;
-	e = check_block_header(s, &w->hdr, w->shard_nums, w->merkles,
+	e = check_block_header(s, &w->hdr, w->num_txs, w->merkles,
 			       w->prev_txhashes, &w->tailer, &prev2, &sha.sha);
 	assert(e == PROTOCOL_ECODE_NONE);
 	assert(prev2 == prev);
-	b[4] = block_add(s, prev, &sha, &w->hdr, w->shard_nums, w->merkles,
+	b[4] = block_add(s, prev, &sha, &w->hdr, w->num_txs, w->merkles,
 			 w->prev_txhashes, &w->tailer);
 
 	assert(tal_count(s->longest_chains) == 1);

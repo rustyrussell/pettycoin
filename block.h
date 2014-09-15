@@ -35,7 +35,7 @@ struct block {
 
 	/* The block itself: */
 	const struct protocol_block_header *hdr;
-	const u8 *shard_nums;
+	const u8 *num_txs;
 	const struct protocol_double_sha *merkles;
 	const u8 *prev_txhashes;
 	const struct protocol_block_tailer *tailer;
@@ -71,7 +71,7 @@ struct block *block_add(struct state *state,
 			struct block *prev,
 			const struct protocol_block_id *sha,
 			const struct protocol_block_header *hdr,
-			const u8 *shard_nums,
+			const u8 *num_txs,
 			const struct protocol_double_sha *merkles,
 			const u8 *prev_txhashes,
 			const struct protocol_block_tailer *tailer);

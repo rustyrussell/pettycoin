@@ -331,7 +331,7 @@ static struct protocol_pkt_block *pkt_block(tal_t *ctx, const struct block *b)
 	struct protocol_pkt_block *blk;
  
 	blk = marshal_block(ctx,
-			    b->hdr, b->shard_nums, b->merkles, b->prev_txhashes,
+			    b->hdr, b->num_txs, b->merkles, b->prev_txhashes,
 			    b->tailer);
 
 	return blk;
@@ -467,7 +467,7 @@ static struct io_plan *plan_output(struct io_conn *conn, struct peer *peer)
 
 		if (peer->wblock.hdr) {
 			e = check_block_header(peer->state, peer->wblock.hdr,
-					       peer->wblock.shard_nums,
+					       peer->wblock.num_txs,
 					       peer->wblock.merkles,
 					       peer->wblock.prev_txhashes,
 					       peer->wblock.tailer, &prev,
@@ -917,7 +917,7 @@ recv_get_tx_in_block(struct peer *peer,
 		log_add_struct(peer->log, struct protocol_block_id,
 			       &pkt->pos.block);
 		return PROTOCOL_ECODE_BAD_SHARDNUM;
-	} else if (txoff >= b->shard_nums[shard]) {
+	} else if (txoff >= b->num_txs[shard]) {
 		log_unusual(peer->log, "Invalid get_tx for txoff %u of shard %u of ",
 			    txoff, shard);
 		log_add_struct(peer->log, struct protocol_block_id,
@@ -1527,7 +1527,7 @@ static struct io_plan *welcome_received(struct io_conn *conn, struct peer *peer)
 		/* Unmarshal the block they sent, too. */
 		e = unmarshal_block_into(peer->log,
 					 peer->wblock.len, peer->wblock.hdr, 
-					 &peer->wblock.shard_nums,
+					 &peer->wblock.num_txs,
 					 &peer->wblock.merkles,
 					 &peer->wblock.prev_txhashes,
 					 &peer->wblock.tailer);
@@ -1539,7 +1539,7 @@ static struct io_plan *welcome_received(struct io_conn *conn, struct peer *peer)
 		}
 
 		e = check_block_header(state,
-				       peer->wblock.hdr, peer->wblock.shard_nums,
+				       peer->wblock.hdr, peer->wblock.num_txs,
 				       peer->wblock.merkles,
 				       peer->wblock.prev_txhashes,
 				       peer->wblock.tailer, &prev,

@@ -75,7 +75,7 @@ void check_block_shard(struct state *state,
 {
 	unsigned int i, txcount = 0, hashcount = 0;
 
-	assert(shard->size == block->shard_nums[shard->shardnum]);
+	assert(shard->size == block->num_txs[shard->shardnum]);
 
 	if (shard_all_hashes(shard))
 		assert(!shard->proof);

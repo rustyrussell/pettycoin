@@ -74,7 +74,7 @@ bool check_proof_byhash(const struct protocol_proof *proof,
 		return false;
 
 	/* Can't be the right one if not within shard */
-	if (proof->pos.txoff >= b->shard_nums[shardnum])
+	if (proof->pos.txoff >= b->num_txs[shardnum])
 		return false;
 
 	proof_merkles_to(txrefhash, proof, &merkle);

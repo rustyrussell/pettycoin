@@ -14,7 +14,7 @@ struct welcome_block {
 	size_t len;
 	struct protocol_block_id sha;
 	const struct protocol_block_header *hdr;
-	const u8 *shard_nums;
+	const u8 *num_txs;
 	const struct protocol_double_sha *merkles;
 	const u8 *prev_txhashes;
 	const struct protocol_block_tailer *tailer;

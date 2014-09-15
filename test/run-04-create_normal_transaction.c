@@ -289,13 +289,13 @@ int main(int argc, char *argv[])
 	assert(add_tx(w, &update));
 	for (i = 0; !solve_block(w); i++);
 
-	e = check_block_header(s, &w->hdr, w->shard_nums, w->merkles,
+	e = check_block_header(s, &w->hdr, w->num_txs, w->merkles,
 			       w->prev_txhashes, &w->tailer, &prev, &sha.sha);
 	assert(e == PROTOCOL_ECODE_NONE);
 	assert(prev == &genesis);
 
 	b = block_add(s, prev, &sha,
-		      &w->hdr, w->shard_nums, w->merkles,
+		      &w->hdr, w->num_txs, w->merkles,
 		      w->prev_txhashes, &w->tailer);
 
 	/* This is a NOOP, so should succeed. */
@@ -349,13 +349,13 @@ int main(int argc, char *argv[])
 	assert(add_tx(w2, &update));
 	for (i = 0; !solve_block(w2); i++);
 
-	e = check_block_header(s, &w2->hdr, w2->shard_nums, w2->merkles,
+	e = check_block_header(s, &w2->hdr, w2->num_txs, w2->merkles,
 			       w2->prev_txhashes, &w2->tailer, &prev, &sha.sha);
 	assert(e == PROTOCOL_ECODE_NONE);
 	assert(prev == b);
 
 	b2 = block_add(s, prev, &sha,
-		       &w2->hdr, w2->shard_nums, w2->merkles,
+		       &w2->hdr, w2->num_txs, w2->merkles,
 		       w2->prev_txhashes, &w2->tailer);
 
 	/* This should be correct. */

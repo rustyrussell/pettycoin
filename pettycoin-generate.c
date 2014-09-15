@@ -45,7 +45,7 @@ struct working_block {
 	u32 num_shards;
 	u32 num_trans;
 	struct protocol_block_header hdr;
-	u8 *shard_nums;
+	u8 *num_txs;
 	struct protocol_double_sha *merkles;
 	u8 *prev_txhashes;
 	struct protocol_block_tailer tailer;
@@ -64,7 +64,7 @@ struct working_block {
 static void merkle_hash_shard(struct working_block *w, u32 shard)
 {
 	merkle_hashes(w->trans_hashes[shard],
-		      0, w->shard_nums[shard],
+		      0, w->num_txs[shard],
 		      &w->merkles[shard]);
 }
 
@@ -88,8 +88,8 @@ static void update_partial_hash(struct working_block *w)
 	SHA256_Update(&w->partial, &w->hash_of_merkles,
 		      sizeof(w->hash_of_merkles));
 	SHA256_Update(&w->partial, &w->hdr, sizeof(w->hdr));
-	SHA256_Update(&w->partial, w->shard_nums,
-		      sizeof(*w->shard_nums)*w->num_shards);
+	SHA256_Update(&w->partial, w->num_txs,
+		      sizeof(*w->num_txs)*w->num_shards);
 }
 
 /* Create a new block. */
@@ -117,9 +117,9 @@ new_working_block(const tal_t *ctx,
 	w->num_trans = 0;
 	w->trans_hashes = tal_arr(w, struct protocol_txrefhash *,
 				  w->num_shards);
-	w->shard_nums = tal_arrz(w, u8, w->num_shards);
+	w->num_txs = tal_arrz(w, u8, w->num_shards);
 	w->merkles = tal_arrz(w, struct protocol_double_sha, w->num_shards);
-	if (!w->trans_hashes || !w->shard_nums || !w->merkles)
+	if (!w->trans_hashes || !w->num_txs || !w->merkles)
 		return tal_free(w);
 	for (i = 0; i < w->num_shards; i++) {
 		w->trans_hashes[i] = tal_arr(w->trans_hashes,
@@ -163,11 +163,11 @@ static bool add_tx(struct working_block *w, struct gen_update *update)
 	u8 new_features = 0;
 	size_t num;
 
-	assert(update->shard < tal_count(w->shard_nums));
-	assert(w->shard_nums[update->shard] < 255);
-	assert(update->txoff <= w->shard_nums[update->shard]);
+	assert(update->shard < tal_count(w->num_txs));
+	assert(w->num_txs[update->shard] < 255);
+	assert(update->txoff <= w->num_txs[update->shard]);
 
-	num = w->shard_nums[update->shard];
+	num = w->num_txs[update->shard];
 
 	tal_resize(&w->trans_hashes[update->shard], num + 1);
 
@@ -177,7 +177,7 @@ static bool add_tx(struct working_block *w, struct gen_update *update)
 		(num - update->txoff)
 		* sizeof(w->trans_hashes[update->shard][0]));
 	w->trans_hashes[update->shard][update->txoff] = update->hashes;
-	w->shard_nums[update->shard]++;
+	w->num_txs[update->shard]++;
 	w->num_trans++;
 
 	merkle_hash_shard(w, update->shard);
@@ -288,7 +288,7 @@ static void write_block(int fd, const struct working_block *w)
 	struct protocol_pkt_shard *s;
 	u32 shard, i;
 
-	b = marshal_block(w, &w->hdr, w->shard_nums, w->merkles,
+	b = marshal_block(w, &w->hdr, w->num_txs, w->merkles,
 			  w->prev_txhashes, &w->tailer);
 	if (!write_all(fd, b, le32_to_cpu(b->len)))
 		err(1, "''I'm not trying to cause a b-big s-s-sensation''");
@@ -301,7 +301,7 @@ static void write_block(int fd, const struct working_block *w)
 		s->shard = cpu_to_le16(shard);
 		s->err = cpu_to_le16(PROTOCOL_ECODE_NONE);
 
-		for (i = 0; i < w->shard_nums[shard]; i++)
+		for (i = 0; i < w->num_txs[shard]; i++)
 			tal_packet_append_txrefhash(&s,
 						    &w->trans_hashes[shard][i]);
 

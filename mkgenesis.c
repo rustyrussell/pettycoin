@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
 	struct protocol_block_tailer tailer;
 	struct protocol_double_sha merkles[1 << PROTOCOL_INITIAL_SHARD_ORDER];
 	struct protocol_block_id sha;
-	u8 shard_nums[1 << PROTOCOL_INITIAL_SHARD_ORDER];
+	u8 num_txs[1 << PROTOCOL_INITIAL_SHARD_ORDER];
 	unsigned int i;
 
 	err_set_progname(argv[0]);
@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
 	memset(&hdr.fees_to, 0, sizeof(hdr.fees_to));
 
 	for (i = 0; i < num_shards(&hdr); i++)
-		shard_nums[i] = 0;
+		num_txs[i] = 0;
 
 	for (i = 0; i < num_shards(&hdr); i++)
 		merkle_hashes(NULL, 0, 0, &merkles[i]);
@@ -95,7 +95,7 @@ int main(int argc, char *argv[])
 	/* This will be all zeroes, but let's be precise. */
 	printf("static const u8 genesis_shardnums[] = {\n");
 	for (i = 0; i < num_shards(&hdr); i++)
-		printf("%s%u", i == 0 ? "" : ", ", shard_nums[i]);
+		printf("%s%u", i == 0 ? "" : ", ", num_txs[i]);
 	printf("\n};\n");
 
 	printf("static const struct protocol_double_sha genesis_merkles[] = {\n");
@@ -119,11 +119,11 @@ int main(int argc, char *argv[])
 		       i == 0 ? "\t" : ", ", i);
 	printf("\n};\n");
 
-	hash_block(&hdr, shard_nums, merkles, NULL, &tailer, &sha.sha);
+	hash_block(&hdr, num_txs, merkles, NULL, &tailer, &sha.sha);
 
 	printf("struct block genesis = {\n"
 	       "	.hdr = &genesis_hdr,\n"
-	       "	.shard_nums = genesis_shardnums,\n"
+	       "	.num_txs = genesis_shardnums,\n"
 	       "	.merkles = genesis_merkles,\n"
 	       "	.tailer = &genesis_tlr,\n"
 	       "	.shard = genesis_shards,\n"

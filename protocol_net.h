@@ -174,7 +174,7 @@ struct protocol_pkt_shard {
 		     PROTOCOL_ECODE_UNKNOWN_SHARD */
 
 	/* Only if !err:
-	   struct protocol_txrefhash hash[block->shard_nums[shard]];
+	   struct protocol_txrefhash hash[block->num_txs[shard]];
 	*/
 };
 
@@ -306,7 +306,7 @@ struct protocol_pkt_txmap {
 	le16 err; /* PROTOCOL_ECODE_NONE, or PROTOCOL_ECODE_UNKNOWN_BLOCK */
 
 	/* If err == PROTOCOL_ECODE_NONE, each set bit is a TX you want:
-	   u8 txmap[(block->shard_nums[shard] + 31) / 32 * 4];
+	   u8 txmap[(block->num_txs[shard] + 31) / 32 * 4];
 	*/
 };
 

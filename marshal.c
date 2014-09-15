@@ -13,7 +13,7 @@
 enum protocol_ecode
 unmarshal_block_into(struct log *log,
 		     size_t size, const struct protocol_block_header *hdr,
-		     const u8 **shard_nums,
+		     const u8 **num_txs,
 		     const struct protocol_double_sha **merkles,
 		     const u8 **prev_txhashes,
 		     const struct protocol_block_tailer **tailer)
@@ -41,7 +41,7 @@ unmarshal_block_into(struct log *log,
 	len = sizeof(*hdr);
 
 	/* Shards come next. */
-	*shard_nums = (u8 *)(hdr + 1);
+	*num_txs = (u8 *)(hdr + 1);
 
 	shard_len = 1 << hdr->shard_order;
 	if (add_overflows(shard_len, len)) {
@@ -51,7 +51,7 @@ unmarshal_block_into(struct log *log,
 	len += shard_len;
 
 	/* Merkles come after shard numbers. */
-	*merkles = (struct protocol_double_sha *)(*shard_nums + shard_len);
+	*merkles = (struct protocol_double_sha *)(*num_txs + shard_len);
 
 	/* This can't actually happen, but be thorough. */
 	if (mul_overflows(shard_len, sizeof(struct protocol_double_sha))) {
@@ -103,14 +103,14 @@ enum protocol_ecode
 unmarshal_block(struct log *log,
 		const struct protocol_pkt_block *pkt,
 		const struct protocol_block_header **hdr,
-		const u8 **shard_nums,
+		const u8 **num_txs,
 		const struct protocol_double_sha **merkles,
 		const u8 **prev_txhashes,
 		const struct protocol_block_tailer **tailer)
 {
 	*hdr = (void *)(pkt + 1);
 	return unmarshal_block_into(log, le32_to_cpu(pkt->len) - sizeof(*pkt),
-				     *hdr, shard_nums, merkles, prev_txhashes,
+				     *hdr, num_txs, merkles, prev_txhashes,
 				     tailer);
 }
 
@@ -137,7 +137,7 @@ size_t marshal_block_len(const struct protocol_block_header *hdr)
 
 void marshal_block_into(void *dst,
 			const struct protocol_block_header *hdr,
-			const u8 *shard_nums,
+			const u8 *num_txs,
 			const struct protocol_double_sha *merkles,
 			const u8 *prev_txhashes,
 			const struct protocol_block_tailer *tailer)
@@ -149,7 +149,7 @@ void marshal_block_into(void *dst,
 
 	memcpy(dest, hdr, sizeof(*hdr));
 	dest += sizeof(*hdr);
-	memcpy(dest, shard_nums, shardnum_len);
+	memcpy(dest, num_txs, shardnum_len);
 	dest += shardnum_len;
 	memcpy(dest, merkles, merkle_len);
 	dest += merkle_len;
@@ -161,7 +161,7 @@ void marshal_block_into(void *dst,
 struct protocol_pkt_block *
 marshal_block(const tal_t *ctx,
 	      const struct protocol_block_header *hdr,
-	      const u8 *shard_nums,
+	      const u8 *num_txs,
 	      const struct protocol_double_sha *merkles,
 	      const u8 *prev_txhashes,
 	      const struct protocol_block_tailer *tailer)
@@ -177,7 +177,7 @@ marshal_block(const tal_t *ctx,
 	ret->err = cpu_to_le32(PROTOCOL_ECODE_NONE);
 
 	marshal_block_into(ret + 1,
-			    hdr, shard_nums, merkles, prev_txhashes, tailer);
+			    hdr, num_txs, merkles, prev_txhashes, tailer);
 	return ret;
 }
 

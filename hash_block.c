@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 void hash_block(const struct protocol_block_header *hdr,
-		const u8 *shard_nums,
+		const u8 *num_txs,
 		const struct protocol_double_sha *merkles,
 		const u8 *prev_txhashes,
 		const struct protocol_block_tailer *tailer,
@@ -31,8 +31,8 @@ void hash_block(const struct protocol_block_header *hdr,
 	SHA256_Update(&shactx, &hash_of_prev, sizeof(hash_of_prev));
 	SHA256_Update(&shactx, &hash_of_merkles, sizeof(hash_of_merkles));
 	SHA256_Update(&shactx, hdr, sizeof(*hdr));
-	SHA256_Update(&shactx, shard_nums,
-		      sizeof(*shard_nums) << hdr->shard_order);
+	SHA256_Update(&shactx, num_txs,
+		      sizeof(*num_txs) << hdr->shard_order);
 	SHA256_Update(&shactx, tailer, sizeof(*tailer));
 	SHA256_Double_Final(&shactx, sha);
 }

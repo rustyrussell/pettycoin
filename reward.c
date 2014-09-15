@@ -13,12 +13,12 @@ static void get_shard_and_off(const struct block *b, u32 n,
 	unsigned int i;
 
 	for (i = 0; i < num_shards(b->hdr); i++) {
-		if (n < b->shard_nums[i]) {
+		if (n < b->num_txs[i]) {
 			*shardnum = i;
 			*txoff = n;
 			return;
 		}
-		n -= b->shard_nums[i];
+		n -= b->num_txs[i];
 	}
 	abort();
 }
@@ -29,7 +29,7 @@ static u32 num_txs(const struct block *b)
 	u32 total = 0;
 
 	for (i = 0; i < num_shards(b->hdr); i++)
-		total += b->shard_nums[i];
+		total += b->num_txs[i];
 	return i;
 }
 

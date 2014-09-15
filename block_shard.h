@@ -30,7 +30,7 @@ struct block_shard {
 	/* How many transaction hashes do we have? */
 	u8 hashcount;
 
-	/* What's our max (== block->shard_nums[shard->shardnum]) */
+	/* What's our max (== block->num_txs[shard->shardnum]) */
 	u8 size;
 
 	/* If we don't know all hashes, we store array of proofs here. */

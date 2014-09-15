@@ -412,7 +412,7 @@ void update_block_ptrs_new_block(struct state *state, struct block *block)
 	 * call update_known multiple times if block completely
 	 * known, which breaks the longest_known[] calc.  */
 	for (i = 0; i < num_shards(block->hdr); i++) {
-		if (block->shard_nums[i] == 0)
+		if (block->num_txs[i] == 0)
 			update_block_ptrs_new_shard_or_empty(state, block, i);
 	}
 	if (block_all_known(block)) {

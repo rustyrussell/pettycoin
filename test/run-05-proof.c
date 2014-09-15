@@ -287,13 +287,13 @@ int main(int argc, char *argv[])
 	assert(add_tx(w, &update));
 	for (i = 0; !solve_block(w); i++);
 
-	e = check_block_header(s, &w->hdr, w->shard_nums, w->merkles,
+	e = check_block_header(s, &w->hdr, w->num_txs, w->merkles,
 			       w->prev_txhashes, &w->tailer, &prev, &sha.sha);
 	assert(e == PROTOCOL_ECODE_NONE);
 	assert(prev == &genesis);
 
 	b = block_add(s, prev, &sha,
-		      &w->hdr, w->shard_nums, w->merkles,
+		      &w->hdr, w->num_txs, w->merkles,
 		      w->prev_txhashes, &w->tailer);
 
 	/* This is a NOOP, so should succeed. */

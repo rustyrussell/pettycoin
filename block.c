@@ -33,7 +33,7 @@ static struct block *new_block(const tal_t *ctx,
 			       BIGNUM *prev_work,
 			       const struct protocol_block_id *sha,
 			       const struct protocol_block_header *hdr,
-			       const u8 *shard_nums,
+			       const u8 *num_txs,
 			       const struct protocol_double_sha *merkles,
 			       const u8 *prev_txhashes,
 			       const struct protocol_block_tailer *tailer)
@@ -45,7 +45,7 @@ static struct block *new_block(const tal_t *ctx,
 			prev_work, &block->total_work);
 
 	block->hdr = hdr;
-	block->shard_nums = shard_nums;
+	block->num_txs = num_txs;
 	block->merkles = merkles;
 	block->prev_txhashes = prev_txhashes;
 	block->tailer = tailer;
@@ -55,7 +55,7 @@ static struct block *new_block(const tal_t *ctx,
 	block->shard = tal_arr(block, struct block_shard *, num_shards(hdr));
 	for (i = 0; i < num_shards(hdr); i++)
 		block->shard[i] = new_block_shard(block->shard, i,
-						  shard_nums[i]);
+						  num_txs[i]);
 
 	/* In case we destroy before block_add(), eg. testing. */
 	block->prev = NULL;
@@ -68,7 +68,7 @@ struct block *block_add(struct state *state,
 			struct block *prev,
 			const struct protocol_block_id *sha,
 			const struct protocol_block_header *hdr,
-			const u8 *shard_nums,
+			const u8 *num_txs,
 			const struct protocol_double_sha *merkles,
 			const u8 *prev_txhashes,
 			const struct protocol_block_tailer *tailer)
@@ -79,7 +79,7 @@ struct block *block_add(struct state *state,
 	log_debug(state->log, "Adding block %u ", height);
 	log_add_struct(state->log, struct protocol_block_id, sha);
 
-	block = new_block(state, &prev->total_work, sha, hdr, shard_nums,
+	block = new_block(state, &prev->total_work, sha, hdr, num_txs,
 			  merkles, prev_txhashes, tailer);
 	block->prev = prev;
 
@@ -190,7 +190,7 @@ bool block_empty(const struct block *block)
 	unsigned int i;
 
 	for (i = 0; i < num_shards(block->hdr); i++) {
-		if (block->shard_nums[i] != 0)
+		if (block->num_txs[i] != 0)
 			return false;
 	}
 	return true;
