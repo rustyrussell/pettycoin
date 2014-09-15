@@ -29,6 +29,9 @@ static void seek_predecessor(struct state *state,
 			     size_t size)
 {
 	u32 diff;
+	size_t i;
+
+	/* FIXME: This heuristic is too strict! */
 
 	/* Make sure they did at least 1/16 current work. */
 	diff = le32_to_cpu(state->preferred_chain->tailer->difficulty);
@@ -47,9 +50,19 @@ static void seek_predecessor(struct state *state,
 	}
 
 	add_detached_block(state, pkt_ctx, sha, hdr, size);
-	log_debug(state->log, "Seeking block prev ");
-	log_add_struct(state->log, struct protocol_block_id, &hdr->prevs[0]);
-	todo_add_get_block(state, &hdr->prevs[0]);
+
+	/* Ask for all the prevs we don't have */
+	for (i = 0; i < num_prevs(hdr); i++) {
+		if (block_find_any(state, &hdr->prevs[i]))
+			continue;
+		if (have_detached_block(state, &hdr->prevs[i]))
+			continue;
+
+		log_debug(state->log, "Seeking block prev %i ", i);
+		log_add_struct(state->log, struct protocol_block_id,
+			       &hdr->prevs[i]);
+		todo_add_get_block(state, &hdr->prevs[i]);
+	}
 }
 
 /* When syncing, we ask for txmaps. */
@@ -157,6 +170,7 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 		} else {
 			/* If we're syncing, ask about children, contents */
 			if (peer && peer->we_are_syncing) {
+				/* FIXME: Don't do these if below horizon */
 				todo_add_get_children(state, &b->sha);
 				get_block_contents(state, b);
 			} else {
