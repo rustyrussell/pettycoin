@@ -104,6 +104,10 @@ void log_to_file(int fd, const struct log *log)
 /* Generated stub for logv */
 void logv(struct log *log, enum log_level level, const char *fmt, va_list ap)
 { fprintf(stderr, "logv called!\n"); abort(); }
+/* Generated stub for make_prev_blocks */
+void make_prev_blocks(const struct block *prev,
+		      struct protocol_block_id prevs[PROTOCOL_NUM_PREV_IDS])
+{ fprintf(stderr, "make_prev_blocks called!\n"); abort(); }
 /* Generated stub for marshal_tx_len */
 size_t marshal_tx_len(const union protocol_tx *tx)
 { fprintf(stderr, "marshal_tx_len called!\n"); abort(); }
@@ -184,7 +188,7 @@ static struct block *add_next_block(struct state *state,
 	hdr = tal(state, struct protocol_block_header);
 	hdr->shard_order = PROTOCOL_INITIAL_SHARD_ORDER;
 	hdr->height = cpu_to_le32(le32_to_cpu(prev->hdr->height) + 1);
-	hdr->prev_block = prev->sha;
+	hdr->prevs[0] = prev->sha;
 
 	tailer = tal(state, struct protocol_block_tailer);
 	tailer->difficulty = prev->tailer->difficulty;

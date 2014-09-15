@@ -189,6 +189,10 @@ void log_to_file(int fd, const struct log *log)
 /* Generated stub for logv */
 void logv(struct log *log, enum log_level level, const char *fmt, va_list ap)
 { fprintf(stderr, "logv called!\n"); abort(); }
+/* Generated stub for make_prev_blocks */
+void make_prev_blocks(const struct block *prev,
+		      struct protocol_block_id prevs[PROTOCOL_NUM_PREV_IDS])
+{ fprintf(stderr, "make_prev_blocks called!\n"); abort(); }
 /* Generated stub for reward_amount */
 u32 reward_amount(const struct block *reward_block,
 		  const union protocol_tx *tx)
@@ -268,12 +272,14 @@ int main(int argc, char *argv[])
 	struct gen_update update;
 	struct protocol_input_ref *refs;
 	struct protocol_block_id sha;
+	struct protocol_block_id prevs[PROTOCOL_NUM_PREV_IDS];
 
 	/* We need enough of state to use the real init function here. */
 	pseudorand_init();
 	s = new_state(true);
 	check_chains(s, true);
 
+	memset(prevs, 0, sizeof(prevs));
 	fake_time = le32_to_cpu(genesis_tlr.timestamp) + 1;
 
 	/* Create a block after that, with a gateway tx in it. */
@@ -283,11 +289,12 @@ int main(int argc, char *argv[])
 	assert(num_prev_txhashes(&genesis) == (1 << genesis.hdr->shard_order));
 	assert(tal_count(prev_txhashes) == num_prev_txhashes(&genesis));
 
+	prevs[0] = genesis.sha;
 	w = new_working_block(s, 0x1ffffff0,
 			      prev_txhashes, tal_count(prev_txhashes),
 			      le32_to_cpu(genesis.hdr->height) + 1,
 			      next_shard_order(&genesis),
-			      &genesis.sha, helper_addr(1));
+			      prevs, helper_addr(1));
 
 	payment.send_amount = cpu_to_le32(1000);
 	payment.output_addr = *helper_addr(0);
@@ -332,10 +339,12 @@ int main(int argc, char *argv[])
 
 	/* Solve third block. */
 	fake_time++;
+	prevs[0] = b->sha;
+	prevs[1] = genesis.sha;
 	w = new_working_block(s, 0x1ffffff0, prev_txhashes, num_prev_txhashes(b),
 			      le32_to_cpu(b->hdr->height) + 1,
 			      next_shard_order(b),
-			      &b->sha, helper_addr(1));
+			      prevs, helper_addr(1));
 	for (i = 0; !solve_block(w); i++);
 
 	e = check_block_header(s, &w->hdr, w->shard_nums, w->merkles,

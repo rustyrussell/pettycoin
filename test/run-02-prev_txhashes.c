@@ -114,6 +114,10 @@ void log_to_file(int fd, const struct log *log)
 /* Generated stub for logv */
 void logv(struct log *log, enum log_level level, const char *fmt, va_list ap)
 { fprintf(stderr, "logv called!\n"); abort(); }
+/* Generated stub for make_prev_blocks */
+void make_prev_blocks(const struct block *prev,
+		      struct protocol_block_id prevs[PROTOCOL_NUM_PREV_IDS])
+{ fprintf(stderr, "make_prev_blocks called!\n"); abort(); }
 /* Generated stub for merkle_txs */
 void merkle_txs(const struct block_shard *shard,
 		struct protocol_double_sha *merkle)
@@ -180,7 +184,7 @@ static struct block *add_next_block(struct state *state,
 	hdr = tal(state, struct protocol_block_header);
 	hdr->shard_order = shard_order;
 	hdr->height = cpu_to_le32(le32_to_cpu(prev->hdr->height) + 1);
-	hdr->prev_block = prev->sha;
+	hdr->prevs[0] = prev->sha;
 	hdr->fees_to = *addr;
 
 	tailer = tal(state, struct protocol_block_tailer);

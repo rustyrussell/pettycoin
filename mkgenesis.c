@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
 	hdr.features_vote = 0;
 	hdr.shard_order = PROTOCOL_INITIAL_SHARD_ORDER;
 	memcpy(hdr.nonce2, argv[3] + sizeof(tailer.nonce1), sizeof(hdr.nonce2));
-	memset(&hdr.prev_block, 0, sizeof(hdr.prev_block));
+	memset(hdr.prevs, 0, sizeof(hdr.prevs));
 	hdr.num_prev_txhashes = cpu_to_le32(0);
 	hdr.height = cpu_to_le32(0);
 	memset(&hdr.fees_to, 0, sizeof(hdr.fees_to));

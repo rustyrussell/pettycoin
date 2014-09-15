@@ -5,11 +5,13 @@
 #include "difficulty.h"
 #include "generate.h"
 #include "generating.h"
+#include "hex.h"
 #include "log.h"
 #include "marshal.h"
 #include "packet_io.h"
 #include "peer.h"
 #include "pending.h"
+#include "prev_blocks.h"
 #include "prev_txhashes.h"
 #include "protocol_net.h"
 #include "pseudorand.h"
@@ -239,7 +241,8 @@ static void exec_generator(struct generator *gen)
 		prev_merkle_str[STR_MAX_CHARS(u32)],
 		height[STR_MAX_CHARS(u32)],
 		shard_order[STR_MAX_CHARS(u8)];
-	char prevblock[sizeof(struct protocol_double_sha) * 2 + 1];
+	char *prevstr;
+	struct protocol_block_id prevs[PROTOCOL_NUM_PREV_IDS];
 	char fees_to[sizeof(struct protocol_address) * 2 + 1];
 	char nonce[14 + 1];
 	int i;
@@ -257,8 +260,8 @@ static void exec_generator(struct generator *gen)
 	sprintf(prev_merkle_str, "%zu", tal_count(gen->prev_txhashes));
 	sprintf(height, "%u", le32_to_cpu(last->hdr->height) + 1);
 	sprintf(shard_order, "%u", gen->shard_order);
-	for (i = 0; i < sizeof(struct protocol_double_sha); i++)
-		sprintf(prevblock + i*2, "%02X", last->sha.sha.sha[i]);
+	make_prev_blocks(last, prevs);
+	prevstr = to_hex(gen, prevs, sizeof(prevs));
 	for (i = 0; i < sizeof(struct protocol_address); i++)
 		sprintf(fees_to + i*2, "%02X",
 			gen->state->reward_addr->addr[i]);
@@ -287,7 +290,7 @@ static void exec_generator(struct generator *gen)
 
 		execlp(gen->state->generator,
 		       "pettycoin-generate",
-		       fees_to, difficulty, prevblock, prev_merkle_str,
+		       fees_to, difficulty, prevstr, prev_merkle_str,
 		       height, shard_order, nonce, NULL);
 		exit(127);
 	}
@@ -298,7 +301,7 @@ static void exec_generator(struct generator *gen)
 	log_debug(gen->log, "Running '%s' '%s' '%s' '%s' %s' '%s' '%s' '%s'",
 		  gen->state->generator,
 		  fees_to,
-		  difficulty, prevblock, prev_merkle_str, height, shard_order,
+		  difficulty, prevstr, prev_merkle_str, height, shard_order,
 		  nonce);
 
 	close(outfd[1]);

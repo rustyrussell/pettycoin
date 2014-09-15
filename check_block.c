@@ -64,7 +64,7 @@ check_block_header(struct state *state,
 		return PROTOCOL_ECODE_INSUFFICIENT_WORK;
 
 	/* Don't just search on main chain! */
-	*prev = block_find_any(state, &hdr->prev_block);
+	*prev = block_find_any(state, &hdr->prevs[0]);
 	if (!*prev)
 		return PROTOCOL_ECODE_PRIV_UNKNOWN_PREV;
 

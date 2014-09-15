@@ -41,7 +41,7 @@ int main(int argc, char *argv[])
 {
 	struct state *s = tal(NULL, struct state);
 	struct working_block *w, *w2;
-	struct protocol_block_id prev = { { .sha = { 0 } } };
+	struct protocol_block_id prevs[PROTOCOL_NUM_PREV_IDS];
 	unsigned int i;
 	struct protocol_block_id hash, hash2;
 	union protocol_tx *t;
@@ -50,12 +50,13 @@ int main(int argc, char *argv[])
 
 	/* This creates a new genesis block. */
 	fake_time = 1403486777;
+	memset(prevs, 0, sizeof(prevs));
 	w = new_working_block(s, 0x1ffffff0, NULL, 0, 0,
 			      PROTOCOL_INITIAL_SHARD_ORDER,
-			      &prev, helper_addr(0));
+			      prevs, helper_addr(0));
 
 	for (i = 0; !solve_block(w); i++);
-	assert(i == 87);
+	assert(i == 315);
 
 	hash_block(&w->hdr, w->shard_nums, w->merkles, w->prev_txhashes,
 		   &w->tailer, &hash.sha);
@@ -65,7 +66,7 @@ int main(int argc, char *argv[])
 	assert(w->hdr.features_vote == 0);
 	assert(memcmp(w->hdr.nonce2, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
 		      sizeof(w->hdr.nonce2)) == 0);
-	assert(memcmp(&w->hdr.prev_block, &prev, sizeof(prev)) == 0);
+	assert(memcmp(w->hdr.prevs, prevs, sizeof(w->hdr.prevs)) == 0);
 	assert(w->hdr.shard_order == PROTOCOL_INITIAL_SHARD_ORDER);
 	assert(w->hdr.num_prev_txhashes == 0);
 	assert(memcmp(&w->hdr.fees_to, helper_addr(0), sizeof(w->hdr.fees_to))
@@ -79,8 +80,9 @@ int main(int argc, char *argv[])
 
 	/* Now create a block after that, with a gateway tx in it. */
 	fake_time++;
+	prevs[0] = hash;
 	w2 = new_working_block(s, 0x1ffffff0, NULL, 0, 1,
-			       w->hdr.shard_order, &hash, helper_addr(1));
+			       w->hdr.shard_order, prevs, helper_addr(1));
 
 	payment.send_amount = cpu_to_le32(1000);
 	payment.output_addr = *helper_addr(0);
@@ -105,7 +107,7 @@ int main(int argc, char *argv[])
 	assert(w2->hdr.features_vote == 0);
 	assert(memcmp(w2->hdr.nonce2, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
 		      sizeof(w2->hdr.nonce2)) == 0);
-	assert(memcmp(&w2->hdr.prev_block, &hash, sizeof(hash)) == 0);
+	assert(memcmp(w2->hdr.prevs, prevs, sizeof(w->hdr.prevs)) == 0);
 	assert(w2->hdr.shard_order == PROTOCOL_INITIAL_SHARD_ORDER);
 	assert(le32_to_cpu(w2->hdr.num_prev_txhashes) == 0);
 	assert(memcmp(&w2->hdr.fees_to, helper_addr(1), sizeof(w2->hdr.fees_to))

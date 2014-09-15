@@ -7,6 +7,7 @@
 #include "jsonrpc.h"
 #include "peer.h"
 #include "pending.h"
+#include "prev_blocks.h"
 #include "shard.h"
 #include "tal_arr.h"
 #include "todo.h"
@@ -135,8 +136,11 @@ void check_chains(struct state *state, bool all)
 			if (n == 0)
 				assert(i == genesis_block(state));
 			else {
-				assert(structeq(&i->hdr->prev_block,
-						&i->prev->sha));
+				struct protocol_block_id prevs
+					[PROTOCOL_NUM_PREV_IDS];
+				make_prev_blocks(b->prev, prevs);
+				assert(memcmp(&i->hdr->prevs, prevs,
+					      sizeof(prevs) == 0));
 				if (i->prev->complaint)
 					assert(i->complaint);
 			}
@@ -539,7 +543,10 @@ static char *json_getblock(struct json_connection *jcon,
 		     le32_to_cpu(b->tailer->timestamp));
 	json_add_num(response, "difficulty",
 		     le32_to_cpu(b->tailer->difficulty));
-	json_add_block_id(response, "prev", &b->hdr->prev_block);
+	json_array_start(response, "prevs");
+	for (i = 0; i < PROTOCOL_NUM_PREV_IDS; i++)
+		json_add_block_id(response, NULL, &b->hdr->prevs[i]);
+	json_array_end(response);
 	json_array_start(response, "next");
 	list_for_each(&b->children, b2, sibling)
 		json_add_block_id(response, NULL, &b2->sha);

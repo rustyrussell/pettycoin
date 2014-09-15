@@ -62,7 +62,7 @@ static void seek_predecessor(struct state *state,
 	if (have_detached_block(state, sha)) {
 		log_debug(state->log, "Already have detached block ");
 		log_add_struct(state->log, struct protocol_block_id,
-			       &hdr->prev_block);
+			       &hdr->prevs[0]);
 		return;
 	}
 
@@ -74,8 +74,8 @@ static void seek_predecessor(struct state *state,
 	list_add(&state->detached_blocks, &bd->list);
 
 	log_debug(state->log, "Seeking block prev ");
-	log_add_struct(state->log, struct protocol_block_id, &hdr->prev_block);
-	todo_add_get_block(state, &hdr->prev_block);
+	log_add_struct(state->log, struct protocol_block_id, &hdr->prevs[0]);
+	todo_add_get_block(state, &hdr->prevs[0]);
 }
 
 /* When syncing, we ask for txmaps. */
@@ -499,7 +499,7 @@ void seek_detached_blocks(struct state *state,
 
 again:
 	list_for_each(&state->detached_blocks, bd, list) {
-		if (structeq(&bd->hdr->prev_block, &block->sha)) {
+		if (structeq(&bd->hdr->prevs[0], &block->sha)) {
 			struct block *b;
 
 			list_del_from(&state->detached_blocks, &bd->list);

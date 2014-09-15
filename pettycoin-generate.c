@@ -100,7 +100,7 @@ new_working_block(const tal_t *ctx,
 		  unsigned long num_prev_txhashes,
 		  u32 height,
 		  u8 shard_order,
-		  const struct protocol_block_id *prev_block,
+		  const struct protocol_block_id *prevs,
 		  const struct protocol_address *fees_to)
 {
 	struct working_block *w;
@@ -132,7 +132,7 @@ new_working_block(const tal_t *ctx,
 	w->hdr.version = current_version();
 	w->hdr.features_vote = 0;
 	memset(w->hdr.nonce2, 0, sizeof(w->hdr.nonce2));
-	w->hdr.prev_block = *prev_block;
+	memcpy(w->hdr.prevs, prevs, sizeof(w->hdr.prevs));
 	w->hdr.shard_order = shard_order;
 	w->hdr.num_prev_txhashes = cpu_to_le32(num_prev_txhashes);
 	w->hdr.height = cpu_to_le32(height);
@@ -316,14 +316,14 @@ int main(int argc, char *argv[])
 	tal_t *ctx = tal(NULL, char);
 	struct working_block *w;
 	struct protocol_address reward_address;
-	struct protocol_block_id prev_hash;
+	struct protocol_block_id prev_hashes[PROTOCOL_NUM_PREV_IDS];
 	u8 *prev_txhashes;
 	u32 difficulty, num_prev_txhashes, height, shard_order;
 
 	err_set_progname(argv[0]);
 
 	if (argc != 7 && argc != 8)
-		errx(1, "Usage: %s <reward_addr> <difficulty> <prevhash>"
+		errx(1, "Usage: %s <reward_addr> <difficulty> <prevhashes>"
 		     " <num-prev-txhashes> <height> <shardorder> [<nonce>]",
 			argv[0]);
 
@@ -335,8 +335,9 @@ int main(int argc, char *argv[])
 	if (!valid_difficulty(difficulty))
 		errx(1, "Invalid difficulty");
 
-	if (!from_hex(argv[3], strlen(argv[3]), &prev_hash, sizeof(prev_hash)))
-		errx(1, "Invalid previous hash");
+	if (!from_hex(argv[3], strlen(argv[3]), &prev_hashes,
+		      sizeof(prev_hashes)))
+		errx(1, "Invalid previous hashes");
 
 	height = strtoul(argv[5], NULL, 0);
 	shard_order = strtoul(argv[6], NULL, 0);
@@ -349,7 +350,7 @@ int main(int argc, char *argv[])
 		exit(0);
 
 	w = new_working_block(ctx, difficulty, prev_txhashes, num_prev_txhashes,
-			      height, shard_order, &prev_hash, &reward_address);
+			      height, shard_order, prev_hashes, &reward_address);
 
 	if (argv[7]) {
 		strncpy((char *)w->hdr.nonce2, argv[7],

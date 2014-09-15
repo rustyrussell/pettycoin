@@ -21,6 +21,11 @@
 /* Shard numbers are 16 bit. */
 #define PROTOCOL_MAX_SHARD_ORDER 16
 
+/* We don't allow jumps of more than 2^19.  This is approximately the same
+ * as two horizons (ie. 2 months of 10 second blocks).  If we're trying to
+ * agree on a canonical sequence, we'll need to keep this many. */
+#define PROTOCOL_NUM_PREV_IDS	20
+
 /* Maximum inputs in a single transaction. */
 #define PROTOCOL_TX_MAX_INPUTS 4
 
@@ -103,14 +108,14 @@ struct protocol_block_header {
 	u8 shard_order;
 	/* nonce miner frobs to make SHA work. */
 	u8 nonce2[13];
-	/* SHA of previous block. */
-	struct protocol_block_id prev_block;
 	/* How many prev_txhashes (makes block parsable without knowing prev) */
 	le32 num_prev_txhashes;
 	/* How many blocks away from genesis block. */
 	le32 height;
 	/* Who can claim a TX_REWARD against this block? */
 	struct protocol_address fees_to;
+	/* Previous blocks. */
+	struct protocol_block_id prevs[PROTOCOL_NUM_PREV_IDS];
 };
 
 /* header is followed by an array of (1 << shard_order) u8s, indicating
