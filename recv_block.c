@@ -4,6 +4,7 @@
 #include "check_block.h"
 #include "complain.h"
 #include "create_refs.h"
+#include "detached_block.h"
 #include "difficulty.h"
 #include "ecode_names.h"
 #include "hex.h"
@@ -20,27 +21,6 @@
 #include "tx_in_hashes.h"
 #include <ccan/structeq/structeq.h>
 
-struct block_detached {
-	/* Off state->detached_blocks */
-	struct list_node list;
-	struct protocol_block_id sha;
-
-	const struct protocol_block_header *hdr;
-	const struct protocol_pkt_block *pkt;	
-};
-
-static bool have_detached_block(const struct state *state, 
-				const struct protocol_block_id *sha)
-{
-	struct block_detached *bd;
-
-	list_for_each(&state->detached_blocks, bd, list) {
-		if (structeq(&bd->sha, sha))
-			return true;
-	}
-	return false;
-}
-
 /* Don't let them flood us with cheap, random blocks. */
 static void seek_predecessor(struct state *state, 
 			     const struct protocol_block_id *sha,
@@ -48,7 +28,6 @@ static void seek_predecessor(struct state *state,
 			     const struct protocol_pkt_block *pkt)
 {
 	u32 diff;
-	struct block_detached *bd;
 
 	/* Make sure they did at least 1/16 current work. */
 	diff = le32_to_cpu(state->preferred_chain->tailer->difficulty);
@@ -66,12 +45,7 @@ static void seek_predecessor(struct state *state,
 		return;
 	}
 
-	/* Add it to list of detached blocks. */
-	bd = tal(state, struct block_detached);
-	bd->sha = *sha;
-	bd->hdr = hdr;
-	bd->pkt = tal_steal(bd, pkt);
-	list_add(&state->detached_blocks, &bd->list);
+	add_detached_block(state, sha, hdr, pkt);
 
 	log_debug(state->log, "Seeking block prev ");
 	log_add_struct(state->log, struct protocol_block_id, &hdr->prevs[0]);
@@ -491,28 +465,13 @@ bool recv_block_from_generator(struct state *state, struct log *log,
 	return true;
 }
 
-/* We got a new block: seek detached blocks which need it (may recurse!) */
-void seek_detached_blocks(struct state *state, 
-			  const struct block *block)
+/* Now we know prev for a block, receive it again. */
+void recv_block_reinject(struct state *state,
+			 const struct protocol_pkt_block *pkt)
 {
-	struct block_detached *bd;
+	struct block *b;
 
-again:
-	list_for_each(&state->detached_blocks, bd, list) {
-		if (structeq(&bd->hdr->prevs[0], &block->sha)) {
-			struct block *b;
-
-			list_del_from(&state->detached_blocks, &bd->list);
-
-			log_debug(state->log, "Reinjecting detatched block");
-			/* Inject it through normal path. */
-			recv_block(state, state->log, NULL, bd->pkt, &b);
-			tal_free(bd);
-
-			/* Since that may recurse, we can't trust list. */
-			goto again;
-		}
-	}
+	recv_block(state, state->log, NULL, pkt, &b);
 }
 
 static char *json_submitblock(struct json_connection *jcon,
