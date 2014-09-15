@@ -20,10 +20,19 @@
  */
 bool decode_difficulty(u32 difficulty, BIGNUM *n)
 {
+	u32 exp = (difficulty >> 24);
+	u32 mantissa = difficulty & 0x00FFFFFF;
+
 	BN_init(n);
-	if (!BN_set_word(n, difficulty & 0x00FFFFFF)
-	    || !BN_lshift(n, n, ((difficulty >> 24) - 3) * 8))
-		return false;
+	if (exp <= 3) {
+		mantissa >>= 8*(3-exp);
+		if (!BN_set_word(n, mantissa))
+			return false;
+        } else {
+		if (!BN_set_word(n, mantissa)
+		    || !BN_lshift(n, n, (exp - 3) * 8))
+			return false;
+	}
 	return true;
 }
 
@@ -47,6 +56,54 @@ u32 difficulty_one_sixteenth(u32 difficulty)
 
 	return (exp << 24) | mantissa;
 }
+
+/* Get 1/4 of difficulty value. */
+u32 difficulty_div4(u32 difficulty)
+{
+	u32 exp = (difficulty >> 24);
+	u32 mantissa = difficulty & 0x00FFFFFF;
+
+	/* Will it overflow? */
+	if ((mantissa << 2) & 0xFF000000) {
+		if (exp == SHA256_DIGEST_LENGTH - 1)
+			mantissa = 0x00FFFFFF;
+		else {
+			/* Make it 256 times easier. */
+			exp++;
+			/* Now make it 64 times harder. */
+			mantissa >>= 6;
+		}
+	} else
+		mantissa <<= 2;
+
+	return (exp << 24) | mantissa;
+}
+
+/* Return < 0 if a is easier than b, 0 if equal, > 0 if harder. */
+int difficulty_cmp(u32 a, u32 b)
+{
+	u32 exp_a = (a >> 24), exp_b = (b >> 24);
+	u32 mantissa_a = a & 0x00FFFFFF, mantissa_b = b & 0x00FFFFFF;
+	int exp_diff;
+
+	/* Too different to compare? */
+	exp_diff = exp_a - exp_b;
+	if (exp_diff <= -3)
+		return 1;
+	if (exp_diff >= 3)
+		return -1;
+
+	if (exp_diff < 0)
+		mantissa_a >>= (-exp_diff * 8);
+	else
+		mantissa_b >>= (exp_diff * 8);
+
+	if (mantissa_a < mantissa_b)
+		return 1;
+	else if (mantissa_a > mantissa_b)
+		return -1;
+	return 0;
+}
 		
 static bool encode_difficulty(u32 *exp, u32 *mantissa, BIGNUM *target)
 {
@@ -55,9 +112,12 @@ static bool encode_difficulty(u32 *exp, u32 *mantissa, BIGNUM *target)
 	/* Get exponent. */
 	*exp = BN_num_bytes(target);
 
-	/* Impossibly tiny numbers imply SHA256 has been broken. */
-	if (*exp <= 3)
-		return false;
+	/* Impossibly tiny numbers imply SHA256 has been broken, but handle
+	 * anyway for robustness. */
+	if (*exp <= 3) {
+		*mantissa = BN_get_word(&n) << (8 * (3 - *exp));
+		return true;
+	}
 
 	BN_init(&n);
 	if (!BN_rshift(&n, target, 8 * (*exp - 3))) {

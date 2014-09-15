@@ -17,6 +17,12 @@ bool decode_difficulty(u32 difficulty, BIGNUM *n);
 /* Get 1/16 of difficulty value. */
 u32 difficulty_one_sixteenth(u32 difficulty);
 
+/* Get 1/4 of difficulty value. */
+u32 difficulty_div4(u32 difficulty);
+
+/* Return < 0 if a is easier than b, 0 if equal, > 0 if harder. */
+int difficulty_cmp(u32 a, u32 b);
+
 void total_work_done(u32 difficulty, const BIGNUM *prev, BIGNUM *work);
 
 /* Note that SHA from openssl is little endian, not bigendian as
