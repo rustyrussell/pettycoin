@@ -1510,14 +1510,12 @@ static struct io_plan *welcome_received(struct io_conn *conn, struct peer *peer)
 
 	/* Replace port we see with port they want us to connect to. */
 	if (peer->welcome->listen_port != peer->you.port) {
-		struct protocol_net_address to_addr;
 		log_debug(peer->log, "Peer wants us to connect to port %u",
 			  le16_to_cpu(peer->welcome->listen_port));
 		/* Don't remember this one, we can't connect there. */
 		peer_cache_del(state, &peer->you, true);
-		to_addr = peer->you;
-		to_addr.port = peer->welcome->listen_port;
-		peer_cache_add(state, &to_addr);
+		peer->you.port = peer->welcome->listen_port;
+		peer_cache_add(state, &peer->you);
 	}
 
 	/* Create/update time for this peer. */
