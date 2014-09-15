@@ -12,6 +12,7 @@
 #include "log.h"
 #include "merkle_hashes.h"
 #include "pending.h"
+#include "prev_blocks.h"
 #include "proof.h"
 #include "recv_block.h"
 #include "shard.h"
@@ -21,23 +22,55 @@
 #include "tx_in_hashes.h"
 #include <ccan/structeq/structeq.h>
 
+/* For a given height, what is the reasonable minimal difficulty? */
+static u32 min_difficulty(struct state *state, u32 height)
+{
+	struct block *b;
+	u32 min, lower_bound;
+
+	/* Do we have other blocks of this height? */
+	/* FIXME: Doesn't work if we ever SPV skip! */
+	if (tal_count(state->block_height) >= height) {
+		b = list_top(state->block_height[height], struct block, list);
+
+		/* Different branches could have slightly different
+		 * difficulties, but should be well within factor of 4. */
+		min = difficulty_div4(le32_to_cpu(b->tailer->difficulty));
+	} else {
+		unsigned int h = tal_count(state->block_height) - 1, updatenum;
+
+		b = list_top(state->block_height[h], struct block, list);
+		min = difficulty_div4(le32_to_cpu(b->tailer->difficulty));
+
+		/* Now, every PROTOCOL_DIFFICULTY_UPDATE_BLOCKS it
+		 * could decrease by 4. */
+		for (updatenum = h / PROTOCOL_DIFFICULTY_UPDATE_BLOCKS;
+		     updatenum < height / PROTOCOL_DIFFICULTY_UPDATE_BLOCKS;
+		     updatenum++) {
+			min = difficulty_div4(min);
+		}
+	}
+
+	/* Can never get easier than the genesis block. */
+	lower_bound = le32_to_cpu(genesis_block(state)->tailer->difficulty);
+	if (difficulty_cmp(min, lower_bound) < 0)
+		return lower_bound;
+	return min;
+}
+
 /* Don't let them flood us with cheap, random blocks. */
 static void seek_predecessor(struct state *state, 
 			     const tal_t *pkt_ctx,
 			     const struct protocol_block_id *sha,
 			     const struct protocol_block_header *hdr,
+			     const struct protocol_block_tailer *tailer,
 			     size_t size)
 {
-	u32 diff;
+	u32 min_diff;
 	size_t i;
 
-	/* FIXME: This heuristic is too strict! */
-
-	/* Make sure they did at least 1/16 current work. */
-	diff = le32_to_cpu(state->preferred_chain->tailer->difficulty);
-	diff = difficulty_one_sixteenth(diff);
-
-	if (!beats_target(&sha->sha, diff)) {
+	min_diff = min_difficulty(state, le32_to_cpu(hdr->height));
+	if (difficulty_cmp(le32_to_cpu(tailer->difficulty), min_diff) < 0) {
 		log_debug(state->log, "Ignoring unknown prev in easy block");
 		return;
 	}
@@ -58,7 +91,7 @@ static void seek_predecessor(struct state *state,
 		if (have_detached_block(state, &hdr->prevs[i]))
 			continue;
 
-		log_debug(state->log, "Seeking block prev %i ", i);
+		log_debug(state->log, "Seeking block prev %zi ", i);
 		log_add_struct(state->log, struct protocol_block_id,
 			       &hdr->prevs[i]);
 		todo_add_get_block(state, &hdr->prevs[i]);
@@ -128,7 +161,7 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 		if (peer) {
 			if (e == PROTOCOL_ECODE_PRIV_UNKNOWN_PREV) {
 				seek_predecessor(state, pkt_ctx,
-						 &sha, hdr, len);
+						 &sha, hdr, tailer, len);
 				/* In case we were asking for this,
 				 * we're not any more. */
 				todo_done_get_block(peer, &sha, true);
