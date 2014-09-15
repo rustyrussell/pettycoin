@@ -2,6 +2,17 @@
 #include "chain.h"
 #include "prev_blocks.h"
 
+unsigned int num_prevs(const struct protocol_block_header *hdr)
+{
+	unsigned int i;
+
+	for (i = 0; i < PROTOCOL_NUM_PREV_IDS; i++) {
+		if (le32_to_cpu(hdr->height) < (1 << i))
+			break;
+	}
+
+	return i;
+}
 
 void make_prev_blocks(const struct block *prev,
 		      struct protocol_block_id prevs[PROTOCOL_NUM_PREV_IDS])
