@@ -14,6 +14,7 @@
 #include "merkle_txs.h"
 #include "overflows.h"
 #include "pending.h"
+#include "prev_blocks.h"
 #include "prev_txhashes.h"
 #include "proof.h"
 #include "protocol.h"
@@ -46,6 +47,8 @@ check_block_header(struct state *state,
 		   struct block **prev,
 		   struct protocol_double_sha *sha)
 {
+	struct protocol_block_id prevs[PROTOCOL_NUM_PREV_IDS];
+
 	/* Shouldn't happen, since we check in unmarshal. */
 	if (!version_ok(hdr->version))
 		return PROTOCOL_ECODE_BLOCK_HIGH_VERSION;
@@ -81,6 +84,10 @@ check_block_header(struct state *state,
 	/* Based on previous blocks, how difficult should this be? */
 	if (le32_to_cpu(tailer->difficulty) != get_difficulty(state, *prev))
 		return PROTOCOL_ECODE_BAD_DIFFICULTY;
+
+	make_prev_blocks(*prev, prevs);
+	if (memcmp(hdr->prevs, prevs, sizeof(hdr->prevs)) != 0)
+		return PROTOCOL_ECODE_BAD_PREVS;
 
 	return PROTOCOL_ECODE_NONE;
 }

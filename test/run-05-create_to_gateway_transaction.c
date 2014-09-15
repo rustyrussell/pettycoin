@@ -34,6 +34,7 @@ int generate_main(int argc, char *argv[]);
 #include "../block.c"
 #include "../block_shard.c"
 #include "../prev_txhashes.c"
+#include "../prev_blocks.c"
 #include "../minimal_log.c"
 #include "../signature.c"
 #include "../txhash.c"
@@ -179,10 +180,6 @@ void log_to_file(int fd, const struct log *log)
 /* Generated stub for logv */
 void logv(struct log *log, enum log_level level, const char *fmt, va_list ap)
 { fprintf(stderr, "logv called!\n"); abort(); }
-/* Generated stub for make_prev_blocks */
-void make_prev_blocks(const struct block *prev,
-		      struct protocol_block_id prevs[PROTOCOL_NUM_PREV_IDS])
-{ fprintf(stderr, "make_prev_blocks called!\n"); abort(); }
 /* Generated stub for reward_amount */
 u32 reward_amount(const struct block *reward_block,
 		  const union protocol_tx *tx)

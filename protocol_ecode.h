@@ -62,6 +62,7 @@ enum protocol_ecode {
 	PROTOCOL_ECODE_BAD_DIFFICULTY, /* Wrong difficulty calculation. */
 	PROTOCOL_ECODE_INSUFFICIENT_WORK, /* Didn't meet difficulty. */
 	PROTOCOL_ECODE_BAD_HEIGHT, /* Wasn't prev + 1. */
+	PROTOCOL_ECODE_BAD_PREVS, /* prevs weren't correct. */
 
 	/* protocol_pkt_tx / protocol_pkt_tx_in_block */
 	PROTOCOL_ECODE_TX_HIGH_VERSION, /* transaction version unknown */
