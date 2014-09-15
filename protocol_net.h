@@ -118,11 +118,11 @@ struct protocol_pkt_welcome {
 	/* Followed by marshalled "best" block (if not genesis). */
 };
 
-struct protocol_net_syncblock {
+struct protocol_net_childblock {
 	/* Hash of block. */
 	struct protocol_block_id block;
-	/* How many children up to the next block */
-	le32 children;
+	/* Hash of all descendents (or 0 if on main chain) */
+	struct protocol_double_sha descendents;
 };
 
 /* Tell me about the direct children of this block. */
@@ -133,9 +133,6 @@ struct protocol_pkt_get_children {
 	struct protocol_block_id block;
 };
 
-/* I'm too lazy to count children, but it's more than 0 */
-#define PROTOCOL_PKT_CHILDREN_SOME	0xffffffff
-
 /* Here are the direct children of this block. */
 struct protocol_pkt_children {
 	le32 len; /* sizeof(struct protocol_pkt_children) ... */
@@ -143,7 +140,7 @@ struct protocol_pkt_children {
 
 	struct protocol_block_id block;
 	le32 err; /* PROTOCOL_ECODE_NONE or PROTOCOL_ECODE_UNKNOWN_BLOCK */
-	/* struct protocol_net_syncblock [] */
+	/* struct protocol_net_childblock [] */
 };
 
 /* Once we set filter, we get told about transactions. */
