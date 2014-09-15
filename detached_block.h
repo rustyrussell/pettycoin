@@ -15,8 +15,9 @@ bool have_detached_block(const struct state *state,
 			 const struct protocol_block_id *sha);
 
 void add_detached_block(struct state *state,
+			const tal_t *pkt_ctx,
 			const struct protocol_block_id *sha,
 			const struct protocol_block_header *hdr,
-			const struct protocol_pkt_block *pkt);
+			size_t size);
 
 #endif /* PETTYCOIN_DETACHED_BLOCK_H */

@@ -12,7 +12,8 @@ struct detached_block {
 	struct protocol_block_id sha;
 
 	const struct protocol_block_header *hdr;
-	const struct protocol_pkt_block *pkt;	
+	size_t size;
+	const tal_t *pkt_ctx;	
 };
 
 
@@ -28,7 +29,8 @@ again:
 
 			log_debug(state->log, "Reinjecting detatched block");
 			/* Inject it through normal path. */
-			recv_block_reinject(state, bd->pkt);
+			recv_block_reinject(state, bd->pkt_ctx,
+					    bd->hdr, bd->size);
 			tal_free(bd);
 
 			/* Since that may recurse, we can't trust list. */
@@ -50,9 +52,10 @@ bool have_detached_block(const struct state *state,
 }
 
 void add_detached_block(struct state *state,
+			const tal_t *pkt_ctx,
 			const struct protocol_block_id *sha,
 			const struct protocol_block_header *hdr,
-			const struct protocol_pkt_block *pkt)
+			size_t size)
 {
 	struct detached_block *bd;
 
@@ -60,6 +63,7 @@ void add_detached_block(struct state *state,
 	bd = tal(state, struct detached_block);
 	bd->sha = *sha;
 	bd->hdr = hdr;
-	bd->pkt = tal_steal(bd, pkt);
+	bd->size = size;
+	bd->pkt_ctx = tal_steal(bd, pkt_ctx);
 	list_add(&state->detached_blocks, &bd->list);
 }

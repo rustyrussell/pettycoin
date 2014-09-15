@@ -23,9 +23,10 @@
 
 /* Don't let them flood us with cheap, random blocks. */
 static void seek_predecessor(struct state *state, 
+			     const tal_t *pkt_ctx,
 			     const struct protocol_block_id *sha,
 			     const struct protocol_block_header *hdr,
-			     const struct protocol_pkt_block *pkt)
+			     size_t size)
 {
 	u32 diff;
 
@@ -45,8 +46,7 @@ static void seek_predecessor(struct state *state,
 		return;
 	}
 
-	add_detached_block(state, sha, hdr, pkt);
-
+	add_detached_block(state, pkt_ctx, sha, hdr, size);
 	log_debug(state->log, "Seeking block prev ");
 	log_add_struct(state->log, struct protocol_block_id, &hdr->prevs[0]);
 	todo_add_get_block(state, &hdr->prevs[0]);
@@ -83,7 +83,9 @@ static void ask_block_contents(struct state *state, const struct block *b)
 /* peer is NULL if from generator, re-trying detached block or jsonrpc. */
 static enum protocol_ecode
 recv_block(struct state *state, struct log *log, struct peer *peer,
-	   const struct protocol_pkt_block *pkt, struct block **block)
+	   const tal_t *pkt_ctx,
+	   const struct protocol_block_header *hdr, size_t len,
+	   struct block **block)
 {
 	struct block *b, *prev;
 	enum protocol_ecode e;
@@ -91,19 +93,15 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 	const u8 *shard_nums;
 	const u8 *prev_txhashes;
 	const struct protocol_block_tailer *tailer;
-	const struct protocol_block_header *hdr;
 	struct protocol_block_id sha;
 
-	e = unmarshal_block(log, pkt,
-			    &hdr, &shard_nums, &merkles, &prev_txhashes,
-			    &tailer);
+	e = unmarshal_block_into(log, len, hdr,
+				 &shard_nums, &merkles, &prev_txhashes,
+				 &tailer);
 	if (e != PROTOCOL_ECODE_NONE) {
 		log_unusual(log, "unmarshaling new block gave %u", e);
 		return e;
 	}
-
-	log_debug(log, "version = %u, features = %u, shard_order = %u",
-		  hdr->version, hdr->features_vote, hdr->shard_order);
 
 	e = check_block_header(state, hdr, shard_nums, merkles,
 			       prev_txhashes, tailer, &prev, &sha.sha);
@@ -116,7 +114,8 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 		/* If it was due to unknown prev, ask about that. */
 		if (peer) {
 			if (e == PROTOCOL_ECODE_PRIV_UNKNOWN_PREV) {
-				seek_predecessor(state, &sha, hdr, pkt);
+				seek_predecessor(state, pkt_ctx,
+						 &sha, hdr, len);
 				/* In case we were asking for this,
 				 * we're not any more. */
 				todo_done_get_block(peer, &sha, true);
@@ -149,7 +148,7 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 			      prev_txhashes, tailer);
 
 		/* Now new block owns the packet. */
-		tal_steal(b, pkt);
+		tal_steal(b, pkt_ctx);
 
 		/* Now check it matches known previous transactions. */
 		if (!check_prev_txhashes(state, b, &bad_prev, &bad_shard)) {
@@ -179,6 +178,25 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 
 	/* FIXME: Try to guess the shards */
 	return PROTOCOL_ECODE_NONE;
+}
+
+/* peer is NULL if from generator, re-trying detached block or jsonrpc. */
+static enum protocol_ecode
+recv_block_pkt(struct state *state, struct log *log, struct peer *peer,
+	       const struct protocol_pkt_block *pkt, struct block **block)
+{
+	const struct protocol_block_header *hdr;
+
+	if (le32_to_cpu(pkt->len) < sizeof(*pkt)) {
+		log_unusual(log, "total size %u < packet size %zu",
+			    le32_to_cpu(pkt->len), sizeof(*pkt));
+		return PROTOCOL_ECODE_INVALID_LEN;
+	}
+
+	hdr = (void *)(pkt + 1);
+	return recv_block(state, log, peer, pkt, hdr,
+			  le32_to_cpu(pkt->len) - sizeof(*pkt),
+			  block);
 }
 
 static struct txptr_with_ref
@@ -399,7 +417,7 @@ enum protocol_ecode recv_block_from_peer(struct peer *peer,
 	struct block *b;
 
 	assert(le32_to_cpu(pkt->err) == PROTOCOL_ECODE_NONE);
-	e = recv_block(peer->state, peer->log, peer, pkt, &b);
+	e = recv_block_pkt(peer->state, peer->log, peer, pkt, &b);
 	if (e == PROTOCOL_ECODE_NONE) {
 		log_info(peer->log, "gave us block %u: ",
 			 le32_to_cpu(b->hdr->height));
@@ -433,7 +451,7 @@ bool recv_block_from_generator(struct state *state, struct log *log,
 
 	/* This "can't happen" when we know everything.  But in future,
 	 * it's theoretically possible.  Plus, code sharing is nice. */
-	e = recv_block(state, log, NULL, pkt, &b);
+	e = recv_block_pkt(state, log, NULL, pkt, &b);
 	if (e != PROTOCOL_ECODE_NONE) {
 		log_unusual(log, "Generator gave broken block: ");
 		log_add_enum(log, enum protocol_ecode, e);
@@ -467,11 +485,12 @@ bool recv_block_from_generator(struct state *state, struct log *log,
 
 /* Now we know prev for a block, receive it again. */
 void recv_block_reinject(struct state *state,
-			 const struct protocol_pkt_block *pkt)
+			 const tal_t *pkt_ctx,
+			 const struct protocol_block_header *hdr, size_t size)
 {
 	struct block *b;
 
-	recv_block(state, state->log, NULL, pkt, &b);
+	recv_block(state, state->log, NULL, pkt_ctx, hdr, size, &b);
 }
 
 static char *json_submitblock(struct json_connection *jcon,
@@ -479,7 +498,7 @@ static char *json_submitblock(struct json_connection *jcon,
 			      char **response)
 {
 	jsmntok_t *tok;
-	struct protocol_pkt_block *pkt;
+	struct protocol_block_header *pkt;
 	struct block *block;
 	size_t len;
 	enum protocol_ecode e;
@@ -495,11 +514,7 @@ static char *json_submitblock(struct json_connection *jcon,
 		      pkt, len))
 		return "Invalid block hex";
 
-	if (len < sizeof(*pkt) || le32_to_cpu(pkt->len) != len)
-		e = PROTOCOL_ECODE_INVALID_LEN;
-	else
-		e = recv_block(jcon->state, jcon->log, NULL, pkt, &block);
-
+	e = recv_block(jcon->state, jcon->log, NULL, pkt, pkt, len, &block);
 	if (e != PROTOCOL_ECODE_NONE)
 		return (char *)ecode_name(e);
 
@@ -511,6 +526,6 @@ const struct json_command submitblock_command = {
 	"submitblock",
 	json_submitblock,
 	"Inject a block",
-	"Takes blockhex (struct protocol_pkt_block in hex), returns block"
+	"Takes marshalled block in hex, returns block"
 };
 
