@@ -245,6 +245,7 @@ static bool find_pending_doublespend(struct state *state,
 	return false;
 }
 
+/* FIXME: Return ECODE_INPUT_UNKNOWN if input is actually pending! */
 enum input_ecode add_pending_tx(struct state *state,
 				const union protocol_tx *tx,
 				const struct protocol_tx_id *sha,
@@ -330,7 +331,6 @@ enum input_ecode add_pending_tx(struct state *state,
 
 	/* We make copy of tx (which is inside a packet) */
 	tx = tx_dup(state->pending, tx);
-	/* If it overflows, pretend it's unknown. */
 	if (ierr == ECODE_INPUT_UNKNOWN)
 		add_to_unknown_pending(state, tx);
 	else if (!insert_pending_tx(state, tx)) {
