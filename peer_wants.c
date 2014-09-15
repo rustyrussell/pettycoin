@@ -9,13 +9,12 @@ static bool peer_wants_shard(const struct peer *peer, u16 shard)
 	const u8 *interests = (const u8 *)(peer->welcome + 1);
 
 	return interests[shard/8] & (1 << (shard % 8));
-}	
+}
 
-/* Is this tx in the shard of this tx? */
+/* Is this tx in a shard wanted by this peer? */
 bool peer_wants_tx(const struct peer *peer, const union protocol_tx *tx)
 {
-	return peer_wants_shard(peer,
-				shard_of_tx(tx, peer->welcome->shard_order));
+	return peer_wants_shard(peer, shard_of_tx(tx, 16));
 }
 
 /* Is this tx in the (other) shard affected by this tx? */
@@ -29,8 +28,7 @@ bool peer_wants_tx_other(const struct peer *peer, const union protocol_tx *tx)
 		return false;
 	case TX_NORMAL:
 		/* This also affects shard of output address. */
-		shard = shard_of(&tx->normal.output_addr,
-				 peer->welcome->shard_order);
+		shard = shard_of(&tx->normal.output_addr, 16);
 		return peer_wants_shard(peer, shard);
 	case TX_TO_GATEWAY:
 	case TX_CLAIM:

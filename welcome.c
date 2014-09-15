@@ -48,22 +48,6 @@ out:
 	(*w)->num_blocks = cpu_to_le16(n);
 }
 
-static void add_interests(const struct state *state,
-			  struct protocol_pkt_welcome **w,
-			  u8 shard_order)
-{
-	size_t i, maplen = ((1 << shard_order) + 31) / 32 * 4;
-	u8 *map = tal_arrz(*w, u8, maplen);
-
-	for (i = 0; i < (1 << shard_order); i++)
-		if (interested_in_shard(state, i, shard_order))
-			map[i / 8] |= (1 << (i % 8));
-
-	(*w)->shard_order = shard_order;
-	tal_packet_append(w, map, maplen);
-	tal_free(map);
-}
-
 struct protocol_pkt_welcome *make_welcome(const tal_t *ctx,
 					  const struct state *state,
 					  const struct protocol_net_address *a)
@@ -77,8 +61,7 @@ struct protocol_pkt_welcome *make_welcome(const tal_t *ctx,
 	w->uuid = state->uuid;
 	w->you = *a;
 	w->listen_port = cpu_to_le16(state->listen_port);
-	memset(w->unused, 0, sizeof(w->unused));
-	add_interests(state, &w, state->preferred_chain->hdr->shard_order);
+	memcpy(w->interests, state->interests, sizeof(w->interests));
 	add_welcome_blocks(state, &w);
 
 	return w;
@@ -98,8 +81,7 @@ enum protocol_ecode check_welcome(const struct state *state,
 				  const struct protocol_pkt_welcome *w,
 				  const struct protocol_block_id **blocks)
 {
-	size_t len = le32_to_cpu(w->len), interest_len;
-	const u8 *interest;
+	size_t len = le32_to_cpu(w->len);
 	const struct block *genesis = genesis_block(state);
 
 	if (len < sizeof(*w))
@@ -108,28 +90,14 @@ enum protocol_ecode check_welcome(const struct state *state,
 		return PROTOCOL_ECODE_UNKNOWN_COMMAND;
 	if (w->version != cpu_to_le32(current_version()))
 		return PROTOCOL_ECODE_HIGH_VERSION;
+	/* This is too lenient, but future-proof. */
+	if (popcount(w->interests, 65536) < 2)
+		return PROTOCOL_ECODE_NO_INTEREST;
 
 	len -= sizeof(*w);
 
-	/* Check number of shards and shard interest bitmap */
-	if (w->shard_order < PROTOCOL_INITIAL_SHARD_ORDER)
-		return PROTOCOL_ECODE_BAD_SHARD_ORDER;
-	/* Must be reasonable. */
-	if (w->shard_order > PROTOCOL_MAX_SHARD_ORDER)
-		return PROTOCOL_ECODE_BAD_SHARD_ORDER;
-
-	/* Interest map follows base welcome struct. */
-	interest = (u8 *)(w + 1);
-	interest_len = (((size_t)1 << w->shard_order) + 31) / 32 * 4;
-	if (len < interest_len)
-		return PROTOCOL_ECODE_INVALID_LEN;
-	if (popcount(interest, (size_t)1 << w->shard_order) < 2)
-		return PROTOCOL_ECODE_NO_INTEREST;
-
-	len -= interest_len;
-
-	/* Blocks follow interest map. */
-	(*blocks) = (struct protocol_block_id *)(interest + interest_len);
+	/* Blocks follow header. */
+	(*blocks) = (struct protocol_block_id *)(w + 1);
 
 	/* At least one block. */
 	if (le16_to_cpu(w->num_blocks) < 1)

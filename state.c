@@ -54,7 +54,7 @@ struct state *new_state(bool test_net)
 	s->log = new_log(s, NULL, "", s->log_level, STATE_LOG_MAX);
 	s->generator = "pettycoin-generate";
 	s->reward_addr = NULL;
-	memset(s->interests, 0xff, sizeof(s->interests)); /* Everything */
+	bitmap_fill(s->interests, 65536); /* Everything */
 	s->require_non_gateway_tx_fee = false;
 	s->require_gateway_tx_fee = false;
 

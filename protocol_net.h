@@ -114,13 +114,9 @@ struct protocol_pkt_welcome {
 	le16 listen_port;
 	/* How many block hashes at end. */
 	le16 num_blocks;
-	/* Our shard_order. */
-	u8 shard_order;
-	/* Pad to 32 bits */
-	u8 unused[3];
+	/* What shards we're interested in. */
+	u8 interests[65536/8];
 	/* Followed by:
-	   What addresses we're interested in (based on lower bits)
-	     u8 interests[(num_shards + 31) / 32 * 4];
 	   Blocks we know about: 10, then power of 2 back.
 	     struct protocol_block_id block[num_blocks];
 	*/
