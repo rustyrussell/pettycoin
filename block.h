@@ -1,6 +1,7 @@
 #ifndef PETTYCOIN_BLOCK_H
 #define PETTYCOIN_BLOCK_H
 #include "config.h"
+#include "block_info.h"
 #include "block_shard.h"
 #include "protocol.h"
 #include "protocol_net.h"
@@ -34,11 +35,7 @@ struct block {
 	struct block *prev;
 
 	/* The block itself: */
-	const struct protocol_block_header *hdr;
-	const u8 *num_txs;
-	const struct protocol_double_sha *merkles;
-	const u8 *prev_txhashes;
-	const struct protocol_block_tailer *tailer;
+	struct block_info bi;
 
 	/* This is set if there's a problem with the block (or ancestor). */
 	const void *complaint;
@@ -70,11 +67,7 @@ static inline const struct block *genesis_block(const struct state *state)
 struct block *block_add(struct state *state,
 			struct block *prev,
 			const struct protocol_block_id *sha,
-			const struct protocol_block_header *hdr,
-			const u8 *num_txs,
-			const struct protocol_double_sha *merkles,
-			const u8 *prev_txhashes,
-			const struct protocol_block_tailer *tailer);
+			const struct block_info *bi);
 
 /* Get tx_idx'th tx inside shard shardnum inside block. */
 union protocol_tx *block_get_tx(const struct block *block, u16 shardnum,

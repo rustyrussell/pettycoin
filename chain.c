@@ -29,7 +29,7 @@ struct block *step_towards(const struct block *curr, const struct block *target)
 	const struct block *prev_target;
 
 	/* Move back towards target. */
-	while (le32_to_cpu(curr->hdr->height) > le32_to_cpu(target->hdr->height))
+	while (block_height(&curr->bi) > block_height(&target->bi))
 		curr = curr->prev;
 
 	/* Already past it, or equal to it */
@@ -37,7 +37,7 @@ struct block *step_towards(const struct block *curr, const struct block *target)
 		return NULL;
 
 	/* Move target back towards curr. */
-	while (le32_to_cpu(target->hdr->height) > le32_to_cpu(curr->hdr->height)) {
+	while (block_height(&target->bi) > block_height(&curr->bi)) {
 		prev_target = target;
 		target = target->prev;
 	}
@@ -130,7 +130,7 @@ void check_chains(struct state *state, bool all)
 		num_next_level = 0;
 		list_for_each(state->block_height[n], i, list) {
 			const struct block *b;
-			assert(le32_to_cpu(i->hdr->height) == n);
+			assert(block_height(&i->bi) == n);
 			assert(num_this_level);
 			num_this_level--;
 			if (n == 0)
@@ -139,7 +139,7 @@ void check_chains(struct state *state, bool all)
 				struct protocol_block_id prevs
 					[PROTOCOL_NUM_PREV_IDS];
 				make_prev_blocks(b->prev, prevs);
-				assert(memcmp(&i->hdr->prevs, prevs,
+				assert(memcmp(block_prev(&i->bi, 0), prevs,
 					      sizeof(prevs) == 0));
 				if (i->prev->complaint)
 					assert(i->complaint);
@@ -336,7 +336,7 @@ static void new_longest(struct state *state, const struct block *block)
 {
 	if (block->pending_features && !state->upcoming_features) {
 		/* Be conservative, halve estimate of time to confirm feature */
-		time_t impact = le32_to_cpu(block->tailer->timestamp)
+		time_t impact = block_timestamp(&block->bi)
 			+ (PROTOCOL_FEATURE_CONFIRM_DELAY
 			   * PROTOCOL_BLOCK_TARGET_TIME(state->test_net) / 2);
 		struct tm *when;
@@ -411,8 +411,8 @@ void update_block_ptrs_new_block(struct state *state, struct block *block)
 	 * update_block_ptrs_new_shard() directly, since that would
 	 * call update_known multiple times if block completely
 	 * known, which breaks the longest_known[] calc.  */
-	for (i = 0; i < num_shards(block->hdr); i++) {
-		if (block->num_txs[i] == 0)
+	for (i = 0; i < num_shards(block->bi.hdr); i++) {
+		if (block->bi.num_txs[i] == 0)
 			update_block_ptrs_new_shard_or_empty(state, block, i);
 	}
 	if (block_all_known(block)) {
@@ -530,22 +530,20 @@ static char *json_getblock(struct json_connection *jcon,
 
 	json_object_start(response, NULL);
 	json_add_block_id(response, "hash", &b->sha);
-	json_add_num(response, "version", b->hdr->version);
-	json_add_num(response, "features_vote", b->hdr->features_vote);
-	json_add_num(response, "shard_order", b->hdr->shard_order);
-	json_add_num(response, "nonce1", le32_to_cpu(b->tailer->nonce1));
-	json_add_hex(response, "nonce2", b->hdr->nonce2,
-		     sizeof(b->hdr->nonce2));
-	json_add_num(response, "height", le32_to_cpu(b->hdr->height));
+	json_add_num(response, "version", b->bi.hdr->version);
+	json_add_num(response, "features_vote", b->bi.hdr->features_vote);
+	json_add_num(response, "shard_order", b->bi.hdr->shard_order);
+	json_add_num(response, "nonce1", le32_to_cpu(b->bi.tailer->nonce1));
+	json_add_hex(response, "nonce2", b->bi.hdr->nonce2,
+		     sizeof(b->bi.hdr->nonce2));
+	json_add_num(response, "height", block_height(&b->bi));
 	json_add_address(response, "fees_to",
-			 jcon->state->test_net, &b->hdr->fees_to);
-	json_add_num(response, "timestamp",
-		     le32_to_cpu(b->tailer->timestamp));
-	json_add_num(response, "difficulty",
-		     le32_to_cpu(b->tailer->difficulty));
+			 jcon->state->test_net, &b->bi.hdr->fees_to);
+	json_add_num(response, "timestamp", block_timestamp(&b->bi));
+	json_add_num(response, "difficulty", block_difficulty(&b->bi));
 	json_array_start(response, "prevs");
 	for (i = 0; i < PROTOCOL_NUM_PREV_IDS; i++)
-		json_add_block_id(response, NULL, &b->hdr->prevs[i]);
+		json_add_block_id(response, NULL, block_prev(&b->bi, i));
 	json_array_end(response);
 	json_array_start(response, "next");
 	list_for_each(&b->children, b2, sibling)
@@ -553,12 +551,12 @@ static char *json_getblock(struct json_connection *jcon,
 	json_array_end(response);
 
 	json_array_start(response, "merkles");
-	for (shardnum = 0; shardnum < num_shards(b->hdr); shardnum++)
-		json_add_double_sha(response, NULL, &b->merkles[shardnum]);
+	for (shardnum = 0; shardnum < num_shards(b->bi.hdr); shardnum++)
+		json_add_double_sha(response, NULL, &b->bi.merkles[shardnum]);
 	json_array_end(response);
 	
 	json_array_start(response, "shards");
-	for (shardnum = 0; shardnum < num_shards(b->hdr); shardnum++) {
+	for (shardnum = 0; shardnum < num_shards(b->bi.hdr); shardnum++) {
 		struct block_shard *s = b->shard[shardnum];
 
 		json_array_start(response, NULL);

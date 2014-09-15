@@ -46,17 +46,15 @@ void tal_packet_append_tx_(void *ppkt, const union protocol_tx *tx)
 	tal_packet_append_(ppkt, tx, marshal_tx_len(tx));
 }
 
-void tal_packet_append_block_(void *ppkt, const struct block *block)
+void tal_packet_append_block_(void *ppkt, const struct block_info *bi)
 {
 	struct protocol_net_hdr **hdr = ppkt;
 	u32 orig_len = le32_to_cpu((*hdr)->len);
-	size_t len = marshal_block_len(block->hdr);
+	size_t len = marshal_block_len(bi->hdr);
 
 	tal_resize((char **)ppkt, orig_len + len);
 	hdr = ppkt;
-	marshal_block_into((char *)*hdr + orig_len,
-			   block->hdr, block->num_txs, block->merkles,
-			   block->prev_txhashes, block->tailer);
+	marshal_block_into((char *)*hdr + orig_len, bi);
 	(*hdr)->len = cpu_to_le32(orig_len + len);
 }
 

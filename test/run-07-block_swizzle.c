@@ -288,19 +288,16 @@ int main(int argc, char *argv[])
 		make_prev_blocks(prev, prev_block_ids);
 		w = new_working_block(s, 0x1ffffff0,
 				      prev_txhashes, tal_count(prev_txhashes),
-				      le32_to_cpu(prev->hdr->height) + 1,
+				      block_height(&prev->bi) + 1,
 				      next_shard_order(prev),
 				      prev_block_ids, helper_addr(1));
 		for (j = 0; !solve_block(w); j++);
 		fake_time++;
-		e = check_block_header(s, &w->hdr, w->num_txs,
-				       w->merkles, w->prev_txhashes,
-				       &w->tailer, &prev2, &sha.sha);
+		e = check_block_header(s, &w->bi, &prev2, &sha.sha);
 		assert(e == PROTOCOL_ECODE_NONE);
 		assert(prev2 == prev);
 
-		b[i] = block_add(s, prev, &sha, &w->hdr, w->num_txs,
-				 w->merkles, w->prev_txhashes, &w->tailer);
+		b[i] = block_add(s, prev, &sha, &w->bi);
 
 		assert(tal_count(s->longest_chains) == 1);
 		assert(s->longest_chains[0] == b[i]);
@@ -317,19 +314,15 @@ int main(int argc, char *argv[])
 		make_prev_blocks(prev, prev_block_ids);
 		w = new_working_block(s, 0x1ffffff0,
 				      prev_txhashes, tal_count(prev_txhashes),
-				      le32_to_cpu(prev->hdr->height) + 1,
+				      block_height(&prev->bi) + 1,
 				      next_shard_order(prev),
 				      prev_block_ids, helper_addr(2));
 		for (j = 0; !solve_block(w); j++);
 		fake_time++;
-		e = check_block_header(s, &w->hdr, w->num_txs,
-				       w->merkles, w->prev_txhashes,
-				       &w->tailer, &prev2, &sha.sha);
+		e = check_block_header(s, &w->bi, &prev2, &sha.sha);
 		assert(e == PROTOCOL_ECODE_NONE);
 		assert(prev2 == prev);
-		b_alt[i] = block_add(s, prev, &sha,
-				     &w->hdr, w->num_txs, w->merkles,
-				     w->prev_txhashes, &w->tailer);
+		b_alt[i] = block_add(s, prev, &sha, &w->bi);
 		if (i == 0) {
 			assert(tal_count(s->longest_chains) == 1);
 			assert(tal_count(s->longest_knowns) == 1);
@@ -351,18 +344,16 @@ int main(int argc, char *argv[])
 	make_prev_blocks(prev, prev_block_ids);
 	w = new_working_block(s, 0x1ffffff0,
 			      prev_txhashes, tal_count(prev_txhashes),
-			      le32_to_cpu(prev->hdr->height) + 1,
+			      block_height(&prev->bi) + 1,
 			      next_shard_order(prev),
 			      prev_block_ids, helper_addr(2));
 	for (j = 0; !solve_block(w); j++);
 	fake_time++;
-	e = check_block_header(s, &w->hdr, w->num_txs, w->merkles,
-			       w->prev_txhashes, &w->tailer, &prev2, &sha.sha);
+	e = check_block_header(s, &w->bi, &prev2, &sha.sha);
 	assert(e == PROTOCOL_ECODE_NONE);
 	assert(prev2 == prev);
 
-	b_alt[2] = block_add(s, prev, &sha, &w->hdr, w->num_txs, w->merkles,
-			     w->prev_txhashes, &w->tailer);
+	b_alt[2] = block_add(s, prev, &sha, &w->bi);
 
 	assert(tal_count(s->longest_chains) == 1);
 	assert(s->longest_chains[0] == b_alt[2]);
@@ -376,19 +367,16 @@ int main(int argc, char *argv[])
 	make_prev_blocks(prev, prev_block_ids);
 	w = new_working_block(s, 0x1ffffff0,
 			      prev_txhashes, tal_count(prev_txhashes),
-			      le32_to_cpu(prev->hdr->height) + 1,
+			      block_height(&prev->bi) + 1,
 			      next_shard_order(prev),
 			      prev_block_ids, helper_addr(1));
 	for (j = 0; !solve_block(w); j++);
 	fake_time++;
-	e = check_block_header(s, &w->hdr, w->num_txs, w->merkles,
-			       w->prev_txhashes, &w->tailer, &prev2, &sha.sha);
+	e = check_block_header(s, &w->bi, &prev2, &sha.sha);
 	assert(e == PROTOCOL_ECODE_NONE);
 	assert(prev2 == prev);
 
-	b[3] = block_add(s, prev, &sha,
-			 &w->hdr, w->num_txs, w->merkles,
-			 w->prev_txhashes, &w->tailer);
+	b[3] = block_add(s, prev, &sha, &w->bi);
 
 	assert(tal_count(s->longest_chains) == 2);
 	assert(tal_count(s->longest_knowns) == 2);
@@ -404,17 +392,15 @@ int main(int argc, char *argv[])
 	make_prev_blocks(prev, prev_block_ids);
 	w = new_working_block(s, 0x1ffffff0,
 			      prev_txhashes, tal_count(prev_txhashes),
-			      le32_to_cpu(prev->hdr->height) + 1,
+			      block_height(&prev->bi) + 1,
 			      next_shard_order(prev),
 			      prev_block_ids, helper_addr(1));
 	for (j = 0; !solve_block(w); j++);
 	fake_time++;
-	e = check_block_header(s, &w->hdr, w->num_txs, w->merkles,
-			       w->prev_txhashes, &w->tailer, &prev2, &sha.sha);
+	e = check_block_header(s, &w->bi, &prev2, &sha.sha);
 	assert(e == PROTOCOL_ECODE_NONE);
 	assert(prev2 == prev);
-	b[4] = block_add(s, prev, &sha, &w->hdr, w->num_txs, w->merkles,
-			 w->prev_txhashes, &w->tailer);
+	b[4] = block_add(s, prev, &sha, &w->bi);
 
 	assert(tal_count(s->longest_chains) == 1);
 	assert(s->longest_chains[0] == b[4]);

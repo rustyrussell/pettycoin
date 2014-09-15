@@ -62,8 +62,8 @@ int main(int argc, char *argv[])
 	for (i = 0; !solve_block(w); i++);
 	assert(i == 315);
 
-	hash_block(&w->hdr, w->num_txs, w->merkles, w->prev_txhashes,
-		   &w->tailer, &hash.sha);
+	hash_block(w->bi.hdr, w->bi.num_txs, w->bi.merkles, w->bi.prev_txhashes,
+		   w->bi.tailer, &hash.sha);
 	assert(beats_target(&hash.sha, 0x1ffffff0));
 
 	assert(w->hdr.version == current_version());
@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
 	assert(le32_to_cpu(w->tailer.difficulty) == 0x1ffffff0);
 	assert(le32_to_cpu(w->tailer.nonce1) == i);
 	for (i = 0; i < (1 << w->hdr.shard_order); i++)
-		assert(w->num_txs[i] == 0);
+		assert(w->bi.num_txs[i] == 0);
 
 	/* Now create a block after that, with a gateway tx in it. */
 	fake_time++;
@@ -103,8 +103,8 @@ int main(int argc, char *argv[])
 	 * will take */
 	for (i = 0; !solve_block(w2); i++);
 
-	hash_block(&w2->hdr, w2->num_txs, w2->merkles, w2->prev_txhashes,
-		   &w2->tailer, &hash2.sha);
+	hash_block(w2->bi.hdr, w2->bi.num_txs, w2->bi.merkles, w2->bi.prev_txhashes,
+		   w2->bi.tailer, &hash2.sha);
 	assert(beats_target(&hash2.sha, 0x1ffffff0));
 
 	assert(w2->hdr.version == current_version());
@@ -122,9 +122,9 @@ int main(int argc, char *argv[])
 	assert(le32_to_cpu(w2->tailer.nonce1) == i);
 	for (i = 0; i < (1 << w2->hdr.shard_order); i++) {
 		if (i == update.shard)
-			assert(w2->num_txs[i] == 1);
+			assert(block_num_txs(&w2->bi, i) == 1);
 		else
-			assert(w2->num_txs[i] == 0);
+			assert(block_num_txs(&w2->bi, i) == 0);
 	}
 
 	tal_free(s);

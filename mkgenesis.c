@@ -122,10 +122,12 @@ int main(int argc, char *argv[])
 	hash_block(&hdr, num_txs, merkles, NULL, &tailer, &sha.sha);
 
 	printf("struct block genesis = {\n"
-	       "	.hdr = &genesis_hdr,\n"
-	       "	.num_txs = genesis_shardnums,\n"
-	       "	.merkles = genesis_merkles,\n"
-	       "	.tailer = &genesis_tlr,\n"
+	       "	.bi = {\n"
+	       "		.hdr = &genesis_hdr,\n"
+	       "		.num_txs = genesis_shardnums,\n"
+	       "		.merkles = genesis_merkles,\n"
+	       "		.tailer = &genesis_tlr\n"
+	       "},\n"
 	       "	.shard = genesis_shards,\n"
 	       "	.children = LIST_HEAD_INIT(genesis.children),\n"
 	       "	.all_known = true,\n"

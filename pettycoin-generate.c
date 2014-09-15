@@ -44,14 +44,16 @@ struct working_block {
 	u32 feature_counts[8];
 	u32 num_shards;
 	u32 num_trans;
-	struct protocol_block_header hdr;
-	u8 *num_txs;
-	struct protocol_double_sha *merkles;
-	u8 *prev_txhashes;
-	struct protocol_block_tailer tailer;
+	struct block_info bi;
 	struct protocol_txrefhash **trans_hashes;
 	struct protocol_double_sha hash_of_merkles;
 	struct protocol_double_sha hash_of_prev_txhashes;
+
+	/* Non-const pointers for bi parts we update. */
+	struct protocol_block_header hdr;
+	struct protocol_double_sha *merkles_;
+	u8 *num_txs_;
+	struct protocol_block_tailer tailer;
 
 	/* Unfinished hash without tailer. */
 	SHA256_CTX partial;
@@ -64,8 +66,8 @@ struct working_block {
 static void merkle_hash_shard(struct working_block *w, u32 shard)
 {
 	merkle_hashes(w->trans_hashes[shard],
-		      0, w->num_txs[shard],
-		      &w->merkles[shard]);
+		      0, w->bi.num_txs[shard],
+		      &w->merkles_[shard]);
 }
 
 static void merkle_hash_changed(struct working_block *w)
@@ -76,7 +78,8 @@ static void merkle_hash_changed(struct working_block *w)
 	/* Recalc hash of all merkles. */
 	SHA256_Init(&ctx);
 	for (i = 0; i < w->num_shards; i++)
-		SHA256_Update(&ctx, &w->merkles[i], sizeof(w->merkles[i]));
+		SHA256_Update(&ctx, block_merkle(&w->bi, i),
+			      sizeof(struct protocol_double_sha));
 	SHA256_Double_Final(&ctx, &w->hash_of_merkles);
 }
 
@@ -87,9 +90,9 @@ static void update_partial_hash(struct working_block *w)
 		      sizeof(w->hash_of_prev_txhashes));
 	SHA256_Update(&w->partial, &w->hash_of_merkles,
 		      sizeof(w->hash_of_merkles));
-	SHA256_Update(&w->partial, &w->hdr, sizeof(w->hdr));
-	SHA256_Update(&w->partial, w->num_txs,
-		      sizeof(*w->num_txs)*w->num_shards);
+	SHA256_Update(&w->partial, w->bi.hdr, sizeof(*w->bi.hdr));
+	SHA256_Update(&w->partial, w->bi.num_txs,
+		      sizeof(*w->bi.num_txs)*w->num_shards);
 }
 
 /* Create a new block. */
@@ -117,10 +120,11 @@ new_working_block(const tal_t *ctx,
 	w->num_trans = 0;
 	w->trans_hashes = tal_arr(w, struct protocol_txrefhash *,
 				  w->num_shards);
-	w->num_txs = tal_arrz(w, u8, w->num_shards);
-	w->merkles = tal_arrz(w, struct protocol_double_sha, w->num_shards);
-	if (!w->trans_hashes || !w->num_txs || !w->merkles)
-		return tal_free(w);
+	w->bi.hdr = &w->hdr;
+	w->bi.num_txs = w->num_txs_ = tal_arrz(w, u8, w->num_shards);
+	w->bi.merkles = w->merkles_
+		= tal_arrz(w, struct protocol_double_sha, w->num_shards);
+	w->bi.tailer = &w->tailer;
 	for (i = 0; i < w->num_shards; i++) {
 		w->trans_hashes[i] = tal_arr(w->trans_hashes,
 					     struct protocol_txrefhash,
@@ -143,9 +147,9 @@ new_working_block(const tal_t *ctx,
 	w->tailer.difficulty = cpu_to_le32(difficulty);
 
 	/* Hash prev_txhashes: it doesn't change */
-	w->prev_txhashes = prev_txhashes;
+	w->bi.prev_txhashes = prev_txhashes;
 	SHA256_Init(&shactx);
-	SHA256_Update(&shactx, w->prev_txhashes, num_prev_txhashes);
+	SHA256_Update(&shactx, w->bi.prev_txhashes, num_prev_txhashes);
 	SHA256_Double_Final(&shactx, &w->hash_of_prev_txhashes);
 
 	for (i = 0; i < w->num_shards; i++)
@@ -163,11 +167,11 @@ static bool add_tx(struct working_block *w, struct gen_update *update)
 	u8 new_features = 0;
 	size_t num;
 
-	assert(update->shard < tal_count(w->num_txs));
-	assert(w->num_txs[update->shard] < 255);
-	assert(update->txoff <= w->num_txs[update->shard]);
+	assert(update->shard < tal_count(w->bi.num_txs));
+	assert(w->bi.num_txs[update->shard] < 255);
+	assert(update->txoff <= w->bi.num_txs[update->shard]);
 
-	num = w->num_txs[update->shard];
+	num = w->bi.num_txs[update->shard];
 
 	tal_resize(&w->trans_hashes[update->shard], num + 1);
 
@@ -177,7 +181,7 @@ static bool add_tx(struct working_block *w, struct gen_update *update)
 		(num - update->txoff)
 		* sizeof(w->trans_hashes[update->shard][0]));
 	w->trans_hashes[update->shard][update->txoff] = update->hashes;
-	w->num_txs[update->shard]++;
+	w->num_txs_[update->shard]++;
 	w->num_trans++;
 
 	merkle_hash_shard(w, update->shard);
@@ -213,10 +217,10 @@ static bool solve_block(struct working_block *w)
 	uint32_t *nonce1;
 
 	ctx = w->partial;
-	SHA256_Update(&ctx, &w->tailer, sizeof(w->tailer));
+	SHA256_Update(&ctx, w->bi.tailer, sizeof(*w->bi.tailer));
 	SHA256_Double_Final(&ctx, &w->sha);
 
-	if (beats_target(&w->sha, le32_to_cpu(w->tailer.difficulty)))
+	if (beats_target(&w->sha, block_difficulty(&w->bi)))
 		return true;
 
 	/* Keep sparse happy: we don't care about nonce endianness. */
@@ -288,8 +292,7 @@ static void write_block(int fd, const struct working_block *w)
 	struct protocol_pkt_shard *s;
 	u32 shard, i;
 
-	b = marshal_block(w, &w->hdr, w->num_txs, w->merkles,
-			  w->prev_txhashes, &w->tailer);
+	b = marshal_block(w, &w->bi);
 	if (!write_all(fd, b, le32_to_cpu(b->len)))
 		err(1, "''I'm not trying to cause a b-big s-s-sensation''");
 
@@ -301,7 +304,7 @@ static void write_block(int fd, const struct working_block *w)
 		s->shard = cpu_to_le16(shard);
 		s->err = cpu_to_le16(PROTOCOL_ECODE_NONE);
 
-		for (i = 0; i < w->num_txs[shard]; i++)
+		for (i = 0; i < w->bi.num_txs[shard]; i++)
 			tal_packet_append_txrefhash(&s,
 						    &w->trans_hashes[shard][i]);
 

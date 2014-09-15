@@ -39,21 +39,17 @@
  * shard_validate_transactions and check_prev_txhashes! */
 enum protocol_ecode
 check_block_header(struct state *state,
-		   const struct protocol_block_header *hdr,
-		   const u8 *num_txs,
-		   const struct protocol_double_sha *merkles,
-		   const u8 *prev_txhashes,
-		   const struct protocol_block_tailer *tailer,
+		   const struct block_info *bi,
 		   struct block **prev,
 		   struct protocol_double_sha *sha)
 {
 	struct protocol_block_id prevs[PROTOCOL_NUM_PREV_IDS];
 
 	/* Shouldn't happen, since we check in unmarshal. */
-	if (!version_ok(hdr->version))
+	if (!version_ok(bi->hdr->version))
 		return PROTOCOL_ECODE_BLOCK_HIGH_VERSION;
 
-	if (!valid_difficulty(le32_to_cpu(tailer->difficulty)))
+	if (!valid_difficulty(le32_to_cpu(bi->tailer->difficulty)))
 		return PROTOCOL_ECODE_MALFORMED_DIFFICULTY;
 
 	/* We check work *first*: if it meets its target we can spend
@@ -61,32 +57,34 @@ check_block_header(struct state *state,
 	 * keep it around, or ask others about its predecessors, etc) */
 
 	/* Get SHA: should have enough leading zeroes to beat target. */
-	hash_block(hdr, num_txs, merkles, prev_txhashes, tailer, sha);
+	hash_block(bi->hdr, bi->num_txs, bi->merkles,
+		   bi->prev_txhashes, bi->tailer, sha);
 
-	if (!beats_target(sha, le32_to_cpu(tailer->difficulty)))
+	if (!beats_target(sha, le32_to_cpu(bi->tailer->difficulty)))
 		return PROTOCOL_ECODE_INSUFFICIENT_WORK;
 
 	/* Don't just search on main chain! */
-	*prev = block_find_any(state, &hdr->prevs[0]);
+	*prev = block_find_any(state, &bi->hdr->prevs[0]);
 	if (!*prev)
 		return PROTOCOL_ECODE_PRIV_UNKNOWN_PREV;
 
-	if (hdr->shard_order != next_shard_order(*prev))
+	if (bi->hdr->shard_order != next_shard_order(*prev))
 		return PROTOCOL_ECODE_BAD_SHARD_ORDER;
 
-	if (le32_to_cpu(hdr->height) != le32_to_cpu((*prev)->hdr->height)+1)
+	if (le32_to_cpu(bi->hdr->height)
+	    != le32_to_cpu((*prev)->bi.hdr->height)+1)
 		return PROTOCOL_ECODE_BAD_HEIGHT;
 
 	/* Can't go backwards, can't be more than 2 hours in future. */
-	if (!check_timestamp(state, le32_to_cpu(tailer->timestamp), *prev))
+	if (!check_timestamp(state, block_timestamp(bi), *prev))
 		return PROTOCOL_ECODE_BAD_TIMESTAMP;
 
 	/* Based on previous blocks, how difficult should this be? */
-	if (le32_to_cpu(tailer->difficulty) != get_difficulty(state, *prev))
+	if (block_difficulty(bi) != get_difficulty(state, *prev))
 		return PROTOCOL_ECODE_BAD_DIFFICULTY;
 
 	make_prev_blocks(*prev, prevs);
-	if (memcmp(hdr->prevs, prevs, sizeof(hdr->prevs)) != 0)
+	if (memcmp(bi->hdr->prevs, prevs, sizeof(bi->hdr->prevs)) != 0)
 		return PROTOCOL_ECODE_BAD_PREVS;
 
 	return PROTOCOL_ECODE_NONE;
@@ -99,9 +97,9 @@ bool shard_belongs_in_block(const struct block *block,
 
 	/* merkle_txs is happy with just the hashes. */
 	assert(shard->txcount + shard->hashcount
-	       == block->num_txs[shard->shardnum]);
+	       == block->bi.num_txs[shard->shardnum]);
 	merkle_txs(shard, &merkle);
-	return structeq(&block->merkles[shard->shardnum], &merkle);
+	return structeq(&block->bi.merkles[shard->shardnum], &merkle);
 }
 
 /* If we were to insert tx in block->shard[shardnum] at txoff, would it be
@@ -310,7 +308,7 @@ void put_proof_in_shard(struct state *state,
 
 	if (!shard->proof)
 		shard->proof = tal_arrz(shard, struct protocol_proof *,
-					block->num_txs[shard->shardnum]);
+					block->bi.num_txs[shard->shardnum]);
 
 	if (shard->proof[proof->pos.txoff])
 		return;
@@ -340,7 +338,7 @@ bool check_prev_txhashes(struct state *state, const struct block *block,
 	for_each_prev_txhash(i, b, block->prev) {
 		unsigned int j;
 
-		for (j = 0; j < num_shards(b->hdr); j++) {
+		for (j = 0; j < num_shards(b->bi.hdr); j++) {
 			u8 prev_txh;
 
 			/* We need to know everything in shard to check
@@ -348,18 +346,18 @@ bool check_prev_txhashes(struct state *state, const struct block *block,
 			if (!shard_all_known(b->shard[j]))
 				continue;
 
-			prev_txh = prev_txhash(&block->hdr->fees_to, b, j);
+			prev_txh = prev_txhash(&block->bi.hdr->fees_to, b, j);
 
 			/* We only check one byte; that's enough. */
-			if (prev_txh != block->prev_txhashes[off+j]) {
+			if (prev_txh != block->bi.prev_txhashes[off+j]) {
 				log_unusual(state->log,
 					    "Incorrect prev_txhash block %u:"
 					    " block %u shard %u was %u not %u",
-					    le32_to_cpu(block->hdr->height),
-					    le32_to_cpu(block->hdr->height) - i,
+					    block_height(&block->bi),
+					    block_height(&block->bi) - i,
 					    j,
 					    prev_txh,
-					    block->prev_txhashes[off+j]);
+					    block->bi.prev_txhashes[off+j]);
 				*bad_prev = b;
 				*bad_shard = j;
 				return false;
@@ -369,22 +367,23 @@ bool check_prev_txhashes(struct state *state, const struct block *block,
 	}
 
 	/* Must have exactly the right number of previous txhashes hashes. */
-	assert(off == le32_to_cpu(block->hdr->num_prev_txhashes));
+	assert(off == le32_to_cpu(block->bi.hdr->num_prev_txhashes));
 	return true;
 }
 
 void check_block(struct state *state, const struct block *block, bool all)
 {
-	u32 diff = le32_to_cpu(block->tailer->difficulty);
+	u32 diff = block_difficulty(&block->bi);
 	struct protocol_block_id sha;
 	unsigned int shard;
 
 	if (block != genesis_block(state)) {
 		assert(beats_target(&block->sha.sha, diff));
-		assert(tal_count(block->shard) == num_shards(block->hdr));
+		assert(tal_count(block->shard) == num_shards(block->bi.hdr));
 	}
-	hash_block(block->hdr, block->num_txs, block->merkles,
-		   block->prev_txhashes, block->tailer, &sha.sha);
+	hash_block(block->bi.hdr, block->bi.num_txs,
+		   block->bi.merkles, block->bi.prev_txhashes,
+		   block->bi.tailer, &sha.sha);
 	assert(structeq(&sha, &block->sha));
 
 	if (block->prev) {
@@ -399,7 +398,7 @@ void check_block(struct state *state, const struct block *block, bool all)
 	/* FIXME: check block->prev_txhashes! */
 
 	if (all) {
-		for (shard = 0; shard < num_shards(block->hdr); shard++) {
+		for (shard = 0; shard < num_shards(block->bi.hdr); shard++) {
 			check_block_shard(state, block, block->shard[shard]);
 		}
 	}
@@ -427,7 +426,7 @@ bool check_tx_inputs_and_refs(struct state *state,
 		/* Ask about this input if we're interested. */
 		/* If this tx is in a shard, that means all inputs must
 		 * affect that shard. */
-		if (interested_in_shard(state, b->hdr->shard_order,
+		if (interested_in_shard(state, b->bi.hdr->shard_order,
 					le16_to_cpu(proof->pos.shard)))
 			todo_add_get_tx(state,
 					&tx_input(tx, bad_input_num)->input);

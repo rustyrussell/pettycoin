@@ -18,7 +18,7 @@ enum protocol_ecode recv_shard_from_peer(struct peer *peer,
 
 void recv_block_reinject(struct state *state,
 			 const tal_t *pkt_ctx,
-			 const struct protocol_block_header *hdr, size_t size);
+			 const struct block_info *bi);
 
 /* From generator we get them all together, and importantly, there's
  * no point bothering peers to get information about this block. */

@@ -28,12 +28,12 @@ static struct block *add_fake_blocks(const tal_t *ctx,
 		struct protocol_block_header *head;
 		struct protocol_block_tailer *tail;
 
-		b->hdr = head = tal(b, struct protocol_block_header);
-		head->height = cpu_to_le32(le32_to_cpu(prev->hdr->height) + 1);
+		b->bi.hdr = head = tal(b, struct protocol_block_header);
+		head->height = cpu_to_le32(block_height(&prev->bi) + 1);
 
-		b->tailer = tail = tal(b, struct protocol_block_tailer);
+		b->bi.tailer = tail = tal(b, struct protocol_block_tailer);
 		tail->timestamp
-			= cpu_to_le32(le32_to_cpu(prev->tailer->timestamp)
+			= cpu_to_le32(block_timestamp(&prev->bi)
 				      + spacing);
 		tail->difficulty = cpu_to_le32(difficulty);
 		b->prev = prev;
@@ -180,7 +180,7 @@ int main(int argc, char *argv[])
 
 	/* Difficulty immediately after genesis is the same */
 	diff1 = get_difficulty(state, &genesis);
-	assert(diff1 == le32_to_cpu(genesis.tailer->difficulty));
+	assert(diff1 == block_difficulty(&genesis.bi));
 
 	/* Try making it easier. */
 	b1 = add_fake_blocks(state, &genesis, diff1,
@@ -189,8 +189,8 @@ int main(int argc, char *argv[])
 
 	diff1 = get_difficulty(state, b1);
 	/* Won't change. */
-	assert(diff1 == le32_to_cpu(genesis.tailer->difficulty));
-
+	assert(diff1 == block_difficulty(&genesis.bi));
+      
 	/* Try making it faster. */
 	b1 = add_fake_blocks(state, &genesis, diff1,
 			     PROTOCOL_DIFFICULTY_UPDATE_BLOCKS-1,

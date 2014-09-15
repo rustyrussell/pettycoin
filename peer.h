@@ -1,6 +1,7 @@
 #ifndef PETTYCOIN_PEER_H
 #define PETTYCOIN_PEER_H
 #include "config.h"
+#include "block_info.h"
 #include "protocol_net.h"
 #include <ccan/list/list.h>
 #include <stdbool.h>
@@ -13,11 +14,7 @@ struct block;
 struct welcome_block {
 	size_t len;
 	struct protocol_block_id sha;
-	const struct protocol_block_header *hdr;
-	const u8 *num_txs;
-	const struct protocol_double_sha *merkles;
-	const u8 *prev_txhashes;
-	const struct protocol_block_tailer *tailer;
+	struct block_info bi;
 };
 
 struct peer {

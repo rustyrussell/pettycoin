@@ -250,7 +250,7 @@ static void exec_generator(struct generator *gen)
 	char log_prefix[40];
 
 	/* FIXME: This is where we increment shard_order if voted! */
-	gen->shard_order = gen->state->longest_knowns[0]->hdr->shard_order;
+	gen->shard_order = gen->state->longest_knowns[0]->bi.hdr->shard_order;
 
 	gen->prev_txhashes = make_prev_txhashes(gen,
 						gen->state->longest_knowns[0],
@@ -258,7 +258,7 @@ static void exec_generator(struct generator *gen)
 	last = gen->state->longest_knowns[0];
 	sprintf(difficulty, "%u", get_difficulty(gen->state, last));
 	sprintf(prev_merkle_str, "%zu", tal_count(gen->prev_txhashes));
-	sprintf(height, "%u", le32_to_cpu(last->hdr->height) + 1);
+	sprintf(height, "%u", block_height(&last->bi) + 1);
 	sprintf(shard_order, "%u", gen->shard_order);
 	make_prev_blocks(last, prevs);
 	prevstr = to_hex(gen, prevs, sizeof(prevs));

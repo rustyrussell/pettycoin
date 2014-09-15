@@ -160,6 +160,7 @@ static struct block *add_next_block(struct state *state,
 				    unsigned int tx_count)
 {
 	struct block *b;
+	struct block_info bi;
 	struct protocol_block_header *hdr;
 	struct protocol_block_tailer *tailer;
 	u8 *num_txs;
@@ -167,16 +168,18 @@ static struct block *add_next_block(struct state *state,
 
 	hdr = tal(state, struct protocol_block_header);
 	hdr->shard_order = PROTOCOL_INITIAL_SHARD_ORDER;
-	hdr->height = cpu_to_le32(le32_to_cpu(prev->hdr->height) + 1);
+	hdr->height = cpu_to_le32(block_height(&prev->bi) + 1);
 
 	tailer = tal(state, struct protocol_block_tailer);
-	tailer->difficulty = prev->tailer->difficulty;
+	tailer->difficulty = cpu_to_le32(block_difficulty(&prev->bi));
 
 	num_txs = tal_arrz(state, u8, 1 << hdr->shard_order);
 	num_txs[0] = tx_count;
 
-	b = new_block(state, &prev->total_work, &dummy, hdr, num_txs, NULL,
-		      NULL, tailer);
+	bi.hdr = hdr;
+	bi.tailer = tailer;
+	bi.num_txs = num_txs;
+	b = new_block(state, &prev->total_work, &dummy, &bi);
 	b->prev = prev;
 	b->complaint = NULL;
 	/* Empty node list so list_del doesn't fail. */

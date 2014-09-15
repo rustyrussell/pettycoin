@@ -64,8 +64,8 @@ void block_to_pending(struct state *state, const struct block *block)
 {
 	unsigned int shard, i;
 
-	for (shard = 0; shard < num_shards(block->hdr); shard++) {
-		for (i = 0; i < block->num_txs[shard]; i++) {
+	for (shard = 0; shard < num_shards(block->bi.hdr); shard++) {
+		for (i = 0; i < block->bi.num_txs[shard]; i++) {
 			const union protocol_tx *tx;
 
 			tx = tx_for(block->shard[shard], i);

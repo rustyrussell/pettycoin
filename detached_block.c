@@ -11,8 +11,7 @@ struct detached_block {
 	struct list_node list;
 	struct protocol_block_id sha;
 
-	const struct protocol_block_header *hdr;
-	size_t size;
+	struct block_info bi;
 	const tal_t *pkt_ctx;	
 };
 
@@ -24,13 +23,13 @@ void seek_detached_blocks(struct state *state, const struct block *block)
 
 again:
 	list_for_each(&state->detached_blocks, bd, list) {
-		if (structeq(&bd->hdr->prevs[0], &block->sha)) {
+		if (structeq(block_prev(&bd->bi, 0), &block->sha)) {
 			list_del_from(&state->detached_blocks, &bd->list);
 
 			log_debug(state->log, "Reinjecting detatched block");
 			/* Inject it through normal path. */
 			recv_block_reinject(state, bd->pkt_ctx,
-					    bd->hdr, bd->size);
+					    &bd->bi);
 			tal_free(bd);
 
 			/* Since that may recurse, we can't trust list. */
@@ -54,16 +53,14 @@ bool have_detached_block(const struct state *state,
 void add_detached_block(struct state *state,
 			const tal_t *pkt_ctx,
 			const struct protocol_block_id *sha,
-			const struct protocol_block_header *hdr,
-			size_t size)
+			const struct block_info *bi)
 {
 	struct detached_block *bd;
 
 	/* Add it to list of detached blocks. */
 	bd = tal(state, struct detached_block);
 	bd->sha = *sha;
-	bd->hdr = hdr;
-	bd->size = size;
+	bd->bi = *bi;
 	bd->pkt_ctx = tal_steal(bd, pkt_ctx);
 	list_add(&state->detached_blocks, &bd->list);
 }

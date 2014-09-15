@@ -48,8 +48,8 @@ static char *json_gettransaction(struct json_connection *jcon,
 			/* FIXME: Report conflicts! */
 			confirms = 0;
 		} else {
-			confirms = le32_to_cpu(jcon->state->preferred_chain->hdr->height)
-				- le32_to_cpu(block->hdr->height);
+			confirms = block_height(&jcon->state->preferred_chain->bi)
+				- block_height(&block->bi);
 		}
 	}
 

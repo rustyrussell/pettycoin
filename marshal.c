@@ -1,4 +1,5 @@
 #include "block.h"
+#include "block_info.h"
 #include "log.h"
 #include "marshal.h"
 #include "overflows.h"
@@ -13,10 +14,7 @@
 enum protocol_ecode
 unmarshal_block_into(struct log *log,
 		     size_t size, const struct protocol_block_header *hdr,
-		     const u8 **num_txs,
-		     const struct protocol_double_sha **merkles,
-		     const u8 **prev_txhashes,
-		     const struct protocol_block_tailer **tailer)
+		     struct block_info *bi)
 {
 	size_t len, merkle_len, shard_len;
 
@@ -39,9 +37,10 @@ unmarshal_block_into(struct log *log,
 		return PROTOCOL_ECODE_BAD_SHARD_ORDER;
 	}
 	len = sizeof(*hdr);
+	bi->hdr = hdr;
 
 	/* Shards come next. */
-	*num_txs = (u8 *)(hdr + 1);
+	bi->num_txs = (u8 *)(hdr + 1);
 
 	shard_len = 1 << hdr->shard_order;
 	if (add_overflows(shard_len, len)) {
@@ -51,7 +50,8 @@ unmarshal_block_into(struct log *log,
 	len += shard_len;
 
 	/* Merkles come after shard numbers. */
-	*merkles = (struct protocol_double_sha *)(*num_txs + shard_len);
+	bi->merkles = (struct protocol_double_sha *)
+		(bi->num_txs + shard_len);
 
 	/* This can't actually happen, but be thorough. */
 	if (mul_overflows(shard_len, sizeof(struct protocol_double_sha))) {
@@ -69,7 +69,7 @@ unmarshal_block_into(struct log *log,
 	len += merkle_len;
 
 	/* Next comes prev_txhashes. */
-	*prev_txhashes = (u8 *)hdr + len;
+	bi->prev_txhashes = (u8 *)hdr + len;
 	if (add_overflows(len, le32_to_cpu(hdr->num_prev_txhashes))) {
 		log_unusual(log, "len %zu + prev_txhashes %u overflows",
 			    len, le32_to_cpu(hdr->num_prev_txhashes));
@@ -78,16 +78,16 @@ unmarshal_block_into(struct log *log,
 	len += le32_to_cpu(hdr->num_prev_txhashes);
 
 	/* Finally comes tailer. */
-	*tailer = (struct protocol_block_tailer *)
-		(*prev_txhashes + le32_to_cpu(hdr->num_prev_txhashes));
+	bi->tailer = (struct protocol_block_tailer *)
+		(bi->prev_txhashes + le32_to_cpu(hdr->num_prev_txhashes));
 
-	if (add_overflows(len, sizeof(**tailer))) {
+	if (add_overflows(len, sizeof(*bi->tailer))) {
 		log_unusual(log, "len %zu + tailer %zu overflows",
-			    len, sizeof(**tailer));
+			    len, sizeof(*bi->tailer));
 		return PROTOCOL_ECODE_INVALID_LEN;
 	}
 
-	len += sizeof(**tailer);
+	len += sizeof(*bi->tailer);
 
 	/* Size must be exactly right. */
 	if (size != len) {
@@ -102,16 +102,11 @@ unmarshal_block_into(struct log *log,
 enum protocol_ecode
 unmarshal_block(struct log *log,
 		const struct protocol_pkt_block *pkt,
-		const struct protocol_block_header **hdr,
-		const u8 **num_txs,
-		const struct protocol_double_sha **merkles,
-		const u8 **prev_txhashes,
-		const struct protocol_block_tailer **tailer)
+		struct block_info *bi)
 {
-	*hdr = (void *)(pkt + 1);
+	bi->hdr = (void *)(pkt + 1);
 	return unmarshal_block_into(log, le32_to_cpu(pkt->len) - sizeof(*pkt),
-				     *hdr, num_txs, merkles, prev_txhashes,
-				     tailer);
+				    bi->hdr, bi);
 }
 
 /* Returns total length, sets shardnum_len, merkle_len, prev_merkle_len */
@@ -135,49 +130,38 @@ size_t marshal_block_len(const struct protocol_block_header *hdr)
 	return block_lengths(hdr, &shardnum_len, &merkle_len, &prev_merkle_len);
 }
 
-void marshal_block_into(void *dst,
-			const struct protocol_block_header *hdr,
-			const u8 *num_txs,
-			const struct protocol_double_sha *merkles,
-			const u8 *prev_txhashes,
-			const struct protocol_block_tailer *tailer)
+void marshal_block_into(void *dst, const struct block_info *bi)
 {
 	char *dest = dst;
 	size_t shardnum_len, merkle_len, prev_merkle_len;
 
-	block_lengths(hdr, &shardnum_len, &merkle_len, &prev_merkle_len);
+	block_lengths(bi->hdr, &shardnum_len, &merkle_len, &prev_merkle_len);
 
-	memcpy(dest, hdr, sizeof(*hdr));
-	dest += sizeof(*hdr);
-	memcpy(dest, num_txs, shardnum_len);
+	memcpy(dest, bi->hdr, sizeof(*bi->hdr));
+	dest += sizeof(*bi->hdr);
+	memcpy(dest, bi->num_txs, shardnum_len);
 	dest += shardnum_len;
-	memcpy(dest, merkles, merkle_len);
+	memcpy(dest, bi->merkles, merkle_len);
 	dest += merkle_len;
-	memcpy(dest, prev_txhashes, prev_merkle_len);
+	memcpy(dest, bi->prev_txhashes, prev_merkle_len);
 	dest += prev_merkle_len;
-	memcpy(dest, tailer, sizeof(*tailer));
+	memcpy(dest, bi->tailer, sizeof(*bi->tailer));
 }
 
 struct protocol_pkt_block *
-marshal_block(const tal_t *ctx,
-	      const struct protocol_block_header *hdr,
-	      const u8 *num_txs,
-	      const struct protocol_double_sha *merkles,
-	      const u8 *prev_txhashes,
-	      const struct protocol_block_tailer *tailer)
+marshal_block(const tal_t *ctx, const struct block_info *bi)
 {
 	struct protocol_pkt_block *ret;
 	size_t len;
 
-	len = marshal_block_len(hdr);
+	len = marshal_block_len(bi->hdr);
 	ret = (void *)tal_arr(ctx, char, sizeof(*ret) + len);
 
 	ret->len = cpu_to_le32(sizeof(*ret) + len);
 	ret->type = cpu_to_le32(PROTOCOL_PKT_BLOCK);
 	ret->err = cpu_to_le32(PROTOCOL_ECODE_NONE);
 
-	marshal_block_into(ret + 1,
-			    hdr, num_txs, merkles, prev_txhashes, tailer);
+	marshal_block_into(ret + 1, bi);
 	return ret;
 }
 

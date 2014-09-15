@@ -28,15 +28,15 @@ static bool resolve_input(struct state *state,
 		return false;
 
 	/* Don't include any transactions within 1 hour of cutoff. */
-	if (le32_to_cpu(te->u.block->tailer->timestamp)
+	if (block_timestamp(&te->u.block->bi)
 	    + PROTOCOL_TX_HORIZON_SECS(state->test_net) - CLOSE_TO_HORIZON
 	    < current_time())
 		return false;
 
 	/* Add offset: it might be going to go into *next* block */
-	ref->blocks_ago = 
-		cpu_to_le32(le32_to_cpu(prev_block->hdr->height) -
-			    le32_to_cpu(te->u.block->hdr->height) + offset);
+	ref->blocks_ago = cpu_to_le32(block_height(&prev_block->bi) -
+				      block_height(&te->u.block->bi)
+				      + offset);
 	ref->shard = cpu_to_le16(te->shardnum);
 	ref->txoff = te->txoff;
 	ref->unused = 0;

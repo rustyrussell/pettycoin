@@ -27,7 +27,7 @@ bool check_timestamp(struct state *state, u32 timestamp,
 	for (i = 0; 
 	     i < ARRAY_SIZE(times) && prev->prev;
 	     i++, prev = prev->prev)
-		times[i] = le32_to_cpu(prev->tailer->timestamp);
+		times[i] = block_timestamp(&prev->bi);
 
 	/* Must be after median. */
 	asort(times, i, cmp_times, NULL);

@@ -20,12 +20,8 @@ struct protocol_block_header *unmarshal_block_header(void *buffer, size_t size);
 /* Returns error if bad.  You should also call check_block_prev_txhashes! */
 enum protocol_ecode
 check_block_header(struct state *state,
-		   const struct protocol_block_header *hdr,
-		   const u8 *shard_nums,
-		   const struct protocol_double_sha *merkles,
-		   const u8 *prev_txhashes,
-		   const struct protocol_block_tailer *tailer,
-		   struct block **blockp,
+		   const struct block_info *bi,
+		   struct block **prev,
 		   struct protocol_double_sha *sha);
 
 /* Does merkle match? */

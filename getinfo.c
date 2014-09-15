@@ -9,7 +9,8 @@ static void json_add_block(char **response, const char *fieldname,
 {
 	json_object_start(response, fieldname);
 	json_add_block_id(response, "sha", &block->sha);
-	json_add_num(response, "height", le32_to_cpu(block->hdr->height));
+	json_add_num(response, "height", 
+		     block_height(&block->bi));
 	json_object_end(response);
 }
 

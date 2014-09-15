@@ -70,16 +70,16 @@ bool check_proof_byhash(const struct protocol_proof *proof,
 	assert(structeq(&b->sha, &proof->pos.block));
 
 	/* Can't be right if shard doesn't exist. */
-	if (shardnum >= (1 << b->hdr->shard_order))
+	if (shardnum >= num_shards(b->bi.hdr))
 		return false;
 
 	/* Can't be the right one if not within shard */
-	if (proof->pos.txoff >= b->num_txs[shardnum])
+	if (proof->pos.txoff >= b->bi.num_txs[shardnum])
 		return false;
 
 	proof_merkles_to(txrefhash, proof, &merkle);
 
-	return structeq(&b->merkles[shardnum], &merkle);
+	return structeq(&b->bi.merkles[shardnum], &merkle);
 }
 
 bool check_proof(const struct protocol_proof *proof,

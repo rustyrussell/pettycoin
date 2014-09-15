@@ -109,7 +109,7 @@ recv_get_block(struct peer *peer,
 	b = block_find_any(peer->state, &pkt->block);
 	if (b) {
 		r->err = le32_to_cpu(PROTOCOL_ECODE_NONE);
-		tal_packet_append_block(&r, b);
+		tal_packet_append_block(&r, &b->bi);
 	} else {
 		/* If we don't know it, that's OK. */
 		log_debug(peer->log, "unknown get_block block ");

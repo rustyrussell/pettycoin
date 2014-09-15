@@ -287,14 +287,14 @@ int main(int argc, char *argv[])
 	prev_txhashes = make_prev_txhashes(s, &genesis, helper_addr(1));
 
 	/* We should need 1 prev_merkle per shard per block. */
-	assert(num_prev_txhashes(&genesis) == (1 << genesis.hdr->shard_order));
+	assert(num_prev_txhashes(&genesis) == (1 << genesis.bi.hdr->shard_order));
 	assert(tal_count(prev_txhashes) == num_prev_txhashes(&genesis));
 
 	memset(prevs, 0, sizeof(prevs));
 	prevs[0] = genesis.sha;
 	w = new_working_block(s, 0x1ffffff0,
 			      prev_txhashes, tal_count(prev_txhashes),
-			      le32_to_cpu(genesis.hdr->height) + 1,
+			      block_height(&genesis.bi) + 1,
 			      next_shard_order(&genesis),
 			      prevs, helper_addr(1));
 
@@ -313,14 +313,11 @@ int main(int argc, char *argv[])
 	assert(add_tx(w, &update));
 	for (i = 0; !solve_block(w); i++);
 
-	e = check_block_header(s, &w->hdr, w->num_txs, w->merkles,
-			       w->prev_txhashes, &w->tailer, &prev, &sha.sha);
+	e = check_block_header(s, &w->bi, &prev, &sha.sha);
 	assert(e == PROTOCOL_ECODE_NONE);
 	assert(prev == &genesis);
 
-	b = block_add(s, prev, &sha,
-		      &w->hdr, w->num_txs, w->merkles,
-		      w->prev_txhashes, &w->tailer);
+	b = block_add(s, prev, &sha, &w->bi);
 
 	/* This is a NOOP, so should succeed. */
 	assert(check_prev_txhashes(s, b, NULL, NULL));
@@ -335,7 +332,7 @@ int main(int argc, char *argv[])
 	b->shard[shard->shardnum] = shard;
 
 	/* Should require a prev_merkle per shard for each of 2 prev blocks. */
-	assert(num_prev_txhashes(b) == (2 << genesis.hdr->shard_order));
+	assert(num_prev_txhashes(b) == (2 << genesis.bi.hdr->shard_order));
 	prev_txhashes = make_prev_txhashes(s, b, helper_addr(1));
 	assert(tal_count(prev_txhashes) == num_prev_txhashes(b));
 
@@ -344,19 +341,16 @@ int main(int argc, char *argv[])
 	prevs[0] = b->sha;
 	prevs[1] = genesis.sha;
 	w = new_working_block(s, 0x1ffffff0, prev_txhashes, num_prev_txhashes(b),
-			      le32_to_cpu(b->hdr->height) + 1,
+			      block_height(&b->bi) + 1,
 			      next_shard_order(b),
 			      prevs, helper_addr(1));
 	for (i = 0; !solve_block(w); i++);
 
-	e = check_block_header(s, &w->hdr, w->num_txs, w->merkles,
-			       w->prev_txhashes, &w->tailer, &prev, &sha.sha);
+	e = check_block_header(s, &w->bi, &prev, &sha.sha);
 	assert(e == PROTOCOL_ECODE_NONE);
 	assert(prev == b);
 
-	b = block_add(s, prev, &sha,
-		      &w->hdr, w->num_txs, w->merkles,
-		      w->prev_txhashes, &w->tailer);
+	b = block_add(s, prev, &sha, &w->bi);
 
 	/* This should be correct. */
 	assert(check_prev_txhashes(s, b, NULL, NULL));

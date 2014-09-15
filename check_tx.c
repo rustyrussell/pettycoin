@@ -193,7 +193,7 @@ bool check_claim_input(struct state *state,
 		return false;
 
 	/* Check it was to this address. */
-	if (!structeq(my_addr, &reward_block->hdr->fees_to)) {
+	if (!structeq(my_addr, &reward_block->bi.hdr->fees_to)) {
 		log_debug(state->log, "Claim mismatch against block ");
 		log_add_struct(state->log, struct protocol_block_id,
 			       &reward_block->sha);
@@ -353,7 +353,7 @@ check_tx_from_gateway(struct state *state,
 		 * recv_tx_bad_input()... */
 		shard_ord = next_shard_order(state->longest_knowns[0]);
 	else
-		shard_ord = block->hdr->shard_order;
+		shard_ord = block->bi.hdr->shard_order;
 
 	for (i = 0; i < le16_to_cpu(gtx->num_outputs); i++) {
 		if (i == 0)

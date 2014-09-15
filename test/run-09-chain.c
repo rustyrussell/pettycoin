@@ -180,6 +180,7 @@ static struct block *add_next_block(struct state *state,
 				    unsigned int tx_count)
 {
 	struct block *b;
+	struct block_info bi;
 	struct protocol_block_header *hdr;
 	struct protocol_block_tailer *tailer;
 	u8 *num_txs;
@@ -187,11 +188,11 @@ static struct block *add_next_block(struct state *state,
 
 	hdr = tal(state, struct protocol_block_header);
 	hdr->shard_order = PROTOCOL_INITIAL_SHARD_ORDER;
-	hdr->height = cpu_to_le32(le32_to_cpu(prev->hdr->height) + 1);
+	hdr->height = cpu_to_le32(block_height(&prev->bi) + 1);
 	hdr->prevs[0] = prev->sha;
 
 	tailer = tal(state, struct protocol_block_tailer);
-	tailer->difficulty = prev->tailer->difficulty;
+	tailer->difficulty = cpu_to_le32(block_difficulty(&prev->bi));
 
 	num_txs = tal_arrz(state, u8, 1 << hdr->shard_order);
 	num_txs[0] = tx_count;
@@ -199,8 +200,10 @@ static struct block *add_next_block(struct state *state,
 	memcpy(&dummy, name,
 	       strlen(name) < sizeof(dummy) ? strlen(name) : sizeof(dummy));
 
-	b = block_add(state, prev, &dummy, hdr, num_txs, NULL, NULL,
-		      tailer);
+	bi.hdr = hdr;
+	bi.tailer = tailer;
+	bi.num_txs = num_txs;
+	b = block_add(state, prev, &dummy, &bi);
 
 	strmap_add(&blockmap, name, b);
 	return b;

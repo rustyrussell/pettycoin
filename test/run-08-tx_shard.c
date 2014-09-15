@@ -66,9 +66,9 @@ static struct block *mock_block(const tal_t *ctx)
 	unsigned int i;
 
 	/* minimal requirements to work for these tests. */
-	b->hdr = hdr = tal(b, struct protocol_block_header);
+	b->bi.hdr = hdr = tal(b, struct protocol_block_header);
 	hdr->shard_order = 2;
-	b->num_txs = num_txs = tal_arrz(b, u8, 1 << 2);
+	b->bi.num_txs = num_txs = tal_arrz(b, u8, 1 << 2);
 	num_txs[1] = 2;
 	b->shard = tal_arr(b, struct block_shard *, 1 << 2);
 
@@ -93,7 +93,7 @@ int main(void)
 	unsigned int i;
 
 	/* These work with an empty block. */
-	for (i = 0; i < num_shards(b->hdr); i++) {
+	for (i = 0; i < block_num_shards(&b->bi); i++) {
 		if (i == 1) {
 			assert(!shard_all_known(b->shard[i]));
 			assert(!shard_all_hashes(b->shard[i]));

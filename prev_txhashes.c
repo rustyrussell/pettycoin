@@ -15,7 +15,7 @@ size_t num_prev_txhashes(const struct block *prev_block)
 	const struct block *b;
 
 	for_each_prev_txhash(i, b, prev_block)
-		num += num_shards(b->hdr);
+		num += num_shards(b->bi.hdr);
 
 	return num;
 }
@@ -32,7 +32,7 @@ u8 prev_txhash(const struct protocol_address *addr,
 	SHA256_Init(&shactx);
 	SHA256_Update(&shactx, addr, sizeof(*addr));
 
-	for (i = 0; i < block->num_txs[shard]; i++) {
+	for (i = 0; i < block->bi.num_txs[shard]; i++) {
 		const union protocol_tx *tx;
 		const struct protocol_input_ref *refs;
 
@@ -62,7 +62,7 @@ u8 *make_prev_txhashes(const tal_t *ctx, const struct block *prev_block,
 	for_each_prev_txhash(i, b, prev_block) {
 		unsigned int j;
 
-		for (j = 0; j < num_shards(b->hdr); j++) {
+		for (j = 0; j < num_shards(b->bi.hdr); j++) {
 			/* We need to know everything in shard to check
 			 * previous txhash. */
 			if (!shard_all_known(b->shard[j]))

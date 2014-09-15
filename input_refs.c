@@ -15,14 +15,15 @@ static enum protocol_ecode check_ref(struct state *state,
 		return PROTOCOL_ECODE_REF_BAD_BLOCKS_AGO;
 
 	/* Beyond horizon? */
-	if (le32_to_cpu(b->tailer->timestamp) + PROTOCOL_TX_HORIZON_SECS(state->test_net)
-	    < le32_to_cpu(block->tailer->timestamp))
+	if (block_timestamp(&b->bi) + PROTOCOL_TX_HORIZON_SECS(state->test_net)
+	    < block_timestamp(&block->bi))
 		return PROTOCOL_ECODE_REF_BAD_BLOCKS_AGO;
 
-	if (le16_to_cpu(ref->shard) >= num_shards(b->hdr))
+	if (le16_to_cpu(ref->shard) >= block_num_shards(&b->bi))
 		return PROTOCOL_ECODE_REF_BAD_SHARD;
 
-	if (ref->txoff >= b->num_txs[le16_to_cpu(ref->shard)])
+	if (ref->txoff >= block_num_txs(&b->bi,
+					le16_to_cpu(ref->shard)))
 		return PROTOCOL_ECODE_REF_BAD_TXOFF;
 
 	return PROTOCOL_ECODE_NONE;

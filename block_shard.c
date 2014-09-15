@@ -75,7 +75,7 @@ void check_block_shard(struct state *state,
 {
 	unsigned int i, txcount = 0, hashcount = 0;
 
-	assert(shard->size == block->num_txs[shard->shardnum]);
+	assert(shard->size == block_num_txs(&block->bi, shard->shardnum));
 
 	if (shard_all_hashes(shard))
 		assert(!shard->proof);
@@ -123,7 +123,8 @@ void check_block_shard(struct state *state,
 	if (txcount + hashcount == shard->size) {
 		struct protocol_double_sha sha;
 		merkle_txs(shard, &sha);
-		assert(structeq(&sha, &block->merkles[shard->shardnum]));
+		assert(structeq(&sha, block_merkle(&block->bi,
+						   shard->shardnum)));
 	}
 }
 

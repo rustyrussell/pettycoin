@@ -32,30 +32,23 @@ static void destroy_block(struct block *b)
 static struct block *new_block(const tal_t *ctx,
 			       BIGNUM *prev_work,
 			       const struct protocol_block_id *sha,
-			       const struct protocol_block_header *hdr,
-			       const u8 *num_txs,
-			       const struct protocol_double_sha *merkles,
-			       const u8 *prev_txhashes,
-			       const struct protocol_block_tailer *tailer)
+			       const struct block_info *bi)
 {
 	struct block *block = tal(ctx, struct block);
 	unsigned int i;
 
-	total_work_done(le32_to_cpu(tailer->difficulty),
+	total_work_done(le32_to_cpu(bi->tailer->difficulty),
 			prev_work, &block->total_work);
 
-	block->hdr = hdr;
-	block->num_txs = num_txs;
-	block->merkles = merkles;
-	block->prev_txhashes = prev_txhashes;
-	block->tailer = tailer;
+	block->bi = *bi;
 	block->all_known = false;
 	list_head_init(&block->children);
 	block->sha = *sha;
-	block->shard = tal_arr(block, struct block_shard *, num_shards(hdr));
-	for (i = 0; i < num_shards(hdr); i++)
+	block->shard = tal_arr(block, struct block_shard *,
+			       num_shards(bi->hdr));
+	for (i = 0; i < num_shards(bi->hdr); i++)
 		block->shard[i] = new_block_shard(block->shard, i,
-						  num_txs[i]);
+						  bi->num_txs[i]);
 
 	/* In case we destroy before block_add(), eg. testing. */
 	block->prev = NULL;
@@ -67,20 +60,15 @@ static struct block *new_block(const tal_t *ctx,
 struct block *block_add(struct state *state,
 			struct block *prev,
 			const struct protocol_block_id *sha,
-			const struct protocol_block_header *hdr,
-			const u8 *num_txs,
-			const struct protocol_double_sha *merkles,
-			const u8 *prev_txhashes,
-			const struct protocol_block_tailer *tailer)
+			const struct block_info *bi)
 {
-	u32 height = le32_to_cpu(hdr->height);
+	u32 height = le32_to_cpu(bi->hdr->height);
 	struct block *block;
 
 	log_debug(state->log, "Adding block %u ", height);
 	log_add_struct(state->log, struct protocol_block_id, sha);
 
-	block = new_block(state, &prev->total_work, sha, hdr, num_txs,
-			  merkles, prev_txhashes, tailer);
+	block = new_block(state, &prev->total_work, sha, bi);
 	block->prev = prev;
 
 	/* Add to list for that generation. */
@@ -149,7 +137,7 @@ bool block_all_known(const struct block *block)
 {
 	unsigned int i;
 
-	for (i = 0; i < num_shards(block->hdr); i++) {
+	for (i = 0; i < num_shards(block->bi.hdr); i++) {
 		if (!shard_all_known(block->shard[i]))
 			return false;
 	}
@@ -161,7 +149,7 @@ struct protocol_input_ref *block_get_refs(const struct block *block,
 {
 	const struct block_shard *s = block->shard[shardnum];
 
-	assert(shardnum < num_shards(block->hdr));
+	assert(shardnum < num_shards(block->bi.hdr));
 	assert(txoff < s->size);
 
 	if (!shard_is_tx(s, txoff))
@@ -176,7 +164,7 @@ union protocol_tx *block_get_tx(const struct block *block,
 {
 	const struct block_shard *s = block->shard[shardnum];
 
-	assert(shardnum < num_shards(block->hdr));
+	assert(shardnum < num_shards(block->bi.hdr));
 	assert(txoff < s->size);
 
 	if (!shard_is_tx(s, txoff))
@@ -189,8 +177,8 @@ bool block_empty(const struct block *block)
 {
 	unsigned int i;
 
-	for (i = 0; i < num_shards(block->hdr); i++) {
-		if (block->num_txs[i] != 0)
+	for (i = 0; i < num_shards(block->bi.hdr); i++) {
+		if (block->bi.num_txs[i] != 0)
 			return false;
 	}
 	return true;

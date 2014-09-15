@@ -271,7 +271,7 @@ int main(int argc, char *argv[])
 	prev_txhashes = make_prev_txhashes(s, &genesis, helper_addr(1));
 	w = new_working_block(s, 0x1ffffff0,
 			      prev_txhashes, tal_count(prev_txhashes),
-			      le32_to_cpu(genesis.hdr->height) + 1,
+			      block_height(&genesis.bi) + 1,
 			      next_shard_order(&genesis),
 			      prevs, helper_addr(1));
 
@@ -290,14 +290,11 @@ int main(int argc, char *argv[])
 	assert(add_tx(w, &update));
 	for (i = 0; !solve_block(w); i++);
 
-	e = check_block_header(s, &w->hdr, w->num_txs, w->merkles,
-			       w->prev_txhashes, &w->tailer, &prev, &sha.sha);
+	e = check_block_header(s, &w->bi, &prev, &sha.sha);
 	assert(e == PROTOCOL_ECODE_NONE);
 	assert(prev == &genesis);
 
-	b = block_add(s, prev, &sha,
-		      &w->hdr, w->num_txs, w->merkles,
-		      w->prev_txhashes, &w->tailer);
+	b = block_add(s, prev, &sha, &w->bi);
 
 	/* This is a NOOP, so should succeed. */
 	assert(check_prev_txhashes(s, b, NULL, NULL));
@@ -319,7 +316,7 @@ int main(int argc, char *argv[])
 	prevs[1] = genesis.sha;
 	w2 = new_working_block(s, 0x1ffffff0,
 			       prev_txhashes, num_prev_txhashes(b),
-			       le32_to_cpu(b->hdr->height) + 1,
+			       block_height(&b->bi) + 1,
 			       next_shard_order(b),
 			       prevs, helper_addr(1));
 
@@ -351,14 +348,11 @@ int main(int argc, char *argv[])
 	assert(add_tx(w2, &update));
 	for (i = 0; !solve_block(w2); i++);
 
-	e = check_block_header(s, &w2->hdr, w2->num_txs, w2->merkles,
-			       w2->prev_txhashes, &w2->tailer, &prev, &sha.sha);
+	e = check_block_header(s, &w2->bi, &prev, &sha.sha);
 	assert(e == PROTOCOL_ECODE_NONE);
 	assert(prev == b);
 
-	b2 = block_add(s, prev, &sha,
-		       &w2->hdr, w2->num_txs, w2->merkles,
-		       w2->prev_txhashes, &w2->tailer);
+	b2 = block_add(s, prev, &sha, &w2->bi);
 
 	/* This should be correct. */
 	assert(check_prev_txhashes(s, b2, NULL, NULL));
@@ -382,7 +376,7 @@ int main(int argc, char *argv[])
 	prevs[1] = b->sha;
 	w3 = new_working_block(s, 0x1ffffff0,
 			       prev_txhashes, num_prev_txhashes(b2),
-			       le32_to_cpu(b2->hdr->height) + 1,
+			       block_height(&b2->bi) + 1,
 			       next_shard_order(b2),
 			       prevs, helper_addr(1));
 
@@ -413,14 +407,11 @@ int main(int argc, char *argv[])
 	assert(add_tx(w3, &update));
 	for (i = 0; !solve_block(w3); i++);
 
-	e = check_block_header(s, &w3->hdr, w3->num_txs, w3->merkles,
-			       w3->prev_txhashes, &w3->tailer, &prev, &sha.sha);
+	e = check_block_header(s, &w3->bi, &prev, &sha.sha);
 	assert(e == PROTOCOL_ECODE_NONE);
 	assert(prev == b2);
 
-	b3 = block_add(s, prev, &sha,
-		       &w3->hdr, w3->num_txs, w3->merkles,
-		       w3->prev_txhashes, &w3->tailer);
+	b3 = block_add(s, prev, &sha, &w3->bi);
 
 	/* This should be correct. */
 	assert(check_prev_txhashes(s, b3, NULL, NULL));

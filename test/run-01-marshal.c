@@ -9,29 +9,28 @@ static void test_marshal(const struct protocol_block_header *hdr,
 			  const struct protocol_block_tailer *tailer)
 {
 	struct protocol_pkt_block *pkt;
-	const struct protocol_block_header *hdr2;
-	const u8 *num_txs2;
-	const struct protocol_double_sha *merkles2;
-	const u8 *prev_txhashes2;
-	const struct protocol_block_tailer *tailer2;
+	struct block_info bi, bi2;
 	char *ctx = tal(NULL, char);
 
-	pkt = marshal_block(ctx, hdr, num_txs, merkles, prev_txhashes,
-			     tailer);
+	bi.hdr = hdr;
+	bi.num_txs = num_txs;
+	bi.merkles = merkles;
+	bi.prev_txhashes = prev_txhashes;
+	bi.tailer = tailer;
+	pkt = marshal_block(ctx, &bi);
 	assert(tal_parent(pkt) == ctx);
 	assert(tal_count(pkt) == le32_to_cpu(pkt->len));
 
-	assert(unmarshal_block(NULL, pkt, &hdr2,
-				&num_txs2, &merkles2, &prev_txhashes2,
-				&tailer2) == PROTOCOL_ECODE_NONE);
-	assert(memcmp(hdr2, hdr, sizeof(*hdr)) == 0);
-	assert(memcmp(num_txs2, num_txs, 
+	assert(unmarshal_block(NULL, pkt, &bi2)
+	       == PROTOCOL_ECODE_NONE);
+	assert(memcmp(bi2.hdr, hdr, sizeof(*hdr)) == 0);
+	assert(memcmp(bi2.num_txs, num_txs, 
 		      sizeof(*num_txs) << hdr->shard_order) == 0);
-	assert(memcmp(merkles2, merkles,
+	assert(memcmp(bi2.merkles, merkles,
 		      sizeof(*merkles) << hdr->shard_order) == 0);
-	assert(memcmp(prev_txhashes2, prev_txhashes,
+	assert(memcmp(bi2.prev_txhashes, prev_txhashes,
 		      le32_to_cpu(hdr->num_prev_txhashes)) == 0);
-	assert(memcmp(tailer2, tailer, sizeof(*tailer)) == 0);
+	assert(memcmp(bi2.tailer, tailer, sizeof(*tailer)) == 0);
 
 	tal_free(ctx);
 }

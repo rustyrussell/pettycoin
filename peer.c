@@ -330,10 +330,7 @@ static struct protocol_pkt_block *pkt_block(tal_t *ctx, const struct block *b)
 {
 	struct protocol_pkt_block *blk;
  
-	blk = marshal_block(ctx,
-			    b->hdr, b->num_txs, b->merkles, b->prev_txhashes,
-			    b->tailer);
-
+	blk = marshal_block(ctx, &b->bi);
 	return blk;
 }
 
@@ -465,13 +462,9 @@ static struct io_plan *plan_output(struct io_conn *conn, struct peer *peer)
 		struct block *prev;
 		enum protocol_ecode e;
 
-		if (peer->wblock.hdr) {
-			e = check_block_header(peer->state, peer->wblock.hdr,
-					       peer->wblock.num_txs,
-					       peer->wblock.merkles,
-					       peer->wblock.prev_txhashes,
-					       peer->wblock.tailer, &prev,
-					       &peer->wblock.sha.sha);
+		if (peer->wblock.len) {
+			e = check_block_header(peer->state, &peer->wblock.bi,
+					       &prev, &peer->wblock.sha.sha);
 		} else
 			/* They're at the genesis block. */
 			e = PROTOCOL_ECODE_NONE;
@@ -849,7 +842,7 @@ recv_get_shard(struct peer *peer,
 		/* If we don't know it, that's OK.  Try to find out. */
 		todo_add_get_block(peer->state, &pkt->block);
 		r->err = cpu_to_le16(PROTOCOL_ECODE_UNKNOWN_BLOCK);
-	} else if (shard >= num_shards(b->hdr)) {
+	} else if (shard >= num_shards(b->bi.hdr)) {
 		log_unusual(peer->log, "Invalid get_shard for shard %u of ",
 			    shard);
 		log_add_struct(peer->log, struct protocol_block_id,
@@ -911,13 +904,13 @@ recv_get_tx_in_block(struct peer *peer,
 		*reply = pkt_tx_in_block_err(peer, PROTOCOL_ECODE_UNKNOWN_BLOCK,
 					     &pkt->pos.block, shard, txoff);
 		return PROTOCOL_ECODE_NONE;
-	} else if (shard >= num_shards(b->hdr)) {
+	} else if (shard >= num_shards(b->bi.hdr)) {
 		log_unusual(peer->log, "Invalid get_tx for shard %u of ",
 			    shard);
 		log_add_struct(peer->log, struct protocol_block_id,
 			       &pkt->pos.block);
 		return PROTOCOL_ECODE_BAD_SHARDNUM;
-	} else if (txoff >= b->num_txs[shard]) {
+	} else if (txoff >= b->bi.num_txs[shard]) {
 		log_unusual(peer->log, "Invalid get_tx for txoff %u of shard %u of ",
 			    txoff, shard);
 		log_add_struct(peer->log, struct protocol_block_id,
@@ -997,7 +990,7 @@ recv_get_txmap(struct peer *peer, const struct protocol_pkt_get_txmap *pkt,
 		return PROTOCOL_ECODE_NONE;
 	}
 
-	if (le16_to_cpu(pkt->shard) >= num_shards(b->hdr))
+	if (le16_to_cpu(pkt->shard) >= num_shards(b->bi.hdr))
 		return PROTOCOL_ECODE_BAD_SHARDNUM;
 
 	shard = b->shard[le16_to_cpu(pkt->shard)];
@@ -1034,7 +1027,7 @@ recv_txmap(struct peer *peer, const struct protocol_pkt_txmap *pkt)
 		return PROTOCOL_ECODE_NONE;
 	}
 
-	if (le16_to_cpu(pkt->shard) >= num_shards(b->hdr))
+	if (le16_to_cpu(pkt->shard) >= num_shards(b->bi.hdr))
 		return PROTOCOL_ECODE_BAD_SHARDNUM;
 
 	shard = b->shard[le16_to_cpu(pkt->shard)];
@@ -1453,18 +1446,17 @@ static void sync_previous_blocks(struct peer *peer, struct welcome_block *wb)
 	if (have_detached_block(peer->state, &wb->sha))
 		return;
 
-	add_detached_block(peer->state, peer->welcome, &wb->sha,
-			   wb->hdr, wb->len);
+	add_detached_block(peer->state, peer->welcome, &wb->sha, &wb->bi);
 
 	/* Might as well ask for all of them in parallel. */ 
-	for (i = 0; i < num_prevs(wb->hdr); i++) {
-		if (block_find_any(peer->state, &wb->hdr->prevs[i]))
+	for (i = 0; i < num_prevs(wb->bi.hdr); i++) {
+		if (block_find_any(peer->state, block_prev(&wb->bi, i)))
 			continue;
 
-		if (have_detached_block(peer->state, &wb->hdr->prevs[i]))
+		if (have_detached_block(peer->state, block_prev(&wb->bi, i)))
 			continue;
 
-		todo_add_get_block(peer->state, &wb->hdr->prevs[i]);
+		todo_add_get_block(peer->state, block_prev(&wb->bi, i));
 	}
 }
 
@@ -1473,13 +1465,13 @@ static struct io_plan *welcome_received(struct io_conn *conn, struct peer *peer)
 	struct state *state = peer->state;
 	enum protocol_ecode e;
 	struct block *prev;
+	const struct protocol_block_header *hdr;
 
 	log_debug(peer->log, "Their welcome received");
 
 	tal_steal(peer, peer->welcome);
 
-	e = check_welcome(peer, peer->welcome, &peer->wblock.hdr,
-			  &peer->wblock.len);
+	e = check_welcome(peer, peer->welcome, &hdr, &peer->wblock.len);
 	if (e != PROTOCOL_ECODE_NONE) {
 		log_unusual(peer->log, "Peer welcome was invalid:");
 		log_add_enum(peer->log, enum protocol_ecode, e);
@@ -1526,11 +1518,8 @@ static struct io_plan *welcome_received(struct io_conn *conn, struct peer *peer)
 	if (peer->wblock.len) {
 		/* Unmarshal the block they sent, too. */
 		e = unmarshal_block_into(peer->log,
-					 peer->wblock.len, peer->wblock.hdr, 
-					 &peer->wblock.num_txs,
-					 &peer->wblock.merkles,
-					 &peer->wblock.prev_txhashes,
-					 &peer->wblock.tailer);
+					 peer->wblock.len, hdr,
+					 &peer->wblock.bi);
 		if (e != PROTOCOL_ECODE_NONE) {
 			log_unusual(peer->log, "Peer welcome invalid block:");
 			log_add_enum(peer->log, enum protocol_ecode, e);
@@ -1538,12 +1527,8 @@ static struct io_plan *welcome_received(struct io_conn *conn, struct peer *peer)
 						 close_bad_peer);
 		}
 
-		e = check_block_header(state,
-				       peer->wblock.hdr, peer->wblock.num_txs,
-				       peer->wblock.merkles,
-				       peer->wblock.prev_txhashes,
-				       peer->wblock.tailer, &prev,
-				       &peer->wblock.sha.sha);
+		e = check_block_header(state, &peer->wblock.bi,
+				       &prev, &peer->wblock.sha.sha);
 
 		if (e == PROTOCOL_ECODE_PRIV_UNKNOWN_PREV) {
 			sync_previous_blocks(peer, &peer->wblock);
@@ -1553,8 +1538,7 @@ static struct io_plan *welcome_received(struct io_conn *conn, struct peer *peer)
 			return peer_write_packet(peer, err_pkt(peer, e),
 						 close_bad_peer);
 		}
-	} else
-		peer->wblock.hdr = NULL;
+	}
 
 	/* Time to go duplex on this connection: input reads packet,
 	 * output asks about TODOs */

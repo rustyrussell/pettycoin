@@ -268,7 +268,7 @@ int main(int argc, char *argv[])
 	make_prev_blocks(&genesis, prevs);
 	w = new_working_block(s, 0x1ffffff0,
 			      prev_txhashes, tal_count(prev_txhashes),
-			      le32_to_cpu(genesis.hdr->height) + 1,
+			      block_height(&genesis.bi) + 1,
 			      next_shard_order(&genesis),
 			      prevs, helper_addr(1));
 
@@ -287,14 +287,11 @@ int main(int argc, char *argv[])
 	assert(add_tx(w, &update));
 	for (i = 0; !solve_block(w); i++);
 
-	e = check_block_header(s, &w->hdr, w->num_txs, w->merkles,
-			       w->prev_txhashes, &w->tailer, &prev, &sha.sha);
+	e = check_block_header(s, &w->bi, &prev, &sha.sha);
 	assert(e == PROTOCOL_ECODE_NONE);
 	assert(prev == &genesis);
 
-	b = block_add(s, prev, &sha,
-		      &w->hdr, w->num_txs, w->merkles,
-		      w->prev_txhashes, &w->tailer);
+	b = block_add(s, prev, &sha, &w->bi);
 
 	/* This is a NOOP, so should succeed. */
 	assert(check_prev_txhashes(s, b, NULL, NULL));

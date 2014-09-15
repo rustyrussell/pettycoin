@@ -24,7 +24,7 @@ struct protocol_pkt_welcome *make_welcome(const tal_t *ctx,
 
 	/* This is the best block we can tell them about. */
 	if (state->longest_knowns[0] != genesis_block(state))
-		tal_packet_append_block(&w, state->longest_knowns[0]);
+		tal_packet_append_block(&w, &state->longest_knowns[0]->bi);
 	return w;
 }
 

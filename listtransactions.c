@@ -60,12 +60,12 @@ static void add_existing_txs(struct json_connection *jcon,
 
 	for (b = jcon->state->preferred_chain; b; b = b->prev, height++) {
 		/* Once block is past horizon, we can't spend it */
-		if (le32_to_cpu(b->tailer->timestamp) 
+		if (block_timestamp(&b->bi)
 		    + PROTOCOL_TX_HORIZON_SECS(jcon->state->test_net)
 		    < current_time())
 			break;
 
-		for (shard = 0; shard < num_shards(b->hdr); shard++) {
+		for (shard = 0; shard < block_num_shards(&b->bi); shard++) {
 			for (txoff = 0; txoff < b->shard[shard]->size; txoff++) {
 				union protocol_tx *tx;
 				char *txstring;
