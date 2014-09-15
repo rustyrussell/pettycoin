@@ -5,6 +5,7 @@
 #include "check_block.h"
 #include "check_tx.h"
 #include "complain.h"
+#include "detached_block.h"
 #include "difficulty.h"
 #include "dns.h"
 #include "generating.h"
@@ -18,6 +19,7 @@
 #include "peer_cache.h"
 #include "peer_wants.h"
 #include "pending.h"
+#include "prev_blocks.h"
 #include "proof.h"
 #include "protocol_net.h"
 #include "recv_block.h"
@@ -412,26 +414,6 @@ static struct protocol_pkt_err *err_pkt(struct peer *peer,
 	return pkt;
 }
 
-static struct block *mutual_block_search(struct peer *peer,
-					 const struct protocol_block_id *block,
-					 u16 num_blocks)
-{
-	int i;
-
-	for (i = 0; i < num_blocks; i++) {
-		struct block *b = block_find_any(peer->state, &block[i]);
-
-		log_debug(peer->log, "Seeking mutual block ");
-		log_add_struct(peer->log, struct protocol_block_id, &block[i]);
-		if (b) {
-			log_add(peer->log, " found.");
-			return b;
-		}
-		log_add(peer->log, " not found.");
-	}
-	return NULL;
-}
-
 /* Blockchain has been extended/changed. */
 void wake_peers(struct state *state)
 {
@@ -479,13 +461,36 @@ static struct io_plan *plan_output(struct io_conn *conn, struct peer *peer)
 		return peer_write_packet(peer, pkt, plan_output);
 
 	/* FIXME: Timeout! */
-	if (peer->we_are_syncing && peer->requests_outstanding == 0) {
-		/* We're synced (or as far as we can get).  Start
-		 * normal operation. */
-		log_info(peer->log, "We finished syncing with them");
-		peer->we_are_syncing = false;
-		return peer_write_packet(peer, set_filter_pkt(peer),
-					 plan_output);
+	if (peer->we_are_syncing) {
+		struct block *prev;
+		enum protocol_ecode e;
+
+		if (peer->wblock.hdr) {
+			e = check_block_header(peer->state, peer->wblock.hdr,
+					       peer->wblock.shard_nums,
+					       peer->wblock.merkles,
+					       peer->wblock.prev_txhashes,
+					       peer->wblock.tailer, &prev,
+					       &peer->wblock.sha.sha);
+		} else
+			/* They're at the genesis block. */
+			e = PROTOCOL_ECODE_NONE;
+
+		/* Have we finally resolved their welcome block? */
+		if (e == PROTOCOL_ECODE_NONE) {
+			log_info(peer->log, "We finished syncing with them");
+			peer->we_are_syncing = false;
+			return peer_write_packet(peer, set_filter_pkt(peer),
+						 plan_output);
+		}
+
+		/* We might have resolved it, but it's crap. */
+		if (e != PROTOCOL_ECODE_PRIV_UNKNOWN_PREV) {
+			log_unusual(peer->log, "Peer welcome block now wrong:");
+			log_add_enum(peer->log, enum protocol_ecode, e);
+			return peer_write_packet(peer, err_pkt(peer, e),
+						 close_bad_peer);
+		}
 	}
 
 	log_debug(peer->log, "Awaiting responses");
@@ -509,6 +514,7 @@ recv_set_filter(struct peer *peer, const struct protocol_pkt_set_filter *pkt)
 	peer->filter_offset = le64_to_cpu(pkt->offset);
 #endif
 
+	/* FIXME: Now send them all the blocks since they started sync! */
 	if (peer->they_are_syncing)
 		log_info(peer->log, "finished syncing with us");
 
@@ -1438,50 +1444,42 @@ static struct io_plan *pkt_in(struct io_conn *conn, struct peer *peer)
 	return peer_read_packet(peer, pkt_in);
 }
 
-static struct io_plan *check_sync_or_horizon(struct io_conn *conn,
-					     struct peer *peer)
+/* Ask for any previous blocks we don't know about */
+static void sync_previous_blocks(struct peer *peer, struct welcome_block *wb)
 {
-	const struct protocol_net_hdr *hdr = peer->incoming;
-	enum protocol_ecode err;
+	size_t i;
 
-	if (le32_to_cpu(hdr->type) == PROTOCOL_PKT_HORIZON)
-		err = recv_horizon_pkt(peer, peer->incoming);
-	else if (le32_to_cpu(hdr->type) == PROTOCOL_PKT_SYNC)
-		err = recv_sync_pkt(peer, peer->incoming);
-	else {
-		err = PROTOCOL_ECODE_UNKNOWN_COMMAND;
+	/* We might already know it from another peer. */
+	if (have_detached_block(peer->state, &wb->sha))
+		return;
+
+	add_detached_block(peer->state, peer->welcome, &wb->sha,
+			   wb->hdr, wb->len);
+
+	/* Might as well ask for all of them in parallel. */ 
+	for (i = 0; i < num_prevs(wb->hdr); i++) {
+		if (block_find_any(peer->state, &wb->hdr->prevs[i]))
+			continue;
+
+		if (have_detached_block(peer->state, &wb->hdr->prevs[i]))
+			continue;
+
+		todo_add_get_block(peer->state, &wb->hdr->prevs[i]);
 	}
-
-	if (err != PROTOCOL_ECODE_NONE)
-		return peer_write_packet(peer, err_pkt(peer, err), close_bad_peer);
-
-	/* Ask them for more peers. */
-	todo_for_peer(peer, pkt_get_peers(peer));
-
-	/* Time to go duplex on this connection: input reads packet,
-	 * output asks about TODOs */
-	return io_duplex(conn, peer_read_packet(peer, pkt_in),
-			 plan_output(conn, peer));
-}
-
-static struct io_plan *recv_sync_or_horizon(struct io_conn *conn,
-					    struct peer *peer)
-{
-	return peer_read_packet(peer, check_sync_or_horizon);
 }
 
 static struct io_plan *welcome_received(struct io_conn *conn, struct peer *peer)
 {
 	struct state *state = peer->state;
 	enum protocol_ecode e;
-	const struct block *mutual;
-	const struct protocol_block_id *welcome_blocks;
+	struct block *prev;
 
 	log_debug(peer->log, "Their welcome received");
 
 	tal_steal(peer, peer->welcome);
 
-	e = check_welcome(state, peer->welcome, &welcome_blocks);
+	e = check_welcome(peer, peer->welcome, &peer->wblock.hdr,
+			  &peer->wblock.len);
 	if (e != PROTOCOL_ECODE_NONE) {
 		log_unusual(peer->log, "Peer welcome was invalid:");
 		log_add_enum(peer->log, enum protocol_ecode, e);
@@ -1521,15 +1519,47 @@ static struct io_plan *welcome_received(struct io_conn *conn, struct peer *peer)
 	/* Create/update time for this peer. */
 	peer_cache_refresh(state, &peer->you);
 
-	mutual = mutual_block_search(peer, welcome_blocks,
-				     le16_to_cpu(peer->welcome->num_blocks));
+	/* We always ask them for more peers. */
+	todo_for_peer(peer, pkt_get_peers(peer));
 
-	/* If we didn't know their best packet, start querying now. */
-	if (!block_find_any(peer->state, &welcome_blocks[0]))
-		todo_add_get_block(peer->state, &welcome_blocks[0]);
+	/* They don't send a block if they have only the genesis. */
+	if (peer->wblock.len) {
+		/* Unmarshal the block they sent, too. */
+		e = unmarshal_block_into(peer->log,
+					 peer->wblock.len, peer->wblock.hdr, 
+					 &peer->wblock.shard_nums,
+					 &peer->wblock.merkles,
+					 &peer->wblock.prev_txhashes,
+					 &peer->wblock.tailer);
+		if (e != PROTOCOL_ECODE_NONE) {
+			log_unusual(peer->log, "Peer welcome invalid block:");
+			log_add_enum(peer->log, enum protocol_ecode, e);
+			return peer_write_packet(peer, err_pkt(peer, e),
+						 close_bad_peer);
+		}
 
-	return peer_write_packet(peer, sync_or_horizon_pkt(peer, mutual),
-				 recv_sync_or_horizon);
+		e = check_block_header(state,
+				       peer->wblock.hdr, peer->wblock.shard_nums,
+				       peer->wblock.merkles,
+				       peer->wblock.prev_txhashes,
+				       peer->wblock.tailer, &prev,
+				       &peer->wblock.sha.sha);
+
+		if (e == PROTOCOL_ECODE_PRIV_UNKNOWN_PREV) {
+			sync_previous_blocks(peer, &peer->wblock);
+		} else if (e != PROTOCOL_ECODE_NONE) {
+			log_unusual(peer->log, "Peer welcome block invalid:");
+			log_add_enum(peer->log, enum protocol_ecode, e);
+			return peer_write_packet(peer, err_pkt(peer, e),
+						 close_bad_peer);
+		}
+	} else
+		peer->wblock.hdr = NULL;
+
+	/* Time to go duplex on this connection: input reads packet,
+	 * output asks about TODOs */
+	return io_duplex(conn, peer_read_packet(peer, pkt_in),
+			 plan_output(conn, peer));
 }
 
 static struct io_plan *welcome_sent(struct io_conn *conn, struct peer *peer)

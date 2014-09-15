@@ -105,29 +105,17 @@ struct protocol_pkt_welcome {
 	le32 type; /* PROTOCOL_PKT_WELCOME */
 	le32 version; /* Protocol version, currently 1. */
 	/* Freeform software version. */
-	char moniker[28];
+	char moniker[34];
+	/* Port you can connect to us at (if != 0) */
+	le16 listen_port;
 	/* Duplicate detection */
 	struct protocol_net_uuid uuid;
 	/* Address we see you at. */
 	struct protocol_net_address you;
-	/* Port you can connect to us at (if != 0) */
-	le16 listen_port;
-	/* How many block hashes at end. */
-	le16 num_blocks;
 	/* What shards we're interested in. */
 	u8 interests[65536/8];
-	/* Followed by:
-	   Blocks we know about: 10, then power of 2 back.
-	     struct protocol_block_id block[num_blocks];
-	*/
-};
 
-/* If you're behind the horizon, this gets you there quickly. */
-struct protocol_pkt_horizon {
-	le32 len; /* sizeof(struct protocol_pkt_horizon) ... */
-	le32 type; /* PROTOCOL_PKT_HORIZON */
-
-	/* marshaled blocks, backwards from horizon to mutual, skipping. */
+	/* Followed by marshalled "best" block (if not genesis). */
 };
 
 struct protocol_net_syncblock {
@@ -135,14 +123,6 @@ struct protocol_net_syncblock {
 	struct protocol_block_id block;
 	/* How many children up to the next block */
 	le32 children;
-};
-
-/* If you're beyond horizon, you get summary of blocks (backwards). */
-struct protocol_pkt_sync {
-	le32 len; /* sizeof(struct protocol_pkt_sync) ... */
-	le32 type; /* PROTOCOL_PKT_SYNC */
-
-	/* struct protocol_net_syncblock [] */
 };
 
 /* Tell me about the direct children of this block. */

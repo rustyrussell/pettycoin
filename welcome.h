@@ -9,8 +9,9 @@ struct protocol_pkt_welcome *make_welcome(const tal_t *ctx,
 					  const struct state *state,
 					  const struct protocol_net_address *a);
 
-enum protocol_ecode check_welcome(const struct state *state,
+enum protocol_ecode check_welcome(const struct peer *peer,
 				  const struct protocol_pkt_welcome *w,
-				  const struct protocol_block_id **blocks);
+				  const struct protocol_block_header **bhdr,
+				  size_t *blen);
 
 #endif /* PETTYCOIN_WELCOME_H */

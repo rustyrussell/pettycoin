@@ -9,6 +9,17 @@
 
 struct block;
 
+/* The unmarshalled block they sent to us in welcome packet. */
+struct welcome_block {
+	size_t len;
+	struct protocol_block_id sha;
+	const struct protocol_block_header *hdr;
+	const u8 *shard_nums;
+	const struct protocol_double_sha *merkles;
+	const u8 *prev_txhashes;
+	const struct protocol_block_tailer *tailer;
+};
+
 struct peer {
 	/* state->peers list */
 	struct list_node list;
@@ -44,6 +55,7 @@ struct peer {
 	struct protocol_net_address you;
 	/* We keep this. */
 	struct protocol_pkt_welcome *welcome;
+	struct welcome_block wblock;
 
 	/* Number of requests we have outstanding (see todo.c) */
 	unsigned int requests_outstanding;
