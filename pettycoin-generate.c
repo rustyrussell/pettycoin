@@ -227,7 +227,7 @@ static bool solve_block(struct working_block *w)
 
 	/* ''I hope I die before I get old'' */
 	if ((*nonce1 & 0xFFFF) == 0) {
-		w->tailer.timestamp = cpu_to_le32(time(NULL));
+		w->tailer.timestamp = cpu_to_le32(current_time());
 
 		/* If nonce1 completely wraps, time to update nonce2. */
 		if (*nonce1 == 0) {

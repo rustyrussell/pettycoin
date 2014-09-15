@@ -40,9 +40,3 @@ bool check_timestamp(struct state *state, u32 timestamp,
 	/* FIXME: Use network time? */
 	return timestamp < time(NULL) + 2 * 60 * 60;
 }
-
-/* FIXME: Consensus time? */
-u32 current_time(void)
-{
-	return time(NULL);
-}

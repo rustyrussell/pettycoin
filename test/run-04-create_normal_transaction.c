@@ -1,23 +1,27 @@
 #include <ccan/asort/asort.h>
-#include <time.h>
+#include <ccan/time/time.h>
 #include <assert.h>
 
+/* Override time_now in timestamp.h */
 static time_t fake_time;
-static time_t my_time(time_t *p)
+static struct timeabs fake_time_now(void)
 {
-	if (p)
-		*p = fake_time;
-	return fake_time;
+	struct timeabs now;
+
+	now.ts.tv_sec = fake_time;
+	now.ts.tv_nsec = 0;
+
+	return now;
 }
+#undef time_now
+#define time_now fake_time_now
 
 int generate_main(int argc, char *argv[]);
 #define main generate_main
-#define time my_time
 
 #include "../timestamp.c"
 #include "../pettycoin-generate.c"
 #undef main
-#undef time
 #include "helper_key.h"
 #include "helper_gateway_key.h"
 #include "../hash_block.c"
