@@ -307,7 +307,7 @@ check_inputs:
 		}
 		if (e != ECODE_INPUT_OK) {
 			*bad_input_num = i;
-			return ECODE_INPUT_BAD;
+			return e;
 		}
 		known++;
 		input_total += amount;
