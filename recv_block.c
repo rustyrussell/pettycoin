@@ -229,7 +229,7 @@ recv_block_pkt(struct state *state, struct log *log, struct peer *peer,
 		return e;
 	}
 
-	return recv_block(state, log, peer, pkt, &bi, peer->we_are_syncing, block);
+	return recv_block(state, log, peer, pkt, &bi, peer ? peer->we_are_syncing : false, block);
 }
 
 static struct txptr_with_ref
