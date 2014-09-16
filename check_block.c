@@ -287,6 +287,10 @@ bool put_txhash_in_shard(struct state *state,
 	add_txhash_to_hashes(state, shard, block, shardnum, txoff,
 			     &txrefhash->txhash);
 
+	/* If we've just filled it, we don't need proofs any more. */
+	if (shard_all_hashes(shard))
+		shard->proof = tal_free(shard->proof);
+
 	/* This could eliminate a pending tx. */
 	state->pending->needs_recheck = true;
 
