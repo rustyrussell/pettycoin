@@ -127,7 +127,7 @@ static void ask_block_contents(struct state *state, const struct block *b)
 /* peer is NULL if from generator, re-trying detached block or jsonrpc. */
 static enum protocol_ecode
 recv_block(struct state *state, struct log *log, struct peer *peer,
-	   const tal_t *pkt_ctx, const struct block_info *bi,
+	   const tal_t *pkt_ctx, const struct block_info *bi, bool need_contents,
 	   struct block **block)
 {
 	struct block *b, *prev;
@@ -184,7 +184,7 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 						   bad_shard);
 		} else {
 			/* If we're syncing, ask about children, contents */
-			if (peer && peer->we_are_syncing) {
+			if (need_contents) {
 				/* FIXME: Don't do these if below horizon */
 				todo_add_get_children(state, &b->sha);
 				get_block_contents(state, b);
@@ -229,7 +229,7 @@ recv_block_pkt(struct state *state, struct log *log, struct peer *peer,
 		return e;
 	}
 
-	return recv_block(state, log, peer, pkt, &bi, block);
+	return recv_block(state, log, peer, pkt, &bi, peer->we_are_syncing, block);
 }
 
 static struct txptr_with_ref
@@ -525,7 +525,8 @@ void recv_block_reinject(struct state *state,
 {
 	struct block *b;
 
-	recv_block(state, state->log, NULL, pkt_ctx, bi, &b);
+	/* A reinject implies we are catching up: explicitly ask for contents. */
+	recv_block(state, state->log, NULL, pkt_ctx, bi, true, &b);
 }
 
 static char *json_submitblock(struct json_connection *jcon,
@@ -553,7 +554,7 @@ static char *json_submitblock(struct json_connection *jcon,
 	if (e != PROTOCOL_ECODE_NONE)
 		return (char *)ecode_name(e);
 
-	e = recv_block(jcon->state, jcon->log, NULL, data, &bi, &block);
+	e = recv_block(jcon->state, jcon->log, NULL, data, &bi, false, &block);
 	if (e != PROTOCOL_ECODE_NONE)
 		return (char *)ecode_name(e);
 
