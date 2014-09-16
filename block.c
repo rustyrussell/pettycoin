@@ -2,6 +2,7 @@
 #include "blockfile.h"
 #include "chain.h"
 #include "check_block.h"
+#include "detached_block.h"
 #include "difficulty.h"
 #include "features.h"
 #include "generating.h"
