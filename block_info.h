@@ -10,8 +10,6 @@
 struct block_info {
 	/* The pettycoin part: */
 	const struct protocol_block_header *hdr;
-	/* There are num_prevs(hdr) protocoL_block_id: */
-	const struct protocol_block_id *prevs;
 	/* There are num_shards(hdr) u8: */
 	const u8 *num_txs;
 	/* There are num_shards(hdr) protocol_double_sha: */
