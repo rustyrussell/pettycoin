@@ -285,12 +285,29 @@ static void read_txs(struct working_block *w)
 	tal_free(update);
 }
 
+static struct protocol_pkt_shard *make_shard_pkt(const struct working_block *w,
+						 u32 shard)
+{
+	struct protocol_pkt_shard *s;
+	unsigned int i;
+
+	s = tal_packet(w, struct protocol_pkt_shard,   PROTOCOL_PKT_SHARD);
+	s->block.sha = w->sha;
+	s->shard = cpu_to_le16(shard);
+	s->err = cpu_to_le16(PROTOCOL_ECODE_NONE);
+
+	for (i = 0; i < w->bi.num_txs[shard]; i++)
+		tal_packet_append_txrefhash(&s, &w->trans_hashes[shard][i]);
+
+	return s;
+}
+
 /* ''Talkin' 'bout my generation...''  */
 static void write_block(int fd, const struct working_block *w)
 {
 	struct protocol_pkt_block *b;
 	struct protocol_pkt_shard *s;
-	u32 shard, i;
+	u32 shard;
 
 	b = marshal_block(w, &w->bi);
 	if (!write_all(fd, b, le32_to_cpu(b->len)))
@@ -298,16 +315,7 @@ static void write_block(int fd, const struct working_block *w)
 
 	/* Write out the shard hashes. */
 	for (shard = 0; shard < w->num_shards; shard++) {
-		s = tal_packet(w, struct protocol_pkt_shard,
-			       PROTOCOL_PKT_SHARD);
-		s->block.sha = w->sha;
-		s->shard = cpu_to_le16(shard);
-		s->err = cpu_to_le16(PROTOCOL_ECODE_NONE);
-
-		for (i = 0; i < w->bi.num_txs[shard]; i++)
-			tal_packet_append_txrefhash(&s,
-						    &w->trans_hashes[shard][i]);
-
+		s = make_shard_pkt(w, shard);
 		if (!write_all(fd, s, le32_to_cpu(s->len)))
 			err(1, "''I'm just talkin' 'bout my g-g-generation''"
 			    " %i", shard);
