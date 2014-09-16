@@ -26,7 +26,7 @@ void add_tx_to_hashes(struct state *state,
 
 	/* First time we heard of full transaction?  Add inputs. */
 	if (!txhash_gettx(&state->txhash, &txhash, TX_PENDING))
-		inputhash_add_tx(&state->inputhash, ctx, tx);
+		inputhash_add_tx(state, &state->inputhash, tx);
 
 	add_txhash_to_hashes(state, ctx, block, shard, txoff, &txhash);
 }
@@ -61,13 +61,12 @@ void remove_tx_from_hashes(struct state *state,
 /* This is called *before* we turn txrefhash into tx pointer, so
  * txhash_gettx won't return this entry. */
 void upgrade_tx_in_hashes(struct state *state,
-			  const tal_t *ctx,
 			  const struct protocol_tx_id *sha,
 			  const union protocol_tx *tx)
 {
 	/* If we didn't know about full tx before, add inputs to hash. */
 	if (!txhash_gettx(&state->txhash, sha, TX_PENDING))
-		inputhash_add_tx(&state->inputhash, ctx, tx);
+		inputhash_add_tx(state, &state->inputhash, tx);
 }
 
 void add_pending_tx_to_hashes(struct state *state,
@@ -83,7 +82,7 @@ void add_pending_tx_to_hashes(struct state *state,
 
 	/* First time we heard of full transaction?  Add inputs. */
 	if (!txhash_gettx(&state->txhash, &txhash, TX_PENDING))
-		inputhash_add_tx(&state->inputhash, ctx, tx);
+		inputhash_add_tx(state, &state->inputhash, tx);
 
 	u.tx = tx;
 	txhash_add_tx(&state->txhash, ctx, u, 0, 0, TX_PENDING, &txhash);

@@ -231,7 +231,6 @@ struct txhash_elem *txhash_gettx_ancestor(struct state *state,
 { fprintf(stderr, "txhash_gettx_ancestor called!\n"); abort(); }
 /* Generated stub for upgrade_tx_in_hashes */
 void upgrade_tx_in_hashes(struct state *state,
-			  const tal_t *ctx,
 			  const struct protocol_tx_id *sha,
 			  const union protocol_tx *tx)
 { fprintf(stderr, "upgrade_tx_in_hashes called!\n"); abort(); }

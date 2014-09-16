@@ -50,8 +50,7 @@ u8 pending_features(const struct block *block)
 void save_block(struct state *state, struct block *new)
 { fprintf(stderr, "save_block called!\n"); abort(); }
 /* Generated stub for seek_detached_blocks */
-void seek_detached_blocks(struct state *state, 
-			  const struct block *block)
+void seek_detached_blocks(struct state *state, const struct block *block)
 { fprintf(stderr, "seek_detached_blocks called!\n"); abort(); }
 /* Generated stub for update_block_ptrs_new_block */
 void update_block_ptrs_new_block(struct state *state, struct block *block)

@@ -230,7 +230,7 @@ void put_tx_in_shard(struct state *state,
 		assert(structeq(shard->u[txoff].hash, &hashes));
 		shard->hashcount--;
 
-		upgrade_tx_in_hashes(state, shard, &hashes.txhash, txp.tx);
+		upgrade_tx_in_hashes(state, &hashes.txhash, txp.tx);
 	}
 
 	/* Now it's a transaction. */

@@ -36,9 +36,9 @@ struct inputhash_elem *inputhash_nextval(struct inputhash *inputhash,
 					 u16 output_num,
 					 struct inputhash_iter *i);
 
-void inputhash_add_tx(struct inputhash *inputhash,
-		      const tal_t *ctx,
-		      const union protocol_tx *tx);
+struct state;
+void inputhash_add_tx(struct state *state,
+		      struct inputhash *inputhash, const union protocol_tx *tx);
 
 void inputhash_del_tx(struct inputhash *inputhash, const union protocol_tx *tx);
 #endif /* PETTYCOIN_INPUTHASH_H */

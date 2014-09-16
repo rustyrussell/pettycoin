@@ -27,7 +27,6 @@ void remove_pending_tx_from_hashes(struct state *state,
 
 /* It was a hash, now we found the tx. */
 void upgrade_tx_in_hashes(struct state *state,
-			  const tal_t *ctx,
 			  const struct protocol_tx_id *sha,
 			  const union protocol_tx *tx);
 

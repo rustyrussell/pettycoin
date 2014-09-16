@@ -69,9 +69,8 @@ struct inputhash_elem *inputhash_nextval(struct inputhash *inputhash,
 			   i, h);
 }
 
-void inputhash_add_tx(struct inputhash *inputhash,
-		      const tal_t *ctx,
-		      const union protocol_tx *tx)
+void inputhash_add_tx(struct state *state,
+		      struct inputhash *inputhash, const union protocol_tx *tx)
 {
 	unsigned int i;
 
@@ -79,7 +78,9 @@ void inputhash_add_tx(struct inputhash *inputhash,
 		struct inputhash_elem *ie;
 		const struct protocol_input *inp = tx_input(tx, i);
 
-		ie = tal(ctx, struct inputhash_elem);
+		/* We allocate off state: we free up manually when
+		 * all txs are removed from txhash */
+		ie = tal(state, struct inputhash_elem);
 		ie->output.tx = inp->input;
 		ie->output.output_num = le16_to_cpu(inp->output);
 		hash_tx(tx, &ie->used_by);
