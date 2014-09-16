@@ -24,6 +24,8 @@ static void complaint_on_all(struct state *state,
 	/* Remove transactions, and maybe inputs. */
 	for (shard = 0; shard < num_shards(block->bi.hdr); shard++) {
 		for (txoff = 0; txoff < block->shard[shard]->size; txoff++) {
+			if (!block->shard[shard]->u[txoff].txp.tx)
+				continue;
 			remove_tx_from_hashes(state, block, shard, txoff);
 		}
 	}
