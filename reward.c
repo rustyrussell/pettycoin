@@ -30,7 +30,7 @@ static u32 num_txs(const struct block *b)
 
 	for (i = 0; i < block_num_shards(&b->bi); i++)
 		total += block_num_txs(&b->bi, i);
-	return i;
+	return total;
 }
 
 bool reward_get_tx(struct state *state,
