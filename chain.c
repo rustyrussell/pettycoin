@@ -138,9 +138,9 @@ void check_chains(struct state *state, bool all)
 			else {
 				struct protocol_block_id prevs
 					[PROTOCOL_NUM_PREV_IDS];
-				make_prev_blocks(b->prev, prevs);
+				make_prev_blocks(i->prev, prevs);
 				assert(memcmp(block_prev(&i->bi, 0), prevs,
-					      sizeof(prevs) == 0));
+					      sizeof(prevs)) == 0);
 				if (i->prev->complaint)
 					assert(i->complaint);
 			}
