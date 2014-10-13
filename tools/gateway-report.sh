@@ -18,7 +18,7 @@ echo '<title>Pettycoin Gateway Status Page</title>'
 echo '</head><body>'
 echo '<h1>Pettycoin Gateway Status Page</h1>'
 
-if pidof pettycoin >/dev/null; then
+if pidof pettycoin-gateway >/dev/null; then
     echo '<p>Gateway is active</p>'
 else
     echo '<p>Gateway is <b>DOWN</b></p>'
