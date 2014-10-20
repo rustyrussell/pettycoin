@@ -120,7 +120,9 @@ struct io_plan *peer_read_packet(struct peer *peer,
 							struct peer *))
 {
 	assert(get_log_for_fd(io_conn_fd(peer->conn)));
+	assert(!peer->in_pending);
 
+	peer->in_pending = true;
 	return io_read_packet(peer->conn, &peer->incoming, cb, peer);
 }
 
@@ -131,6 +133,8 @@ struct io_plan *peer_write_packet(struct peer *peer, const void *pkt,
 {
 	le32 len;
 
+	assert(!peer->out_pending);
+
 	tal_free(peer->outgoing);
 	peer->outgoing = pkt;
 
@@ -138,6 +142,11 @@ struct io_plan *peer_write_packet(struct peer *peer, const void *pkt,
 	memcpy(&len, pkt, sizeof(len));
 	assert(le32_to_cpu(len) >= sizeof(struct protocol_net_hdr));
 	assert(le32_to_cpu(len) <= PROTOCOL_MAX_PACKET_LEN);
+
+	peer->last_time_out = time_now();
+	peer->last_type_out = le32_to_cpu(((struct protocol_net_hdr*)pkt)->type);
+	peer->last_len_out = le32_to_cpu(len);
+	peer->out_pending = true;
 
 	log_io(peer->log, false, pkt, le32_to_cpu(len));
 	return io_write(peer->conn, pkt, le32_to_cpu(len), next, peer);

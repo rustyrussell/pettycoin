@@ -444,6 +444,8 @@ static struct io_plan *plan_output(struct io_conn *conn, struct peer *peer)
 {
 	void *pkt;
 
+	peer->out_pending = false;
+
 	/* There was an error?  Send that then close. */
 	if (peer->error_pkt) {
 		log_info(peer->log, "sending error packet ");
@@ -1296,6 +1298,11 @@ static struct io_plan *pkt_in(struct io_conn *conn, struct peer *peer)
 	enum protocol_ecode err;
 	void *reply = NULL;
 
+	peer->in_pending = false;
+	peer->last_time_in = time_now();
+	peer->last_type_in = le32_to_cpu(hdr->type);
+	peer->last_len_in = le32_to_cpu(hdr->len);
+
 	len = le32_to_cpu(hdr->len);
 	type = le32_to_cpu(hdr->type);
 
@@ -1467,6 +1474,11 @@ static struct io_plan *welcome_received(struct io_conn *conn, struct peer *peer)
 	struct block *prev;
 	const struct protocol_block_header *hdr;
 
+	peer->in_pending = false;
+	peer->last_time_in = time_now();
+	peer->last_type_in = le32_to_cpu(peer->welcome->type);
+	peer->last_len_in = le32_to_cpu(peer->welcome->len);
+	
 	log_debug(peer->log, "Their welcome received");
 
 	tal_steal(peer, peer->welcome);
@@ -1548,7 +1560,9 @@ static struct io_plan *welcome_received(struct io_conn *conn, struct peer *peer)
 
 static struct io_plan *welcome_sent(struct io_conn *conn, struct peer *peer)
 {
+	peer->out_pending = false;
 	log_debug(peer->log, "Our welcome sent, awaiting theirs");
+	peer->in_pending = true;
 	return io_read_packet(conn, &peer->welcome, welcome_received, peer);
 }
 
@@ -1624,6 +1638,11 @@ struct io_plan *peer_connected(struct io_conn *conn, struct state *state,
 	peer->you = *addr;
 	peer->conn = conn;
 	peer->fd = io_conn_fd(conn);
+	peer->last_time_in.ts.tv_sec = peer->last_time_out.ts.tv_sec = 0;
+	peer->last_time_in.ts.tv_nsec = peer->last_time_out.ts.tv_nsec = 0;
+	peer->last_type_in = peer->last_type_out = PROTOCOL_PKT_NONE;
+	peer->last_len_in = peer->last_len_out = 0;
+	peer->out_pending = peer->in_pending = 0;
 
 	/* Use address as log prefix. */
 	sprintf(prefix, "Peer %u @", peer->peer_num);

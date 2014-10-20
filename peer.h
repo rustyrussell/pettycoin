@@ -4,6 +4,7 @@
 #include "block_info.h"
 #include "protocol_net.h"
 #include <ccan/list/list.h>
+#include <ccan/time/time.h>
 #include <stdbool.h>
 
 #define MAX_PEERS 64
@@ -53,6 +54,12 @@ struct peer {
 	/* We keep this. */
 	struct protocol_pkt_welcome *welcome;
 	struct welcome_block wblock;
+
+	/* Debugging */
+	struct timeabs last_time_in, last_time_out;
+	enum protocol_pkt_type last_type_in, last_type_out;
+	size_t last_len_in, last_len_out;
+	bool out_pending, in_pending;
 
 	/* Number of requests we have outstanding (see todo.c) */
 	unsigned int requests_outstanding;
