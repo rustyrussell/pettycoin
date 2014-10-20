@@ -19,6 +19,8 @@ const struct json_command getblock_command;
 const struct json_command getblockhash_command;
 /* Generated stub for getinfo_command */
 const struct json_command getinfo_command;
+/* Generated stub for getpeerinfo_command */
+const struct json_command getpeerinfo_command;
 /* Generated stub for gettransaction_command */
 const struct json_command gettransaction_command;
 /* Generated stub for listtodo_command */

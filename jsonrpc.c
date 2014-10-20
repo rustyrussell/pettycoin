@@ -78,6 +78,7 @@ static const struct json_command *cmdlist[] = {
 	&help_command, &getinfo_command, &sendrawtransaction_command,
 	&stop_command, &listtransactions_command, &getblock_command,
 	&getblockhash_command, &submitblock_command, &gettransaction_command,
+	&getpeerinfo_command,
 	/* Developer/debugging options. */
 	&echo_command, &listtodo_command
 };
