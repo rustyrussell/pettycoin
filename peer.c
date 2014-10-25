@@ -1515,6 +1515,12 @@ static struct io_plan *welcome_received(struct io_conn *conn, struct peer *peer)
 		}
 		assert(block_find_any(peer->state, &peer->wblock.id)
 		       || have_detached_block(peer->state, &peer->wblock.id));
+		/* Dup packet, since original may be in detached
+		 * queue, and thus freed if it later proved to be
+		 * invalid (we kill the peer in that case via an error
+		 * packet, but there's a potential race with input, so
+		 * don't let that happen).. */
+		peer->welcome = tal_packet_dup(peer, peer->welcome);
 	}
 
 	/* Time to go duplex on this connection: input reads packet,
