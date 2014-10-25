@@ -4,8 +4,9 @@
 struct state;
 union protocol_tx;
 struct block;
+struct json_result;
 
-void json_add_tx(char **response, const char *fieldname,
+void json_add_tx(struct json_result *response, const char *fieldname,
 		 struct state *state,
 		 const union protocol_tx *tx,
 		 const struct block *block,

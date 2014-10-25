@@ -12,6 +12,7 @@ int main(void)
 	bool valid;
 	char *cmd_arr, *cmd_obj;
 	struct protocol_double_sha sha;
+	struct json_result *result;
 
 	ctx = tal(NULL, char);
 
@@ -134,28 +135,28 @@ int main(void)
 	       == toks_obj + 13);
 
 	/* More exotic object creation */
-	cmd_arr = tal_arr(ctx, char, 0);
-	json_add_object(&cmd_arr,
+	result = new_json_result(ctx);
+	json_add_object(result,
 			"arg2", JSMN_ARRAY, "[ 1, 2, 3 ]",
 			"arg3", JSMN_OBJECT, "{ \"one\" : 1 }",
 			"arg4", JSMN_STRING, "four",
 			NULL);
-	assert(streq(cmd_arr,
+	assert(streq(json_result_string(result),
 		     "{ \"arg2\" : [ 1, 2, 3 ],"
 		     " \"arg3\" : { \"one\" : 1 },"
 		     " \"arg4\" : \"four\" }"));
 
-	cmd_arr = tal_arr(ctx, char, 0);
-	json_object_start(&cmd_arr, NULL);
+	result = new_json_result(ctx);
+	json_object_start(result, NULL);
 
-	json_add_pubkey(&cmd_arr, "key", helper_public_key(0));
+	json_add_pubkey(result, "key", helper_public_key(0));
 	memset(&sha, 42, sizeof(sha));
-	json_add_double_sha(&cmd_arr, "sha", &sha);
-	json_add_address(&cmd_arr, "test-address", true, helper_addr(0));
-	json_add_address(&cmd_arr, "address", false, helper_addr(0));
-	json_object_end(&cmd_arr);
+	json_add_double_sha(result, "sha", &sha);
+	json_add_address(result, "test-address", true, helper_addr(0));
+	json_add_address(result, "address", false, helper_addr(0));
+	json_object_end(result);
 
-	assert(streq(cmd_arr, "{ \"key\" : \"0214f24666a59e62c8b92a0b4b58f2a1cdeb573ea377e42f411be028292ff81926\","
+	assert(streq(json_result_string(result), "{ \"key\" : \"0214f24666a59e62c8b92a0b4b58f2a1cdeb573ea377e42f411be028292ff81926\","
 		     " \"sha\" : \"2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a\","
 		     " \"test-address\" : \"qKCafy33t92L9Nmoxx8H6NHDuiyGViqWBZ\","
 		     " \"address\" : \"PZZyf1xcSbNFodrGQ6ot4LrsdSUu1bgmkc\" }"));

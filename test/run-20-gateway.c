@@ -640,7 +640,7 @@ static char *ask_process(const tal_t *ctx,
 			 const char *arg4,
 			 const char *arg5)
 {
-	char *response = tal_strdup(ctx, "");
+	struct json_result *response = new_json_result(ctx);
 
 	if (streq(name, "bitcoind")) {
 		assert(streq(arg1, "-testnet"));
@@ -652,7 +652,7 @@ static char *ask_process(const tal_t *ctx,
 			assert(num);
 			skip = atoi(arg5 ? arg5 : "0");
 
-			json_array_start(&response, NULL);
+			json_array_start(response, NULL);
 			/* Like bitcoind, list oldest first. */
 			for (i = skip; i < skip+num; i++) {
 				unsigned int confs;
@@ -667,11 +667,12 @@ static char *ask_process(const tal_t *ctx,
 				confs = (1 << ((ARRAY_SIZE(listtxs_response)
 						- i) * 2)) + sleeps;
 
-				tal_append_fmt(&response, listtxs_response[i],
-					       confs);
+				result_append_fmt(response, listtxs_response[i],
+						  confs);
 			}
-			json_array_end(&response);
-			return response;
+			json_array_end(response);
+			assert(!response->indent);
+			return response->s;
 		} else if (streq(arg2, "getrawtransaction")) {
 			unsigned int i;
 

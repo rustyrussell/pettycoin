@@ -30,7 +30,7 @@ static void finish_jcon(struct io_conn *conn, struct json_connection *jcon)
 
 static char *json_help(struct json_connection *jcon,
 		       const jsmntok_t *params,
-		       char **response);
+		       struct json_result *response);
 
 static const struct json_command help_command = {
 	"help",
@@ -41,7 +41,7 @@ static const struct json_command help_command = {
 
 static char *json_echo(struct json_connection *jcon,
 		       const jsmntok_t *params,
-		       char **response)
+		       struct json_result *response)
 {
 	json_object_start(response, NULL);
 	json_add_num(response, "num", params->size);
@@ -61,7 +61,7 @@ static const struct json_command echo_command = {
 
 static char *json_stop(struct json_connection *jcon,
 		       const jsmntok_t *params,
-		       char **response)
+		       struct json_result *response)
 {
 	jcon->stop = true;
 	json_add_string(response, NULL, "Shutting down");
@@ -77,7 +77,7 @@ static const struct json_command stop_command = {
 
 struct log_info {
 	enum log_level level;
-	char **response;
+	struct json_result *response;
 	unsigned int num_skipped;
 };
 
@@ -92,7 +92,7 @@ static void add_skipped(struct log_info *info)
 	}
 }
 
-static void json_add_time(char **result, const char *fieldname,
+static void json_add_time(struct json_result *result, const char *fieldname,
 			  struct timespec ts)
 {
 	char timebuf[100];
@@ -144,7 +144,7 @@ static void log_to_json(unsigned int skipped,
 
 static char *json_getlog(struct json_connection *jcon,
 			 const jsmntok_t *params,
-			 char **response)
+			 struct json_result *response)
 {
 	struct log_info info;
 	struct log_record *lr = jcon->state->lr;
@@ -197,7 +197,7 @@ static const struct json_command *cmdlist[] = {
 
 static char *json_help(struct json_connection *jcon,
 		       const jsmntok_t *params,
-		       char **response)
+		       struct json_result *response)
 {
 	unsigned int i;
 
@@ -232,7 +232,8 @@ static char *parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 {
 	const jsmntok_t *method, *id, *params;
 	const struct json_command *cmd;
-	char *result, *error;
+	char *error;
+	struct json_result *result;
 
 	if (tok[0].type != JSMN_OBJECT) {
 		log_unusual(jcon->log, "Expected {} for json command");
@@ -276,8 +277,8 @@ static char *parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 		return NULL;
 	}
 
-	result = tal_arr(jcon, char, 0);
-	error = cmd->dispatch(jcon, params, &result);
+	result = new_json_result(jcon);
+	error = cmd->dispatch(jcon, params, result);
 	if (error) {
 		char *quote;
 
@@ -297,7 +298,7 @@ static char *parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 		       "{ \"result\" : %s,"
 		       " \"error\" : null,"
 		       " \"id\" : %.*s }\n",
-		       result,
+		       json_result_string(result),
 		       json_tok_len(id),
 		       json_tok_contents(jcon->buffer, id));
 }

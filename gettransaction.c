@@ -9,7 +9,7 @@
 
 static char *json_gettransaction(struct json_connection *jcon,
 				 const jsmntok_t *params,
-				 char **response)
+				 struct json_result *response)
 {
 	struct protocol_tx_id txhash;
 	const jsmntok_t *txid;

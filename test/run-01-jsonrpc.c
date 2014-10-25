@@ -87,11 +87,13 @@ static void test(const char *input, const char *expect, bool needs_more, bool ex
 		/* Should have returned io_close. */
 		assert(plan == NULL);
 	} else {
+		struct json_output *out;
+
 		/* Should have finished. */
 		assert(plan == (void *)jcon);
 		assert(!list_empty(&jcon->output));
-		assert(streq(list_pop(&jcon->output, struct json_output, list)
-			     ->json, expect));
+		out = list_pop(&jcon->output, struct json_output, list);
+		assert(streq(out->json, expect));
 		if (!extra)
 			assert(list_empty(&jcon->output));
 		else

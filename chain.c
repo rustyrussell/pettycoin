@@ -465,7 +465,7 @@ void update_block_ptrs_invalidated(struct state *state,
 	wake_peers(state);
 }
 
-static void json_add_tx(char **response,
+static void json_add_tx(struct json_result *response,
 			const struct block_shard *s,
 			unsigned int txoff)
 {
@@ -505,7 +505,7 @@ static void json_add_tx(char **response,
 
 static char *json_getblock(struct json_connection *jcon,
 			   const jsmntok_t *params,
-			   char **response)
+			   struct json_result *response)
 {
 	struct protocol_block_id sha;
 	const struct block *b, *b2;
@@ -581,7 +581,7 @@ const struct json_command getblock_command = {
 
 static char *json_getblockhash(struct json_connection *jcon,
 			       const jsmntok_t *params,
-			       char **response)
+			       struct json_result *response)
 {
 	jsmntok_t *height;
 	unsigned int h;

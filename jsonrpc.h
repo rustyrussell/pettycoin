@@ -31,7 +31,7 @@ struct json_command {
 	const char *name;
 	char *(*dispatch)(struct json_connection *jcon,
 			  const jsmntok_t *params,
-			  char **response);
+			  struct json_result *result);
 	const char *description;
 	const char *help;
 };

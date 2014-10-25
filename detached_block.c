@@ -68,7 +68,7 @@ void add_detached_block(struct state *state,
 
 static char *json_detachedblocks(struct json_connection *jcon,
 				 const jsmntok_t *params,
-				 char **response)
+				 struct json_result *response)
 {
 	struct detached_block *bd;
 

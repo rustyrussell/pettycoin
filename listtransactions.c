@@ -51,12 +51,12 @@ static bool unspent_output_affects(struct json_connection *jcon,
 /* Find unspent tx outputs which affect this address, and report them. */
 static void add_existing_txs(struct json_connection *jcon,
 			     const struct protocol_address *address,
-			     char **response)
+			     struct json_result *response)
 {
 	const struct block *b;
 	unsigned int shard, txoff;
 	int i, height = 1;
-	char **txs = tal_arr(jcon, char *, 0);
+	struct json_result **txs = tal_arr(jcon, struct json_result *, 0);
 
 	for (b = jcon->state->preferred_chain; b; b = b->prev, height++) {
 		/* Once block is past horizon, we can't spend it */
@@ -68,7 +68,7 @@ static void add_existing_txs(struct json_connection *jcon,
 		for (shard = 0; shard < block_num_shards(&b->bi); shard++) {
 			for (txoff = 0; txoff < b->shard[shard]->size; txoff++) {
 				union protocol_tx *tx;
-				char *txstring;
+				struct json_result *txjson;
 
 				tx = block_get_tx(b, shard, txoff);
 				if (!tx)
@@ -77,25 +77,26 @@ static void add_existing_txs(struct json_connection *jcon,
 				if (!unspent_output_affects(jcon, tx, address))
 					continue;
 
-				txstring = tal_arr(jcon, char, 0);
-				json_add_tx(&txstring, NULL, jcon->state,
+				txjson = new_json_result(jcon);
+				json_add_tx(txjson, NULL, jcon->state,
 					    tx, b, height);
-				tal_arr_append(&txs, txstring);
+				tal_arr_append(&txs, txjson);
 			}
 		}
 	}
 
 	/* Array is backwards, but want to report forwards. */
-	for (i = tal_count(txs) - 1; i >= 0; i--)
-		*response = tal_strcat(NULL, take(*response), txs[i]);
-
+	for (i = tal_count(txs) - 1; i >= 0; i--) {
+		const char *str = json_result_string(txs[i]);
+		json_add_literal(response, NULL, str, strlen(str));
+	}
 	tal_free(txs);
 }
 
 /* Pending txs have height 0. */
 static void add_pending_txs(struct json_connection *jcon,
 			    const struct protocol_address *address,
-			    char **response)
+			    struct json_result *response)
 {
 	unsigned int txoff, shard, num_shards;
 	const struct pending_block *pend = jcon->state->pending;
@@ -130,7 +131,7 @@ static void add_pending_txs(struct json_connection *jcon,
 
 static char *json_list_transactions(struct json_connection *jcon,
 				    const jsmntok_t *params,
-				    char **response)
+				    struct json_result *response)
 {
 	struct protocol_address address;
 	const jsmntok_t *addr, *minconf;

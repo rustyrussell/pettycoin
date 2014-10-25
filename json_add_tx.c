@@ -5,7 +5,7 @@
 #include "state.h"
 #include "tx.h"
 
-static void json_add_input(char **response, const char *fieldname,
+static void json_add_input(struct json_result *response, const char *fieldname,
 			   const struct protocol_input *inp)
 {
 	json_object_start(response, fieldname);
@@ -14,7 +14,7 @@ static void json_add_input(char **response, const char *fieldname,
 	json_object_end(response);
 }
 
-static void json_add_inputs(char **response, const union protocol_tx *tx)
+static void json_add_inputs(struct json_result *response, const union protocol_tx *tx)
 {
 	unsigned int i;
 
@@ -24,7 +24,7 @@ static void json_add_inputs(char **response, const union protocol_tx *tx)
 	json_array_end(response);
 }
 
-static void json_add_outputs(char **response,
+static void json_add_outputs(struct json_result *response,
 			     struct state *state, const union protocol_tx *tx)
 {
 	unsigned int i;
@@ -44,7 +44,7 @@ static void json_add_outputs(char **response,
 	json_array_end(response);
 }
 
-void json_add_tx(char **response, const char *fieldname,
+void json_add_tx(struct json_result *response, const char *fieldname,
 		 struct state *state,
 		 const union protocol_tx *tx,
 		 const struct block *block,

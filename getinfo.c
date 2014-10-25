@@ -4,7 +4,7 @@
 #include "state.h"
 #include "todo.h"
 
-static void json_add_block(char **response, const char *fieldname,
+static void json_add_block(struct json_result *response, const char *fieldname,
 			   const struct block *block)
 {
 	json_object_start(response, fieldname);
@@ -16,7 +16,7 @@ static void json_add_block(char **response, const char *fieldname,
 
 static char *json_getinfo(struct json_connection *jcon,
 			  const jsmntok_t *params,
-			  char **response)
+			  struct json_result *response)
 {
 	size_t i, num_todo, num_peer_todo, num_peers;
 	struct todo_request *todo;

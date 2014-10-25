@@ -373,7 +373,7 @@ void *get_todo_pkt(struct state *state, struct peer *peer)
 
 static char *json_listtodo(struct json_connection *jcon,
 			   const jsmntok_t *params,
-			   char **response)
+			   struct json_result *response)
 {
 	struct todo_request *todo;
 	struct peer *peer;

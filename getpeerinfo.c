@@ -27,7 +27,7 @@
 
 static char *json_getpeerinfo(struct json_connection *jcon,
 			      const jsmntok_t *params,
-			      char **response)
+			      struct json_result *response)
 {
 	struct peer *peer;
 	struct state *state = jcon->state;

@@ -47,7 +47,7 @@ static void *dehex(const tal_t *ctx, const char *p, size_t len)
 
 static char *json_sendrawtransaction(struct json_connection *jcon,
 				     const jsmntok_t *params,
-				     char **response)
+				     struct json_result *response)
 {
 	union protocol_tx *tx;
 	const jsmntok_t *tok;

@@ -531,7 +531,7 @@ void recv_block_reinject(struct state *state,
 
 static char *json_submitblock(struct json_connection *jcon,
 			      const jsmntok_t *params,
-			      char **response)
+			      struct json_result *response)
 {
 	jsmntok_t *tok;
 	void *data;
