@@ -457,30 +457,34 @@ static struct io_plan *plan_output(struct io_conn *conn, struct peer *peer)
 
 	/* FIXME: Timeout! */
 	if (peer->we_are_syncing) {
-		struct block *prev;
-		enum protocol_ecode e;
+		bool wblock_resolved;
 
 		if (peer->wblock.len) {
-			e = check_block_header(peer->state, &peer->wblock.bi,
-					       &prev, &peer->wblock.sha.sha);
+			/* Has welcome block been accepted into chain? */
+			if (block_find_any(peer->state, &peer->wblock.id))
+				wblock_resolved = true;
+			else if (have_detached_block(peer->state,
+						     &peer->wblock.id)) {
+				/* Still don't know it. */
+				wblock_resolved = false;
+			} else {
+				log_unusual(peer->log,
+					    "Peer welcome block rejected.");
+				/* FIXME: Get real error code! */
+				return peer_write_packet(peer,
+				 err_pkt(peer, PROTOCOL_ECODE_WRONG_GENESIS),
+				 close_bad_peer);
+			}
 		} else
 			/* They're at the genesis block. */
-			e = PROTOCOL_ECODE_NONE;
+			wblock_resolved = true;
 
 		/* Have we finally resolved their welcome block? */
-		if (e == PROTOCOL_ECODE_NONE) {
+		if (wblock_resolved) {
 			log_info(peer->log, "We finished syncing with them");
 			peer->we_are_syncing = false;
 			return peer_write_packet(peer, set_filter_pkt(peer),
 						 plan_output);
-		}
-
-		/* We might have resolved it, but it's crap. */
-		if (e != PROTOCOL_ECODE_PRIV_UNKNOWN_PREV) {
-			log_unusual(peer->log, "Peer welcome block now wrong:");
-			log_add_enum(peer->log, enum protocol_ecode, e);
-			return peer_write_packet(peer, err_pkt(peer, e),
-						 close_bad_peer);
 		}
 	}
 
@@ -1440,34 +1444,10 @@ static struct io_plan *pkt_in(struct io_conn *conn, struct peer *peer)
 	return peer_read_packet(peer, pkt_in);
 }
 
-/* Ask for any previous blocks we don't know about */
-static void sync_previous_blocks(struct peer *peer, struct welcome_block *wb)
-{
-	size_t i;
-
-	/* We might already know it from another peer. */
-	if (have_detached_block(peer->state, &wb->sha))
-		return;
-
-	add_detached_block(peer->state, peer->welcome, &wb->sha, &wb->bi);
-
-	/* Might as well ask for all of them in parallel. */ 
-	for (i = 0; i < num_prevs(wb->bi.hdr); i++) {
-		if (block_find_any(peer->state, block_prev(&wb->bi, i)))
-			continue;
-
-		if (have_detached_block(peer->state, block_prev(&wb->bi, i)))
-			continue;
-
-		todo_add_get_block(peer->state, block_prev(&wb->bi, i));
-	}
-}
-
 static struct io_plan *welcome_received(struct io_conn *conn, struct peer *peer)
 {
 	struct state *state = peer->state;
 	enum protocol_ecode e;
-	struct block *prev;
 	const struct protocol_block_header *hdr;
 
 	peer->in_pending = false;
@@ -1524,28 +1504,17 @@ static struct io_plan *welcome_received(struct io_conn *conn, struct peer *peer)
 
 	/* They don't send a block if they have only the genesis. */
 	if (peer->wblock.len) {
-		/* Unmarshal the block they sent, too. */
-		e = unmarshal_block_into(peer->log,
-					 peer->wblock.len, hdr,
-					 &peer->wblock.bi);
+		e = recv_welcome_block(peer, peer->welcome,
+				       hdr, peer->wblock.len,
+				       &peer->wblock.id);
 		if (e != PROTOCOL_ECODE_NONE) {
 			log_unusual(peer->log, "Peer welcome invalid block:");
 			log_add_enum(peer->log, enum protocol_ecode, e);
 			return peer_write_packet(peer, err_pkt(peer, e),
 						 close_bad_peer);
 		}
-
-		e = check_block_header(state, &peer->wblock.bi,
-				       &prev, &peer->wblock.sha.sha);
-
-		if (e == PROTOCOL_ECODE_PRIV_UNKNOWN_PREV) {
-			sync_previous_blocks(peer, &peer->wblock);
-		} else if (e != PROTOCOL_ECODE_NONE) {
-			log_unusual(peer->log, "Peer welcome block invalid:");
-			log_add_enum(peer->log, enum protocol_ecode, e);
-			return peer_write_packet(peer, err_pkt(peer, e),
-						 close_bad_peer);
-		}
+		assert(block_find_any(peer->state, &peer->wblock.id)
+		       || have_detached_block(peer->state, &peer->wblock.id));
 	}
 
 	/* Time to go duplex on this connection: input reads packet,

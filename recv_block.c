@@ -7,6 +7,7 @@
 #include "detached_block.h"
 #include "difficulty.h"
 #include "ecode_names.h"
+#include "hash_block.h"
 #include "hex.h"
 #include "jsonrpc.h"
 #include "log.h"
@@ -461,6 +462,32 @@ enum protocol_ecode recv_block_from_peer(struct peer *peer,
 	/* If we didn't know prev, this block is still OK so don't hang up. */
 	if (e == PROTOCOL_ECODE_PRIV_UNKNOWN_PREV)
 		return PROTOCOL_ECODE_NONE;
+	return e;
+}
+
+enum protocol_ecode recv_welcome_block(struct peer *peer,
+				       const tal_t *pkt_ctx,
+				       const struct protocol_block_header *hdr,
+				       size_t len,
+				       struct protocol_block_id *id)
+{
+	enum protocol_ecode e;
+	struct block_info bi;
+
+	e = unmarshal_block_into(peer->log, len, hdr, &bi);
+	if (e != PROTOCOL_ECODE_NONE)
+		return e;
+	
+	e = recv_block(peer->state, peer->log, peer, pkt_ctx, &bi, true, NULL);
+	/* Unknown is OK, that will have triggered request for prevs */
+	if (e == PROTOCOL_ECODE_PRIV_UNKNOWN_PREV)
+		e = PROTOCOL_ECODE_NONE;
+
+	if (e == PROTOCOL_ECODE_NONE) {
+		/* FIXME: This is already done by recv_block: put sha into bi? */
+		hash_block(bi.hdr, bi.num_txs, bi.merkles,
+			   bi.prev_txhashes, bi.tailer, &id->sha);
+	}
 	return e;
 }
 

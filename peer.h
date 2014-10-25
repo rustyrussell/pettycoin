@@ -14,8 +14,7 @@ struct block;
 /* The unmarshalled block they sent to us in welcome packet. */
 struct welcome_block {
 	size_t len;
-	struct protocol_block_id sha;
-	struct block_info bi;
+	struct protocol_block_id id;
 };
 
 struct peer {

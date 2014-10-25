@@ -26,6 +26,13 @@ bool recv_block_from_generator(struct state *state, struct log *log,
 			       const struct protocol_pkt_block *pkt,
 			       struct protocol_pkt_shard **shards);
 
+/* The initial "best" block, contained in the welcome packet. */
+enum protocol_ecode recv_welcome_block(struct peer *peer,
+				       const tal_t *pkt_ctx,
+				       const struct protocol_block_header *hdr,
+				       size_t len,
+				       struct protocol_block_id *id);
+
 /* We have a txhash, can we figure out the tx? */
 bool try_resolve_hash(struct state *state,
 		      const struct peer *source,
