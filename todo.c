@@ -213,9 +213,9 @@ static void request_done(struct peer *peer)
 	assert(peer->requests_outstanding);
 	peer->requests_outstanding--;
 
-	/* They wait for no more requests when syncing. */
-	if (peer->requests_outstanding == 0)
-		io_wake(peer);
+	/* They wait for no more requests when syncing, and also may
+	 * be waiting because they were at MAX_REQUESTS. */
+	io_wake(peer);
 }		
 
 static void delete_todo(struct state *state, struct todo_request *todo)
