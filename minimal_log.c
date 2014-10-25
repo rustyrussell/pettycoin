@@ -47,10 +47,16 @@ void log_io(struct log *log, bool in, const void *data, size_t len)
 {
 }
 
-struct log *new_log(const tal_t *ctx,
-		    const struct log *parent,
-		    const char *prefix,
-		    enum log_level printlevel, size_t max_mem)
+struct log_record *new_log_record(const tal_t *ctx,
+				  size_t max_mem,
+				  enum log_level printlevel)
+{
+	return NULL;
+}
+
+/* With different entry points */
+struct log *PRINTF_FMT(3,4)
+new_log(const tal_t *ctx, struct log_record *record, const char *fmt, ...)
 {
 	return NULL;
 }

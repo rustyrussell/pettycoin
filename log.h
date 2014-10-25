@@ -4,15 +4,6 @@
 #include <ccan/tal/tal.h>
 #include <stdarg.h>
 
-/* 1MB logging per peer. */
-#define PEER_LOG_MAX 1048576
-
-/* 16 MB logging for core. */
-#define STATE_LOG_MAX 16777216
-
-/* 16 MB logging for generator(s). */
-#define GEN_LOG_MAX 16777216
-
 enum log_level {
 	/* Logging all IO. */
 	LOG_IO,
@@ -26,9 +17,14 @@ enum log_level {
 	LOG_BROKEN
 };
 
-struct log *new_log(const tal_t *ctx,
-		    const struct log *parent, const char *prefix,
-		    enum log_level printlevel, size_t max_mem);
+/* We have a single record. */
+struct log_record *new_log_record(const tal_t *ctx,
+				  size_t max_mem,
+				  enum log_level printlevel);
+
+/* With different entry points */
+struct log *PRINTF_FMT(3,4)
+new_log(const tal_t *ctx, struct log_record *record, const char *fmt, ...);
 
 #define log_debug(log, ...) log_((log), LOG_DBG, __VA_ARGS__)
 #define log_info(log, ...) log_((log), LOG_INFORM, __VA_ARGS__)
@@ -52,7 +48,8 @@ void logv(struct log *log, enum log_level level, const char *fmt, va_list ap);
 void log_add_struct_(struct log *log, const char *structname, const void *ptr);
 void log_add_enum_(struct log *log, const char *enumname, unsigned int val);
 
-void set_log_level(struct log *log, enum log_level level);
+void set_log_level(struct log_record *lr, enum log_level level);
 void set_log_prefix(struct log *log, const char *prefix);
-void log_to_file(int fd, const struct log *log);
+const char *log_prefix(const struct log *log);
+void log_to_file(int fd, const struct log_record *lr);
 #endif /* PETTYCOIN_LOG_H */

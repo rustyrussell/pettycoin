@@ -247,7 +247,6 @@ static void exec_generator(struct generator *gen)
 	char nonce[14 + 1];
 	int i;
 	const struct block *last;
-	char log_prefix[40];
 
 	/* FIXME: This is where we increment shard_order if voted! */
 	gen->shard_order = gen->state->longest_knowns[0]->bi.hdr->shard_order;
@@ -295,9 +294,8 @@ static void exec_generator(struct generator *gen)
 		exit(127);
 	}
 
-	sprintf(log_prefix, "Generator %u:", gen->pid);
-	gen->log = new_log(gen, gen->state->log,
-			   log_prefix, gen->state->log_level, GEN_LOG_MAX);
+	gen->log = new_log(gen, gen->state->lr, "%sGenerator %u:",
+			   log_prefix(gen->state->log), gen->pid);
 	log_debug(gen->log, "Running '%s' '%s' '%s' '%s' %s' '%s' '%s' '%s'",
 		  gen->state->generator,
 		  fees_to,

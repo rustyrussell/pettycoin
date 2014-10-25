@@ -90,9 +90,8 @@ struct state {
 	bool require_gateway_tx_fee;
 
 	/* log */
+	struct log_record *lr;
 	struct log *log;
-	/* level at which we print. */
-	enum log_level log_level;
 
 	/* blocks.list */
 	int blockfd;

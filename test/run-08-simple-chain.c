@@ -110,7 +110,7 @@ bool json_tok_number(const char *buffer, const jsmntok_t *tok,
 		     unsigned int *num)
 { fprintf(stderr, "json_tok_number called!\n"); abort(); }
 /* Generated stub for log_to_file */
-void log_to_file(int fd, const struct log *log)
+void log_to_file(int fd, const struct log_record *lr)
 { fprintf(stderr, "log_to_file called!\n"); abort(); }
 /* Generated stub for logv */
 void logv(struct log *log, enum log_level level, const char *fmt, va_list ap)

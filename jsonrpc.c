@@ -278,7 +278,6 @@ read_more:
 static struct io_plan *jcon_connected(struct io_conn *conn, struct state *state)
 {
 	struct json_connection *jcon;
-	char prefix[sizeof("jcon fd ") + STR_MAX_CHARS(int)];
 
 	jcon = tal(state, struct json_connection);
 	jcon->state = state;
@@ -286,9 +285,8 @@ static struct io_plan *jcon_connected(struct io_conn *conn, struct state *state)
 	jcon->len_read = 64;
 	jcon->buffer = tal_arr(jcon, char, jcon->len_read);
 	jcon->stop = false;
-	sprintf(prefix, "jcon fd %i", io_conn_fd(conn));
-	jcon->log = new_log(jcon, state->log, prefix, state->log_level,
-			    1000000);
+	jcon->log = new_log(jcon, state->lr, "%sjcon fd %i:",
+			    log_prefix(state->log), io_conn_fd(conn));
 	list_head_init(&jcon->output);
 
 	io_set_finish(conn, finish_jcon, jcon);

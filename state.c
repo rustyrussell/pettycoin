@@ -50,8 +50,8 @@ struct state *new_state(bool test_net)
 		s->uuid.bytes[i] = isaac64_next_uint(isaac64, 256);
 	bitmap_zero(s->peer_map, MAX_PEERS);
 	s->peer_seed_count = 0;
-	s->log_level = LOG_INFORM;
-	s->log = new_log(s, NULL, "", s->log_level, STATE_LOG_MAX);
+	s->lr = new_log_record(s, 16777216, LOG_INFORM);
+	s->log = new_log(s, s->lr, "%s", "");
 	s->generator = "pettycoin-generate";
 	s->reward_addr = NULL;
 	bitmap_fill(s->interests, 65536); /* Everything */
@@ -73,7 +73,6 @@ struct state *new_state(bool test_net)
 void fatal(struct state *state, const char *fmt, ...)
 {
 	va_list ap;
-	struct peer *peer;
 
 	fprintf(stderr, "FATAL dumping logs:\n");
 
@@ -81,10 +80,8 @@ void fatal(struct state *state, const char *fmt, ...)
 	logv(state->log, LOG_BROKEN, fmt, ap);
 	va_end(ap);
 
-	/* Dump our log, then the peers. */
-	log_to_file(STDERR_FILENO, state->log);
-	list_for_each(&state->peers, peer, list)
-		log_to_file(STDERR_FILENO, peer->log);
+	/* Dump logs. */
+	log_to_file(STDERR_FILENO, state->lr);
 
 	exit(1);
 }

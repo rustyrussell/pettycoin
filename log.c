@@ -13,16 +13,21 @@ struct log_entry {
 	struct timeabs time;
 	enum log_level level;
 	unsigned int skipped;
+	const char *prefix;
 	char *log;
 };
 
-struct log {
+struct log_record {
 	size_t mem_used;
 	size_t max_mem;
-	const char *prefix;
 	enum log_level print;
 
 	struct list_head log;
+};
+
+struct log {
+	struct log_record *lr;
+	const char *prefix;
 };
 
 static size_t log_bufsize(const struct log_entry *e)
@@ -33,10 +38,10 @@ static size_t log_bufsize(const struct log_entry *e)
 		return strlen(e->log) + 1;
 }
 
-static void prune_log(struct log *log)
+static size_t prune_log(struct log_record *log)
 {
 	struct log_entry *i, *next, *tail;
-	size_t skipped = 0, old_mem = log->mem_used, deleted = 0;
+	size_t skipped = 0, deleted = 0;
 
 	/* Never delete the last one. */
 	tail = list_tail(&log->log, struct log_entry, list);
@@ -57,57 +62,89 @@ static void prune_log(struct log *log)
 	}
 
 	assert(!skipped);
-	log_debug(log, "Log pruned %zu entries (mem %zu -> %zu)",
-		  deleted, old_mem, log->mem_used);
+	return deleted;
 }
 
-struct log *new_log(const tal_t *ctx,
-		    const struct log *parent,
-		    const char *prefix,
-		    enum log_level printlevel, size_t max_mem)
+struct log_record *new_log_record(const tal_t *ctx,
+				  size_t max_mem,
+				  enum log_level printlevel)
+{
+	struct log_record *lr = tal(ctx, struct log_record);
+
+	/* Give a reasonable size for memory limit! */
+	assert(max_mem > sizeof(struct log) * 2);
+	lr->mem_used = 0;
+	lr->max_mem = max_mem;
+	lr->print = printlevel;
+	list_head_init(&lr->log);
+
+	return lr;
+}
+
+/* With different entry points */
+struct log *PRINTF_FMT(3,4)
+new_log(const tal_t *ctx, struct log_record *record, const char *fmt, ...)
 {
 	struct log *log = tal(ctx, struct log);
-	log->mem_used = 0;
-	log->max_mem = max_mem;
-	if (parent)
-		log->prefix = tal_fmt(log, "%s:%s", parent->prefix, prefix);
-	else
-		log->prefix = tal_strdup(log, prefix);
-	log->print = printlevel;
-	list_head_init(&log->log);
+	va_list ap;
+
+	log->lr = record;
+	va_start(ap, fmt);
+	/* log->lr owns this, since its entries keep a pointer to it. */
+	log->prefix = tal_vfmt(log->lr, fmt, ap);
+	va_end(ap);
 
 	return log;
 }
 
-void set_log_level(struct log *log, enum log_level level)
+void set_log_level(struct log_record *lr, enum log_level level)
 {
-	log->print = level;
+	lr->print = level;
 }
 
 void set_log_prefix(struct log *log, const char *prefix)
 {
-	log->prefix = prefix;
+	/* log->lr owns this, since it keeps a pointer to it. */
+	log->prefix = tal_strdup(log->lr, prefix);
+}
+
+const char *log_prefix(const struct log *log)
+{
+	return log->prefix;
 }
 
 static void add_entry(struct log *log, struct log_entry *l)
 {
-	log->mem_used += sizeof(*l) + log_bufsize(l);
-	list_add_tail(&log->log, &l->list);
+	log->lr->mem_used += sizeof(*l) + log_bufsize(l);
+	list_add_tail(&log->lr->log, &l->list);
 
-	if (log->mem_used > log->max_mem)
-		prune_log(log);
+	if (log->lr->mem_used > log->lr->max_mem) {
+		size_t old_mem = log->lr->mem_used, deleted;
+		deleted = prune_log(log->lr);
+		log_debug(log, "Log pruned %zu entries (mem %zu -> %zu)",
+			  deleted, old_mem, log->lr->mem_used);
+	}
 }
 
-void logv(struct log *log, enum log_level level, const char *fmt, va_list ap)
+static struct log_entry *new_log_entry(struct log *log, enum log_level level)
 {
 	struct log_entry *l = tal(log, struct log_entry);
 
 	l->time = time_now();
 	l->level = level;
 	l->skipped = 0;
+	l->prefix = log->prefix;
+
+	return l;
+}
+
+void logv(struct log *log, enum log_level level, const char *fmt, va_list ap)
+{
+	struct log_entry *l = new_log_entry(log, level);
+
 	l->log = tal_vfmt(l, fmt, ap);
 
-	if (level >= log->print)
+	if (level >= log->lr->print)
 		printf("%s %s\n", log->prefix, l->log);
 
 	add_entry(log, l);
@@ -116,16 +153,13 @@ void logv(struct log *log, enum log_level level, const char *fmt, va_list ap)
 void log_io(struct log *log, bool in, const void *data, size_t len)
 {
 	int save_errno = errno;
-	struct log_entry *l = tal(log, struct log_entry);
+	struct log_entry *l = new_log_entry(log, LOG_IO);
 
-	l->time = time_now();
-	l->level = LOG_IO;
-	l->skipped = 0;
 	l->log = tal_arr(l, char, 1 + len);
 	l->log[0] = in;
 	memcpy(l->log + 1, data, len);
 
-	if (LOG_IO >= log->print) {
+	if (LOG_IO >= log->lr->print) {
 		char *hex = to_hex(l, data, len);
 		printf("%s[%s] %s\n", log->prefix, in ? "IN" : "OUT", hex);
 		tal_free(hex);
@@ -136,17 +170,17 @@ void log_io(struct log *log, bool in, const void *data, size_t len)
 
 static void do_log_add(struct log *log, const char *fmt, va_list ap)
 {
-	struct log_entry *l = list_tail(&log->log, struct log_entry, list);
+	struct log_entry *l = list_tail(&log->lr->log, struct log_entry, list);
 	size_t oldlen = strlen(l->log);
 
 	/* Remove from list, so it doesn't get pruned. */
-	log->mem_used -= sizeof(*l) + oldlen + 1;
-	list_del_from(&log->log, &l->list);
+	log->lr->mem_used -= sizeof(*l) + oldlen + 1;
+	list_del_from(&log->lr->log, &l->list);
 
 	tal_append_vfmt(&l->log, fmt, ap);
 	add_entry(log, l);
 
-	if (l->level >= log->print)
+	if (l->level >= log->lr->print)
 		printf("%s \t%s\n", log->prefix, l->log + oldlen);
 }
 
@@ -169,7 +203,7 @@ void log_add(struct log *log, const char *fmt, ...)
 }
 
 
-void log_to_file(int fd, const struct log *log)
+void log_to_file(int fd, const struct log_record *lr)
 {
 	const struct log_entry *i;
 	char buf[100];
@@ -177,9 +211,7 @@ void log_to_file(int fd, const struct log *log)
 	time_t start;
 	const char *prefix;
 
-	write_all(fd, log->prefix, strlen(log->prefix));
-
-	i = list_top(&log->log, const struct log_entry, list);
+	i = list_top(&lr->log, const struct log_entry, list);
 	if (!i) {
 		write_all(fd, "0 bytes:\n\n", strlen("0 bytes:\n\n"));
 		return;
@@ -189,13 +221,13 @@ void log_to_file(int fd, const struct log *log)
 	prev = i->time;
 	prev.ts.tv_nsec = 0;
 	start = prev.ts.tv_sec;
-	sprintf(buf, " %zu bytes, %s", log->mem_used, ctime(&start));
+	sprintf(buf, "%zu bytes, %s", lr->mem_used, ctime(&start));
 	write_all(fd, buf, strlen(buf));
 
 	/* ctime includes \n... WTF? */
 	prefix = "";
 
-	list_for_each(&log->log, i, list) {
+	list_for_each(&lr->log, i, list) {
 		struct timerel diff;
 
 		if (i->skipped) {
@@ -205,10 +237,11 @@ void log_to_file(int fd, const struct log *log)
 		}
 		diff = time_between(i->time, prev);
 
-		sprintf(buf, "%s+%lu.%09u %s: ",
+		sprintf(buf, "%s+%lu.%09u %s%s: ",
 			prefix,
 			(unsigned long)diff.ts.tv_sec,
 			(unsigned)diff.ts.tv_nsec,
+			i->prefix,
 			i->level == LOG_IO ? (i->log[0] ? "IO-IN" : "IO-OUT")
 			: i->level == LOG_DBG ? "DEBUG"
 			: i->level == LOG_INFORM ? "INFO"

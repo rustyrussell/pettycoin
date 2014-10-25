@@ -1649,9 +1649,9 @@ struct io_plan *peer_connected(struct io_conn *conn, struct state *state,
 	if (inet_ntop(AF_INET6, addr->addr, prefix + strlen(prefix),
 		      INET6_ADDRSTRLEN) == NULL)
 		strcat(prefix, "UNCONVERTABLE-IPV6");
-	sprintf(prefix + strlen(prefix), ":%u:", le16_to_cpu(addr->port));
-	peer->log = new_log(peer, state->log,
-			    prefix, state->log_level, PEER_LOG_MAX);
+	peer->log = new_log(peer, state->lr, "%s%s:%u:",
+			    log_prefix(state->log),
+			    prefix, le16_to_cpu(addr->port));
 
 	state->num_peers++;
 	add_log_for_fd(peer->fd, peer->log);

@@ -256,7 +256,7 @@ void logv(struct log *log, enum log_level level, const char *fmt, va_list ap)
 {
 }
 
-void log_to_file(int fd, const struct log *log)
+void log_to_file(int fd, const struct log_record *lr)
 {
 }
 

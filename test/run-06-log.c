@@ -58,7 +58,8 @@ int main(void)
 	int status;
 	size_t maxmem = sizeof(struct log_entry) * 4 + 25 + 25 + 28 + 161;
 	void *ctx = tal(NULL, char);
-	struct log *log = new_log(ctx, NULL, "PREFIX", LOG_BROKEN+1, maxmem);
+	struct log_record *lr = new_log_record(ctx, maxmem, LOG_BROKEN+1);
+	struct log *log = new_log(ctx, lr, "PREFIX:");
 
 	assert(tal_parent(log) == ctx);
 	my_time.ts.tv_sec = 1384064855;
@@ -96,7 +97,7 @@ int main(void)
 	case 0:
 		close(fds[0]);
 		setenv("TZ", "UTC", 1);
-		log_to_file(fds[1], log);
+		log_to_file(fds[1], lr);
 		tal_free(ctx);
 		exit(0);
 	}
@@ -107,11 +108,11 @@ int main(void)
 	assert(strlen(p) + 1 == tal_count(p));
 
 	assert(tal_strreg(p, p,
-			  "PREFIX ([0-9])* bytes, Sun Nov 10 06:27:35 2013\n"
-			  "\\+0\\.000000500 DEBUG: This is a debug message!\n"
-			  "\\+0\\.000000501 INFO: This is an info message!\n"
-			  "\\+0\\.000000502 UNUSUAL: This is an unusual message!\n"
-			  "\\+0\\.000000503 BROKEN: This is a broken message!the sha is ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff and the address is: ::ffff:127\\.0\\.0\\.1:65000 \\(10 seconds old\\)\n\n", &mem1));
+			  "([0-9])* bytes, Sun Nov 10 06:27:35 2013\n"
+			  "\\+0\\.000000500 PREFIX:DEBUG: This is a debug message!\n"
+			  "\\+0\\.000000501 PREFIX:INFO: This is an info message!\n"
+			  "\\+0\\.000000502 PREFIX:UNUSUAL: This is an unusual message!\n"
+			  "\\+0\\.000000503 PREFIX:BROKEN: This is a broken message!the sha is ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff and the address is: ::ffff:127\\.0\\.0\\.1:65000 \\(10 seconds old\\)\n\n", &mem1));
 	assert(atoi(mem1) < maxmem);
 	tal_free(p);
 
@@ -129,7 +130,7 @@ int main(void)
 	case 0:
 		close(fds[0]);
 		setenv("TZ", "UTC", 1);
-		log_to_file(fds[1], log);
+		log_to_file(fds[1], lr);
 		tal_free(ctx);
 		exit(0);
 	}
@@ -141,10 +142,10 @@ int main(void)
 	assert(strlen(p) + 1 == tal_count(p));
 
 	assert(tal_strreg(p, p,
-			  "PREFIX ([0-9]*) bytes, Sun Nov 10 06:27:35 2013\n"
+			  "([0-9]*) bytes, Sun Nov 10 06:27:35 2013\n"
 			  "\\.\\.\\. 4 skipped\\.\\.\\.\n"
-			  "\\+0.000000504 DEBUG: Overflow!\n"
-			  "\\+0.000000504 DEBUG: Log pruned 4 entries \\(mem ([0-9]*) -> ([0-9]*)\\)\n\n", &mem1, &mem2, &mem3));
+			  "\\+0.000000504 PREFIX:DEBUG: Overflow!\n"
+			  "\\+0.000000504 PREFIX:DEBUG: Log pruned 4 entries \\(mem ([0-9]*) -> ([0-9]*)\\)\n\n", &mem1, &mem2, &mem3));
 	assert(atoi(mem1) < maxmem);
 	assert(atoi(mem2) >= maxmem);
 	assert(atoi(mem3) < maxmem);

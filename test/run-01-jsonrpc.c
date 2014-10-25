@@ -27,6 +27,9 @@ const struct json_command gettransaction_command;
 const struct json_command listtodo_command;
 /* Generated stub for listtransactions_command */
 const struct json_command listtransactions_command;
+/* Generated stub for log_prefix */
+const char *log_prefix(const struct log *log)
+{ fprintf(stderr, "log_prefix called!\n"); abort(); }
 /* Generated stub for pettycoin_to_base58 */
 char *pettycoin_to_base58(const tal_t *ctx, bool test_net,
 			  const struct protocol_address *addr,

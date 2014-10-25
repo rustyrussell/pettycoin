@@ -180,20 +180,26 @@ static char *add_connect(const char *arg, struct state *state)
 	return NULL;
 }
 
-static char *arg_log_level(const char *arg, enum log_level *log_level)
+static char *arg_log_level(const char *arg, struct state *state)
 {
 	if (streq(arg, "io"))
-		*log_level = LOG_IO;
+		set_log_level(state->lr, LOG_IO);
 	else if (streq(arg, "debug"))
-		*log_level = LOG_DBG;
+		set_log_level(state->lr, LOG_DBG);
 	else if (streq(arg, "info"))
-		*log_level = LOG_INFORM;
+		set_log_level(state->lr, LOG_INFORM);
 	else if (streq(arg, "unusual"))
-		*log_level = LOG_UNUSUAL;
+		set_log_level(state->lr, LOG_UNUSUAL);
 	else if (streq(arg, "broken"))
-		*log_level = LOG_BROKEN;
+		set_log_level(state->lr, LOG_BROKEN);
 	else
 		return tal_fmt(NULL, "unknown log level");
+	return NULL;
+}
+
+static char *arg_log_prefix(const char *arg, struct state *state)
+{
+	set_log_prefix(state->log, arg);
 	return NULL;
 }
 
@@ -284,7 +290,6 @@ int main(int argc, char *argv[])
 {
 	char *pettycoin_dir, *rpc_filename;
 	struct state *state;
-	char *log_prefix = "";
 	unsigned int portnum = 0;
 
 	pseudorand_init();
@@ -300,11 +305,10 @@ int main(int argc, char *argv[])
 	opt_register_noarg("--version|-V", opt_version_and_exit, VERSION,
 			   "Display version and exit");
 
-	opt_register_arg("--log-level", arg_log_level, NULL,
-			 &state->log_level,
+	opt_register_arg("--log-level", arg_log_level, NULL, state,
 			 "log level (debug, info, unusual, broken)");
-	opt_register_arg("--log-prefix", opt_set_charp, opt_show_charp,
-			 &log_prefix, "log prefix");
+	opt_register_arg("--log-prefix", arg_log_prefix, NULL, state,
+			 "log prefix");
 	opt_register_arg("--connect", add_connect, NULL, state,
 			 "Node to connect to (can be specified multiple times)");
 	opt_register_arg("--port", opt_set_uintval, NULL, &portnum,
@@ -356,9 +360,6 @@ int main(int argc, char *argv[])
 	opt_parse(&argc, argv, opt_log_stderr_exit);
 	if (argc != 1)
 		errx(1, "no arguments accepted");
-
-	set_log_level(state->log, state->log_level);
-	set_log_prefix(state->log, log_prefix);
 
 	/* Start up. */
 	load_blocks(state);
