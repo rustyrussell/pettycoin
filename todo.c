@@ -12,38 +12,45 @@ static void get_todo_ptrs(struct state *state,
 			  struct todo_request *todo,
 			  struct protocol_double_sha **sha,
 			  le16 **shardnum,
-			  u8 **txoff)
+			  u8 **txoff,
+			  le16 **unused)
 {
 	switch (cpu_to_le32(todo->pkt.hdr.type)) {
 	case PROTOCOL_PKT_GET_BLOCK:
 		*sha = &todo->pkt.get_block.block.sha;
 		*shardnum = NULL;
 		*txoff = NULL;
+		*unused = NULL;
 		break;
 	case PROTOCOL_PKT_GET_SHARD:
 		*sha = &todo->pkt.get_shard.block.sha;
 		*shardnum = &todo->pkt.get_shard.shard;
 		*txoff = NULL;
+		*unused = &todo->pkt.get_shard.unused;
 		break;
 	case PROTOCOL_PKT_GET_TXMAP:
 		*sha = &todo->pkt.get_txmap.block.sha;
 		*shardnum = &todo->pkt.get_txmap.shard;
 		*txoff = NULL;
+		*unused = NULL;
 		break;
 	case PROTOCOL_PKT_GET_CHILDREN:
 		*sha = &todo->pkt.get_children.block.sha;
 		*shardnum = NULL;
 		*txoff = NULL;
+		*unused = NULL;
 		break;
 	case PROTOCOL_PKT_GET_TX_IN_BLOCK:
 		*sha = &todo->pkt.get_tx_in_block.pos.block.sha;
 		*shardnum = &todo->pkt.get_tx_in_block.pos.shard;
 		*txoff = &todo->pkt.get_tx_in_block.pos.txoff;
+		*unused = NULL;
 		break;
 	case PROTOCOL_PKT_GET_TX:
 		*sha = &todo->pkt.get_tx.tx.sha;
 		*shardnum = NULL;
 		*txoff = NULL;
+		*unused = NULL;
 		break;
 	default:
 		log_broken(state->log, "Unknown todo type ");
@@ -67,13 +74,13 @@ static struct todo_request *find_todo(struct state *state,
 
 	list_for_each(&state->todo, i, list) {
 		struct protocol_double_sha *i_sha;
-		le16 *i_shardnum;
+		le16 *i_shardnum, *unused;
 		u8 *i_txoff;
 
 		if (i->pkt.hdr.type != cpu_to_le32(type))
 			continue;
 
-		get_todo_ptrs(state, i, &i_sha, &i_shardnum, &i_txoff);
+		get_todo_ptrs(state, i, &i_sha, &i_shardnum, &i_txoff, &unused);
 		if (!structeq(i_sha, sha))
 			continue;
 		if (i_shardnum && le16_to_cpu(*i_shardnum) != shardnum)
@@ -99,6 +106,7 @@ static void new_todo_request_(struct state *state,
 	struct protocol_double_sha *t_sha;
 	le16 *t_shardnum;
 	u8 *t_txoff;
+	le16 *t_unused;
 
 	/* We don't insert duplicates. */
 	if (find_todo(state, type, sha, shardnum, txoff))
@@ -111,12 +119,14 @@ static void new_todo_request_(struct state *state,
 	t->pkt.hdr.type = cpu_to_le32(type);
 	t->pkt.hdr.len = cpu_to_le32(pktlen);
 	
-	get_todo_ptrs(state, t, &t_sha, &t_shardnum, &t_txoff);
+	get_todo_ptrs(state, t, &t_sha, &t_shardnum, &t_txoff, &t_unused);
 	*t_sha = *sha;
 	if (t_shardnum)
 		*t_shardnum = cpu_to_le16(shardnum);
 	if (t_txoff)
 		*t_txoff = txoff;
+	if (t_unused)
+		*t_unused = cpu_to_le16(0);
 
 	list_add_tail(&state->todo, &t->list);
 
@@ -328,10 +338,10 @@ void todo_forget_about_block(struct state *state,
 
 	list_for_each_safe(&state->todo, i, next, list) {
 		struct protocol_double_sha *i_sha;
-		le16 *i_shardnum;
+		le16 *i_shardnum, *unused;
 		u8 *i_txoff;
 
-		get_todo_ptrs(state, i, &i_sha, &i_shardnum, &i_txoff);
+		get_todo_ptrs(state, i, &i_sha, &i_shardnum, &i_txoff, &unused);
 		if (!structeq(i_sha, &block->sha))
 			continue;
 
@@ -383,10 +393,11 @@ static char *json_listtodo(struct json_connection *jcon,
 	list_for_each(&jcon->state->todo, todo, list) {
 		unsigned int i;
 		struct protocol_double_sha *sha;
-		le16 *shardnum;
+		le16 *shardnum, *unused;
 		u8 *txoff;
 		
-		get_todo_ptrs(jcon->state, todo, &sha, &shardnum, &txoff);
+		get_todo_ptrs(jcon->state, todo, &sha, &shardnum, &txoff,
+			      &unused);
 		json_object_start(response, NULL);
 		json_add_string(response, "type",
 				pkt_name(cpu_to_le32(todo->pkt.hdr.type)));
