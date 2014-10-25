@@ -1,6 +1,7 @@
 #include "base58.h"
 #include "block.h"
 #include "check_tx.h"
+#include "horizon.h"
 #include "json_add_tx.h"
 #include "jsonrpc.h"
 #include "pending.h"
@@ -60,9 +61,8 @@ static void add_existing_txs(struct json_connection *jcon,
 
 	for (b = jcon->state->preferred_chain; b; b = b->prev, height++) {
 		/* Once block is past horizon, we can't spend it */
-		if (block_timestamp(&b->bi)
-		    + PROTOCOL_TX_HORIZON_SECS(jcon->state->test_net)
-		    < current_time())
+		if (block_expired_by(block_expiry(jcon->state, &b->bi),
+				     current_time()))
 			break;
 
 		for (shard = 0; shard < block_num_shards(&b->bi); shard++) {

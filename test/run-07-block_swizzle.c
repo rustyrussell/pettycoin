@@ -71,6 +71,12 @@ void add_tx_to_hashes(struct state *state,
 		      struct block *block, u16 shard, u8 txoff,
 		      const union protocol_tx *tx)
 { fprintf(stderr, "add_tx_to_hashes called!\n"); abort(); }
+/* Generated stub for block_expired_by */
+bool block_expired_by(u32 expires, u32 now)
+{ fprintf(stderr, "block_expired_by called!\n"); abort(); }
+/* Generated stub for block_expiry */
+u32 block_expiry(struct state *state, const struct block_info *bi)
+{ fprintf(stderr, "block_expiry called!\n"); abort(); }
 /* Generated stub for block_to_pending */
 void block_to_pending(struct state *state, const struct block *block)
 { fprintf(stderr, "block_to_pending called!\n"); abort(); }

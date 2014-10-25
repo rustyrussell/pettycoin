@@ -50,6 +50,7 @@ static struct timeabs fake_time_now(void)
 #include "../features.c"
 #include "../gateways.c"
 #include "../tx.c"
+#include "../horizon.c"
 #include "easy_genesis.c"
 #include "helper_key.h"
 #include "helper_gateway_key.h"

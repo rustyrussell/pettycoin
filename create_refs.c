@@ -1,6 +1,7 @@
 #include "block.h"
 #include "chain.h"
 #include "create_refs.h"
+#include "horizon.h"
 #include "state.h"
 #include "timestamp.h"
 #include "tx.h"
@@ -27,10 +28,9 @@ static bool resolve_input(struct state *state,
 	if (!te)
 		return false;
 
-	/* Don't include any transactions within 1 hour of cutoff. */
-	if (block_timestamp(&te->u.block->bi)
-	    + PROTOCOL_TX_HORIZON_SECS(state->test_net) - CLOSE_TO_HORIZON
-	    < current_time())
+	/* Don't include any transactions expiring the next 1 hour. */
+	if (block_expired_by(block_expiry(state, &te->u.block->bi),
+			     current_time() + CLOSE_TO_HORIZON))
 		return false;
 
 	/* Add offset: it might be going to go into *next* block */

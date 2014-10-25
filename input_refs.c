@@ -1,5 +1,6 @@
 #include "block_shard.h"
 #include "chain.h"
+#include "horizon.h"
 #include "input_refs.h"
 #include "shard.h"
 #include "tx.h"
@@ -15,8 +16,8 @@ static enum protocol_ecode check_ref(struct state *state,
 		return PROTOCOL_ECODE_REF_BAD_BLOCKS_AGO;
 
 	/* Beyond horizon? */
-	if (block_timestamp(&b->bi) + PROTOCOL_TX_HORIZON_SECS(state->test_net)
-	    < block_timestamp(&block->bi))
+	if (block_expired_by(block_expiry(state, &b->bi),
+			     block_timestamp(&block->bi)))
 		return PROTOCOL_ECODE_REF_BAD_BLOCKS_AGO;
 
 	if (le16_to_cpu(ref->shard) >= block_num_shards(&b->bi))
