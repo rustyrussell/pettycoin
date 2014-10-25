@@ -9,6 +9,7 @@
 #include "ecode_names.h"
 #include "hash_block.h"
 #include "hex.h"
+#include "horizon.h"
 #include "jsonrpc.h"
 #include "log.h"
 #include "merkle_hashes.h"
@@ -19,6 +20,7 @@
 #include "shard.h"
 #include "state.h"
 #include "tal_packet.h"
+#include "timestamp.h"
 #include "todo.h"
 #include "tx_in_hashes.h"
 #include <ccan/structeq/structeq.h>
@@ -186,9 +188,17 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 		} else {
 			/* If we're syncing, ask about children, contents */
 			if (need_contents) {
-				/* FIXME: Don't do these if below horizon */
-				todo_add_get_children(state, &b->sha);
+				u32 expiry = block_expiry(state, &b->bi);
+
+				/* Don't bother about contents or extra
+				 * children of expired blocks. */
+				if (!block_expired_by(expiry, current_time()))
+					todo_add_get_children(state, &b->sha);
+
+				/* FIXME: We currently need *all* txs, for
+				 * longest_known calculation */
 				get_block_contents(state, b);
+				
 			} else {
 				/* Otherwise, tell peers about new block. */
 				send_block_to_peers(state, peer, b);
