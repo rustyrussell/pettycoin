@@ -380,11 +380,7 @@ void send_block_to_peers(struct state *state,
 		if (peer == exclude)
 			continue;
 
-		/* Don't send block to peers still starting up. */
-		/* FIXME: Piggyback! */
-		if (peer->they_are_syncing)
-			continue;
-
+		/* FIXME: Piggyback if they are syncing! */
 		/* FIXME: Respect filter! */
 		todo_for_peer(peer, pkt_block(peer, block));
 	}
