@@ -1450,14 +1450,14 @@ static struct io_plan *welcome_received(struct io_conn *conn, struct peer *peer)
 	enum protocol_ecode e;
 	const struct protocol_block_header *hdr;
 
+	peer->welcome = tal_steal(peer, peer->incoming);
+
 	peer->in_pending = false;
 	peer->last_time_in = time_now();
 	peer->last_type_in = le32_to_cpu(peer->welcome->type);
 	peer->last_len_in = le32_to_cpu(peer->welcome->len);
 	
 	log_debug(peer->log, "Their welcome received");
-
-	tal_steal(peer, peer->welcome);
 
 	e = check_welcome(peer, peer->welcome, &hdr, &peer->wblock.len);
 	if (e != PROTOCOL_ECODE_NONE) {
@@ -1527,8 +1527,7 @@ static struct io_plan *welcome_sent(struct io_conn *conn, struct peer *peer)
 {
 	peer->out_pending = false;
 	log_debug(peer->log, "Our welcome sent, awaiting theirs");
-	peer->in_pending = true;
-	return io_read_packet(conn, &peer->welcome, welcome_received, peer);
+	return peer_read_packet(peer, welcome_received);
 }
 
 static void destroy_peer(struct peer *peer)
