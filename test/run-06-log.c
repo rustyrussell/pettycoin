@@ -58,12 +58,15 @@ int main(void)
 	int status;
 	size_t maxmem = sizeof(struct log_entry) * 4 + 25 + 25 + 28 + 161;
 	void *ctx = tal(NULL, char);
-	struct log_record *lr = new_log_record(ctx, maxmem, LOG_BROKEN+1);
-	struct log *log = new_log(ctx, lr, "PREFIX:");
+	struct log_record *lr;
+	struct log *log;
 
-	assert(tal_parent(log) == ctx);
 	my_time.ts.tv_sec = 1384064855;
 	my_time.ts.tv_nsec = 500;
+
+	lr = new_log_record(ctx, maxmem, LOG_BROKEN+1);
+	log = new_log(ctx, lr, "PREFIX:");
+	assert(tal_parent(log) == ctx);
 
 	log_debug(log, "This is a debug %s!", "message");
 	my_time.ts.tv_nsec++;
@@ -109,10 +112,10 @@ int main(void)
 
 	assert(tal_strreg(p, p,
 			  "([0-9])* bytes, Sun Nov 10 06:27:35 2013\n"
-			  "\\+0\\.000000500 PREFIX:DEBUG: This is a debug message!\n"
-			  "\\+0\\.000000501 PREFIX:INFO: This is an info message!\n"
-			  "\\+0\\.000000502 PREFIX:UNUSUAL: This is an unusual message!\n"
-			  "\\+0\\.000000503 PREFIX:BROKEN: This is a broken message!the sha is ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff and the address is: ::ffff:127\\.0\\.0\\.1:65000 \\(10 seconds old\\)\n\n", &mem1));
+			  "\\+0\\.000000000 PREFIX:DEBUG: This is a debug message!\n"
+			  "\\+0\\.000000001 PREFIX:INFO: This is an info message!\n"
+			  "\\+0\\.000000002 PREFIX:UNUSUAL: This is an unusual message!\n"
+			  "\\+0\\.000000003 PREFIX:BROKEN: This is a broken message!the sha is ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff and the address is: ::ffff:127\\.0\\.0\\.1:65000 \\(10 seconds old\\)\n\n", &mem1));
 	assert(atoi(mem1) < maxmem);
 	tal_free(p);
 
@@ -144,8 +147,8 @@ int main(void)
 	assert(tal_strreg(p, p,
 			  "([0-9]*) bytes, Sun Nov 10 06:27:35 2013\n"
 			  "\\.\\.\\. 4 skipped\\.\\.\\.\n"
-			  "\\+0.000000504 PREFIX:DEBUG: Overflow!\n"
-			  "\\+0.000000504 PREFIX:DEBUG: Log pruned 4 entries \\(mem ([0-9]*) -> ([0-9]*)\\)\n\n", &mem1, &mem2, &mem3));
+			  "\\+0.000000004 PREFIX:DEBUG: Overflow!\n"
+			  "\\+0.000000004 PREFIX:DEBUG: Log pruned 4 entries \\(mem ([0-9]*) -> ([0-9]*)\\)\n\n", &mem1, &mem2, &mem3));
 	assert(atoi(mem1) < maxmem);
 	assert(atoi(mem2) >= maxmem);
 	assert(atoi(mem3) < maxmem);

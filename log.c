@@ -21,6 +21,7 @@ struct log_record {
 	size_t mem_used;
 	size_t max_mem;
 	enum log_level print;
+	struct timeabs init_time;
 
 	struct list_head log;
 };
@@ -76,6 +77,7 @@ struct log_record *new_log_record(const tal_t *ctx,
 	lr->mem_used = 0;
 	lr->max_mem = max_mem;
 	lr->print = printlevel;
+	lr->init_time = time_now();
 	list_head_init(&lr->log);
 
 	return lr;
@@ -111,6 +113,21 @@ void set_log_prefix(struct log *log, const char *prefix)
 const char *log_prefix(const struct log *log)
 {
 	return log->prefix;
+}
+
+size_t log_max_mem(const struct log_record *lr)
+{
+	return lr->max_mem;
+}
+
+size_t log_used(const struct log_record *lr)
+{
+	return lr->mem_used;
+}
+
+const struct timeabs *log_init_time(const struct log_record *lr)
+{
+	return &lr->init_time;
 }
 
 static void add_entry(struct log *log, struct log_entry *l)
@@ -202,14 +219,79 @@ void log_add(struct log *log, const char *fmt, ...)
 	va_end(ap);
 }
 
+void log_each_line_(const struct log_record *lr,
+		    void (*func)(unsigned int skipped,
+				 struct timerel time,
+				 enum log_level level,
+				 const char *prefix,
+				 const char *log,
+				 void *arg),
+		    void *arg)
+{
+	const struct log_entry *i;
+
+	list_for_each(&lr->log, i, list) {
+		func(i->skipped, time_between(i->time, lr->init_time),
+		     i->level, i->prefix, i->log, arg);
+	}
+}
+
+struct log_data {
+	int fd;
+	const char *prefix;
+};
+
+static void log_one_line(unsigned int skipped,
+			 struct timerel diff,
+			 enum log_level level,
+			 const char *prefix,
+			 const char *log,
+			 struct log_data *data)
+{
+	char buf[100];
+
+	if (skipped) {
+		sprintf(buf, "%s... %u skipped...", data->prefix, skipped);
+		write_all(data->fd, buf, strlen(buf));
+		data->prefix = "\n";
+	}
+
+	sprintf(buf, "%s+%lu.%09u %s%s: ",
+		data->prefix,
+		(unsigned long)diff.ts.tv_sec,
+		(unsigned)diff.ts.tv_nsec,
+		prefix,
+		level == LOG_IO ? (log[0] ? "IO-IN" : "IO-OUT")
+		: level == LOG_DBG ? "DEBUG"
+		: level == LOG_INFORM ? "INFO"
+		: level == LOG_UNUSUAL ? "UNUSUAL"
+		: level == LOG_BROKEN ? "BROKEN"
+		: "**INVALID**");
+
+	write_all(data->fd, buf, strlen(buf));
+	if (level == LOG_IO) {
+		size_t off, used, len = tal_count(log)-1;
+
+		/* No allocations, may be in signal handler. */
+		for (off = 0; off < len; off += used) {
+			used = to_hex_direct(buf, sizeof(buf),
+					     log + 1 + off,
+					     len - off);
+			write_all(data->fd, buf, strlen(buf));
+		}
+	} else {
+		write_all(data->fd, log, strlen(log));
+	}
+
+	data->prefix = "\n";
+}
 
 void log_to_file(int fd, const struct log_record *lr)
 {
 	const struct log_entry *i;
 	char buf[100];
-	struct timeabs prev;
+	struct log_data data;
 	time_t start;
-	const char *prefix;
 
 	i = list_top(&lr->log, const struct log_entry, list);
 	if (!i) {
@@ -217,53 +299,13 @@ void log_to_file(int fd, const struct log_record *lr)
 		return;
 	}
 
-	/* ctime only does seconds, so start log from 0ns past the second. */
-	prev = i->time;
-	prev.ts.tv_nsec = 0;
-	start = prev.ts.tv_sec;
+	start = lr->init_time.ts.tv_sec;
 	sprintf(buf, "%zu bytes, %s", lr->mem_used, ctime(&start));
 	write_all(fd, buf, strlen(buf));
 
 	/* ctime includes \n... WTF? */
-	prefix = "";
-
-	list_for_each(&lr->log, i, list) {
-		struct timerel diff;
-
-		if (i->skipped) {
-			sprintf(buf, "%s... %u skipped...", prefix, i->skipped);
-			write_all(fd, buf, strlen(buf));
-			prefix = "\n";
-		}
-		diff = time_between(i->time, prev);
-
-		sprintf(buf, "%s+%lu.%09u %s%s: ",
-			prefix,
-			(unsigned long)diff.ts.tv_sec,
-			(unsigned)diff.ts.tv_nsec,
-			i->prefix,
-			i->level == LOG_IO ? (i->log[0] ? "IO-IN" : "IO-OUT")
-			: i->level == LOG_DBG ? "DEBUG"
-			: i->level == LOG_INFORM ? "INFO"
-			: i->level == LOG_UNUSUAL ? "UNUSUAL"
-			: i->level == LOG_BROKEN ? "BROKEN"
-			: "**INVALID**");
-
-		write_all(fd, buf, strlen(buf));
-		if (i->level == LOG_IO) {
-			size_t off, used, len = tal_count(i->log)-1;
-
-			/* No allocations, may be in signal handler. */
-			for (off = 0; off < len; off += used) {
-				used = to_hex_direct(buf, sizeof(buf),
-						     i->log + 1 + off,
-						     len - off);
-				write_all(fd, buf, strlen(buf));
-			}
-		} else {
-			write_all(fd, i->log, strlen(i->log));
-		}
-		prefix = "\n";
-	}
+	data.prefix = "";
+	data.fd = fd;
+	log_each_line(lr, log_one_line, &data);
 	write_all(fd, "\n\n", strlen("\n\n"));
 }

@@ -2,7 +2,10 @@
 #define PETTYCOIN_LOG_H
 #include "config.h"
 #include <ccan/tal/tal.h>
+#include <ccan/typesafe_cb/typesafe_cb.h>
 #include <stdarg.h>
+
+struct timerel;
 
 enum log_level {
 	/* Logging all IO. */
@@ -51,5 +54,29 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned int val);
 void set_log_level(struct log_record *lr, enum log_level level);
 void set_log_prefix(struct log *log, const char *prefix);
 const char *log_prefix(const struct log *log);
+
+size_t log_max_mem(const struct log_record *lr);
+size_t log_used(const struct log_record *lr);
+const struct timeabs *log_init_time(const struct log_record *lr);
+
+#define log_each_line(lr, func, arg)					\
+	log_each_line_((lr),						\
+		       typesafe_cb_preargs(void, void *, (func), (arg),	\
+					   unsigned int,		\
+					   struct timerel,		\
+					   enum log_level,		\
+					   const char *,		\
+					   const char *), (arg))
+
+void log_each_line_(const struct log_record *lr,
+		    void (*func)(unsigned int skipped,
+				 struct timerel time,
+				 enum log_level level,
+				 const char *prefix,
+				 const char *log,
+				 void *arg),
+		    void *arg);
+
+
 void log_to_file(int fd, const struct log_record *lr);
 #endif /* PETTYCOIN_LOG_H */
