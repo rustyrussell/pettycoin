@@ -44,11 +44,14 @@ int main(int argc, char *argv[])
 	int fd, i, off;
 	const char *method;
 	char *cmd, *resp, *idstr, *rpc_filename;
+	char *result_end;
 	struct sockaddr_un addr;
 	jsmntok_t *toks;
 	const jsmntok_t *result, *error, *id;
 	char *pettycoin_dir;
 	const tal_t *ctx = tal(NULL, char);
+	size_t num_opens, num_closes;
+	bool valid;
 
 	err_set_progname(argv[0]);
 
@@ -104,22 +107,39 @@ int main(int argc, char *argv[])
 
 	resp = tal_arr(cmd, char, 100);
 	off = 0;
+	num_opens = num_closes = 0;
 	while ((i = read(fd, resp + off, tal_count(resp) - 1 - off)) > 0) {
-		bool valid;
+		resp[off + i] = '\0';
+		num_opens += strcount(resp + off, "{");
+		num_closes += strcount(resp + off, "}");
+
 		off += i;
 		if (off == tal_count(resp) - 1)
 			tal_resize(&resp, tal_count(resp) * 2);
 
-		toks = json_parse_input(resp, off, &valid);
-		if (toks)
+		/* parsing huge outputs is slow: do quick check first. */
+		if (num_opens == num_closes && strstr(resp, "\"result\""))
 			break;
-		if (!valid)
-			errx(ERROR_TALKING_TO_PETTYCOIN,
-			     "Malformed response '%.*s'", off, resp);
 	}
-	resp[off] = '\0';
 	if (i < 0)
 		err(ERROR_TALKING_TO_PETTYCOIN, "reading response");
+
+	/* Parsing huge results is too slow, so hack fastpath common case */
+	result_end = tal_fmt(ctx, ", \"error\" : null, \"id\" : \"%s\" }\n",
+			     idstr);
+
+	if (strstarts(resp, "{ \"result\" : ") && strends(resp, result_end)) {
+		/* Result is OK, so dump it */
+		resp += strlen("{ \"result\" : ");
+		printf("%.*s\n", (int)(strlen(resp) - strlen(result_end)), resp);
+		tal_free(ctx);
+		return 0;
+	}
+
+	toks = json_parse_input(resp, off, &valid);
+	if (!toks || !valid)
+		errx(ERROR_TALKING_TO_PETTYCOIN,
+		     "Malformed response '%s'", resp);
 
 	result = json_get_member(resp, toks, "result");
 	if (!result)
