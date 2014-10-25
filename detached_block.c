@@ -1,5 +1,6 @@
 #include "block.h"
 #include "detached_block.h"
+#include "jsonrpc.h"
 #include "protocol_net.h"
 #include "recv_block.h"
 #include "state.h"
@@ -64,3 +65,30 @@ void add_detached_block(struct state *state,
 	bd->pkt_ctx = tal_steal(bd, pkt_ctx);
 	list_add(&state->detached_blocks, &bd->list);
 }
+
+static char *json_detachedblocks(struct json_connection *jcon,
+				 const jsmntok_t *params,
+				 char **response)
+{
+	struct detached_block *bd;
+
+	json_array_start(response, NULL);
+	list_for_each(&jcon->state->detached_blocks, bd, list) {
+		json_object_start(response, NULL);
+		json_add_num(response, "height",
+			     le32_to_cpu(bd->bi.hdr->height));
+		json_add_double_sha(response, "sha", &bd->sha.sha);
+		json_add_double_sha(response, "prev",
+				    &block_prev(&bd->bi, 0)->sha);
+		json_object_end(response);
+	}
+	json_array_end(response);
+	return NULL;
+}
+
+const struct json_command detachedblocks_command = {
+	"dev-detachedblocks",
+	json_detachedblocks,
+	"Get all detached blocks",
+	"Returns height, sha and prev for each detached block"
+};

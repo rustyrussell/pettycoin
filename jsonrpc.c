@@ -192,7 +192,7 @@ static const struct json_command *cmdlist[] = {
 	&getblockhash_command, &submitblock_command, &gettransaction_command,
 	&getpeerinfo_command, &getlog_command,
 	/* Developer/debugging options. */
-	&echo_command, &listtodo_command
+	&echo_command, &listtodo_command, &detachedblocks_command
 };
 
 static char *json_help(struct json_connection *jcon,
