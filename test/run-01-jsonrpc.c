@@ -27,9 +27,28 @@ const struct json_command gettransaction_command;
 const struct json_command listtodo_command;
 /* Generated stub for listtransactions_command */
 const struct json_command listtransactions_command;
+/* Generated stub for log_each_line_ */
+void log_each_line_(const struct log_record *lr,
+		    void (*func)(unsigned int skipped,
+				 struct timerel time,
+				 enum log_level level,
+				 const char *prefix,
+				 const char *log,
+				 void *arg),
+		    void *arg)
+{ fprintf(stderr, "log_each_line_ called!\n"); abort(); }
+/* Generated stub for log_init_time */
+const struct timeabs *log_init_time(const struct log_record *lr)
+{ fprintf(stderr, "log_init_time called!\n"); abort(); }
+/* Generated stub for log_max_mem */
+size_t log_max_mem(const struct log_record *lr)
+{ fprintf(stderr, "log_max_mem called!\n"); abort(); }
 /* Generated stub for log_prefix */
 const char *log_prefix(const struct log *log)
 { fprintf(stderr, "log_prefix called!\n"); abort(); }
+/* Generated stub for log_used */
+size_t log_used(const struct log_record *lr)
+{ fprintf(stderr, "log_used called!\n"); abort(); }
 /* Generated stub for pettycoin_to_base58 */
 char *pettycoin_to_base58(const tal_t *ctx, bool test_net,
 			  const struct protocol_address *addr,

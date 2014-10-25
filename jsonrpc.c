@@ -1,5 +1,6 @@
 /* Code for JSON_RPC API */
 /* eg: { "method" : "echo", "params" : [ "hello", "Arabella!" ], "id" : "1" } */
+#include "hex.h"
 #include "json.h"
 #include "jsonrpc.h"
 #include "log.h"
@@ -74,11 +75,122 @@ static const struct json_command stop_command = {
 	"What part of shutdown wasn't clear?"
 };
 
+struct log_info {
+	enum log_level level;
+	char **response;
+	unsigned int num_skipped;
+};
+
+static void add_skipped(struct log_info *info)
+{
+	if (info->num_skipped) {
+		json_array_start(info->response, NULL);
+		json_add_string(info->response, "type", "SKIPPED");
+		json_add_num(info->response, "num_skipped", info->num_skipped);
+		json_array_end(info->response);
+		info->num_skipped = 0;
+	}
+}
+
+static void json_add_time(char **result, const char *fieldname,
+			  struct timespec ts)
+{
+	char timebuf[100];
+
+	sprintf(timebuf, "%lu.%09u",
+		(unsigned long)ts.tv_sec,
+		(unsigned)ts.tv_nsec);
+	json_add_string(result, fieldname, timebuf);
+}
+
+static void log_to_json(unsigned int skipped,
+			struct timerel diff,
+			enum log_level level,
+			const char *prefix,
+			const char *log,
+			struct log_info *info)
+{
+	info->num_skipped += skipped;
+
+	if (level < info->level) {
+		info->num_skipped++;
+		return;
+	}
+
+	add_skipped(info);
+
+	json_array_start(info->response, NULL);
+	json_add_string(info->response, "type",
+			level == LOG_BROKEN ? "BROKEN"
+			: level == LOG_UNUSUAL ? "UNUSUAL"
+			: level == LOG_INFORM ? "INFO"
+			: level == LOG_DBG ? "DEBUG"
+			: level == LOG_IO ? "IO"
+			: "UNKNOWN");
+	json_add_time(info->response, "time", diff.ts);
+	json_add_string(info->response, "source", prefix);
+	if (level == LOG_IO) {
+		if (log[0])
+			json_add_string(info->response, "direction", "IN");
+		else
+			json_add_string(info->response, "direction", "OUT");
+
+		json_add_hex(info->response, "data", log+1, tal_count(log)-1);
+	} else
+		json_add_string(info->response, "log", log);
+
+	json_array_end(info->response);
+}
+
+static char *json_getlog(struct json_connection *jcon,
+			 const jsmntok_t *params,
+			 char **response)
+{
+	struct log_info info;
+	struct log_record *lr = jcon->state->lr;
+	jsmntok_t *level;
+
+	json_get_params(jcon->buffer, params, "level", &level, NULL);
+
+	info.response = response;
+	info.num_skipped = 0;
+
+	if (!level)
+		info.level = LOG_INFORM;
+	else if (json_tok_streq(jcon->buffer, level, "io"))
+		info.level = LOG_IO;
+	else if (json_tok_streq(jcon->buffer, level, "debug"))
+		info.level = LOG_DBG;
+	else if (json_tok_streq(jcon->buffer, level, "info"))
+		info.level = LOG_INFORM;
+	else if (json_tok_streq(jcon->buffer, level, "unusual"))
+		info.level = LOG_UNUSUAL;
+	else
+		return "Invalid level param";
+
+	json_object_start(response, NULL);
+	json_add_time(response, "creation_time", log_init_time(lr)->ts);
+	json_add_num(response, "bytes_used", (unsigned int)log_used(lr));
+	json_add_num(response, "bytes_max", (unsigned int)log_max_mem(lr));
+	json_object_start(response, "log");
+	log_each_line(lr, log_to_json, &info);
+	json_object_end(response);
+	json_object_end(response);
+	return NULL;
+}
+
+static const struct json_command getlog_command = {
+	"getlog",
+	json_getlog,
+	"Get logs, with optional level: [io|debug|info|unusual]",
+	"Returns log array"
+};
+
 static const struct json_command *cmdlist[] = {
 	&help_command, &getinfo_command, &sendrawtransaction_command,
 	&stop_command, &listtransactions_command, &getblock_command,
 	&getblockhash_command, &submitblock_command, &gettransaction_command,
-	&getpeerinfo_command,
+	&getpeerinfo_command, &getlog_command,
 	/* Developer/debugging options. */
 	&echo_command, &listtodo_command
 };
