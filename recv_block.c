@@ -192,12 +192,10 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 
 				/* Don't bother about contents or extra
 				 * children of expired blocks. */
-				if (!block_expired_by(expiry, current_time()))
+				if (!block_expired_by(expiry, current_time())) {
 					todo_add_get_children(state, &b->sha);
-
-				/* FIXME: We currently need *all* txs, for
-				 * longest_known calculation */
-				get_block_contents(state, b);
+					get_block_contents(state, b);
+				}
 				
 			} else {
 				/* Otherwise, tell peers about new block. */
