@@ -145,7 +145,7 @@ static void add_entry(struct log *log, struct log_entry *l)
 
 static struct log_entry *new_log_entry(struct log *log, enum log_level level)
 {
-	struct log_entry *l = tal(log, struct log_entry);
+	struct log_entry *l = tal(log->lr, struct log_entry);
 
 	l->time = time_now();
 	l->level = level;

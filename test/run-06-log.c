@@ -122,9 +122,13 @@ int main(void)
 	wait(&status);
 	assert(WIFEXITED(status) && WEXITSTATUS(status) == 0);
 
+	/* Make sure log record survives freeing of log. */
+	tal_free(log);
+
 	/* This cleans us out! */
+	log = new_log(ctx, lr, "PREFIX2:");
 	log_debug(log, "Overflow!");
-	
+
 	/* Make child write log, be sure it's correct. */
 	pipe(fds);
 	switch (fork()) {
@@ -147,8 +151,8 @@ int main(void)
 	assert(tal_strreg(p, p,
 			  "([0-9]*) bytes, Sun Nov 10 06:27:35 2013\n"
 			  "\\.\\.\\. 4 skipped\\.\\.\\.\n"
-			  "\\+0.000000004 PREFIX:DEBUG: Overflow!\n"
-			  "\\+0.000000004 PREFIX:DEBUG: Log pruned 4 entries \\(mem ([0-9]*) -> ([0-9]*)\\)\n\n", &mem1, &mem2, &mem3));
+			  "\\+0.000000004 PREFIX2:DEBUG: Overflow!\n"
+			  "\\+0.000000004 PREFIX2:DEBUG: Log pruned 4 entries \\(mem ([0-9]*) -> ([0-9]*)\\)\n\n", &mem1, &mem2, &mem3));
 	assert(atoi(mem1) < maxmem);
 	assert(atoi(mem2) >= maxmem);
 	assert(atoi(mem3) < maxmem);
