@@ -5,6 +5,8 @@
 #include "../minimal_log.c"
 #include "../difficulty.c"
 #include "../block_shard.c"
+#include "../prev_txhashes.c"
+#include "../shadouble.c"
 #include "easy_genesis.c"
 #include <ccan/strmap/strmap.h>
 #include <ccan/tal/str/str.h>
@@ -109,6 +111,9 @@ void logv(struct log *log, enum log_level level, const char *fmt, va_list ap)
 void make_prev_blocks(const struct block *prev,
 		      struct protocol_block_id prevs[PROTOCOL_NUM_PREV_IDS])
 { fprintf(stderr, "make_prev_blocks called!\n"); abort(); }
+/* Generated stub for marshal_input_ref_len */
+size_t marshal_input_ref_len(const union protocol_tx *tx)
+{ fprintf(stderr, "marshal_input_ref_len called!\n"); abort(); }
 /* Generated stub for marshal_tx_len */
 size_t marshal_tx_len(const union protocol_tx *tx)
 { fprintf(stderr, "marshal_tx_len called!\n"); abort(); }
@@ -225,150 +230,27 @@ static void create_chain(struct state *state, struct block *base,
 int main(void)
 {
 	struct state *state;
+	static struct protocol_address zero_addr;
 
 	strmap_init(&blockmap);
 
 	pseudorand_init();
 	state = new_state(true);
 
-	/* genesis -> block1-0 ... block1-9. */
-	create_chain(state, &genesis, "block1", 10, true);
-	assert(strmap_get(&blockmap, "block1-0")->known_in_a_row == 2);
-	assert(strmap_get(&blockmap, "block1-1")->known_in_a_row == 3);
-	assert(strmap_get(&blockmap, "block1-2")->known_in_a_row == 4);
-	assert(strmap_get(&blockmap, "block1-3")->known_in_a_row == 5);
-	assert(strmap_get(&blockmap, "block1-4")->known_in_a_row == 6);
-	assert(strmap_get(&blockmap, "block1-5")->known_in_a_row == 7);
-	assert(strmap_get(&blockmap, "block1-6")->known_in_a_row == 8);
-	assert(strmap_get(&blockmap, "block1-7")->known_in_a_row == 9);
-	assert(strmap_get(&blockmap, "block1-8")->known_in_a_row == 10);
-	assert(strmap_get(&blockmap, "block1-9")->known_in_a_row == 11);
+	/* Create a single unknown block, then many knowns. */
+	create_chain(state, &genesis, "unk", 1, false);
+	create_chain(state, strmap_get(&blockmap, "unk-0"), "known",
+		     (1 << (PROTOCOL_PREV_BLOCK_TXHASHES-1)) + 1, true);
 
-	assert(tal_count(state->longest_knowns) == 1);
-	assert(state->longest_knowns[0] == strmap_get(&blockmap, "block1-9"));
-	assert(tal_count(state->longest_chains) == 1);
-	assert(state->longest_chains[0] == strmap_get(&blockmap, "block1-9"));
-	assert(state->preferred_chain == strmap_get(&blockmap, "block1-9"));
+	assert(!predecessors_all_known(strmap_get(&blockmap, "known-510")));
+	/* This is over the limit, so we don't care about old unknown. */
+	assert(predecessors_all_known(strmap_get(&blockmap, "known-511")));
 
-	/* Now add one we don't know all of. */
-	add_next_block(state, strmap_get(&blockmap, "block1-9"),
-		       "block1-10", 1);
-	assert(tal_count(state->longest_knowns) == 1);
-	assert(state->longest_knowns[0] == strmap_get(&blockmap, "block1-9"));
-	assert(tal_count(state->longest_chains) == 1);
-	assert(state->longest_chains[0] == strmap_get(&blockmap, "block1-10"));
-	assert(state->preferred_chain == strmap_get(&blockmap, "block1-10"));
-	assert(strmap_get(&blockmap, "block1-9")->known_in_a_row == 11);
-	assert(strmap_get(&blockmap, "block1-10")->known_in_a_row == 0);
-	assert(!block_all_known(strmap_get(&blockmap, "block1-10")));
-
-	/* Now add another all-known one to that. */
-	add_next_block(state, strmap_get(&blockmap, "block1-10"),
-		       "block1-11", 0);
-	assert(tal_count(state->longest_knowns) == 1);
-	assert(state->longest_knowns[0] == strmap_get(&blockmap, "block1-9"));
-	assert(tal_count(state->longest_chains) == 1);
-	assert(state->longest_chains[0] == strmap_get(&blockmap, "block1-11"));
-	assert(state->preferred_chain == strmap_get(&blockmap, "block1-11"));
-	assert(strmap_get(&blockmap, "block1-9")->known_in_a_row == 11);
-	assert(strmap_get(&blockmap, "block1-10")->known_in_a_row == 0);
-	assert(strmap_get(&blockmap, "block1-11")->known_in_a_row == 1);
-
-	/* Create a all-known competitor to block1-9. */
-	add_next_block(state, strmap_get(&blockmap, "block1-8"),
-		       "block2-9", 0);
-	assert(tal_count(state->longest_knowns) == 2);
-	assert(state->longest_knowns[0] == strmap_get(&blockmap, "block1-9"));
-	assert(state->longest_knowns[1] == strmap_get(&blockmap, "block2-9"));
-	assert(tal_count(state->longest_chains) == 1);
-	assert(state->longest_chains[0] == strmap_get(&blockmap, "block1-11"));
-	assert(state->preferred_chain == strmap_get(&blockmap, "block1-11"));
-	assert(strmap_get(&blockmap, "block1-9")->known_in_a_row == 11);
-	assert(strmap_get(&blockmap, "block1-10")->known_in_a_row == 0);
-	assert(strmap_get(&blockmap, "block1-11")->known_in_a_row == 1);
-	assert(strmap_get(&blockmap, "block2-9")->known_in_a_row == 11);
-
-	/* Extend it by one more, and it will become preferred. */
-	add_next_block(state, strmap_get(&blockmap, "block2-9"),
-		       "block2-10", 0);
-	assert(tal_count(state->longest_knowns) == 1);
-	assert(state->longest_knowns[0] == strmap_get(&blockmap, "block2-10"));
-	assert(tal_count(state->longest_chains) == 1);
-	assert(state->longest_chains[0] == strmap_get(&blockmap, "block1-11"));
-	assert(state->preferred_chain == strmap_get(&blockmap, "block2-10"));
-	assert(strmap_get(&blockmap, "block1-9")->known_in_a_row == 11);
-	assert(strmap_get(&blockmap, "block1-10")->known_in_a_row == 0);
-	assert(strmap_get(&blockmap, "block1-11")->known_in_a_row == 1);
-	assert(strmap_get(&blockmap, "block2-9")->known_in_a_row == 11);
-	assert(strmap_get(&blockmap, "block2-10")->known_in_a_row == 12);
-
-	/* Add tx to shard to complete block1-10. */
-	strmap_get(&blockmap, "block1-10")->shard[0]->txcount++;
-	update_block_ptrs_new_shard(state, strmap_get(&blockmap, "block1-10"),
-				    0);
-	assert(tal_count(state->longest_knowns) == 1);
-	assert(state->longest_knowns[0] == strmap_get(&blockmap, "block1-11"));
-	assert(tal_count(state->longest_chains) == 1);
-	assert(state->longest_chains[0] == strmap_get(&blockmap, "block1-11"));
-	assert(state->preferred_chain == strmap_get(&blockmap, "block1-11"));
-	assert(strmap_get(&blockmap, "block1-9")->known_in_a_row == 11);
-	assert(strmap_get(&blockmap, "block1-10")->known_in_a_row == 12);
-	assert(strmap_get(&blockmap, "block1-11")->known_in_a_row == 13);
-
-	/* But, if block-1-10 is invalidated, we go back... */
-	strmap_get(&blockmap, "block1-10")->complaint = "foo";
-	strmap_get(&blockmap, "block1-11")->complaint = "foo";
-	update_block_ptrs_invalidated(state,
-				      strmap_get(&blockmap, "block1-10"));
-	
-	assert(tal_count(state->longest_knowns) == 1);
-	assert(state->longest_knowns[0] == strmap_get(&blockmap, "block2-10"));
-	assert(tal_count(state->longest_chains) == 1);
-	assert(state->longest_chains[0] == strmap_get(&blockmap, "block2-10"));
-	assert(state->preferred_chain == strmap_get(&blockmap, "block2-10"));
-
-	/* Now create multiple known chains, and multiple longest
-	 * chains. */
-	create_chain(state, strmap_get(&blockmap, "block2-10"), "known1", 5,
-		     true);
-	create_chain(state, strmap_get(&blockmap, "block2-10"), "known2", 5,
-		     true);
-	create_chain(state, strmap_get(&blockmap, "block2-10"), "known3", 5,
-		     true);
-
-	create_chain(state, strmap_get(&blockmap, "block2-10"), "unknown1",
-		     10, false);
-	create_chain(state, strmap_get(&blockmap, "block2-10"), "unknown2",
-		     10, false);
-	create_chain(state, strmap_get(&blockmap, "block2-10"), "unknown3",
-		     10, false);
-
-	/* Default order must be first in, best dressed. */
-	assert(tal_count(state->longest_knowns) == 3);
-	assert(state->longest_knowns[0] == strmap_get(&blockmap, "known1-4"));
-	assert(state->longest_knowns[1] == strmap_get(&blockmap, "known2-4"));
-	assert(state->longest_knowns[2] == strmap_get(&blockmap, "known3-4"));
-	assert(tal_count(state->longest_chains) == 3);
-	assert(state->longest_chains[0] == strmap_get(&blockmap, "unknown1-9"));
-	assert(state->longest_chains[1] == strmap_get(&blockmap, "unknown2-9"));
-	assert(state->longest_chains[2] == strmap_get(&blockmap, "unknown3-9"));
-	assert(state->preferred_chain == strmap_get(&blockmap, "known1-4"));
-
-	/* If we make one of the known chains equal to the longest chains,
-	 * it will become preferred. */
-	create_chain(state, strmap_get(&blockmap, "known3-4"), "known3-unknown",
-		     5, false);
-	assert(tal_count(state->longest_knowns) == 3);
-	assert(state->longest_knowns[0] == strmap_get(&blockmap, "known3-4"));
-	assert(state->longest_knowns[1] == strmap_get(&blockmap, "known2-4"));
-	assert(state->longest_knowns[2] == strmap_get(&blockmap, "known1-4"));
-	assert(tal_count(state->longest_chains) == 4);
-	assert(state->longest_chains[0]
-	       == strmap_get(&blockmap, "known3-unknown-4"));
-	assert(state->longest_chains[1] == strmap_get(&blockmap, "unknown2-9"));
-	assert(state->longest_chains[2] == strmap_get(&blockmap, "unknown3-9"));
-	assert(state->longest_chains[3] == strmap_get(&blockmap, "unknown1-9"));
-	assert(state->preferred_chain == strmap_get(&blockmap, "known3-unknown-4"));
+	/* make_prev_txhashes is *why* we need to know so far back. */
+	assert(!make_prev_txhashes(state, strmap_get(&blockmap, "known-510"),
+				   &zero_addr));
+	assert(make_prev_txhashes(state, strmap_get(&blockmap, "known-511"),
+				  &zero_addr));
 
 	strmap_clear(&blockmap);
 	tal_free(state);

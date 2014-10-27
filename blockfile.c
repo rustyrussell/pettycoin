@@ -101,9 +101,11 @@ static void get_unknown_contents(struct state *state)
 	for (i = 0; i < tal_count(state->longest_chains); i++) {
 		for (b = state->longest_chains[i]; b; b = b->prev) {
 			/* Stop if we know from here down. */
-			if (b->all_known)
+			if (b->known_in_a_row == block_height(&b->bi))
 				break;
+			/* FIXME: Don't get over horizon */
 
+			/* A noop if we already know it. */
 			get_block_contents(state, b);
 		}
 	}

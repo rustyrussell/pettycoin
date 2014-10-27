@@ -391,8 +391,11 @@ void check_block(struct state *state, const struct block *block, bool all)
 	assert(structeq(&sha, &block->sha));
 
 	if (block->prev) {
-		if (block->all_known)
-			assert(block->prev->all_known);
+		if (block_all_known(block))
+			assert(block->known_in_a_row
+			       == block->prev->known_in_a_row + 1);
+		else
+			assert(block->known_in_a_row == 0);
 
 		if (block->prev->complaint)
 			assert(block->complaint);

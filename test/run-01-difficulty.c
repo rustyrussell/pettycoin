@@ -174,7 +174,6 @@ int main(int argc, char *argv[])
 	BN_init(&genesis.total_work);
 	if (!BN_zero(&genesis.total_work))
 		errx(1, "Failed to initialize genesis block");
-	genesis.all_known = true;
 	list_head_init(&genesis.children);
 	list_add_tail(state->block_height[0], &genesis.list);
 

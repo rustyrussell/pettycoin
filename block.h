@@ -25,8 +25,9 @@ struct block {
 	/* What features have been locked in for next fortnight? */
 	u8 pending_features;
 
-	/* Do we know all transactions for this and ancestors? */
-	bool all_known;
+	/* How many continuous predecessor blocks do we know completely?
+	 * (Including this one). */
+	unsigned int known_in_a_row;
 
 	/* Total work to get to this block. */
 	BIGNUM total_work;

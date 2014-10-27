@@ -42,7 +42,7 @@ static struct block *new_block(const tal_t *ctx,
 			prev_work, &block->total_work);
 
 	block->bi = *bi;
-	block->all_known = false;
+	block->known_in_a_row = 0;
 	list_head_init(&block->children);
 	block->sha = *sha;
 	block->shard = tal_arr(block, struct block_shard *,
@@ -71,6 +71,10 @@ struct block *block_add(struct state *state,
 
 	block = new_block(state, &prev->total_work, sha, bi);
 	block->prev = prev;
+
+	/* Empty block case. */
+	if (block_all_known(block))
+		block->known_in_a_row = prev->known_in_a_row + 1;
 
 	/* Add to list for that generation. */
 	if (height >= tal_count(state->block_height)) {

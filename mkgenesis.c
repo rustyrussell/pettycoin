@@ -130,7 +130,7 @@ int main(int argc, char *argv[])
 	       "},\n"
 	       "	.shard = genesis_shards,\n"
 	       "	.children = LIST_HEAD_INIT(genesis.children),\n"
-	       "	.all_known = true,\n"
+	       "	.known_in_a_row = 1,\n"
 	       "	.sha = { { ");
 
 	dump_array(sha.sha.sha, ARRAY_SIZE(sha.sha.sha));

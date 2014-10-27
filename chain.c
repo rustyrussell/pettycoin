@@ -78,6 +78,21 @@ static bool find_connected_pair(const struct state *state,
 	return false;
 }
 
+/* This means we know the complete contents of enough predecessors to
+ * mine new blocks. */
+bool predecessors_all_known(const struct block *b)
+{
+	/* To build the next block, we need blocks b-0, b-1, b-2, b-4, b-8 ...
+	 * b - 2^(PROTOCOL_PREV_BLOCK_TXHASHES-1) */
+	size_t prev_needed = 1U << (PROTOCOL_PREV_BLOCK_TXHASHES - 1);
+
+	/* +1 is for the genesis block, which is height 0 */
+	if (block_height(&b->bi) < prev_needed)
+		prev_needed = block_height(&b->bi) + 1;
+				      
+	return b->known_in_a_row >= prev_needed;
+}
+
 void check_chains(struct state *state, bool all)
 {
 	const struct block *i;
@@ -99,7 +114,7 @@ void check_chains(struct state *state, bool all)
 	     i != state->longest_knowns[0];
 	     i = i->prev) {
 		assert(i != genesis_block(state));
-		assert(!i->all_known);
+		assert(!predecessors_all_known(i));
 	}
 
 	/*
@@ -146,7 +161,7 @@ void check_chains(struct state *state, bool all)
 			}
 			assert(i->complaint ||
 			       cmp_work(i, state->longest_chains[0]) <= 0);
-			if (!i->complaint && i->all_known)
+			if (!i->complaint && predecessors_all_known(i))
 				assert(cmp_work(i, state->longest_knowns[0]) <= 0);
 			
 			list_for_each(&i->children, b, sibling) {
@@ -240,39 +255,39 @@ static bool update_known_recursive(struct state *state, struct block *block)
 	struct block *b;
 	bool knowns_changed;
 
-	if (block->prev && !block->prev->all_known)
-		return false;
-
 	if (!block_all_known(block))
 		return false;
 
-	/* FIXME: Hack avoids writing to read-only genesis block. */
-	if (!block->all_known)
-		block->all_known = true;
+	/* We know one more than the previous block. */
+	if (block->prev)
+		block->known_in_a_row = block->prev->known_in_a_row + 1;
 
 	/* Blocks which are flawed are not useful */
 	if (block->complaint)
 		return false;
 
-	switch (cmp_work(block, state->longest_knowns[0])) {
-	case 1:
-		log_debug(state->log, "New known block work ");
-		log_add_struct(state->log, BIGNUM, &block->total_work);
-		log_add(state->log, " exceeds old known work ");
-		log_add_struct(state->log, BIGNUM,
-			       &state->longest_knowns[0]->total_work);
-		/* They're no longer longest, we are. */
-		set_single(&state->longest_knowns, block);
-		knowns_changed = true;
-		break;
-	case 0:
-		tal_arr_append(&state->longest_knowns, block);
-		knowns_changed = true;
-		break;
-	case -1:
+	if (predecessors_all_known(block)) {
+		switch (cmp_work(block, state->longest_knowns[0])) {
+		case 1:
+			log_debug(state->log, "New known block work ");
+			log_add_struct(state->log, BIGNUM, &block->total_work);
+			log_add(state->log, " exceeds old known work ");
+			log_add_struct(state->log, BIGNUM,
+				       &state->longest_knowns[0]->total_work);
+			/* They're no longer longest, we are. */
+			set_single(&state->longest_knowns, block);
+			knowns_changed = true;
+			break;
+		case 0:
+			tal_arr_append(&state->longest_knowns, block);
+			knowns_changed = true;
+			break;
+		case -1:
+			knowns_changed = false;
+			break;
+		}
+	} else
 		knowns_changed = false;
-		break;
-	}
 
 	/* Check descendents. */
 	list_for_each(&block->children, b, sibling) {
