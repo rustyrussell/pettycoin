@@ -139,9 +139,12 @@ recv_block(struct state *state, struct log *log, struct peer *peer,
 
 	e = check_block_header(state, bi, &prev, &sha.sha);
 	if (e != PROTOCOL_ECODE_NONE) {
-		log_unusual(log, "checking new block %u gave ",
-			    block_height(bi));
-		log_add_enum(log, enum protocol_ecode, e);
+		/* Don't spam log during sync phase. */
+		if (!need_contents || e != PROTOCOL_ECODE_PRIV_UNKNOWN_PREV) {
+			log_unusual(log, "checking new block %u gave ",
+				    block_height(bi));
+			log_add_enum(log, enum protocol_ecode, e);
+		}
 
 		/* If it was due to unknown prev, ask about that. */
 		if (peer) {
