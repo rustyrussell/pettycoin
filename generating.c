@@ -241,7 +241,7 @@ static void exec_generator(struct generator *gen)
 		prev_merkle_str[STR_MAX_CHARS(u32)],
 		height[STR_MAX_CHARS(u32)],
 		shard_order[STR_MAX_CHARS(u8)];
-	char *prevstr;
+	char *prevstr, *hexnonce;
 	struct protocol_block_id prevs[PROTOCOL_NUM_PREV_IDS];
 	char fees_to[sizeof(struct protocol_address) * 2 + 1];
 	char nonce[14 + 1];
@@ -268,6 +268,7 @@ static void exec_generator(struct generator *gen)
 	for (i = 0; i < sizeof(nonce)-1; i++)
 		nonce[i] = 32 + isaac64_next_uint(isaac64, 224);
 	nonce[i] = '\0';
+	hexnonce = to_hex(gen, nonce, sizeof(nonce)-1);
 
 	if (pipe(outfd) != 0 || pipe(infd) != 0)
 		fatal(gen->state, "pipe: %s", strerror(errno));
@@ -296,11 +297,11 @@ static void exec_generator(struct generator *gen)
 
 	gen->log = new_log(gen, gen->state->lr, "%sGenerator %u:",
 			   log_prefix(gen->state->log), gen->pid);
-	log_debug(gen->log, "Running '%s' '%s' '%s' '%s' %s' '%s' '%s' '%s'",
+	log_debug(gen->log, "Running '%s' '%s' '%s' '%s' %s' '%s' '%s' 0x%s",
 		  gen->state->generator,
 		  fees_to,
 		  difficulty, prevstr, prev_merkle_str, height, shard_order,
-		  nonce);
+		  hexnonce);
 
 	close(outfd[1]);
 	close(infd[0]);
