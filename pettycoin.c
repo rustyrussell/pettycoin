@@ -74,7 +74,7 @@ static struct io_plan *peer_connected_in(struct io_conn *conn,
 {
 	struct protocol_net_address addr;
 
-	if (!get_fd_addr(io_conn_fd(conn), &addr)) {
+	if (!get_peer_addr(io_conn_fd(conn), &addr)) {
 		log_unusual(state->log,
 			    "Could not get address for peer: %s",
 			    strerror(errno));

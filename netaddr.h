@@ -11,5 +11,6 @@ bool addrinfo_to_netaddr(struct protocol_net_address *netaddr,
 			 const struct addrinfo *a);
 
 int socket_for_addr(const struct protocol_net_address *addr);
-bool get_fd_addr(int fd, struct protocol_net_address *addr);
+bool get_peer_addr(int fd, struct protocol_net_address *addr);
+bool get_local_addr(int fd, struct protocol_net_address *addr);
 #endif /* PETTYCOIN_NETADDR_H */

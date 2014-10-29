@@ -104,34 +104,54 @@ int socket_for_addr(const struct protocol_net_address *addr)
 		return socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
 }
 
-bool get_fd_addr(int fd, struct protocol_net_address *addr)
+union some_sockaddr {
+	struct sockaddr sa;
+	struct sockaddr_in in;
+	struct sockaddr_in6 in6;
+};
+
+static bool get_addr(const union some_sockaddr *u,
+		     struct protocol_net_address *addr,
+		     socklen_t len)
 {
-	union {
-		struct sockaddr sa;
-		struct sockaddr_in in;
-		struct sockaddr_in6 in6;
-	} u;
-	socklen_t len = sizeof(u);
-
-	if (getpeername(fd, &u.sa, &len) != 0)
-		return false;
-
-	if (len > sizeof(u))
+	if (len > sizeof(*u))
 		return false;
 
 	addr->time = cpu_to_le32(0);
 	addr->unused = cpu_to_le16(0);
 	memset(&addr->uuid, 0, sizeof(addr->uuid));
-	if (u.sa.sa_family == AF_INET) {
-		assert(len == sizeof(u.in));
-		ipv4_netaddr(addr, &u.in);
+	if (u->sa.sa_family == AF_INET) {
+		assert(len == sizeof(u->in));
+		ipv4_netaddr(addr, &u->in);
 		return true;
-	} else if (u.sa.sa_family == AF_INET6) {
-		assert(len == sizeof(u.in6));
-		ipv6_netaddr(addr, &u.in6);
+	} else if (u->sa.sa_family == AF_INET6) {
+		assert(len == sizeof(u->in6));
+		ipv6_netaddr(addr, &u->in6);
 		return true;
 	}
 
 	errno = EINVAL;
 	return false;
+}
+
+bool get_peer_addr(int fd, struct protocol_net_address *addr)
+{
+	union some_sockaddr u;
+	socklen_t len = sizeof(u);
+
+	if (getpeername(fd, &u.sa, &len) != 0)
+		return false;
+
+	return get_addr(&u, addr, len);
+}
+
+bool get_local_addr(int fd, struct protocol_net_address *addr)
+{
+	union some_sockaddr u;
+	socklen_t len = sizeof(u);
+
+	if (getsockname(fd, &u.sa, &len) != 0)
+		return false;
+
+	return get_addr(&u, addr, len);
 }
