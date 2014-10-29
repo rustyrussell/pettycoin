@@ -1,4 +1,5 @@
 #include "ecode_names.h"
+#include "hex.h"
 #include "jsonrpc.h"
 #include "peer.h"
 #include "pkt_names.h"
@@ -41,6 +42,11 @@ static char *json_getpeerinfo(struct json_connection *jcon,
 		json_object_start(response, NULL);
 		json_add_num(response, "peer_num", peer->peer_num);
 		assert(bitmap_test_bit(state->peer_map, peer->peer_num));
+
+		json_add_string(response, "uuid",
+				to_hex(response, &peer->welcome->uuid,
+				       sizeof(peer->welcome->uuid)));
+
 		json_add_bool(response, "we_are_syncing", peer->we_are_syncing);
 		json_add_bool(response, "they_are_syncing", peer->they_are_syncing);
 

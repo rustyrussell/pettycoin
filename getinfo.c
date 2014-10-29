@@ -1,4 +1,5 @@
 #include "block.h"
+#include "hex.h"
 #include "jsonrpc.h"
 #include "pending.h"
 #include "state.h"
@@ -42,6 +43,10 @@ static char *json_getinfo(struct json_connection *jcon,
 	list_for_each(&jcon->state->todo, todo, list)
 		num_todo++;
 	json_add_num(response, "num_todos", num_todo);
+
+	json_add_string(response, "uuid",
+			to_hex(response, &jcon->state->uuid,
+			       sizeof(jcon->state->uuid)));
 
 	num_peers = num_peer_todo = 0;
 	list_for_each(&jcon->state->peers, peer, list) {
