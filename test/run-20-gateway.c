@@ -37,6 +37,7 @@ static void fake_sleep(int seconds);
 #include "../json.c"
 #include "../hex.c"
 #include "../base58.c"
+#include "../shadouble.c"
 #include <ccan/array_size/array_size.h>
 
 /* As seen on bitcoind! */

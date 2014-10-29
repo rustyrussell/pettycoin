@@ -1,4 +1,5 @@
 #include "../base58.c"
+#include "../shadouble.c"
 
 int main(void)
 {

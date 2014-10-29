@@ -1,5 +1,6 @@
 #include "../base58.c"
 #include "../addr.h"
+#include "../shadouble.c"
 #include "helper_key.h"
 #include <ccan/structeq/structeq.h>
 

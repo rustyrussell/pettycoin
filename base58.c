@@ -4,6 +4,7 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #include "base58.h"
+#include "shadouble.h"
 #include "state.h"
 #include <assert.h>
 #include <ccan/build_assert/build_assert.h>
@@ -128,19 +129,13 @@ bool raw_decode_base58(BIGNUM *bn, const char *src, size_t len)
 
 void base58_get_checksum(u8 csum[4], const u8 buf[], size_t buflen)
 {
-	SHA256_CTX sha256;
-	u8 sha_result[SHA256_DIGEST_LENGTH];
+	struct protocol_double_sha sha_result;
 
 	/* Form checksum, using double SHA2 (as per bitcoin standard) */
-	SHA256_Init(&sha256);
-	SHA256_Update(&sha256, buf, buflen);
-	SHA256_Final(sha_result, &sha256);
-	SHA256_Init(&sha256);
-	SHA256_Update(&sha256, sha_result, sizeof(sha_result));
-	SHA256_Final(sha_result, &sha256);
+	double_sha_of(&sha_result, buf, buflen);
 
 	/* Use first four bytes of that as the checksum. */
-	memcpy(csum, sha_result, 4);
+	memcpy(csum, sha_result.sha, 4);
 }
 
 char *pettycoin_to_base58(const tal_t *ctx, bool test_net,
