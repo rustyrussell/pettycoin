@@ -113,7 +113,7 @@ bool get_fd_addr(int fd, struct protocol_net_address *addr)
 	} u;
 	socklen_t len = sizeof(u);
 
-	if (getsockname(fd, &u.sa, &len) != 0)
+	if (getpeername(fd, &u.sa, &len) != 0)
 		return false;
 
 	if (len > sizeof(u))
