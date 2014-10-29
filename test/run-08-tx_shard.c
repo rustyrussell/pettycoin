@@ -9,6 +9,7 @@
 #include "../merkle_recurse.c"
 #include "../proof.c"
 #include "../difficulty.c"
+#include "../tx.c"
 #include "helper_key.h"
 #include "helper_gateway_key.h"
 
@@ -124,7 +125,7 @@ int main(void)
 	/* Test txptr_with_ref on tx without any refs. */
 	txp1 = txptr_with_ref(ctx, tx1, NULL);
 	assert(tal_parent(txp1.tx) == ctx);
-	memcmp(txp1.tx, tx1, marshal_tx_len(tx1));
+	memcmp(txp1.tx, tx1, tx_len(tx1));
 	memcmp(refs_for(txp1), (void *)1, marshal_input_ref_len(tx1));
 
 	/* Now try with some refs. */
@@ -145,7 +146,7 @@ int main(void)
 
 	txp2 = txptr_with_ref(ctx, tx2, refs);
 	assert(tal_parent(txp2.tx) == ctx);
-	memcmp(txp2.tx, tx2, marshal_tx_len(tx2));
+	memcmp(txp2.tx, tx2, tx_len(tx2));
 	memcmp(refs_for(txp2), refs, marshal_input_ref_len(tx2));
 
 	/* Put the first one in the shard as a hash. */

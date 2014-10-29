@@ -1,6 +1,7 @@
 #include "block.h"
 #include "chain.h"
 #include "check_block.h"
+#include "marshal.h"
 #include "merkle_txs.h"
 #include "prev_txhashes.h"
 #include "protocol.h"
@@ -39,7 +40,7 @@ u8 prev_txhash(const struct protocol_address *addr,
 		tx = block_get_tx(block, shard, i);
 		refs = block_get_refs(block, shard, i);
 
-		SHA256_Update(&shactx, tx, marshal_tx_len(tx));
+		SHA256_Update(&shactx, tx, tx_len(tx));
 		SHA256_Update(&shactx, refs, marshal_input_ref_len(tx));
 	}
 	SHA256_Double_Final(&shactx, &sha);

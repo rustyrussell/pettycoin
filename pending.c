@@ -33,7 +33,7 @@ struct pending_block *new_pending_block(struct state *state)
 
 static union protocol_tx *tx_dup(const tal_t *ctx, const union protocol_tx *tx)
 {
-	return (void *)tal_dup(ctx, char, (char *)tx, marshal_tx_len(tx), 0);
+	return (void *)tal_dup(ctx, char, (char *)tx, tx_len(tx), 0);
 }
 
 static struct pending_tx *new_pending_tx(const tal_t *ctx,
@@ -375,9 +375,9 @@ void drop_pending_tx(struct state *state, const union protocol_tx *tx)
 
 		/* FIXME: SLOW! */
 		list_for_each(&state->pending->unknown_tx, utx, list) {
-			if (marshal_tx_len(utx->tx) != marshal_tx_len(tx))
+			if (tx_len(utx->tx) != tx_len(tx))
 				continue;
-			if (memcmp(utx->tx, tx, marshal_tx_len(tx)) != 0)
+			if (memcmp(utx->tx, tx, tx_len(tx)) != 0)
 				continue;
 			list_del_from(&state->pending->unknown_tx, &utx->list);
 			state->pending->num_unknown--;

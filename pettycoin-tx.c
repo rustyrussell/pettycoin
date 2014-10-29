@@ -20,7 +20,7 @@
 #include "hash_tx.h"
 #include "hex.h"
 #include "log.h"
-#include "marshal.h"
+#include "tx.h"
 #include <assert.h>
 #include <ccan/err/err.h>
 #include <openssl/obj_mac.h>
@@ -49,7 +49,7 @@ static struct protocol_tx_id parse_txhex(const char *txraw, size_t slen)
 	if (!from_hex(txraw, slen, (u8 *)tx, len))
 		errx(1, "Bad raw tx '%s'", txraw);
 
-	if (marshal_tx_len(tx) != len)
+	if (tx_len(tx) != len)
 		errx(1, "Bad length raw tx '%s'", txraw);
 
 	/* You can make this crash, of course */
@@ -170,7 +170,7 @@ int main(int argc, char *argv[])
 						  pay_fee, input, key);
 	}
 
-	txhash = to_hex(NULL, tx, marshal_tx_len(tx));
+	txhash = to_hex(NULL, tx, tx_len(tx));
 	printf("%s", txhash);
 	tal_free(txhash);
 	return 0;

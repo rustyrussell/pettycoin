@@ -121,4 +121,8 @@ tx_input(const union protocol_tx *tx, unsigned int num)
 
 	return inp + num;
 }
+
+/* Returns 0 on overflow. */
+size_t tx_len(const union protocol_tx *tx);
+
 #endif /* PETTYCOIN_TX_H */

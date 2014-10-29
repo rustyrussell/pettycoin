@@ -17,7 +17,7 @@ struct txptr_with_ref txptr_with_ref(const tal_t *ctx,
 	size_t txlen, reflen;
 	char *p;
 
-	txlen = marshal_tx_len(tx);
+	txlen = tx_len(tx);
 	reflen = num_inputs(tx) * sizeof(struct protocol_input_ref);
 
 	p = tal_alloc_(ctx, txlen + reflen, false, "txptr_with_ref");

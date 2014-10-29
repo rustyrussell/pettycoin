@@ -291,7 +291,7 @@ static struct protocol_pkt_shard *make_shard_pkt(const struct working_block *w,
 	struct protocol_pkt_shard *s;
 	unsigned int i;
 
-	s = tal_packet(w, struct protocol_pkt_shard,   PROTOCOL_PKT_SHARD);
+	s = tal_packet(w, struct protocol_pkt_shard, PROTOCOL_PKT_SHARD);
 	s->block.sha = w->sha;
 	s->shard = cpu_to_le16(shard);
 	s->err = cpu_to_le16(PROTOCOL_ECODE_NONE);

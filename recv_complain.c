@@ -467,7 +467,7 @@ recv_complain_bad_input_ref(struct peer *peer,
 
 	/* Refs follow tx in packet. */
 	ref = ((const struct protocol_input_ref *)
-	       ((const char *)tx + marshal_tx_len(tx)))
+	       ((const char *)tx + tx_len(tx)))
 		+ le32_to_cpu(pkt->inputnum);
 
 	e = unmarshal_proven_tx(peer->state, &p, &len, &inb, &intx, &inpos);

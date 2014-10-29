@@ -12,6 +12,7 @@
 #include "horizon.h"
 #include "jsonrpc.h"
 #include "log.h"
+#include "marshal.h"
 #include "merkle_hashes.h"
 #include "pending.h"
 #include "prev_blocks.h"

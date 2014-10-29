@@ -1,8 +1,9 @@
 #ifndef PETTYCOIN_BLOCK_SHARD_H
 #define PETTYCOIN_BLOCK_SHARD_H
 #include "config.h"
-#include "marshal.h"
+#include "tx.h"
 #include <ccan/bitmap/bitmap.h>
+#include <ccan/tal/tal.h>
 
 struct block;
 struct state;
@@ -52,7 +53,7 @@ static inline const struct protocol_input_ref *refs_for(struct txptr_with_ref t)
 {
 	char *p;
 
-	p = (char *)t.tx + marshal_tx_len(t.tx);
+	p = (char *)t.tx + tx_len(t.tx);
 	return (struct protocol_input_ref *)p;
 }
 

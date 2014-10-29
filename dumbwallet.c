@@ -4,8 +4,8 @@
 #include "create_tx.h"
 #include "hex.h"
 #include "json.h"
-#include "marshal.h"
 #include "pettycoin_dir.h"
+#include "tx.h"
 #include <assert.h>
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
@@ -409,7 +409,7 @@ static void send_normal(const tal_t *ctx, int fd, EC_KEY *key,
 	if (!tx)
 		errx(1, "Could not create transaction");
 
-	txstring = to_hex(ctx, tx, marshal_tx_len(tx));
+	txstring = to_hex(ctx, tx, tx_len(tx));
 	cmd = tal_fmt(ctx,
 		      "{ \"method\" : \"sendrawtransaction\", \"id\" : \"1\", \"params\" : [ %s ] }",
 		      txstring);

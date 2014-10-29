@@ -11,6 +11,7 @@
 #include "hash_tx.h"
 #include "input_refs.h"
 #include "inputhash.h"
+#include "marshal.h"
 #include "merkle_txs.h"
 #include "overflows.h"
 #include "pending.h"
@@ -215,7 +216,7 @@ void put_tx_in_shard(struct state *state,
 		if (tx_for(shard, txoff)) {
 			/* It's already there?  Leave it alone. */
 			assert(memcmp(txp.tx, tx_for(shard, txoff),
-				      marshal_tx_len(txp.tx)
+				      tx_len(txp.tx)
 				      + marshal_input_ref_len(txp.tx)) == 0);
 			return;
 		}

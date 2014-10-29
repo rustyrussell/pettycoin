@@ -35,9 +35,6 @@ void marshal_block_into(void *dst, const struct block_info *bi);
 enum protocol_ecode unmarshal_tx(const void *buffer, size_t size,
 				  size_t *used);
 
-/* Transactions don't need marshaling. */
-size_t marshal_tx_len(const union protocol_tx *tx);
-
 enum protocol_ecode unmarshal_input_refs(const void *buffer, size_t size,
 					 const union protocol_tx *tx,
 					 size_t *used);

@@ -43,7 +43,7 @@ void tal_packet_append_(void *ppkt, const void *mem, size_t len)
 
 void tal_packet_append_tx_(void *ppkt, const union protocol_tx *tx)
 {
-	tal_packet_append_(ppkt, tx, marshal_tx_len(tx));
+	tal_packet_append_(ppkt, tx, tx_len(tx));
 }
 
 void tal_packet_append_block_(void *ppkt, const struct block_info *bi)

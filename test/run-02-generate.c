@@ -40,6 +40,7 @@ int generate_main(int argc, char *argv[]);
 #include "../tal_packet.c"
 #include "../minimal_log.c"
 #include "../hex.c"
+#include "../tx.c"
 
 int main(int argc, char *argv[])
 {

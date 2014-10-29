@@ -120,9 +120,6 @@ void logv(struct log *log, enum log_level level, const char *fmt, va_list ap)
 void make_prev_blocks(const struct block *prev,
 		      struct protocol_block_id prevs[PROTOCOL_NUM_PREV_IDS])
 { fprintf(stderr, "make_prev_blocks called!\n"); abort(); }
-/* Generated stub for marshal_tx_len */
-size_t marshal_tx_len(const union protocol_tx *tx)
-{ fprintf(stderr, "marshal_tx_len called!\n"); abort(); }
 /* Generated stub for merkle_txs */
 void merkle_txs(const struct block_shard *shard,
 		struct protocol_double_sha *merkle)
@@ -140,6 +137,9 @@ void seek_detached_blocks(struct state *state, const struct block *block)
 void todo_forget_about_block(struct state *state,
 			     const struct protocol_block_id *block)
 { fprintf(stderr, "todo_forget_about_block called!\n"); abort(); }
+/* Generated stub for tx_len */
+size_t tx_len(const union protocol_tx *tx)
+{ fprintf(stderr, "tx_len called!\n"); abort(); }
 /* Generated stub for wake_peers */
 void wake_peers(struct state *state)
 { fprintf(stderr, "wake_peers called!\n"); abort(); }

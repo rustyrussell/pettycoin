@@ -240,42 +240,6 @@ known:
 	return PROTOCOL_ECODE_NONE;
 }
 
-static size_t varsize_(size_t base, size_t num, size_t fieldsize)
-{
-	assert(base);
-
-	if (mul_overflows(fieldsize, num))
-		return 0;
-
-	if (add_overflows(base, fieldsize * num))
-		return 0;
-
-	return base + fieldsize * num;
-}
-
-#define varsize(type, extra, num)			\
-	varsize_(sizeof(type), (num), sizeof(extra))
-
-/* Returns 0 on length overflow! */
-size_t marshal_tx_len(const union protocol_tx *tx)
-{
-	switch (tx_type(tx)) {
-	case TX_NORMAL:
-		return varsize(tx->normal, struct protocol_input,
-			       le32_to_cpu(tx->normal.num_inputs));
-	case TX_FROM_GATEWAY:
-		return varsize(tx->from_gateway,
-			       struct protocol_gateway_payment,
-			       le16_to_cpu(tx->from_gateway.num_outputs));
-	case TX_TO_GATEWAY:
-		return varsize(tx->to_gateway, struct protocol_input,
-			       le32_to_cpu(tx->to_gateway.num_inputs));
-	case TX_CLAIM:
-		return sizeof(tx->claim);
-	}
-	abort();
-}
-
 enum protocol_ecode unmarshal_input_refs(const void *buffer, size_t size,
 					 const union protocol_tx *tx,
 					 size_t *used)

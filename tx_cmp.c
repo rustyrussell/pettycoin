@@ -58,8 +58,8 @@ known2:
 		return ret;
 
 	/* We need some (arbitrary but deterministic) secondary order */
-	lena = marshal_tx_len(a);
-	lenb = marshal_tx_len(b);
+	lena = tx_len(a);
+	lenb = tx_len(b);
 
 	if (lena < lenb) {
 		ret = memcmp(a, b, lena);

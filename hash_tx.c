@@ -31,6 +31,6 @@ void hash_tx(const union protocol_tx *tx, struct protocol_tx_id *txid)
 	SHA256_CTX shactx;
 
 	SHA256_Init(&shactx);
-	SHA256_Update(&shactx, tx, marshal_tx_len(tx));
+	SHA256_Update(&shactx, tx, tx_len(tx));
 	SHA256_Double_Final(&shactx, &txid->sha);
 }

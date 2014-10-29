@@ -96,11 +96,11 @@ void txhash_del_tx(struct txhash *txhash,
 				continue;
 			break;
 		case TX_PENDING:
-			if (marshal_tx_len(te->u.tx)
-			    != marshal_tx_len(block_or_tx.tx))
+			if (tx_len(te->u.tx)
+			    != tx_len(block_or_tx.tx))
 				continue;
 			if (memcmp(te->u.tx, block_or_tx.tx,
-				   marshal_tx_len(te->u.tx)) != 0)
+				   tx_len(te->u.tx)) != 0)
 				continue;
 			break;
 		}
