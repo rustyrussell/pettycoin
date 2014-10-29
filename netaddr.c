@@ -2,6 +2,7 @@
 #include "protocol_net.h"
 #include <arpa/inet.h>
 #include <assert.h>
+#include <ccan/tal/str/str.h>
 #include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>

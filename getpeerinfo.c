@@ -1,6 +1,7 @@
 #include "ecode_names.h"
 #include "hex.h"
 #include "jsonrpc.h"
+#include "netaddr.h"
 #include "peer.h"
 #include "pkt_names.h"
 #include "state.h"
