@@ -3,6 +3,89 @@
 #include "tx.h"
 #include <ccan/structeq/structeq.h>
 
+/* TX_NORMAL and TX_TO_GATEWAY have standard inputs, TX_CLAIM has one
+ * but the check that it matches needs to be special. */
+u32 num_inputs(const union protocol_tx *tx)
+{
+	switch (tx_type(tx)) {
+	case TX_NORMAL:
+		return le32_to_cpu(tx->normal.num_inputs);
+	case TX_FROM_GATEWAY:
+		return 0;
+	case TX_TO_GATEWAY:
+		return le32_to_cpu(tx->to_gateway.num_inputs);
+	case TX_CLAIM:
+		return 1;
+	}
+	abort();
+}
+
+u32 num_outputs(const union protocol_tx *tx)
+{
+	switch (tx_type(tx)) {
+	case TX_NORMAL:
+		/* A normal tx has a spend and a change output. */
+		return 2;
+	case TX_FROM_GATEWAY:
+		return le16_to_cpu(tx->from_gateway.num_outputs);
+	case TX_TO_GATEWAY:
+		/* There's an output, but it's not spendable. */
+		return 0;
+	case TX_CLAIM:
+		return 1;
+	}
+	abort();
+}
+
+/* Only makes sense transactions with inputs */
+void get_tx_input_address(const union protocol_tx *tx,
+			  struct protocol_address *addr)
+{
+	const struct protocol_pubkey *input_key;
+
+	switch (tx_type(tx)) {
+	case TX_NORMAL:
+		input_key = &tx->normal.input_key;
+		goto input_key;
+	case TX_FROM_GATEWAY:
+		abort();
+	case TX_TO_GATEWAY:
+		input_key = &tx->to_gateway.input_key;
+		goto input_key;
+	case TX_CLAIM:
+		input_key = &tx->claim.input_key;
+		goto input_key;
+	}
+	abort();
+
+input_key:
+	pubkey_to_addr(input_key, addr);
+}
+
+struct protocol_input *tx_input(const union protocol_tx *tx, unsigned int num)
+{
+	struct protocol_input *inp = NULL;
+
+	/* Inputs follow tx. */
+	switch (tx_type(tx)) {
+	case TX_NORMAL:
+		inp = (struct protocol_input *)(&tx->normal + 1);
+		break;
+	case TX_TO_GATEWAY:
+		inp = (struct protocol_input *)(&tx->to_gateway + 1);
+		break;
+	case TX_FROM_GATEWAY:
+		return NULL;
+	case TX_CLAIM:
+		inp = (struct protocol_input *)&tx->claim.input;
+	}
+
+	if (num >= num_inputs(tx))
+		return NULL;
+
+	return inp + num;
+}
+
 bool find_output(const union protocol_tx *tx, u16 output_num,
 		 struct protocol_address *addr, u32 *amount)
 {

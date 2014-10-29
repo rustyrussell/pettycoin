@@ -1,5 +1,6 @@
 #include "../marshal.c"
 #include "../minimal_log.c"
+#include "../tx.c"
 #include <assert.h>
 
 static void test_marshal(const struct protocol_block_header *hdr,

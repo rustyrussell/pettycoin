@@ -5,6 +5,7 @@
 #include "../minimal_log.c"
 #include "../difficulty.c"
 #include "../block_shard.c"
+#include "../tx.c"
 #include "easy_genesis.c"
 #include <ccan/strmap/strmap.h>
 #include <ccan/tal/str/str.h>
@@ -137,9 +138,6 @@ void seek_detached_blocks(struct state *state, const struct block *block)
 void todo_forget_about_block(struct state *state,
 			     const struct protocol_block_id *block)
 { fprintf(stderr, "todo_forget_about_block called!\n"); abort(); }
-/* Generated stub for tx_len */
-size_t tx_len(const union protocol_tx *tx)
-{ fprintf(stderr, "tx_len called!\n"); abort(); }
 /* Generated stub for wake_peers */
 void wake_peers(struct state *state)
 { fprintf(stderr, "wake_peers called!\n"); abort(); }
