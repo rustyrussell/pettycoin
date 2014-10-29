@@ -47,6 +47,20 @@ else
     VALGRIND_TEST_ARGS=""
 fi
 
+cat > /tmp/testprog.$$.c <<EOF
+#include <valgrind/memcheck.h>
+
+int main(int argc, char *argv[])
+{
+	/* 0 means "true" */
+	return VALGRIND_CHECK_MEM_IS_DEFINED(argv[0], 2);
+}
+EOF
+if $CC -o /tmp/testprog.$$ /tmp/testprog.$$.c >/dev/null 2>&1 && /tmp/testprog.$$; then
+    CFLAGS="$CFLAGS -DVALGRIND_HEADERS"
+fi
+rm -f /tmp/testprog.$$ /tmp/testprog.$$.c
+
 echo CC is "$CC"
 echo CFLAGS is "$CFLAGS"
 echo VALGRIND is "$VALGRIND"
