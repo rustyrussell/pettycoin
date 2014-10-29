@@ -9,6 +9,7 @@
 #include "../shadouble.c"
 #include "../tx.c"
 #include "easy_genesis.c"
+#include "named_blocks.c"
 #include <ccan/strmap/strmap.h>
 #include <ccan/tal/str/str.h>
 
@@ -174,70 +175,19 @@ void seek_detached_blocks(struct state *state,
 {
 }
 
-struct strmap_block {
-	STRMAP_MEMBERS(struct block *);
-};
-static struct strmap_block blockmap;
-
-static struct block *add_next_block(struct state *state,
-				    struct block *prev, const char *name,
-				    unsigned int tx_count)
-{
-	struct block *b;
-	struct block_info bi;
-	struct protocol_block_header *hdr;
-	struct protocol_block_tailer *tailer;
-	u8 *num_txs;
-	struct protocol_block_id dummy = { { { 0 } } };
-
-	hdr = tal(state, struct protocol_block_header);
-	hdr->shard_order = PROTOCOL_INITIAL_SHARD_ORDER;
-	hdr->height = cpu_to_le32(block_height(&prev->bi) + 1);
-	hdr->prevs[0] = prev->sha;
-
-	tailer = tal(state, struct protocol_block_tailer);
-	tailer->difficulty = cpu_to_le32(block_difficulty(&prev->bi));
-
-	num_txs = tal_arrz(state, u8, 1 << hdr->shard_order);
-	num_txs[0] = tx_count;
-
-	memcpy(&dummy, name,
-	       strlen(name) < sizeof(dummy) ? strlen(name) : sizeof(dummy));
-
-	bi.hdr = hdr;
-	bi.tailer = tailer;
-	bi.num_txs = num_txs;
-	b = block_add(state, prev, &dummy, &bi);
-
-	strmap_add(&blockmap, name, b);
-	return b;
-}
-
-static void create_chain(struct state *state, struct block *base,
-			 const char *prefix, unsigned int num, bool known)
-{
-	unsigned int i;
-
-	for (i = 0; i < num; i++) {
-		char *name = tal_fmt(state, "%s-%u", prefix, i);
-		base = add_next_block(state, base, name, known ? 0 : 1);
-		known = true;
-	}
-}
-
 int main(void)
 {
 	struct state *state;
 	static struct protocol_address zero_addr;
 
-	strmap_init(&blockmap);
-
 	pseudorand_init();
 	state = new_state(true);
 
 	/* Create a single unknown block, then many knowns. */
-	create_chain(state, &genesis, "unk", 1, false);
+	create_chain(state, &genesis, "unk", &zero_addr,
+		     PROTOCOL_INITIAL_SHARD_ORDER, 1, false);
 	create_chain(state, strmap_get(&blockmap, "unk-0"), "known",
+		     &zero_addr, PROTOCOL_INITIAL_SHARD_ORDER, 
 		     (1 << (PROTOCOL_PREV_BLOCK_TXHASHES-1)) + 1, true);
 
 	assert(!predecessors_all_known(strmap_get(&blockmap, "known-510")));
