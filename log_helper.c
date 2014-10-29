@@ -9,6 +9,7 @@
 #include "protocol.h"
 #include "protocol_net.h"
 #include "tx.h"
+#include "valgrind.h"
 #include <arpa/inet.h>
 #include <ccan/time/time.h>
 #include <errno.h>
@@ -20,7 +21,8 @@
 void log_add_struct_(struct log *log, const char *structname, const void *ptr)
 {
 	if (streq(structname, "struct protocol_double_sha")) {
-		const struct protocol_double_sha *s = ptr;
+		const struct protocol_double_sha *s
+			= check_mem(ptr, sizeof(*s));
 		log_add(log,
 			"%02x%02x%02x%02x%02x%02x%02x%02x"
 			"%02x%02x%02x%02x%02x%02x%02x%02x"
@@ -35,13 +37,14 @@ void log_add_struct_(struct log *log, const char *structname, const void *ptr)
 			s->sha[24], s->sha[25], s->sha[26], s->sha[27],
 			s->sha[28], s->sha[29], s->sha[30], s->sha[31]);
 	} else if (streq(structname, "struct protocol_block_id")) {
-		const struct protocol_block_id *b = ptr;
+		const struct protocol_block_id *b = check_mem(ptr, sizeof(*b));
 		log_add_struct(log, struct protocol_double_sha, &b->sha);
 	} else if (streq(structname, "struct protocol_tx_id")) {
-		const struct protocol_tx_id *t = ptr;
+		const struct protocol_tx_id *t = check_mem(ptr, sizeof(*t));
 		log_add_struct(log, struct protocol_double_sha, &t->sha);
 	} else if (streq(structname, "struct protocol_net_address")) {
-		const struct protocol_net_address *addr = ptr;
+		const struct protocol_net_address *addr
+			= check_mem(ptr, sizeof(*addr));
 		char str[INET6_ADDRSTRLEN];
 
 		if (inet_ntop(AF_INET6, addr->addr, str, sizeof(str)) == NULL)
@@ -55,15 +58,19 @@ void log_add_struct_(struct log *log, const char *structname, const void *ptr)
 				(u32)time_now().ts.tv_sec
 				- le32_to_cpu(addr->time));
 	} else if (streq(structname, "struct protocol_address")) {
-		char *addr = pettycoin_to_base58(NULL, true, ptr, true);
+		char *addr = pettycoin_to_base58(NULL, true,
+						 check_mem(ptr,
+							   sizeof(struct protocol_address)),
+						 true);
 		log_add(log, "%s", addr);
 		tal_free(addr);
 	} else if (streq(structname, "struct protocol_gateway_payment")) {
-		const struct protocol_gateway_payment *gp = ptr;
+		const struct protocol_gateway_payment *gp
+			= check_mem(ptr, sizeof(*gp));
 		log_add(log, "%u to ", le32_to_cpu(gp->send_amount));
 		log_add_struct(log, struct protocol_address, &gp->output_addr);
 	} else if (streq(structname, "union protocol_tx")) {
-		const union protocol_tx *tx = ptr;
+		const union protocol_tx *tx = check_mem(ptr, tx_len(ptr));
 		struct protocol_tx_id sha;
 		struct protocol_address input_addr;
 		const char *feestr = tx_pays_fee(tx) ? "fee" : "no fee";

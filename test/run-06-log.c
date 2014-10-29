@@ -91,6 +91,8 @@ int main(void)
 	netaddr.addr[15] = 1;
 	netaddr.port = cpu_to_le16(65000);
 	netaddr.time = time_now().ts.tv_sec - 10;
+	netaddr.unused = cpu_to_le16(0);
+	memset(&netaddr.uuid, 0, sizeof(netaddr.uuid));
 	log_add_struct(log, struct protocol_net_address, &netaddr);
 
 	/* Make child write log, be sure it's correct. */
