@@ -36,12 +36,25 @@ static char *json_getpeerinfo(struct json_connection *jcon,
 	json_array_start(response, NULL);
 	list_for_each(&state->peers, peer, list) {
 		const struct protocol_net_hdr *pkt;
+		struct protocol_net_address addr;
 		struct pollfd fds;
 
 		assert(peer->state == state);
 		json_object_start(response, NULL);
 		json_add_num(response, "peer_num", peer->peer_num);
 		assert(bitmap_test_bit(state->peer_map, peer->peer_num));
+
+		if (!get_peer_addr(peer->fd, &addr))
+			json_add_string(response, "addr", "UNKNOWN");
+		else
+			json_add_string(response, "addr",
+					netaddr_string(response, &addr));
+
+		if (!get_local_addr(peer->fd, &addr))
+			json_add_string(response, "addrlocal", "UNKNOWN");
+		else
+			json_add_string(response, "addrlocal",
+					netaddr_string(response, &addr));
 
 		json_add_string(response, "uuid",
 				to_hex(response, &peer->welcome->uuid,

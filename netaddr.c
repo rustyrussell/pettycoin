@@ -1,5 +1,6 @@
 #include "netaddr.h"
 #include "protocol_net.h"
+#include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
 #include <netdb.h>
@@ -154,4 +155,13 @@ bool get_local_addr(int fd, struct protocol_net_address *addr)
 		return false;
 
 	return get_addr(&u, addr, len);
+}
+
+char *netaddr_string(const tal_t *ctx, const struct protocol_net_address *addr)
+{
+	char str[INET6_ADDRSTRLEN+1];
+
+	if (inet_ntop(AF_INET6, addr->addr, str, sizeof(str)) == NULL)
+		strcpy(str, "UNCONVERTABLE-IPV6");
+	return tal_fmt(ctx, "%s:%u", str, le16_to_cpu(addr->port));
 }
