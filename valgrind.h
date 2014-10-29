@@ -6,6 +6,7 @@
 #include <valgrind/memcheck.h>
 #elif !defined(VALGRIND_CHECK_MEM_IS_DEFINED)
 #define VALGRIND_CHECK_MEM_IS_DEFINED(p, len)
+#define RUNNING_ON_VALGRIND 0
 #endif
 
 static inline void *check_mem(const void *data, size_t len)

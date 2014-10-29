@@ -11,6 +11,7 @@
 #include "shard.h"
 #include "state.h"
 #include "tal_packet.h"
+#include "valgrind.h"
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
 #include <ccan/read_write_all/read_write_all.h>
@@ -147,9 +148,12 @@ void load_blocks(struct state *state)
 	/* Now we can save more. */
 	state->blockfd = fd;
 
-	log_info(state->log, "Checking chains...");
-	check_chains(state, true);
-	log_add(state->log, " ...completed");
+	/* This is insanely slow under valgrind. */
+	if (!RUNNING_ON_VALGRIND) {
+		log_info(state->log, "Checking chains...");
+		check_chains(state, true);
+		log_add(state->log, " ...completed");
+	}
 
 	/* If there are any txs we want to know and don't, ask. */
 	get_unknown_contents(state);
