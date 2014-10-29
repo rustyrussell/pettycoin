@@ -37,7 +37,7 @@ test/easy_genesis.c: mkgenesis protocol.h block.h
 	echo '/* A deliberately easy genesis block for testing. */' > $@
 	./mkgenesis 0x1ffffff0 1404886369 'MarcusArabellAlex' | sed 's,#include ",#include "../,' >> $@
 
-$(TEST_SOURCES:%=update-mocks-%): $(CCAN_OBJS) $(TEST_HELPER_OBJS)
+$(TEST_SOURCES:%=update-mocks-%): $(CCAN_OBJS) $(TEST_HELPER_OBJS) test/easy_genesis.c ecode_names.c
 
 update-mocks: $(TEST_SOURCES:%=update-mocks-%)
 
