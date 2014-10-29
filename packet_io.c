@@ -2,6 +2,7 @@
 #include "packet_io.h"
 #include "peer.h"
 #include "protocol_net.h"
+#include "valgrind.h"
 #include <assert.h>
 #include <ccan/io/io_plan.h>
 #include <ccan/tal/tal.h>
@@ -142,6 +143,7 @@ struct io_plan *peer_write_packet(struct peer *peer, const void *pkt,
 	memcpy(&len, pkt, sizeof(len));
 	assert(le32_to_cpu(len) >= sizeof(struct protocol_net_hdr));
 	assert(le32_to_cpu(len) <= PROTOCOL_MAX_PACKET_LEN);
+	check_mem(pkt, le32_to_cpu(len));
 
 	peer->last_time_out = time_now();
 	peer->last_type_out = le32_to_cpu(((struct protocol_net_hdr*)pkt)->type);
