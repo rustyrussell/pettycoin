@@ -150,6 +150,7 @@ struct io_plan *peer_write_packet(struct peer *peer, const void *pkt,
 	peer->last_type_out = le32_to_cpu(((struct protocol_net_hdr*)pkt)->type);
 	peer->last_len_out = le32_to_cpu(len);
 	peer->out_pending = true;
+	refresh_timeout(peer->state, &peer->output_timeout);
 
 	log_io(peer->log, false, pkt, le32_to_cpu(len));
 	return io_write(peer->conn, pkt, le32_to_cpu(len), next, peer);

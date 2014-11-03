@@ -57,6 +57,7 @@ struct peer {
 
 	/* Timers for various events. */
 	struct timeout input_timeout;
+	struct timeout output_timeout;
 
 	/* Debugging */
 	struct timeabs last_time_in, last_time_out;

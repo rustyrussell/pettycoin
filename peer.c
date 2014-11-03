@@ -429,6 +429,18 @@ static struct protocol_pkt_set_filter *set_filter_pkt(struct peer *peer)
 	return pkt;
 }
 
+/* FIXME: Use an empty piggyback packet once everyone has upgraded! */
+static struct protocol_pkt_get_children *keepalive_pkt(struct peer *peer)
+{
+	struct protocol_pkt_get_children *keepalive;
+
+	keepalive = tal_packet(peer, struct protocol_pkt_get_children,
+			       PROTOCOL_PKT_GET_CHILDREN);
+	keepalive->block = peer->state->longest_knowns[0]->sha;
+
+	return keepalive;
+}
+
 static struct io_plan *close_bad_peer(struct io_conn *conn, struct peer *peer)
 {
 	/* We didn't like this peer, so delete it. */
@@ -485,6 +497,15 @@ static struct io_plan *plan_output(struct io_conn *conn, struct peer *peer)
 			return peer_write_packet(peer, set_filter_pkt(peer),
 						 plan_output);
 		}
+	}
+
+	/* Send keepalive? */
+	if (time_after(time_now(),
+		       timeabs_add(peer->last_time_out,
+				   time_from_sec(PROTOCOL_TIMEOUT)))) {
+		log_debug(peer->log, "Sending keepalive");
+		return peer_write_packet(peer, keepalive_pkt(peer),
+					 plan_output);
 	}
 
 	log_debug(peer->log, "Awaiting responses");
@@ -1542,6 +1563,7 @@ static void destroy_peer(struct peer *peer)
 {
 	list_del_from(&peer->state->peers, &peer->list);
 	timer_del(&peer->state->timers, &peer->input_timeout.timer);
+	timer_del(&peer->state->timers, &peer->output_timeout.timer);
 	if (peer->welcome) {
 		log_debug(peer->log, "Closing connected peer (%zu left)",
 			  peer->state->num_peers);
@@ -1591,6 +1613,12 @@ static void peer_input_timeout(struct peer *peer)
 	io_close(peer->conn);
 }
 
+static void peer_output_timeout(struct peer *peer)
+{
+	log_debug(peer->log, "output timed out, waking peer");
+	io_wake(peer);
+}
+
 struct io_plan *peer_connected(struct io_conn *conn, struct state *state,
 			       struct protocol_net_address *addr)
 {
@@ -1616,6 +1644,8 @@ struct io_plan *peer_connected(struct io_conn *conn, struct state *state,
 	peer->requests_outstanding = 0;
 	init_timeout(&peer->input_timeout, PROTOCOL_INPUT_TIMEOUT,
 		     peer_input_timeout, peer);
+	init_timeout(&peer->output_timeout, PROTOCOL_TIMEOUT,
+		     peer_output_timeout, peer);
 	list_head_init(&peer->todo);
 	peer->you = *addr;
 	peer->conn = conn;
