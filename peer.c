@@ -1409,10 +1409,10 @@ static struct io_plan *pkt_in(struct io_conn *conn, struct peer *peer)
 
 	/* These should not be used after sync. */
 	case PROTOCOL_PKT_WELCOME:
-	case PROTOCOL_PKT_HORIZON:
-	case PROTOCOL_PKT_SYNC:
 
 	/* These ones never valid. */
+	case PROTOCOL_PKT_UNUSED1:
+	case PROTOCOL_PKT_UNUSED2:
 	case PROTOCOL_PKT_NONE:
 	case PROTOCOL_PKT_PIGGYBACK:
 	case PROTOCOL_PKT_MAX:

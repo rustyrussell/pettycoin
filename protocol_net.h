@@ -40,10 +40,8 @@ enum protocol_pkt_type {
 	PROTOCOL_PKT_ERR,
 	/* Hi, my version is, and my hobbies are... */
 	PROTOCOL_PKT_WELCOME,
-	/* EITHER: These blocks should get you up to the horizon. */
-	PROTOCOL_PKT_HORIZON,
-	/* OR: Here's a rough topology of the blocks we both know. */
-	PROTOCOL_PKT_SYNC,
+	PROTOCOL_PKT_UNUSED1,
+	PROTOCOL_PKT_UNUSED2,
 	/* Please tell me about this block's children. */
 	PROTOCOL_PKT_GET_CHILDREN,
 	/* Here's info about this block's children (response to above). */
