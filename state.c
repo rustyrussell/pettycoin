@@ -58,6 +58,7 @@ struct state *new_state(bool test_net)
 	s->require_non_gateway_tx_fee = false;
 	s->require_gateway_tx_fee = false;
 	timers_init(&s->timers, time_now());
+	init_timeout(&s->peer_get_timeout, 30 * 60, refresh_peer_cache, s);
 
 	tal_add_destructor(s, destroy_state);
 

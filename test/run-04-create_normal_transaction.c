@@ -50,6 +50,7 @@ int generate_main(int argc, char *argv[]);
 #include "../tal_packet.c"
 #include "../gateways.c"
 #include "../state.c"
+#include "../timeout.c"
 #include "../pseudorand.c"
 #include "../create_refs.c"
 #include "../tx.c"
@@ -186,6 +187,9 @@ void log_to_file(int fd, const struct log_record *lr)
 /* Generated stub for logv */
 void logv(struct log *log, enum log_level level, const char *fmt, va_list ap)
 { fprintf(stderr, "logv called!\n"); abort(); }
+/* Generated stub for refresh_peer_cache */
+void refresh_peer_cache(struct state *state)
+{ fprintf(stderr, "refresh_peer_cache called!\n"); abort(); }
 /* Generated stub for reward_amount */
 u32 reward_amount(const struct block *reward_block,
 		  const union protocol_tx *tx)

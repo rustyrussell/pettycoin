@@ -101,4 +101,6 @@ void broadcast_to_peers(struct state *state, const struct protocol_net_hdr *pkt,
 enum protocol_ecode
 unmarshal_and_check_tx(struct state *state, const char **p, size_t *len,
 		       const union protocol_tx **tx);
+
+void refresh_peer_cache(struct state *state);
 #endif /* PETTYCOIN_PEER_H */

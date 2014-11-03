@@ -4,6 +4,7 @@
 #include "inputhash.h"
 #include "log.h"
 #include "peer.h"
+#include "timeout.h"
 #include "txhash.h"
 #include <ccan/bitmap/bitmap.h>
 #include <ccan/compiler/compiler.h>
@@ -89,6 +90,9 @@ struct state {
 	struct protocol_address *reward_addr;
 	bool require_non_gateway_tx_fee;
 	bool require_gateway_tx_fee;
+
+	/* Timer for getting new peers. */
+	struct timeout peer_get_timeout;
 
 	/* log */
 	struct log_record *lr;

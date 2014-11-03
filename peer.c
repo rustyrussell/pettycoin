@@ -1525,6 +1525,10 @@ static struct io_plan *welcome_received(struct io_conn *conn, struct peer *peer)
 	/* We always ask them for more peers. */
 	todo_for_peer(peer, pkt_get_peers(peer));
 
+	/* Now we have (at least one) connection, start timer to ask
+	 * everyone for more peers. */
+	refresh_timeout(peer->state, &peer->state->peer_get_timeout);
+
 	/* They don't send a block if they have only the genesis. */
 	if (peer->wblock.len) {
 		e = recv_welcome_block(peer, peer->welcome,
@@ -1745,4 +1749,16 @@ void connect_to_peer(struct state *state,
 bool new_peer_by_addr(struct state *state, const char *node, const char *port)
 {
 	return dns_resolve_and_connect(state, node, port, peer_connected);
+}
+
+/* Called from state->peer_get_timeout */
+void refresh_peer_cache(struct state *state)
+{
+	const void *pkt = pkt_get_peers(state);
+
+	log_debug(state->log, "Refreshing peer cache!");
+	broadcast_to_peers(state, pkt, NULL);
+	tal_free(pkt);
+
+	refresh_timeout(state, &state->peer_get_timeout);
 }

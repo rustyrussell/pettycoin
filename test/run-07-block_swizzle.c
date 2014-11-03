@@ -50,6 +50,7 @@ int generate_main(int argc, char *argv[]);
 #include "../tal_packet.c"
 #include "../gateways.c"
 #include "../state.c"
+#include "../timeout.c"
 #include "../pseudorand.c"
 #include "../create_refs.c"
 #include "../tx.c"
@@ -195,6 +196,9 @@ int json_tok_len(const jsmntok_t *t)
 bool json_tok_number(const char *buffer, const jsmntok_t *tok,
 		     unsigned int *num)
 { fprintf(stderr, "json_tok_number called!\n"); abort(); }
+/* Generated stub for refresh_peer_cache */
+void refresh_peer_cache(struct state *state)
+{ fprintf(stderr, "refresh_peer_cache called!\n"); abort(); }
 /* Generated stub for reward_amount */
 u32 reward_amount(const struct block *reward_block,
 		  const union protocol_tx *tx)

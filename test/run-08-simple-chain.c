@@ -1,5 +1,6 @@
 #include "../chain.c"
 #include "../state.c"
+#include "../timeout.c"
 #include "../block.c"
 #include "../pseudorand.c"
 #include "../minimal_log.c"
@@ -122,6 +123,9 @@ void make_prev_blocks(const struct block *prev,
 void merkle_txs(const struct block_shard *shard,
 		struct protocol_double_sha *merkle)
 { fprintf(stderr, "merkle_txs called!\n"); abort(); }
+/* Generated stub for refresh_peer_cache */
+void refresh_peer_cache(struct state *state)
+{ fprintf(stderr, "refresh_peer_cache called!\n"); abort(); }
 /* Generated stub for todo_forget_about_block */
 void todo_forget_about_block(struct state *state,
 			     const struct protocol_block_id *block)
