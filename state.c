@@ -57,6 +57,7 @@ struct state *new_state(bool test_net)
 	bitmap_fill(s->interests, 65536); /* Everything */
 	s->require_non_gateway_tx_fee = false;
 	s->require_gateway_tx_fee = false;
+	timers_init(&s->timers, time_now());
 
 	tal_add_destructor(s, destroy_state);
 

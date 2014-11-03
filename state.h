@@ -10,6 +10,7 @@
 #include <ccan/endian/endian.h>
 #include <ccan/list/list.h>
 #include <ccan/short_types/short_types.h>
+#include <ccan/timer/timer.h>
 #include <stdbool.h>
 
 /* Our local state. */
@@ -95,6 +96,9 @@ struct state {
 
 	/* blocks.list */
 	int blockfd;
+
+	/* Any pending timers. */
+	struct timers timers;
 
 	/* Which shards are we interested in. */
 	BITMAP_DECLARE(interests, 65536);

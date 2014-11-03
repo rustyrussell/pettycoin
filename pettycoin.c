@@ -11,6 +11,7 @@
 #include "protocol_net.h"
 #include "pseudorand.h"
 #include "state.h"
+#include "timeout.h"
 #include "welcome.h"
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
@@ -291,6 +292,7 @@ int main(int argc, char *argv[])
 	char *pettycoin_dir, *rpc_filename;
 	struct state *state;
 	unsigned int portnum = 0;
+	struct timer *expired;
 
 	pseudorand_init();
 	state = new_state(true);
@@ -372,7 +374,14 @@ int main(int argc, char *argv[])
 	/* We handle write errors, don't kill us! */
 	signal(SIGPIPE, SIG_IGN);
 
-	io_loop(NULL, NULL);
+	/* We never close all fds, so if io_loop returns NULL, it means
+	 * a timer has expired. */
+	while (!io_loop(&state->timers, &expired)) {
+		struct timeout *to;
+
+		to = container_of(expired, struct timeout, timer);
+		to->cb(to->arg);
+	}
 
 	tal_free(state);
 	return 0;
