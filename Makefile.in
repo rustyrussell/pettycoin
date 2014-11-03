@@ -42,8 +42,11 @@ $(PETTYCOIN_OBJS) $(PETTYCOIN_GENERATE_OBJS) $(MKGENESIS_OBJS) $(SIZES_OBJS) $(M
 Makefile: Makefile.in
 	./configure
 
-ccan/config.h: configure
-	./configure
+# Rather than track dependencies, we just rebuild everything!
+ccan/config.h: FORCE
+	if [ ! -f $@ ] || [ ./configure -nt $@ ]; then ./configure; else touch $@; fi
+
+FORCE:
 
 mkpriv: $(MKPRIV_OBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(MKPRIV_OBJS) $(LDLIBS)
