@@ -117,9 +117,9 @@ static struct test tests[] = {
 	{ "HAVE_BUILTIN_CTZ", INSIDE_MAIN, NULL, NULL,
 	  "return __builtin_ctz(1 << (sizeof(int)*8 - 1)) == (sizeof(int)*8 - 1) ? 0 : 1;" },
 	{ "HAVE_BUILTIN_CTZL", INSIDE_MAIN, NULL, NULL,
-	  "return __builtin_ctzl(1 << (sizeof(long)*8 - 1)) == (sizeof(long)*8 - 1) ? 0 : 1;" },
+	  "return __builtin_ctzl(1UL << (sizeof(long)*8 - 1)) == (sizeof(long)*8 - 1) ? 0 : 1;" },
 	{ "HAVE_BUILTIN_CTZLL", INSIDE_MAIN, NULL, NULL,
-	  "return __builtin_ctzll(1 << (sizeof(long long)*8 - 1) == (sizeof(long long)*8 - 1) ? 0 : 1;" },
+	  "return __builtin_ctzll(1ULL << (sizeof(long long)*8 - 1)) == (sizeof(long long)*8 - 1) ? 0 : 1;" },
 	{ "HAVE_BUILTIN_CONSTANT_P", INSIDE_MAIN, NULL, NULL,
 	  "return __builtin_constant_p(1) ? 0 : 1;" },
 	{ "HAVE_BUILTIN_EXPECT", INSIDE_MAIN, NULL, NULL,
@@ -213,6 +213,12 @@ static struct test tests[] = {
 	  "#include <string.h>\n"
 	  "static void *func(void *h, size_t hl, void *n, size_t nl) {\n"
 	  "return memmem(h, hl, n, nl);"
+	  "}\n", },
+	{ "HAVE_MEMRCHR", DEFINES_FUNC, NULL, NULL,
+	  "#define _GNU_SOURCE\n"
+	  "#include <string.h>\n"
+	  "static void *func(void *s, int c, size_t n) {\n"
+	  "return memrchr(s, c, n);"
 	  "}\n", },
 	{ "HAVE_MMAP", DEFINES_FUNC, NULL, NULL,
 	  "#include <sys/mman.h>\n"

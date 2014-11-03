@@ -45,28 +45,39 @@ void timers_init(struct timers *timers, struct timeabs start);
 void timers_cleanup(struct timers *timers);
 
 /**
+ * timer_init - initialize a timer.
+ * @timer: the timer to initialize
+ *
+ * Example:
+ *	struct timer t;
+ *
+ *	timer_init(&t);
+ */
+void timer_init(struct timer *t);
+
+/**
  * timer_add - insert a timer.
  * @timers: the struct timers
- * @timer: the (uninitialized) timer to add
+ * @timer: the (initialized or timer_del'd) timer to add
  * @when: when @timer expires.
  *
  * This efficiently adds @timer to @timers, to expire @when (rounded to
  * TIMER_GRANULARITY nanoseconds).
  *
  * Example:
- *	struct timer t;
- *
  *	// Timeout in 100ms.
  *	timer_add(&timeouts, &t, timeabs_add(time_now(), time_from_msec(100)));
  */
 void timer_add(struct timers *timers, struct timer *timer, struct timeabs when);
 
 /**
- * timer_del - remove an unexpired timer.
+ * timer_del - remove a timer.
  * @timers: the struct timers
- * @timer: the timer previously added with timer_add()
+ * @timer: the timer
  *
- * This efficiently removes @timer from @timers.
+ * This efficiently removes @timer from @timers, if timer_add() was
+ * called.  It can be called multiple times without bad effect, and
+ * can be called any time after timer_init().
  *
  * Example:
  *	timer_del(&timeouts, &t);
@@ -89,32 +100,29 @@ void timer_del(struct timers *timers, struct timer *timer);
 bool timer_earliest(struct timers *timers, struct timeabs *first);
 
 /**
- * timers_expire - update timers structure and remove expired timers.
+ * timers_expire - update timers structure and remove one expire timer.
  * @timers: the struct timers
  * @expire: the current time
- * @list: the list for expired timers.
  *
- * @list will be initialized to the empty list, then all timers added
- * with a @when arg less than or equal to @expire will be added to it in
- * expiry order (within TIMER_GRANULARITY nanosecond precision).
+ * A timers added with a @when arg less than or equal to @expire will be
+ * returned (within TIMER_GRANULARITY nanosecond precision).  If
+ * there are no timers due to expire, NULL is returned.
  *
- * After this, @expire is considered the current time, and adding any
- * timers with @when before this value will be silently changed to
- * adding them with immediate expiration.
+ * After this returns NULL, @expire is considered the current time,
+ * and adding any timers with @when before this value will be silently
+ * changed to adding them with immediate expiration.
  *
  * You should not move @expire backwards, though it need not move
  * forwards.
  *
  * Example:
- *	struct list_head expired;
+ *	struct timer *expired;
  *
- *	timers_expire(&timeouts, time_now(), &expired);
- *	if (!list_empty(&expired))
+ *	while ((expired = timers_expire(&timeouts, time_now())) != NULL)
  *		printf("Timer expired!\n");
+ *
  */
-void timers_expire(struct timers *timers,
-		   struct timeabs expire,
-		   struct list_head *list);
+struct timer *timers_expire(struct timers *timers, struct timeabs expire);
 
 /**
  * timers_check - check timer structure for consistency
