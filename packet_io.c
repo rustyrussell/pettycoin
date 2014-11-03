@@ -124,6 +124,7 @@ struct io_plan *peer_read_packet(struct peer *peer,
 	assert(!peer->in_pending);
 
 	peer->in_pending = true;
+	refresh_timeout(peer->state, &peer->input_timeout);
 	return io_read_packet(peer->conn, &peer->incoming, cb, peer);
 }
 

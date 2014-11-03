@@ -12,6 +12,10 @@
 #include "protocol.h"
 #include "protocol_ecode.h"
 
+/* We send a packet every 10 minutes, expect one every 30 */
+#define PROTOCOL_TIMEOUT	10
+#define PROTOCOL_INPUT_TIMEOUT	20
+
 #define PROTOCOL_MAX_PACKET_LEN (4 * 1024 * 1024)
 
 /* Every packet starts with these two. */

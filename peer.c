@@ -455,7 +455,6 @@ static struct io_plan *plan_output(struct io_conn *conn, struct peer *peer)
 	if (pkt)
 		return peer_write_packet(peer, pkt, plan_output);
 
-	/* FIXME: Timeout! */
 	if (peer->we_are_syncing) {
 		bool wblock_resolved;
 
@@ -1542,6 +1541,7 @@ static struct io_plan *welcome_sent(struct io_conn *conn, struct peer *peer)
 static void destroy_peer(struct peer *peer)
 {
 	list_del_from(&peer->state->peers, &peer->list);
+	timer_del(&peer->state->timers, &peer->input_timeout.timer);
 	if (peer->welcome) {
 		log_debug(peer->log, "Closing connected peer (%zu left)",
 			  peer->state->num_peers);
@@ -1584,6 +1584,13 @@ static unsigned int get_peernum(const bitmap bits[])
 	return i;
 }
 
+static void peer_input_timeout(struct peer *peer)
+{
+	log_info(peer->log, "input timed out, closing connection");
+	/* This will free peer, which is a child of peer->conn. */
+	io_close(peer->conn);
+}
+
 struct io_plan *peer_connected(struct io_conn *conn, struct state *state,
 			       struct protocol_net_address *addr)
 {
@@ -1607,6 +1614,8 @@ struct io_plan *peer_connected(struct io_conn *conn, struct state *state,
 	peer->outgoing = NULL;
 	peer->incoming = NULL;
 	peer->requests_outstanding = 0;
+	init_timeout(&peer->input_timeout, PROTOCOL_INPUT_TIMEOUT,
+		     peer_input_timeout, peer);
 	list_head_init(&peer->todo);
 	peer->you = *addr;
 	peer->conn = conn;

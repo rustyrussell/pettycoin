@@ -3,6 +3,7 @@
 #include "config.h"
 #include "block_info.h"
 #include "protocol_net.h"
+#include "timeout.h"
 #include <ccan/list/list.h>
 #include <ccan/time/time.h>
 #include <stdbool.h>
@@ -53,6 +54,9 @@ struct peer {
 	/* We keep this. */
 	struct protocol_pkt_welcome *welcome;
 	struct welcome_block wblock;
+
+	/* Timers for various events. */
+	struct timeout input_timeout;
 
 	/* Debugging */
 	struct timeabs last_time_in, last_time_out;
