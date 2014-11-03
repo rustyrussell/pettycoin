@@ -1406,6 +1406,10 @@ static struct io_plan *pkt_in(struct io_conn *conn, struct peer *peer)
 	case PROTOCOL_PKT_COMPLAIN_CLAIM_INPUT_INVALID:
 		err = recv_complain_claim_input_invalid(peer, peer->incoming);
 		break;
+	case PROTOCOL_PKT_PIGGYBACK:
+		/* FIXME: We ignore these. */
+		err = PROTOCOL_ECODE_NONE;
+		break;
 
 	/* These should not be used after sync. */
 	case PROTOCOL_PKT_WELCOME:
@@ -1414,7 +1418,6 @@ static struct io_plan *pkt_in(struct io_conn *conn, struct peer *peer)
 	case PROTOCOL_PKT_UNUSED1:
 	case PROTOCOL_PKT_UNUSED2:
 	case PROTOCOL_PKT_NONE:
-	case PROTOCOL_PKT_PIGGYBACK:
 	case PROTOCOL_PKT_MAX:
 		err = PROTOCOL_ECODE_UNKNOWN_COMMAND;
 	}
