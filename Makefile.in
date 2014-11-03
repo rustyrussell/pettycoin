@@ -84,10 +84,10 @@ genesis.c: mkgenesis
 check test: check-include-order
 
 ecode_names.c: protocol_ecode.h Makefile
-	(echo '#include "ecode_names.h"'; echo 'struct ecode_names ecode_names[] = {'; sed -n 's/^\t\(PROTOCOL_ECODE_[A-Z_]*\)/\t{ \1, "\1" }/p' < $<; echo ' { 0, NULL } };') > $@
+	(echo '#include "ecode_names.h"'; echo 'struct ecode_names ecode_names[] = {'; sed -n 's/^\t\(PROTOCOL_ECODE_[A-Z0-9_]*\)/\t{ \1, "\1" }/p' < $<; echo ' { 0, NULL } };') > $@
 
 pkt_names.c: protocol_net.h Makefile
-	(echo '#include "pkt_names.h"'; echo 'struct pkt_names pkt_names[] = {'; sed -n 's/^\t\(PROTOCOL_PKT_[A-Z_]*\)/\t{ \1, "\1" }/p' < $<; echo ' { 0, NULL } };') > $@
+	(echo '#include "pkt_names.h"'; echo 'struct pkt_names pkt_names[] = {'; sed -n 's/^\t\(PROTOCOL_PKT_[A-Z0-9_]*\)/\t{ \1, "\1" }/p' < $<; echo ' { 0, NULL } };') > $@
 
 check-include-order:
 	@for f in *.c; do if [ "$$(grep '^#include' < $$f)" != "$$(grep '^#include' < $$f | LC_ALL=C sort)" ]; then echo "$$f:1: includes out of order"; grep '^#include' < $$f; echo VERSUS; grep '^#include' < $$f | LC_ALL=C sort; exit 1; fi; done
