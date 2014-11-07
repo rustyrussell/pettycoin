@@ -108,8 +108,10 @@ Gavin suggested some ways to adapt an IBLT to the blockchain problem:
 ## Testing It ##
 
 For my experiment, I used 4 hash functions for each bloom entry, and
-just make the 48-bit id the first 48 bits of the SHA.  I used a simple
-shell script to pull out the last 10000 bitcoin transactions.
+just make the 48-bit id the first 48 bits of the SHA.  I used [a simple
+shell script](https://github.com/rustyrussell/bitcoin-iblt-test/blob/master/gettxs.sh) to pull out the last 10000 bitcoin transactions.
+
+You can find the code [on github](https://github.com/rustyrussell/bitcoin-iblt-test/).
 
 ### Recovering Transactions ###
 
