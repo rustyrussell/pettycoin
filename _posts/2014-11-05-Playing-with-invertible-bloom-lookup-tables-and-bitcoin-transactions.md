@@ -208,13 +208,15 @@ additional hashSum.  In effect, our id field replaces hashSum.
 
 ## Results and Suggestions ##
 
-* 8 bytes per slice is too small, larger sizes should be explored.
-* 1M is vast overkill for the current network; as well as making block
-  propagation slower than the current scheme, it's unnecessary for now.
-  30k is probably more than enough for current blocks.
-* Nodes may want to include discarded doublespend transactions in their
-  IBLT since it's cheaper to include a transaction for consideration
-  than to extract one which we didn't consider.
+<ul>
+<li>8 bytes per slice is too small, larger sizes should be explored. </li>
+<li>1M is vast overkill for the current network; as well as making block
+propagation slower than the current scheme, it's unnecessary for now.
+30k is probably more than enough for current blocks.</li>
+<li>Nodes may want to include discarded doublespend transactions in their
+IBLT since it's cheaper to include a transaction for consideration
+than to extract one which we didn't consider.</li>
+</ul>
 
 ## Flaws and Future Work ##
 
