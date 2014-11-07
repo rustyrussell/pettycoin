@@ -106,7 +106,8 @@ turns out that fragment 1 is also in that third bucket, so we subtract
 	index: 0
 	frag:  I love
 
-Now we can extract id 0x00f, which is "I love Triffids".
+Now we can extract id 0x00f, which is "I love Triffids" (and leaving the IBLT
+empty).
 
 <a name="Testing-IBLTs"></a>
 
@@ -129,10 +130,10 @@ transaction as we find it may leave other fragments exposed so we can
 make more progress.
 
 The result turns out to be a cliff: with 300 transactions we can
-extract all the transactions 100% of the time, with 320 it's down to
-0% (this is only 10 runs though).  We only care about full recovery,
-because if we can't get one transaction, we fall back to getting the
-whole block:
+extract all the transactions ~100% of the time, with 320 it's down to
+0% (this is only tested with 10 runs though).  We only care about full
+recovery, because if we can't get one transaction, we fall back to
+getting the whole block:
 
 ![Graph of recovery success](https://rustyrussell.github.io/pettycoin/images/recovery-stats-simple.svg "Graph of recovery success")
 
@@ -146,18 +147,19 @@ the block, and also any which have reached us while the block was
 being relayed to us, so we expect "our" transactions to dominate.
 
 And it turns out that it's much easier to detect transactions which
-aren't in the block than those that are; we only need to find a single
-standalone fragment with count -1, and we can be fairly confident that
-it means we've found one of our transactions and should remove the
-whole thing.  Finding a single exposed fragment for a transaction like
-this is far more likely than finding all fragments of a transaction
-exposed, and indeed our cliff for these is far higher, around 3300:
+aren't in the block than recover those that are; we only need to find
+a single standalone fragment with count -1, and we can be fairly
+confident that it means we've found one of our transactions and should
+remove the whole thing.  Finding a single exposed fragment for a
+transaction like this is far more likely than finding all fragments of
+a transaction exposed, and indeed our cliff for these is far higher,
+around 3300:
 
 ![Graph of removal success](https://rustyrussell.github.io/pettycoin/images/removal-stats-simple.svg "Graph of removal success")
 
-Finally, here's a heat map of interaction between the two, as the
-number of "their" transactions we need to recover and the number of
-"our" transactions we should remove varies.  Blue is 100% recovered
+Finally, here's a graph of interaction between the two, as the number
+of "their" transactions we need to recover and the number of "our"
+transactions we should remove varies.  Blue is 100% recovered
 (ie. always success) red is 0% (ie. never):
 
 ![Recovery success with variable ours/theirs](https://rustyrussell.github.io/pettycoin/images/heatmap-8byte.svg "Recovery success with variable ours/theirs")
@@ -184,10 +186,11 @@ as most space is wasted:
 
 ### Smaller IBLTs ###
 
-As expected it's not linear: doubling gives us less than double the
-number of transactions we can recover.  But conversely, if we shrink
-down to 1/33 the size, we can still recover 30 transactions (this map
-uses the 64 byte slices from above):
+Using more memory (bandwitdh) for the IBLT is not a linear tradeoff:
+doubling gives us less than double the number of transactions we can
+recover.  But conversely, if we shrink down to 1/33 the size, we can
+still recover 30 transactions (this map uses the 64 byte slices from
+above):
 
 ![Recovery success with 64 byte slices, 30k map](https://rustyrussell.github.io/pettycoin/images/heatmap-64-byte-30k.svg "Recovery success with 64 byte slices, 30k map")
 
@@ -201,23 +204,21 @@ on one run).
 
 Once we check the 48-bit id field, which is based on a cryptographic
 hash of the transaction, we're already extremely robust without an
-additional hashSum.
+additional hashSum.  In effect, our id field replaces hashSum.
 
 ## Results and Suggestions ##
 
-8 bytes per slice is too small, larger sizes should be explored.
-
-1M is vast overkill for the current network; as well as making block
-propagation slower than the current scheme, it's unnecessary for now.
-30k is probably more than enough for current blocks.
-
-Nodes may want to include discarded doublespend transactions in their
-IBLT since it's cheaper to include a transaction for consideration
-than to extract one which we didn't consider.
+* 8 bytes per slice is too small, larger sizes should be explored.
+* 1M is vast overkill for the current network; as well as making block
+  propagation slower than the current scheme, it's unnecessary for now.
+  30k is probably more than enough for current blocks.
+* Nodes may want to include discarded doublespend transactions in their
+  IBLT since it's cheaper to include a transaction for consideration
+  than to extract one which we didn't consider.
 
 ## Flaws and Future Work ##
 
-Obviously my code could use optimization.
+Obviously my code could use optimization and more testing.
 
 Also, my selection of transactions was "the first N", which means it's
 of limited accuracy.  For example, transaction 613 is a huge 50k
