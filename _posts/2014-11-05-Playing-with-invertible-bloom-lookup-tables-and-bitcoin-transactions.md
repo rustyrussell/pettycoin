@@ -21,7 +21,44 @@ those, you might find more buckets now have 1 thing in them, etc.  The
 [paper](http://arxiv.org/pdf/1101.2245.pdf) is worth reading, but this
 should give you the idea.
 
-Here's a simplified example.  Consider the following buckets:
+### Subtracting IBLTs ###
+
+The clever bit comes by realizing that if I create an IBLT with
+everything in my set, and you create an IBLT with everything in your
+set, it's trivial to subtract my IBLT from your IBLT and get an IBLT
+of the set differences.  Which is great, because all bloom filters
+become useless when they clog up, but if our sets are very similar,
+the subtraction result gives a nice sparse IBLT.  And
+[here's the paper](http://conferences.sigcomm.org/sigcomm/2011/papers/sigcomm/p218.pdf).
+
+<a name="Using-IBLTs"></a>
+
+## Using IBLTs for Bitcoin ##
+
+([Skip if you're familiar with Gavin's IBLT proposal](#Testing-IBLTs))
+
+Gavin suggested some ways to adapt an IBLT to the blockchain problem:
+
+1. Set a size of 1M for the whole thing.
+2. Make each IBLT bucket look like this:
+
+		struct entry {
+		  u32 count;
+		  struct keySum {
+				  u8 id[6];
+				  u16 index;
+				  u8 frag[8];
+		  } key;
+		}
+
+   This gives 52428 buckets for a 1MB table.
+3. Generate a 48-bit id for each transaction and fragment it into
+   64-bits at a time, with index incremented for each fragment.  This
+   means the average transaction (263 bytes) uses about 32 of these.
+
+### A Simplified IBLTs Bitcoin Example ###
+
+So here's a simplified example of 4 buckets of an IBLT:
 
     count: 1
 	id:    0xf00
@@ -39,7 +76,7 @@ Here's a simplified example.  Consider the following buckets:
 	frag:  0x70x170x100xB0x90x1B0x10x53
 
 	count: 1
-	id:	   0x00f
+    id:   0x00f
 	index: 0
 	frag:  I love
 
@@ -65,45 +102,13 @@ turns out that fragment 1 is also in that third bucket, so we subtract
 	frag:  Triffids
 
 	count: 1
-	id:	   0x00f
+    id:    0x00f
 	index: 0
 	frag:  I love
 
 Now we can extract id 0x00f, which is "I love Triffids".
 
-### Subtracting IBLTs ###
-
-The clever bit comes by realizing that if I create an IBLT with
-everything in my set, and you create an IBLT with everything in your
-set, it's trivial to subtract my IBLT from your IBLT and get an IBLT
-of the set differences.  Which is great, because all bloom filters
-become useless when they clog up, but if our sets are very similar,
-the subtraction result gives a nice sparse IBLT.  And
-[here's the paper](http://conferences.sigcomm.org/sigcomm/2011/papers/sigcomm/p218.pdf).
-
-<a name="Using-IBLTs"></a>
-
-## Using IBLTs for Bitcoin ##
-
-Gavin suggested some ways to adapt an IBLT to the blockchain problem:
-
-1. Set a size of 1M for the whole thing.
-2. Make each IBLT bucket look like this
-
-		struct entry {
-		  u32 count;
-		  struct keySum {
-				  u8 id[6];
-				  u16 index;
-				  u8 frag[8];
-		  } key;
-		}
-
-  This gives 52428 buckets for a 1MB table.
-
-3. Generate a 48-bit id for each transaction and fragment it into
-   64-bits at a time, with index incremented for each fragment.  This
-   means the average transaction (263 bytes) uses about 32 of these.
+<a name="Testing-IBLTs"></a>
 
 ## Testing It ##
 
