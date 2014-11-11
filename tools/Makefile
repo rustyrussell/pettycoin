@@ -1,4 +1,4 @@
-TOOL_BINS = tools/make-peer-packet tools/spv-blocks
+TOOL_BINS = tools/make-peer-packet tools/spv-blocks tools/cdump-enum-names
 
 default-tools:
 	@echo Run make tools from top dir. >&2 && exit 1
@@ -6,6 +6,8 @@ default-tools:
 tools: $(TOOL_BINS)
 
 tools/make-peer-packet: tools/make-peer-packet.o netaddr.o tal_packet.o marshal.o minimal_log.o $(CCAN_OBJS)
+
+tools/cdump-enum-names: tools/cdump-enum-names.o $(CCAN_OBJS)
 
 clean: tools-clean
 distclean: tools-distclean

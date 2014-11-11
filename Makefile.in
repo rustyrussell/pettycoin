@@ -19,7 +19,7 @@ PETTYCOIN_GATEWAY_OBJS := pettycoin-gateway.o hex.o json.o pettycoin_dir.o base5
 DUMBWALLET_OBJS := dumbwallet.o hex.o json.o pettycoin_dir.o base58.o create_tx.o marshal.o signature.o minimal_log.o shadouble.o tx.o
 
 BINS := pettycoin-generate mkgenesis pettycoin sizes mkpriv pettycoin-tx pettycoin-query petty-addr pettycoin-gateway dumbwallet
-CCAN_OBJS := ccan-asort.o ccan-breakpoint.o ccan-tal.o ccan-tal-path.o ccan-tal-str.o ccan-take.o ccan-list.o ccan-str.o ccan-opt-helpers.o ccan-opt.o ccan-opt-parse.o ccan-opt-usage.o ccan-read_write_all.o ccan-htable.o ccan-io-io.o ccan-io-poll.o ccan-timer.o ccan-time.o ccan-noerr.o ccan-hash.o ccan-isaac64.o ccan-net.o ccan-err.o ccan-tal-grab_file.o ccan-strmap.o
+CCAN_OBJS := ccan-asort.o ccan-breakpoint.o ccan-tal.o ccan-tal-path.o ccan-tal-str.o ccan-take.o ccan-list.o ccan-str.o ccan-opt-helpers.o ccan-opt.o ccan-opt-parse.o ccan-opt-usage.o ccan-read_write_all.o ccan-htable.o ccan-io-io.o ccan-io-poll.o ccan-timer.o ccan-time.o ccan-noerr.o ccan-hash.o ccan-isaac64.o ccan-net.o ccan-err.o ccan-tal-grab_file.o ccan-strmap.o ccan-cdump.o
 CCANDIR=ccan/
 VERSION:=$(shell git describe --dirty --always 2>/dev/null || echo Unknown)
 CFLAGS = @CFLAGS@ -I$(CCANDIR) -DVERSION=\"$(VERSION)\"
@@ -83,11 +83,11 @@ genesis.c: mkgenesis
 .PHONY: test
 check test: check-include-order
 
-ecode_names.c: protocol_ecode.h Makefile
-	(echo '#include "ecode_names.h"'; echo 'struct ecode_names ecode_names[] = {'; sed -n 's/^\t\(PROTOCOL_ECODE_[A-Z0-9_]*\)/\t{ \1, "\1" }/p' < $<; echo ' { 0, NULL } };') > $@
+ecode_names.c: protocol_ecode.h Makefile tools/cdump-enum-names
+	tools/cdump-enum-names $< protocol_ecode ecode > $@
 
-pkt_names.c: protocol_net.h Makefile
-	(echo '#include "pkt_names.h"'; echo 'struct pkt_names pkt_names[] = {'; sed -n 's/^\t\(PROTOCOL_PKT_[A-Z0-9_]*\)/\t{ \1, "\1" }/p' < $<; echo ' { 0, NULL } };') > $@
+pkt_names.c: protocol_net.h Makefile tools/cdump-enum-names
+	tools/cdump-enum-names $< protocol_pkt_type pkt > $@
 
 check-include-order:
 	@for f in *.c; do if [ "$$(grep '^#include' < $$f)" != "$$(grep '^#include' < $$f | LC_ALL=C sort)" ]; then echo "$$f:1: includes out of order"; grep '^#include' < $$f; echo VERSUS; grep '^#include' < $$f | LC_ALL=C sort; exit 1; fi; done
@@ -152,6 +152,8 @@ ccan-net.o: $(CCANDIR)/ccan/net/net.c
 ccan-err.o: $(CCANDIR)/ccan/err/err.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-strmap.o: $(CCANDIR)/ccan/strmap/strmap.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-cdump.o: $(CCANDIR)/ccan/cdump/cdump.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 include tools/Makefile
