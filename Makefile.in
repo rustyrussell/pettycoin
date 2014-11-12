@@ -81,7 +81,9 @@ genesis.c: mkgenesis
 	./mkgenesis $(TEST_GENESIS_DIFFICULTY) $(TEST_GENESIS_TIMESTAMP) $(TEST_GENESIS_NONCE) > $@.tmp; STATUS=$$?; if [ $$STATUS = 0 ]; then mv $@.tmp $@; else rm -f $@.tmp; exit $$STATUS; fi
 
 .PHONY: test
-check test: check-include-order
+test: check
+
+check: check-include-order
 
 ecode_names.c: protocol_ecode.h Makefile tools/cdump-enum-names
 	tools/cdump-enum-names $< protocol_ecode ecode > $@
