@@ -2,6 +2,13 @@
 
 set -e
 
+if [ x"$1" = x-f ]; then
+    UNCLEAN=""
+    shift
+else
+    UNCLEAN=$(git status --porcelain | grep -v '^??' || true)
+fi
+
 CCANDIR=${1:-../ccan}
 NEW_VERSION=${2:-$(git --git-dir=$CCANDIR/.git describe --always)}
 OLD_VERSION=$(grep '^CCAN version: ' ccan/README | cut -d: -f2)
@@ -12,7 +19,6 @@ if [ $NEW_VERSION = $OLD_VERSION ]; then
 fi
 
 # Make sure we have a clean tree.
-UNCLEAN=$(git status --porcelain | grep -v '^??' || true)
 if [ -n "$UNCLEAN" ]; then
     echo "Dirty tree" >&2
     exit 1
