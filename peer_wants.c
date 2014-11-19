@@ -6,7 +6,7 @@
 
 static bool peer_wants_shard(const struct peer *peer, u16 shard)
 {
-	const u8 *interests = (const u8 *)(peer->welcome + 1);
+	const u8 *interests = peer->welcome->interests;
 
 	return interests[shard/8] & (1 << (shard % 8));
 }
