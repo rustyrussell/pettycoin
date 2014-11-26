@@ -9,7 +9,7 @@
     <script src="js/jquery-1.11.0.min.js"></script>
     <script>
       function more(event) {
-           var elem = $(event.target).parents("div").find("p.details");
+           var elem = $(event.target).parents("div").find(".details");
            var display = elem.css("display");
            display = display == "none" ? "block" : "none";
            elem.css("display", display);
