@@ -26,7 +26,7 @@ sure the transaction is really made up, and you can't prove it
 compactly to someone who doesn't know every transaction: "you can't
 prove a negative".
 
-### Pettycoin's Solution ###
+## Pettycoin's Solution ##
 
 The miner inserts an index for each input into the block alongside the
 transaction: this says where the input transaction is.  This
@@ -38,7 +38,7 @@ transaction, the input refs (both with proof that they're in the
 block), and the transaction where the input ref said it would be (with proof).
 You still need to detect double-spends in the traditional way, though.
 
-### The UTXO Committment Solution ###
+## The UTXO Committment Solution ##
 
 This is a bit more complicated, but it does more.  The scheme has
 several parts, the first of which is UTXO Committments; a seemingly
@@ -50,7 +50,7 @@ standard part of bitcoin-wizard lore which has several variants
 and
 [Peter Todd has an implementation](https://github.com/petertodd/python-merbinnertree)).
 
-#### Background: UTXO Commitments in A Nutshell ####
+### Background: UTXO Commitments in A Nutshell ###
 
 The important part of bitcoin is the Unspent Transaction Outputs
 (UTXO): stuff which can still be used.  As you go through the blocks,
@@ -94,7 +94,7 @@ incorrectly and that can be proven.
 The UTXO commitment scheme opens the door to "assisted transactions"
 where you supply a transaction along with UTXO proofs that all its
 inputs are unspent as of the last block.  A recipient which knows
-only the block headers[^utxo-not-in-hdrs] can confidently accept this as an
+only the block headers<sup>[1](#footnote-1)</sup> can confidently accept this as an
 unconfirmed transaction.
 
 In fact, a miner can actually mine this without any extra checks:
@@ -110,7 +110,7 @@ Corollaries of this include (1) Gregory Maxwell is smarter than I am,
 and (2) if you can get the attention of the right bitcoin wizards,
 your own sidechain project will be greatly improved :)
 
-[^utxo-not-in-hdrs] Bitcoin is unlikely to add the UTXO hash to the
+<a name="footnote-1">[1]</a> Bitcoin is unlikely to add the UTXO hash to the
 80-byte header.  Instead, it would become a compulsory part of the
 coinbase, is the order of 100 bytes long, and you need
 log2(num-transactions) 32 byte hashes to attach it to the header.  But
