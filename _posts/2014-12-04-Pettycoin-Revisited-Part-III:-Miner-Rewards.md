@@ -7,7 +7,7 @@ commentIssueId: 41
 > This is the third in a series analyzing the pettycoin implementation
 > against Gregory Maxwell's
 > [writeup on scaling](https://en.bitcoin.it/wiki/User:Gmaxwell/features#Proofs).
-> The first two talked about
+> The first talked about
 > [UTXO commitments vs backrefs](http://rustyrussell.github.io/pettycoin/2014/11/29/Pettycoin-Revisted-Part-I:-UTXO-Commitments.html)
 > and the second talked about [Propogation servers vs prev_txhashes](http://rustyrussell.github.io/pettycoin/2014/12/04/Pettycoin-Revisited-Part-II:-Proof-of-Propogation.html).
 
