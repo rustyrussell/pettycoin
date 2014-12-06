@@ -1,5 +1,6 @@
 ---
 layout: post
+title: Pettycoin Revisited Part II: Proof of Propogation
 commentIssueId: 40
 ---
 
